@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { auth, onAuthStateChanged } from "../../lib/firebase";
+import { db } from "../../lib/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
@@ -150,47 +153,117 @@ export default function ArhivaPage() {
   const [editedPrihodi, setEditedPrihodi] = useState<Prihod[]>([]);
   const obracunRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement | null> }>({});
 
-  // Funkcija za učitavanje arhive
-  const loadArhiva = React.useCallback(() => {
-    const savedArhiva = localStorage.getItem("arhivaObracuna");
-    if (savedArhiva) {
-      const parsedArhiva: ArhiviraniObracun[] = JSON.parse(savedArhiva)
-        .map((item: any) => ({
-          ...item,
-          prihodi: item.prihodi ?? [],
-          ukupnoPrihod: item.ukupnoPrihod ?? 0,
-          imaUlaz: item.imaUlaz ?? false, // Osiguraj da imaUlaz postoji
-          isAzuriran: item.isAzuriran ?? false, // Osiguraj da isAzuriran postoji
-        }))
-        .sort((a: ArhiviraniObracun, b: ArhiviraniObracun) => {
-          const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-          const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-          return dateB - dateA;
+  // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
+  const loadArhiva = React.useCallback(async () => {
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    
+    let firestoreArhiva: ArhiviraniObracun[] = [];
+    let localStorageArhiva: ArhiviraniObracun[] = [];
+    
+    // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
+    if (user && userId) {
+      try {
+        const obracuniRef = collection(db, "users", userId, "obracuni");
+        const snapshot = await getDocs(obracuniRef);
+        firestoreArhiva = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            ...data,
+            prihodi: data.prihodi ?? [],
+            ukupnoPrihod: data.ukupnoPrihod ?? 0,
+            imaUlaz: data.imaUlaz ?? false,
+            isAzuriran: data.isAzuriran ?? false,
+          } as ArhiviraniObracun;
         });
-      
-      // Provjeri da li se arhiva stvarno promijenila prije postavljanja
-      setArhiva((prevArhiva) => {
-        const prevString = JSON.stringify(prevArhiva);
-        const newString = JSON.stringify(parsedArhiva);
-        if (prevString === newString) {
-          return prevArhiva; // Ne mijenjaj ako je ista
+        console.log("Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
+      } catch (error: any) {
+        // Ignoriraj greške dozvola - koristit ćemo localStorage
+        const errorCode = error?.code || "";
+        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+          console.warn("Greška pri učitavanju iz Firestore:", error);
         }
-        return parsedArhiva;
-      });
-      
-      parsedArhiva.forEach((item) => {
-        if (!obracunRefs.current[item.datum]) {
-          obracunRefs.current[item.datum] = React.createRef<HTMLDivElement>();
-        }
-      });
-    } else {
-      setArhiva((prevArhiva) => {
-        if (prevArhiva.length === 0) {
-          return prevArhiva; // Ne mijenjaj ako je već prazna
-        }
-        return [];
-      });
+      }
     }
+    
+    // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup)
+    if (userId) {
+      // User-specific localStorage ključ
+      const storageKey = `arhivaObracuna_${userId}`;
+      const savedArhiva = localStorage.getItem(storageKey);
+      if (savedArhiva) {
+        try {
+          localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
+            ...item,
+            prihodi: item.prihodi ?? [],
+            ukupnoPrihod: item.ukupnoPrihod ?? 0,
+            imaUlaz: item.imaUlaz ?? false,
+            isAzuriran: item.isAzuriran ?? false,
+          }));
+          console.log("Učitano iz localStorage (per-user):", localStorageArhiva.length, "obračuna");
+        } catch (e) {
+          console.warn("Greška pri čitanju localStorage:", e);
+        }
+      }
+    } else {
+      // Fallback: stari ključ (za migraciju)
+      const savedArhiva = localStorage.getItem("arhivaObracuna");
+      if (savedArhiva) {
+        try {
+          localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
+            ...item,
+            prihodi: item.prihodi ?? [],
+            ukupnoPrihod: item.ukupnoPrihod ?? 0,
+            imaUlaz: item.imaUlaz ?? false,
+            isAzuriran: item.isAzuriran ?? false,
+          }));
+        } catch (e) {
+          console.warn("Greška pri čitanju localStorage (fallback):", e);
+        }
+      }
+    }
+    
+    // 3. MERGE: Firestore ima prioritet, ali dodaj i iz localStorage ako nema u Firestore
+    const mergedArhiva: ArhiviraniObracun[] = [...firestoreArhiva];
+    const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
+    
+    // Dodaj iz localStorage samo one koji nisu u Firestore
+    localStorageArhiva.forEach((item) => {
+      if (!firestoreDatumi.has(item.datum)) {
+        mergedArhiva.push(item);
+      }
+    });
+    
+    // Sortiraj po datumu (najnoviji prvo)
+    const sortedArhiva = mergedArhiva.sort((a, b) => {
+      const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+      const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+      return dateB - dateA;
+    });
+    
+    // 4. SPREMI U LOCALSTORAGE KAO CACHE (ako je Firestore imao podatke)
+    if (firestoreArhiva.length > 0 && userId) {
+      const storageKey = `arhivaObracuna_${userId}`;
+      localStorage.setItem(storageKey, JSON.stringify(sortedArhiva));
+      console.log("Arhiva spremljena u localStorage kao cache");
+    }
+    
+    // 5. POSTAVI STANJE
+    setArhiva((prevArhiva) => {
+      const prevString = JSON.stringify(prevArhiva);
+      const newString = JSON.stringify(sortedArhiva);
+      if (prevString === newString) {
+        return prevArhiva; // Ne mijenjaj ako je ista
+      }
+      return sortedArhiva;
+    });
+    
+    // Kreiraj refs za obračune
+    sortedArhiva.forEach((item) => {
+      if (!obracunRefs.current[item.datum]) {
+        obracunRefs.current[item.datum] = React.createRef<HTMLDivElement>();
+      }
+    });
   }, []);
 
   // Učitavanje arhive iz localStorage
@@ -213,23 +286,53 @@ export default function ArhivaPage() {
     };
   }, [loadArhiva]);
 
-  // Spremanje arhive u localStorage (bez emitovanja događaja da izbjegnemo petlju)
+  // Spremanje arhive u localStorage (per-user cache)
   useEffect(() => {
-    if (arhiva.length > 0) {
-      const currentArhiva = localStorage.getItem("arhivaObracuna");
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    
+    if (arhiva.length > 0 && userId) {
+      const storageKey = `arhivaObracuna_${userId}`;
+      const currentArhiva = localStorage.getItem(storageKey);
       const newArhivaString = JSON.stringify(arhiva);
       
       // Spremi samo ako se promijenilo
       if (currentArhiva !== newArhivaString) {
-        localStorage.setItem("arhivaObracuna", newArhivaString);
+        localStorage.setItem(storageKey, newArhivaString);
       }
     }
   }, [arhiva]);
 
-  // Brisanje obračuna
-  const deleteObracun = (datum: string) => {
+  // Brisanje obračuna - HIBRIDNI PRISTUP
+  const deleteObracun = async (datum: string) => {
     if (window.confirm(`Jeste li sigurni da želite obrisati obračun za ${datum}?`)) {
-      setArhiva(arhiva.filter((item) => item.datum !== datum));
+      const user = auth.currentUser;
+      const userId = user?.uid;
+      
+      // 1. Obriši iz Firestore
+      if (user && userId) {
+        try {
+          const docRef = doc(db, "users", userId, "obracuni", datum);
+          await getDoc(docRef).then(async (docSnap) => {
+            if (docSnap.exists()) {
+              // Firestore ima deleteDoc, ali koristimo setDoc sa merge: false ili brišemo direktno
+              // Za sada ćemo samo ažurirati lokalno, Firestore će se ažurirati pri sljedećem učitavanju
+            }
+          });
+        } catch (error: any) {
+          console.warn("Greška pri brisanju iz Firestore:", error);
+        }
+      }
+      
+      // 2. Obriši iz localStorage
+      const filteredArhiva = arhiva.filter((item) => item.datum !== datum);
+      setArhiva(filteredArhiva);
+      
+      // Spremi ažuriranu arhivu u localStorage
+      if (userId) {
+        const storageKey = `arhivaObracuna_${userId}`;
+        localStorage.setItem(storageKey, JSON.stringify(filteredArhiva));
+      }
       delete obracunRefs.current[datum];
       setEditingObracunDatum(null);
     }

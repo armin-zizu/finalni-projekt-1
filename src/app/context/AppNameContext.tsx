@@ -24,46 +24,53 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Prvo učitaj iz localStorage (prioritet)
-        const localAppName = localStorage.getItem("appName");
-        if (localAppName) {
-          setAppName(localAppName);
-        }
-
-        const userDocRef = doc(db, "users", user.uid);
+        const userId = user.uid;
+        const storageKey = `appName_${userId}`;
         
-        // Pokušaj učitati appName iz Firestore-a (opcionalno, kao backup)
+        // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
+        let firestoreAppName: string | null = null;
         try {
+          const userDocRef = doc(db, "users", userId);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             const data = userDoc.data();
-            const firestoreAppName = data.appName;
-            // Koristi Firestore samo ako nema u localStorage
-            if (firestoreAppName && !localAppName) {
+            firestoreAppName = data.appName || null;
+            if (firestoreAppName) {
               setAppName(firestoreAppName);
-              localStorage.setItem("appName", firestoreAppName);
+              // Spremi u localStorage kao cache
+              localStorage.setItem(storageKey, firestoreAppName);
+              console.log("AppName učitano iz Firestore:", firestoreAppName);
             }
           }
         } catch (error: any) {
-          // Ignoriraj greške dozvola - koristi localStorage
           const errorCode = error?.code || "";
           if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
             console.warn("Greška pri učitavanju appName iz Firestore-a:", error);
           }
         }
+        
+        // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup) - samo ako Firestore nema
+        if (!firestoreAppName) {
+          const localAppName = localStorage.getItem(storageKey) || localStorage.getItem("appName"); // Fallback na stari ključ
+          if (localAppName) {
+            setAppName(localAppName);
+          }
+        }
 
         // Pokušaj postaviti real-time listener (opcionalno)
         try {
+          const userDocRefForSnapshot = doc(db, "users", userId);
           const unsubscribeSnapshot = onSnapshot(
-            userDocRef, 
+            userDocRefForSnapshot, 
             (doc) => {
               if (doc.exists()) {
                 const data = doc.data();
                 const firestoreAppName = data.appName;
-                // Ažuriraj samo ako nema u localStorage ili ako je različito
-                if (firestoreAppName && (!localAppName || firestoreAppName !== localAppName)) {
+                if (firestoreAppName) {
                   setAppName(firestoreAppName);
-                  localStorage.setItem("appName", firestoreAppName);
+                  // Spremi u localStorage kao cache (per-user)
+                  const storageKeyForSnapshot = `appName_${userId}`;
+                  localStorage.setItem(storageKeyForSnapshot, firestoreAppName);
                 }
               }
             },
@@ -95,30 +102,32 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Spremi u localStorage (prioritet)
-    if (appName.trim() !== "" && typeof window !== "undefined") {
-      localStorage.setItem("appName", appName);
-    }
-
-    // Pokušaj spremiti u Firestore (opcionalno, kao backup)
-    const saveAppName = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        try {
-          const userDocRef = doc(db, "users", user.uid);
-          await setDoc(userDocRef, { appName }, { merge: true });
-        } catch (error: any) {
-          // Ignoriraj greške dozvola - appName se i dalje koristi lokalno
-          const errorCode = error?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Greška pri spremanju appName u Firestore:", error);
-          }
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    
+    if (!userId || appName.trim() === "" || typeof window === "undefined") return;
+    
+    const storageKey = `appName_${userId}`;
+    
+    // 1. SPREMI U FIRESTORE (primarno)
+    const saveToFirestore = async () => {
+      try {
+        const userDocRef = doc(db, "users", userId);
+        await setDoc(userDocRef, { appName }, { merge: true });
+        console.log("AppName spremljen u Firestore");
+      } catch (error: any) {
+        const errorCode = error?.code || "";
+        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+          console.warn("Greška pri spremanju appName u Firestore:", error);
         }
       }
     };
-    if (appName.trim() !== "") {
-      saveAppName();
-    }
+    
+    // 2. SPREMI U LOCALSTORAGE (cache/offline backup)
+    localStorage.setItem(storageKey, appName);
+    
+    // Spremi u Firestore
+    saveToFirestore();
   }, [appName]);
 
   return (

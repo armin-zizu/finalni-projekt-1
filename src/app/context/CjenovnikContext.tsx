@@ -1,6 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { auth, onAuthStateChanged } from "../../lib/firebase";
+import { db } from "../../lib/firestore";
+import { doc, setDoc, getDoc, collection, getDocs } from "firebase/firestore";
 
 // ---- Tip artikla ----
 type ArtiklCijena = {
@@ -70,16 +73,114 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") {
       return initialCjenovnik;
     }
+    // Fallback: stari ključ za migraciju
     const savedCjenovnik = localStorage.getItem("cjenovnik");
     return savedCjenovnik ? JSON.parse(savedCjenovnik) : initialCjenovnik;
   });
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
 
-  // Spremi cjenovnik u localStorage svaki put kad se promijeni
+  // Učitaj cjenovnik iz Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cjenovnik", JSON.stringify(cjenovnik));
-    }
+    const loadCjenovnik = async () => {
+      const user = auth.currentUser;
+      const userId = user?.uid;
+      
+      let firestoreCjenovnik: ArtiklCijena[] = [];
+      let localStorageCjenovnik: ArtiklCijena[] = [];
+      
+      // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
+      if (user && userId) {
+        try {
+          const userDocRef = doc(db, "users", userId);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            if (data.cjenovnik && Array.isArray(data.cjenovnik)) {
+              firestoreCjenovnik = data.cjenovnik;
+              console.log("Cjenovnik učitano iz Firestore:", firestoreCjenovnik.length, "artikala");
+            }
+          }
+        } catch (error: any) {
+          const errorCode = error?.code || "";
+          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+            console.warn("Greška pri učitavanju cjenovnika iz Firestore:", error);
+          }
+        }
+      }
+      
+      // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup)
+      if (userId) {
+        const storageKey = `cjenovnik_${userId}`;
+        const savedCjenovnik = localStorage.getItem(storageKey);
+        if (savedCjenovnik) {
+          try {
+            localStorageCjenovnik = JSON.parse(savedCjenovnik);
+          } catch (e) {
+            console.warn("Greška pri čitanju cjenovnika iz localStorage:", e);
+          }
+        }
+      } else {
+        // Fallback: stari ključ
+        const savedCjenovnik = localStorage.getItem("cjenovnik");
+        if (savedCjenovnik) {
+          try {
+            localStorageCjenovnik = JSON.parse(savedCjenovnik);
+          } catch (e) {
+            console.warn("Greška pri čitanju cjenovnika iz localStorage (fallback):", e);
+          }
+        }
+      }
+      
+      // 3. MERGE: Firestore ima prioritet, ali koristi localStorage ako Firestore prazan
+      if (firestoreCjenovnik.length > 0) {
+        setCjenovnik(firestoreCjenovnik);
+        // Spremi u localStorage kao cache
+        if (userId) {
+          const storageKey = `cjenovnik_${userId}`;
+          localStorage.setItem(storageKey, JSON.stringify(firestoreCjenovnik));
+        }
+      } else if (localStorageCjenovnik.length > 0) {
+        setCjenovnik(localStorageCjenovnik);
+      }
+    };
+    
+    loadCjenovnik();
+    
+    // Listener za promjene autentifikacije
+    const unsubscribe = onAuthStateChanged(auth, () => {
+      loadCjenovnik();
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  // Spremi cjenovnik u Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP
+  useEffect(() => {
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    
+    if (!userId || cjenovnik.length === 0) return;
+    
+    // 1. SPREMI U FIRESTORE (primarno)
+    const saveToFirestore = async () => {
+      try {
+        const userDocRef = doc(db, "users", userId);
+        await setDoc(userDocRef, { cjenovnik }, { merge: true });
+        console.log("Cjenovnik spremljen u Firestore");
+      } catch (error: any) {
+        const errorCode = error?.code || "";
+        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+          console.warn("Greška pri spremanju cjenovnika u Firestore:", error);
+        }
+      }
+    };
+    
+    // 2. SPREMI U LOCALSTORAGE (cache/offline backup)
+    const storageKey = `cjenovnik_${userId}`;
+    localStorage.setItem(storageKey, JSON.stringify(cjenovnik));
+    
+    // Spremi u Firestore
+    saveToFirestore();
   }, [cjenovnik]);
 
   const addArtikal = (artikal: ArtiklCijena) => {

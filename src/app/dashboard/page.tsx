@@ -88,34 +88,100 @@ export default function DashboardPage() {
   const { cjenovnik } = useCjenovnik();
   const { appName } = useAppName();
 
-  // Funkcija za učitavanje arhive iz localStorage
-  const loadArhiva = useCallback(() => {
+  // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
+  const loadArhiva = useCallback(async () => {
     try {
-      const savedArhiva = localStorage.getItem("arhivaObracuna");
-      if (savedArhiva) {
-        const parsedArhiva: ArhiviraniObracun[] = JSON.parse(savedArhiva)
-          .map((item: any) => ({
-            ...item,
-            prihodi: item.prihodi ?? [],
-            ukupnoPrihod: item.ukupnoPrihod ?? 0,
-            imaUlaz: item.imaUlaz ?? false,
-            isAzuriran: item.isAzuriran ?? false,
-          }))
-          .sort((a: ArhiviraniObracun, b: ArhiviraniObracun) => {
-            const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-            const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-            return dateA - dateB; // Rastući redoslijed za dashboard
+      const user = auth.currentUser;
+      const userId = user?.uid;
+      
+      let firestoreArhiva: ArhiviraniObracun[] = [];
+      let localStorageArhiva: ArhiviraniObracun[] = [];
+      
+      // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
+      if (user && userId) {
+        try {
+          const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
+          firestoreArhiva = querySnapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              ...data,
+              prihodi: data.prihodi ?? [],
+              ukupnoPrihod: data.ukupnoPrihod ?? 0,
+              imaUlaz: data.imaUlaz ?? false,
+              isAzuriran: data.isAzuriran ?? false,
+            } as ArhiviraniObracun;
           });
-        
-        setArhiva(parsedArhiva);
-        console.log("Učitano iz localStorage:", parsedArhiva.length, "obračuna");
-      } else {
-        setArhiva([]);
+          console.log("Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
+        } catch (error: any) {
+          const errorCode = error?.code || "";
+          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+            console.warn("Greška pri učitavanju iz Firestore:", error);
+          }
+        }
       }
+      
+      // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup)
+      if (userId) {
+        const storageKey = `arhivaObracuna_${userId}`;
+        const savedArhiva = localStorage.getItem(storageKey);
+        if (savedArhiva) {
+          try {
+            localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
+              ...item,
+              prihodi: item.prihodi ?? [],
+              ukupnoPrihod: item.ukupnoPrihod ?? 0,
+              imaUlaz: item.imaUlaz ?? false,
+              isAzuriran: item.isAzuriran ?? false,
+            }));
+          } catch (e) {
+            console.warn("Greška pri čitanju localStorage:", e);
+          }
+        }
+      } else {
+        // Fallback: stari ključ
+        const savedArhiva = localStorage.getItem("arhivaObracuna");
+        if (savedArhiva) {
+          try {
+            localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
+              ...item,
+              prihodi: item.prihodi ?? [],
+              ukupnoPrihod: item.ukupnoPrihod ?? 0,
+              imaUlaz: item.imaUlaz ?? false,
+              isAzuriran: item.isAzuriran ?? false,
+            }));
+          } catch (e) {
+            console.warn("Greška pri čitanju localStorage (fallback):", e);
+          }
+        }
+      }
+      
+      // 3. MERGE: Firestore ima prioritet
+      const mergedArhiva: ArhiviraniObracun[] = [...firestoreArhiva];
+      const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
+      localStorageArhiva.forEach((item) => {
+        if (!firestoreDatumi.has(item.datum)) {
+          mergedArhiva.push(item);
+        }
+      });
+      
+      // Sortiraj po datumu (rastući redoslijed za dashboard)
+      const sortedArhiva = mergedArhiva.sort((a, b) => {
+        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+        return dateA - dateB;
+      });
+      
+      // 4. SPREMI U LOCALSTORAGE KAO CACHE
+      if (firestoreArhiva.length > 0 && userId) {
+        const storageKey = `arhivaObracuna_${userId}`;
+        localStorage.setItem(storageKey, JSON.stringify(sortedArhiva));
+      }
+      
+      setArhiva(sortedArhiva);
       setLoading(false);
       setError(null);
     } catch (error) {
-      console.error("Greška pri učitavanju iz localStorage:", error);
+      console.error("Greška pri učitavanju:", error);
       setError("Greška pri učitavanju podataka.");
       setLoading(false);
     }

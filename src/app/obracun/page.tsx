@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { auth } from "../../lib/firebase";
-import { db, doc, setDoc, serverTimestamp } from "../../lib/firestore"; // NOVO
+import { db } from "../../lib/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 
 // ---- Tipovi ----
 type Artikal = {
@@ -518,45 +519,64 @@ export default function ObracunPage() {
     // Obriši cache nakon što se obračun spremi
     localStorage.removeItem(cacheKey);
 
-    try {
-      // ČUVANJE U LOCALSTORAGE (glavni način - radi bez interneta)
-      const savedArhiva = localStorage.getItem("arhivaObracuna");
-      let arhiva: ArhiviraniObracun[] = savedArhiva ? JSON.parse(savedArhiva) : [];
-      
-      // Ukloni postojeći obračun za isti datum ako postoji
-      arhiva = arhiva.filter((item) => item.datum !== datumString);
-      
-      // Dodaj novi obračun
-      arhiva.push(arhiviraniObracun);
-      
-      // Sortiraj po datumu (najnoviji prvo)
-      arhiva.sort((a, b) => {
-        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-        return dateB - dateA;
-      });
-      
-      localStorage.setItem("arhivaObracuna", JSON.stringify(arhiva));
-      console.log("Obračun sačuvan u localStorage:", datumString);
+    const user = auth.currentUser;
+    const userId = user?.uid;
 
-      // OPCIONALNO: Pokušaj sačuvati u Firestore (ako postoji korisnik i internet)
-      const user = auth.currentUser;
-      if (user) {
+    // HIBRIDNI PRISTUP: Prvo Firestore (primarno), zatim localStorage (cache/offline)
+    try {
+      // 1. SPREMI U FIRESTORE (primarni izvor - ako postoji korisnik)
+      if (user && userId) {
         try {
-          const docRef = doc(db, "users", user.uid, "obracuni", datumString);
+          const docRef = doc(db, "users", userId, "obracuni", datumString);
           await setDoc(docRef, {
             ...arhiviraniObracun,
             savedAt: serverTimestamp(),
           });
           console.log("Obračun sačuvan u Firestore:", datumString);
         } catch (firestoreError: any) {
-          // Ignoriraj greške dozvola - podaci su već sačuvani u localStorage
+          // Ignoriraj greške dozvola - spremit ćemo u localStorage
           const errorCode = firestoreError?.code || "";
           if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
             console.warn("Nije moguće sačuvati u Firestore (možda nema interneta):", firestoreError);
           }
-          // Ne blokiraj spremanje ako Firestore ne radi
         }
+      }
+
+      // 2. SPREMI U LOCALSTORAGE (cache/offline backup - per-user)
+      if (userId) {
+        // User-specific localStorage ključ
+        const storageKey = `arhivaObracuna_${userId}`;
+        const savedArhiva = localStorage.getItem(storageKey);
+        let arhiva: ArhiviraniObracun[] = savedArhiva ? JSON.parse(savedArhiva) : [];
+        
+        // Ukloni postojeći obračun za isti datum ako postoji
+        arhiva = arhiva.filter((item) => item.datum !== datumString);
+        
+        // Dodaj novi obračun
+        arhiva.push(arhiviraniObracun);
+        
+        // Sortiraj po datumu (najnoviji prvo)
+        arhiva.sort((a, b) => {
+          const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+          const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+          return dateB - dateA;
+        });
+        
+        localStorage.setItem(storageKey, JSON.stringify(arhiva));
+        console.log("Obračun sačuvan u localStorage (per-user):", datumString);
+      } else {
+        // Fallback: ako nema korisnika, koristi stari ključ (za migraciju)
+        const savedArhiva = localStorage.getItem("arhivaObracuna");
+        let arhiva: ArhiviraniObracun[] = savedArhiva ? JSON.parse(savedArhiva) : [];
+        arhiva = arhiva.filter((item) => item.datum !== datumString);
+        arhiva.push(arhiviraniObracun);
+        arhiva.sort((a, b) => {
+          const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+          const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+          return dateB - dateA;
+        });
+        localStorage.setItem("arhivaObracuna", JSON.stringify(arhiva));
+        console.log("Obračun sačuvan u localStorage (fallback):", datumString);
       }
 
       // Ažuriranje cjenovnika (početno stanje za sljedeći dan)

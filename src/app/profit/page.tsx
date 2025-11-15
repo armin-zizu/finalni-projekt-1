@@ -4,6 +4,9 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { usePathname } from "next/navigation";
+import { auth, onAuthStateChanged } from "../../lib/firebase";
+import { db } from "../../lib/firestore";
+import { collection, getDocs } from "firebase/firestore";
 
 // ---- Tipovi ----
 type Artikal = {
@@ -225,18 +228,86 @@ export default function ProfitPage() {
     }
   };
 
-  // ---- funkcija za učitavanje arhive i generisanje profita ----
-  const loadArhiva = useCallback(() => {
+  // ---- funkcija za učitavanje arhive i generisanje profita - HIBRIDNI PRISTUP ----
+  const loadArhiva = useCallback(async () => {
     try {
-      const savedArhiva = localStorage.getItem("arhivaObracuna");
+      const user = auth.currentUser;
+      const userId = user?.uid;
+      
+      let firestoreArhiva: Obracun[] = [];
+      let localStorageArhiva: Obracun[] = [];
+      
+      // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
+      if (user && userId) {
+        try {
+          const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
+          firestoreArhiva = querySnapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              ...data,
+              prihodi: data.prihodi ?? [],
+              rashodi: data.rashodi ?? [],
+            } as Obracun;
+          });
+          console.log("Profit - Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
+        } catch (error: any) {
+          const errorCode = error?.code || "";
+          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+            console.warn("Profit - Greška pri učitavanju iz Firestore:", error);
+          }
+        }
+      }
+      
+      // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup)
+      if (userId) {
+        const storageKey = `arhivaObracuna_${userId}`;
+        const savedArhiva = localStorage.getItem(storageKey);
+        if (savedArhiva) {
+          try {
+            localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
+              ...item,
+              prihodi: item.prihodi ?? [],
+              rashodi: item.rashodi ?? [],
+            }));
+            console.log("Profit - Učitano iz localStorage (per-user):", localStorageArhiva.length, "obračuna");
+          } catch (e) {
+            console.warn("Profit - Greška pri čitanju localStorage:", e);
+          }
+        }
+      } else {
+        // Fallback: stari ključ
+        const savedArhiva = localStorage.getItem("arhivaObracuna");
+        if (savedArhiva) {
+          try {
+            localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
+              ...item,
+              prihodi: item.prihodi ?? [],
+              rashodi: item.rashodi ?? [],
+            }));
+          } catch (e) {
+            console.warn("Profit - Greška pri čitanju localStorage (fallback):", e);
+          }
+        }
+      }
+      
+      // 3. MERGE: Firestore ima prioritet
+      const mergedArhiva: Obracun[] = [...firestoreArhiva];
+      const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
+      localStorageArhiva.forEach((item) => {
+        if (!firestoreDatumi.has(item.datum)) {
+          mergedArhiva.push(item);
+        }
+      });
+      
       console.log("Profit - Učitavanje arhive:", {
-        imaArhiva: !!savedArhiva,
+        firestoreCount: firestoreArhiva.length,
+        localStorageCount: localStorageArhiva.length,
+        mergedCount: mergedArhiva.length,
         cjenovnikLength: cjenovnik.length,
-        cjenovnik: cjenovnik.map(c => ({ naziv: c.naziv, nabavnaCijena: c.nabavnaCijena }))
       });
 
-      if (!savedArhiva) {
-        console.log("Profit - Nema arhive u localStorage");
+      if (mergedArhiva.length === 0) {
+        console.log("Profit - Nema arhive");
         setObracuniProfit([]);
         return;
       }
@@ -247,7 +318,7 @@ export default function ProfitPage() {
         return;
       }
 
-      const parsed: Obracun[] = JSON.parse(savedArhiva)
+      const parsed: Obracun[] = mergedArhiva
         .map((item: any) => ({
           ...item,
           prihodi: item.prihodi ?? [],

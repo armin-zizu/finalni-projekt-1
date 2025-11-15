@@ -515,7 +515,10 @@ export default function Profile() {
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Ukupno obračuna</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
               {(() => {
-                const arhiva = localStorage.getItem("arhivaObracuna");
+                const user = auth.currentUser;
+                const userId = user?.uid;
+                const storageKey = userId ? `arhivaObracuna_${userId}` : "arhivaObracuna";
+                const arhiva = localStorage.getItem(storageKey);
                 return arhiva ? JSON.parse(arhiva).length : 0;
               })()}
             </p>
@@ -524,7 +527,10 @@ export default function Profile() {
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Artikala u cjenovniku</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
               {(() => {
-                const cjenovnik = localStorage.getItem("cjenovnik");
+                const user = auth.currentUser;
+                const userId = user?.uid;
+                const storageKey = userId ? `cjenovnik_${userId}` : "cjenovnik";
+                const cjenovnik = localStorage.getItem(storageKey);
                 return cjenovnik ? JSON.parse(cjenovnik).length : 0;
               })()}
             </p>
@@ -584,8 +590,12 @@ export default function Profile() {
 
           <button
             onClick={() => {
-              const arhivaRaw = localStorage.getItem("arhivaObracuna");
-              const cjenovnikRaw = localStorage.getItem("cjenovnik");
+              const user = auth.currentUser;
+              const userId = user?.uid;
+              const arhivaKey = userId ? `arhivaObracuna_${userId}` : "arhivaObracuna";
+              const cjenovnikKey = userId ? `cjenovnik_${userId}` : "cjenovnik";
+              const arhivaRaw = localStorage.getItem(arhivaKey);
+              const cjenovnikRaw = localStorage.getItem(cjenovnikKey);
               
               let arhiva = arhivaRaw ? JSON.parse(arhivaRaw) : [];
               const cjenovnik = cjenovnikRaw ? JSON.parse(cjenovnikRaw) : [];
