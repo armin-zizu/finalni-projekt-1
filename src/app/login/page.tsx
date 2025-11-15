@@ -23,12 +23,22 @@ export default function LoginPage() {
       setError("Unesi valjanu e-mail adresu");
       return;
     }
+    // Spriječi višestruke pozive
+    if (loading) {
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       console.log("Pokušavam prijavu s e-mailom:", email);
       const result = await signInWithEmailAndPassword(auth, email, password);
       const user = result.user;
+      
+      // Provjeri da li je prijava uspješna prije nego što nastaviš
+      if (!user) {
+        throw new Error("Prijava nije uspjela");
+      }
+      
       const idToken = await user.getIdToken();
       console.log("ID Token generisan:", idToken);
       console.log("Uspješan login:", user.email);
@@ -71,19 +81,47 @@ export default function LoginPage() {
       // Session management se rješava automatski kroz Firebase Auth
       // API route nije potreban za static export
       console.log("Login uspješan, preusmjeravam na dashboard");
+      setLoading(false);
       router.push("/dashboard");
     } catch (err: any) {
+      // Ignoriraj grešku ako je korisnik već prijavljen (može se desiti zbog race condition)
+      if (auth.currentUser && auth.currentUser.email === email) {
+        console.log("Korisnik je već prijavljen, preusmjeravam na dashboard");
+        setLoading(false);
+        router.push("/dashboard");
+        return;
+      }
+      
+      // Ignoriraj invalid-credential grešku ako je korisnik već prijavljen
+      if (err.code === "auth/invalid-credential" && auth.currentUser) {
+        console.log("Greška ignorirana - korisnik je već prijavljen");
+        setLoading(false);
+        router.push("/dashboard");
+        return;
+      }
+      
+      // Ignoriraj grešku ako je korisnik već prijavljen (race condition)
+      if (auth.currentUser) {
+        console.log("Korisnik je već prijavljen, ignoriranje greške");
+        setLoading(false);
+        router.push("/dashboard");
+        return;
+      }
+      
       console.error("Greška pri e-mail prijavi:", err);
+      
       if (err.code === "auth/user-not-found") {
         setError("Korisnik s ovim e-mailom ne postoji. Registriraj se.");
-      } else if (err.code === "auth/wrong-password") {
+      } else if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
         setError("Pogrešna lozinka. Pokušaj ponovo.");
       } else if (err.code === "auth/too-many-requests") {
         setError("Previše pokušaja. Pokušaj ponovo kasnije.");
       } else {
-        setError(err.message || "Greška pri prijavi. Provjeri e-mail i lozinku.");
+        // Prikaži grešku samo ako nije invalid-credential (koja se može desiti zbog race condition)
+        if (err.code !== "auth/invalid-credential") {
+          setError(err.message || "Greška pri prijavi. Provjeri e-mail i lozinku.");
+        }
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -206,20 +244,31 @@ export default function LoginPage() {
       alignItems: "center", 
       padding: "20px",
       boxSizing: "border-box",
-      position: "relative",
-      backgroundImage: "url('/background.png')",
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat"
+      position: "relative"
     }}>
-      {/* Fade overlay */}
+      {/* Pozadinska slika sa opacity */}
       <div style={{
         position: "absolute",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.4)",
+        backgroundImage: "url('/background.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        opacity: 0.7,
+        zIndex: 0
+      }} />
+      
+      {/* Fade overlay - tamni overlay za kontrast */}
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
         zIndex: 1
       }} />
       

@@ -155,7 +155,7 @@ const FilterSection: React.FC<{
           {f === "trenutnaSedmica" ? "Trenutna sedmica" :
            f === "proslaSedmica" ? "Prošla sedmica" :
            f === "prosliMjesec" ? "Prošli mjesec" :
-           "Custom"}
+           "Prilagođeni period"}
         </button>
       ))}
       {filter === "custom" && (
@@ -483,28 +483,14 @@ export default function ProfitPage() {
   // ---- Custom Tooltip za grafikon ----
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any; label?: string }) => {
     if (active && payload && payload.length) {
-      const dataSource = payload[0].dataKey === "bruto" && payload[0].name !== "Bruto" ? selectedArtiklData : chartData;
-      const prevIndex = dataSource.findIndex((d) => d.datum === label) - 1;
-      const prev = dataSource[prevIndex] || dataSource[0];
-
       return (
         <div style={{ backgroundColor: "#1f2937", color: "#fff", padding: 12, borderRadius: 8 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
           {payload.map((p: any) => {
-            const key = p.dataKey as "bruto" | "neto" | "rashod";
-            const prevValue = dataSource === chartData
-              ? (prev as typeof chartData[0])[key] || 0
-              : (prev as ArtiklProfitData)[key as "bruto" | "neto"] || 0;
-            const percent = prevValue === 0 ? 0 : ((p.value - prevValue) / prevValue * 100).toFixed(1);
-            const color = Number(percent) >= 0 ? "#16a34a" : "#dc2626";
-
             return (
-              <div key={key} style={{ marginBottom: 4 }}>
+              <div key={p.dataKey} style={{ marginBottom: 4 }}>
                 <span style={{ color: p.color, fontWeight: 500 }}>{p.name}: </span>
-                {p.value.toFixed(2)} KM{" "}
-                <span style={{ color, fontSize: 12 }}>
-                  {Number(percent) >= 0 ? "▲" : "▼"} {Math.abs(Number(percent))}%
-                </span>
+                {p.value.toFixed(2)} KM
               </div>
             );
           })}

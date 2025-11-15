@@ -937,9 +937,34 @@ export default function Profile() {
                   {localStorage.getItem("profitPassword") ? "Promijeni šifru" : "Postavi šifru"}
                 </button>
                 {localStorage.getItem("profitPassword") && (
-                  <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                    Trenutno: {profitPassword}
-                  </span>
+                  <>
+                    <button
+                      onClick={() => {
+                        const savedPassword = localStorage.getItem("profitPassword");
+                        if (!profitOldPassword) {
+                          setMessage("Unesite trenutnu šifru da biste uklonili zaštitu!");
+                          return;
+                        }
+                        if (profitOldPassword !== savedPassword) {
+                          setMessage("Pogrešna šifra! Ne možete ukloniti zaštitu.");
+                          return;
+                        }
+                        // Ukloni šifru
+                        localStorage.removeItem("profitPassword");
+                        setProfitPassword("");
+                        setProfitPasswordInput("");
+                        setProfitOldPassword("");
+                        setMessage("Šifra za Profit uspješno uklonjena!");
+                        setTimeout(() => setMessage(""), 3000);
+                      }}
+                      style={{ ...buttonStyle, background: "#dc2626" }}
+                    >
+                      Ukloni šifru
+                    </button>
+                    <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                      Trenutno: {profitPassword}
+                    </span>
+                  </>
                 )}
               </div>
             </div>
@@ -997,9 +1022,34 @@ export default function Profile() {
                   {localStorage.getItem("cjenovnikPassword") ? "Promijeni šifru" : "Postavi šifru"}
                 </button>
                 {localStorage.getItem("cjenovnikPassword") && (
-                  <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                    Trenutno: {cjenovnikPassword}
-                  </span>
+                  <>
+                    <button
+                      onClick={() => {
+                        const savedPassword = localStorage.getItem("cjenovnikPassword");
+                        if (!cjenovnikOldPassword) {
+                          setMessage("Unesite trenutnu šifru da biste uklonili zaštitu!");
+                          return;
+                        }
+                        if (cjenovnikOldPassword !== savedPassword) {
+                          setMessage("Pogrešna šifra! Ne možete ukloniti zaštitu.");
+                          return;
+                        }
+                        // Ukloni šifru
+                        localStorage.removeItem("cjenovnikPassword");
+                        setCjenovnikPassword("");
+                        setCjenovnikPasswordInput("");
+                        setCjenovnikOldPassword("");
+                        setMessage("Šifra za Cjenovnik uspješno uklonjena!");
+                        setTimeout(() => setMessage(""), 3000);
+                      }}
+                      style={{ ...buttonStyle, background: "#dc2626" }}
+                    >
+                      Ukloni šifru
+                    </button>
+                    <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                      Trenutno: {cjenovnikPassword}
+                    </span>
+                  </>
                 )}
               </div>
             </div>

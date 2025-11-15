@@ -346,28 +346,16 @@ export default function DashboardPage() {
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any; label?: string }) => {
     if (active && payload && payload.length) {
       const dataSource = payload[0].dataKey === "utroseno" ? selectedData : chartData;
-      const prevIndex = dataSource.findIndex((d) => d.datum === label) - 1;
-      const prev = dataSource[prevIndex] || dataSource[0];
+      const unit = dataSource === chartData ? " KM" : "";
 
       return (
         <div style={{ backgroundColor: "#1f2937", color: "#fff", padding: 12, borderRadius: 8 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
           {payload.map((p: any) => {
-            const key = p.dataKey as keyof AggregatedData | keyof ArtiklData;
-            const prevValue = dataSource === chartData
-              ? (prev as AggregatedData)[key as keyof AggregatedData] || 0
-              : (prev as ArtiklData).utroseno || 0;
-            const percent = growth(Number(p.value), Number(prevValue));
-            const color = Number(percent) >= 0 ? "#16a34a" : "#dc2626";
-            const unit = dataSource === chartData ? " KM" : "";
-
             return (
-              <div key={key} style={{ marginBottom: 4 }}>
+              <div key={p.dataKey} style={{ marginBottom: 4 }}>
                 <span style={{ color: p.color, fontWeight: 500 }}>{p.name}: </span>
-                {p.value.toFixed(2)}{unit}{" "}
-                <span style={{ color, fontSize: 12 }}>
-                  {Number(percent) >= 0 ? "Up" : "Down"} {Math.abs(Number(percent))}%
-                </span>
+                {p.value.toFixed(2)}{unit}
               </div>
             );
           })}
@@ -434,7 +422,7 @@ export default function DashboardPage() {
           { value: "currentWeek", label: "Trenutna sedmica" },
           { value: "previousWeek", label: "Prošla sedmica" },
           { value: "previousMonth", label: "Prošli mjesec" },
-          { value: "custom", label: "Custom" },
+          { value: "custom", label: "Prilagođeni period" },
         ].map((r) => (
           <button
             key={r.value}
@@ -575,7 +563,7 @@ export default function DashboardPage() {
             { value: "currentWeek", label: "Trenutna sedmica" },
             { value: "previousWeek", label: "Prošla sedmica" },
             { value: "previousMonth", label: "Prošli mjesec" },
-            { value: "custom", label: "Custom" },
+            { value: "custom", label: "Prilagođeni period" },
           ].map((r) => (
             <button
               key={r.value}
