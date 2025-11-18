@@ -28,6 +28,7 @@ const containerStyle: React.CSSProperties = {
 
 const tableStyle: React.CSSProperties = {
   width: "100%",
+  minWidth: "600px",
   borderCollapse: "separate" as "separate",
   borderSpacing: 0,
   background: "#ffffff",
@@ -35,6 +36,13 @@ const tableStyle: React.CSSProperties = {
   overflow: "hidden",
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
   marginBottom: "20px",
+};
+
+const tableWrapperStyle: React.CSSProperties = {
+  width: "100%",
+  overflowX: "auto",
+  marginBottom: "20px",
+  WebkitOverflowScrolling: "touch",
 };
 
 const thStyle: React.CSSProperties = {
@@ -440,9 +448,12 @@ export default function CjenovnikPage() {
             padding: 8px !important; /* Smanjen padding u tablicama */
             min-width: 80px;
           }
-          table {
+          .table-wrapper {
             overflow-x: auto;
-            display: block;
+            -webkit-overflow-scrolling: touch;
+          }
+          table {
+            min-width: 600px;
           }
           div[style*='marginBottom: 20px'] {
             marginBottom: 15px; /* Smanjen margin za sekcije */
@@ -585,7 +596,8 @@ export default function CjenovnikPage() {
           Nema artikala u cjenovniku.
         </p>
       ) : (
-        <table style={tableStyle}>
+        <div style={tableWrapperStyle}>
+          <table style={tableStyle}>
           <thead>
             <tr>
               <th style={thStyle}>Artikal</th>
@@ -622,13 +634,15 @@ export default function CjenovnikPage() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
       {pendingCjenovnik.length > 0 && (
         <div style={{ marginTop: "20px" }}>
           <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px" }}>
             Čekajuće promjene
           </h2>
-          <table style={tableStyle}>
+          <div style={tableWrapperStyle}>
+            <table style={tableStyle}>
             <thead>
               <tr>
                 <th style={thStyle}>Artikal</th>
@@ -655,6 +669,7 @@ export default function CjenovnikPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

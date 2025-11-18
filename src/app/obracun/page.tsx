@@ -193,6 +193,7 @@ const rashodInputStyle: React.CSSProperties = {
   outline: "none",
   marginRight: "8px",
   marginBottom: "8px",
+  boxSizing: "border-box",
 };
 
 // ---- Glavna komponenta ----
@@ -707,11 +708,60 @@ export default function ObracunPage() {
           table:first-of-type td { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: none; font-size: 13px; }
           table:first-of-type td:before { content: attr(data-label); font-weight: 600; color: #1f2937; width: 50%; }
           table:first-of-type td input { max-width: 100%; width: 100%; }
-          table:not(:first-of-type) { overflow-x: auto; }
-          table:not(:first-of-type) th, table:not(:first-of-type) td { min-width: 120px; font-size: 13px; padding: 8px; }
-          input, button { width: 100%; max-width: 100%; margin-bottom: 8px; font-size: 13px; }
+          table:not(:first-of-type) { 
+            overflow-x: auto; 
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          table:not(:first-of-type) thead,
+          table:not(:first-of-type) tbody,
+          table:not(:first-of-type) tr {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+          }
+          table:not(:first-of-type) th, 
+          table:not(:first-of-type) td { 
+            min-width: 100px; 
+            font-size: 13px; 
+            padding: 8px;
+            word-wrap: break-word;
+            box-sizing: border-box;
+          }
+          table:not(:first-of-type) th:last-child,
+          table:not(:first-of-type) td:last-child {
+            width: auto;
+            min-width: 120px;
+            white-space: nowrap;
+          }
+          table:not(:first-of-type) td:last-child button {
+            display: inline-block;
+            margin: 0 4px;
+            padding: 6px 8px;
+            font-size: 12px;
+          }
+          input, button { width: 100%; max-width: 100%; margin-bottom: 8px; font-size: 13px; box-sizing: border-box; }
           input[type="date"] { max-width: 100%; }
-          div[style*="display: flex"] { flex-direction: column; align-items: stretch; gap: 8px; }
+          div[style*="display: flex"] { 
+            flex-direction: column; 
+            align-items: stretch; 
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          div[style*="marginTop: 20px"][style*="display: flex"] {
+            flex-wrap: wrap;
+          }
+          div[style*="marginTop: 20px"][style*="display: flex"] input {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: calc(50% - 4px);
+          }
+          div[style*="marginTop: 20px"][style*="display: flex"] button {
+            flex: 1 1 100%;
+            max-width: 100%;
+          }
           h1 { font-size: 20px; margin-bottom: 16px; }
           h2 { font-size: 16px; margin-bottom: 12px; }
           h3 { font-size: 14px; margin: 6px 0; }
@@ -910,13 +960,13 @@ export default function ObracunPage() {
         </tbody>
       </table>
 
-      <div style={{ marginTop: "20px", display: "flex", alignItems: "center" }}>
+      <div style={{ marginTop: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%", boxSizing: "border-box" }}>
         <input
           type="text"
           placeholder="Naziv rashoda"
           value={newRashod.naziv}
           onChange={(e) => setNewRashod({ ...newRashod, naziv: e.target.value })}
-          style={rashodInputStyle}
+          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px"}}
         />
         <input
           type="number"
@@ -924,10 +974,10 @@ export default function ObracunPage() {
           value={newRashod.cijena === 0 ? "" : newRashod.cijena}
           onFocus={(e) => e.target.select()}
           onChange={(e) => setNewRashod({ ...newRashod, cijena: Number(e.target.value) || 0 })}
-          style={rashodInputStyle}
+          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px"}}
           className="no-spin"
         />
-        <button style={buttonStyle} onClick={handleAddRashod}>
+        <button style={{...buttonStyle, flex: "1 1 auto", minWidth: "140px"}} onClick={handleAddRashod}>
           Dodaj rashod
         </button>
       </div>
@@ -1003,13 +1053,13 @@ export default function ObracunPage() {
         </tbody>
       </table>
 
-      <div style={{ marginTop: "20px", display: "flex", alignItems: "center" }}>
+      <div style={{ marginTop: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%", boxSizing: "border-box" }}>
         <input
           type="text"
           placeholder="Naziv prihoda"
           value={newPrihod.naziv}
           onChange={(e) => setNewPrihod({ ...newPrihod, naziv: e.target.value })}
-          style={rashodInputStyle}
+          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px"}}
         />
         <input
           type="number"
@@ -1017,10 +1067,10 @@ export default function ObracunPage() {
           value={newPrihod.cijena === 0 ? "" : newPrihod.cijena}
           onFocus={(e) => e.target.select()}
           onChange={(e) => setNewPrihod({ ...newPrihod, cijena: Number(e.target.value) || 0 })}
-          style={rashodInputStyle}
+          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px"}}
           className="no-spin"
         />
-        <button style={buttonStyle} onClick={handleAddPrihod}>
+        <button style={{...buttonStyle, flex: "1 1 auto", minWidth: "140px"}} onClick={handleAddPrihod}>
           Dodaj prihod
         </button>
       </div>
