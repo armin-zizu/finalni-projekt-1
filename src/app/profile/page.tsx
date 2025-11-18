@@ -15,6 +15,7 @@ const containerStyle: React.CSSProperties = {
 
 const tableStyle: React.CSSProperties = {
   width: "100%",
+  minWidth: "800px",
   borderCollapse: "separate" as "separate",
   borderSpacing: 0,
   background: "#ffffff",
@@ -22,6 +23,13 @@ const tableStyle: React.CSSProperties = {
   overflow: "hidden",
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
   marginBottom: "20px",
+};
+
+const tableWrapperStyle: React.CSSProperties = {
+  width: "100%",
+  overflowX: "auto",
+  marginBottom: "20px",
+  WebkitOverflowScrolling: "touch",
 };
 
 const thStyle: React.CSSProperties = {
@@ -359,6 +367,14 @@ export default function Profile() {
           background-color: #b91c1c;
         }
         @media (max-width: 768px) {
+          div[style*="overflowX: auto"] {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+          table {
+            min-width: 800px;
+          }
           div[style*='maxWidth: 1200px'] { padding: 10px; }
           h1 { font-size: 20px; margin-bottom: 16px !important; }
           h2 { font-size: 16px; margin-bottom: 12px !important; }
@@ -420,68 +436,70 @@ export default function Profile() {
         <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
           Pregled sesija
         </h2>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Sesija ID</th>
-              <th style={thStyle}>Datum logovanja</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Uređaj</th>
-              <th style={thStyle}>Lokacija</th>
-              <th style={thStyle}>IP adresa</th>
-              <th style={thStyle}>Ime sesije</th>
-              <th style={thStyle}>Akcije</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.map((session) => (
-              <tr key={session.id}>
-                <td style={tdStyle}>{session.id}</td>
-                <td style={tdStyle}>{session.date}</td>
-                <td style={tdStyle}>{session.status}</td>
-                <td style={tdStyle}>{session.device}</td>
-                <td style={tdStyle}>{session.location}</td>
-                <td style={tdStyle}>{session.ip}</td>
-                <td style={tdStyle}>
-                  {editingSessionId === session.id ? (
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        type="text"
-                        value={editedSessionName}
-                        onChange={(e) => setEditedSessionName(e.target.value)}
-                        style={inputStyle}
-                      />
-                      <button style={buttonStyle} onClick={() => handleSaveSessionName(session.id)}>
-                        Spremi
-                      </button>
-                      <button style={{ ...buttonStyle, background: "#6b7280" }} onClick={handleCancelEdit}>
-                        Odustani
-                      </button>
-                    </div>
-                  ) : (
-                    session.name
-                  )}
-                </td>
-                <td style={tdStyle}>
-                  <button
-                    style={{ ...buttonStyle, ...{ background: "#dc2626" } }}
-                    onClick={() => handleDeleteSession(session.id)}
-                  >
-                    Obriši
-                  </button>
-                  {session.status === "Aktivna" && (
-                    <button
-                      style={buttonStyle}
-                      onClick={() => handleEditSessionName(session.id, session.name)}
-                    >
-                      Uredi
-                    </button>
-                  )}
-                </td>
+        <div style={tableWrapperStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Sesija ID</th>
+                <th style={thStyle}>Datum logovanja</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Uređaj</th>
+                <th style={thStyle}>Lokacija</th>
+                <th style={thStyle}>IP adresa</th>
+                <th style={thStyle}>Ime sesije</th>
+                <th style={thStyle}>Akcije</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sessions.map((session) => (
+                <tr key={session.id}>
+                  <td style={tdStyle}>{session.id}</td>
+                  <td style={tdStyle}>{session.date}</td>
+                  <td style={tdStyle}>{session.status}</td>
+                  <td style={tdStyle}>{session.device}</td>
+                  <td style={tdStyle}>{session.location}</td>
+                  <td style={tdStyle}>{session.ip}</td>
+                  <td style={tdStyle}>
+                    {editingSessionId === session.id ? (
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <input
+                          type="text"
+                          value={editedSessionName}
+                          onChange={(e) => setEditedSessionName(e.target.value)}
+                          style={inputStyle}
+                        />
+                        <button style={buttonStyle} onClick={() => handleSaveSessionName(session.id)}>
+                          Spremi
+                        </button>
+                        <button style={{ ...buttonStyle, background: "#6b7280" }} onClick={handleCancelEdit}>
+                          Odustani
+                        </button>
+                      </div>
+                    ) : (
+                      session.name
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    <button
+                      style={{ ...buttonStyle, ...{ background: "#dc2626" } }}
+                      onClick={() => handleDeleteSession(session.id)}
+                    >
+                      Obriši
+                    </button>
+                    {session.status === "Aktivna" && (
+                      <button
+                        style={buttonStyle}
+                        onClick={() => handleEditSessionName(session.id, session.name)}
+                      >
+                        Uredi
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
