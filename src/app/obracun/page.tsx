@@ -73,6 +73,13 @@ const tableStyle: React.CSSProperties = {
   marginBottom: "20px",
 };
 
+const tableWrapperStyle: React.CSSProperties = {
+  width: "100%",
+  overflowX: "auto",
+  marginBottom: "20px",
+  WebkitOverflowScrolling: "touch",
+};
+
 const thStyle: React.CSSProperties = {
   padding: "12px",
   textAlign: "left" as const,
@@ -708,10 +715,14 @@ export default function ObracunPage() {
           table:first-of-type td { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: none; font-size: 13px; }
           table:first-of-type td:before { content: attr(data-label); font-weight: 600; color: #1f2937; width: 50%; }
           table:first-of-type td input { max-width: 100%; width: 100%; }
-          table:not(:first-of-type) { 
-            overflow-x: auto; 
-            display: block;
+          div[style*="overflowX: auto"] {
             width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+          table:not(:first-of-type) { 
+            width: 100%;
+            min-width: 400px;
             box-sizing: border-box;
           }
           table:not(:first-of-type) thead,
@@ -893,72 +904,74 @@ export default function ObracunPage() {
       <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px" }}>
         Rashodi
       </h2>
-      <table style={tableStyle}>
-        <thead>
-          <tr>
-            <th style={thStyle}>Naziv</th>
-            <th style={thStyle}>Cijena</th>
-            <th style={thStyle}>Akcija</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rashodi.map((r, index) => (
-            <tr key={index}>
-              {editRashodIndex === index ? (
-                <>
-                  <td style={tdStyle}>
-                    <input
-                      type="text"
-                      value={editRashod.naziv}
-                      onChange={(e) => setEditRashod({ ...editRashod, naziv: e.target.value })}
-                      style={rashodInputStyle}
-                    />
-                  </td>
-                  <td style={tdStyle}>
-                    <input
-                      type="number"
-                      value={editRashod.cijena === 0 ? "" : editRashod.cijena}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) => setEditRashod({ ...editRashod, cijena: Number(e.target.value) || 0 })}
-                      style={rashodInputStyle}
-                      className="no-spin"
-                    />
-                  </td>
-                  <td style={tdStyle}>
-                    <button style={buttonStyle} onClick={handleSaveEditRashod}>
-                      Spremi
-                    </button>
-                    <button style={cancelButtonStyle} onClick={handleCancelEditRashod} className="cancel-button">
-                      Otkaži
-                    </button>
-                  </td>
-                </>
-              ) : (
-                <>
-                  <td style={tdStyle}>{r.naziv}</td>
-                  <td style={tdStyle}>{r.cijena.toFixed(2)}</td>
-                  <td style={tdStyle}>
-                    <button
-                      style={editButtonStyle}
-                      onClick={() => handleEditRashod(index)}
-                      className="edit-button"
-                    >
-                      Uredi
-                    </button>
-                    <button
-                      style={deleteButtonStyle}
-                      onClick={() => handleDeleteRashod(index)}
-                      className="delete-button"
-                    >
-                      Izbriši
-                    </button>
-                  </td>
-                </>
-              )}
+      <div style={tableWrapperStyle}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Naziv</th>
+              <th style={thStyle}>Cijena</th>
+              <th style={thStyle}>Akcija</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rashodi.map((r, index) => (
+              <tr key={index}>
+                {editRashodIndex === index ? (
+                  <>
+                    <td style={tdStyle}>
+                      <input
+                        type="text"
+                        value={editRashod.naziv}
+                        onChange={(e) => setEditRashod({ ...editRashod, naziv: e.target.value })}
+                        style={rashodInputStyle}
+                      />
+                    </td>
+                    <td style={tdStyle}>
+                      <input
+                        type="number"
+                        value={editRashod.cijena === 0 ? "" : editRashod.cijena}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setEditRashod({ ...editRashod, cijena: Number(e.target.value) || 0 })}
+                        style={rashodInputStyle}
+                        className="no-spin"
+                      />
+                    </td>
+                    <td style={tdStyle}>
+                      <button style={buttonStyle} onClick={handleSaveEditRashod}>
+                        Spremi
+                      </button>
+                      <button style={cancelButtonStyle} onClick={handleCancelEditRashod} className="cancel-button">
+                        Otkaži
+                      </button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td style={tdStyle}>{r.naziv}</td>
+                    <td style={tdStyle}>{r.cijena.toFixed(2)}</td>
+                    <td style={tdStyle}>
+                      <button
+                        style={editButtonStyle}
+                        onClick={() => handleEditRashod(index)}
+                        className="edit-button"
+                      >
+                        Uredi
+                      </button>
+                      <button
+                        style={deleteButtonStyle}
+                        onClick={() => handleDeleteRashod(index)}
+                        className="delete-button"
+                      >
+                        Izbriši
+                      </button>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <div style={{ marginTop: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%", boxSizing: "border-box" }}>
         <input
@@ -986,72 +999,74 @@ export default function ObracunPage() {
       <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px" }}>
         Prihodi
       </h2>
-      <table style={tableStyle}>
-        <thead>
-          <tr>
-            <th style={thStyle}>Naziv</th>
-            <th style={thStyle}>Cijena</th>
-            <th style={thStyle}>Akcija</th>
-          </tr>
-        </thead>
-        <tbody>
-          {prihodi.map((p, index) => (
-            <tr key={index}>
-              {editPrihodIndex === index ? (
-                <>
-                  <td style={tdStyle}>
-                    <input
-                      type="text"
-                      value={editPrihod.naziv}
-                      onChange={(e) => setEditPrihod({ ...editPrihod, naziv: e.target.value })}
-                      style={rashodInputStyle}
-                    />
-                  </td>
-                  <td style={tdStyle}>
-                    <input
-                      type="number"
-                      value={editPrihod.cijena === 0 ? "" : editPrihod.cijena}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) => setEditPrihod({ ...editPrihod, cijena: Number(e.target.value) || 0 })}
-                      style={rashodInputStyle}
-                      className="no-spin"
-                    />
-                  </td>
-                  <td style={tdStyle}>
-                    <button style={buttonStyle} onClick={handleSaveEditPrihod}>
-                      Spremi
-                    </button>
-                    <button style={cancelButtonStyle} onClick={handleCancelEditPrihod} className="cancel-button">
-                      Otkaži
-                    </button>
-                  </td>
-                </>
-              ) : (
-                <>
-                  <td style={tdStyle}>{p.naziv}</td>
-                  <td style={tdStyle}>{p.cijena.toFixed(2)}</td>
-                  <td style={tdStyle}>
-                    <button
-                      style={editButtonStyle}
-                      onClick={() => handleEditPrihod(index)}
-                      className="edit-button"
-                    >
-                      Uredi
-                    </button>
-                    <button
-                      style={deleteButtonStyle}
-                      onClick={() => handleDeletePrihod(index)}
-                      className="delete-button"
-                    >
-                      Izbriši
-                    </button>
-                  </td>
-                </>
-              )}
+      <div style={tableWrapperStyle}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Naziv</th>
+              <th style={thStyle}>Cijena</th>
+              <th style={thStyle}>Akcija</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {prihodi.map((p, index) => (
+              <tr key={index}>
+                {editPrihodIndex === index ? (
+                  <>
+                    <td style={tdStyle}>
+                      <input
+                        type="text"
+                        value={editPrihod.naziv}
+                        onChange={(e) => setEditPrihod({ ...editPrihod, naziv: e.target.value })}
+                        style={rashodInputStyle}
+                      />
+                    </td>
+                    <td style={tdStyle}>
+                      <input
+                        type="number"
+                        value={editPrihod.cijena === 0 ? "" : editPrihod.cijena}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setEditPrihod({ ...editPrihod, cijena: Number(e.target.value) || 0 })}
+                        style={rashodInputStyle}
+                        className="no-spin"
+                      />
+                    </td>
+                    <td style={tdStyle}>
+                      <button style={buttonStyle} onClick={handleSaveEditPrihod}>
+                        Spremi
+                      </button>
+                      <button style={cancelButtonStyle} onClick={handleCancelEditPrihod} className="cancel-button">
+                        Otkaži
+                      </button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td style={tdStyle}>{p.naziv}</td>
+                    <td style={tdStyle}>{p.cijena.toFixed(2)}</td>
+                    <td style={tdStyle}>
+                      <button
+                        style={editButtonStyle}
+                        onClick={() => handleEditPrihod(index)}
+                        className="edit-button"
+                      >
+                        Uredi
+                      </button>
+                      <button
+                        style={deleteButtonStyle}
+                        onClick={() => handleDeletePrihod(index)}
+                        className="delete-button"
+                      >
+                        Izbriši
+                      </button>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <div style={{ marginTop: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%", boxSizing: "border-box" }}>
         <input
