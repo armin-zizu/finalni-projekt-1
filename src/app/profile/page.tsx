@@ -1092,22 +1092,24 @@ export default function Profile() {
         <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
           Detalji naloga
         </h2>
-        <table style={tableStyle}>
-          <tbody>
-            <tr>
-              <td style={tdStyle}>E-mail:</td>
-              <td style={tdStyle}>{email || "N/A"}</td>
-            </tr>
-            <tr>
-              <td style={tdStyle}>Datum registracije:</td>
-              <td style={tdStyle}>{auth.currentUser?.metadata?.creationTime ? new Date(auth.currentUser.metadata.creationTime).toLocaleDateString("bs-BA") : "N/A"}</td>
-            </tr>
-            <tr>
-              <td style={tdStyle}>Zadnja prijava:</td>
-              <td style={tdStyle}>{auth.currentUser?.metadata?.lastSignInTime ? new Date(auth.currentUser.metadata.lastSignInTime).toLocaleString("bs-BA") : "N/A"}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div style={tableWrapperStyle} className={tableWrapperClassName}>
+          <table style={tableStyle}>
+            <tbody>
+              <tr>
+                <td style={tdStyle}>E-mail:</td>
+                <td style={tdStyle}>{email || "N/A"}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>Datum registracije:</td>
+                <td style={tdStyle}>{auth.currentUser?.metadata?.creationTime ? new Date(auth.currentUser.metadata.creationTime).toLocaleDateString("bs-BA") : "N/A"}</td>
+              </tr>
+              <tr>
+                <td style={tdStyle}>Zadnja prijava:</td>
+                <td style={tdStyle}>{auth.currentUser?.metadata?.lastSignInTime ? new Date(auth.currentUser.metadata.lastSignInTime).toLocaleString("bs-BA") : "N/A"}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         {/* Promjena email-a */}
         <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
