@@ -32,6 +32,9 @@ const tableWrapperStyle: React.CSSProperties = {
   WebkitOverflowScrolling: "touch",
 };
 
+// Koristimo className za bolju kompatibilnost sa CSS media queries
+const tableWrapperClassName = "table-wrapper-scroll";
+
 const thStyle: React.CSSProperties = {
   padding: "16px",
   textAlign: "left" as "left",
@@ -367,12 +370,12 @@ export default function Profile() {
           background-color: #b91c1c;
         }
         @media (max-width: 768px) {
-          div[style*="overflowX: auto"] {
+          .table-wrapper-scroll {
             width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
           }
-          table {
+          .table-wrapper-scroll table {
             min-width: 800px;
           }
           div[style*='maxWidth: 1200px'] { padding: 10px; }
@@ -436,7 +439,7 @@ export default function Profile() {
         <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
           Pregled sesija
         </h2>
-        <div style={tableWrapperStyle}>
+        <div style={tableWrapperStyle} className={tableWrapperClassName}>
           <table style={tableStyle}>
             <thead>
               <tr>
