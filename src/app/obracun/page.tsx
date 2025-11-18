@@ -714,6 +714,7 @@ export default function ObracunPage() {
           table:first-of-type tr { display: flex; flex-direction: column; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); padding: 12px; }
           table:first-of-type td { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: none; font-size: 13px; }
           table:first-of-type td:before { content: attr(data-label); font-weight: 600; color: #1f2937; width: 50%; }
+          table:first-of-type td[data-label="Artikal"] { color: #1e40af !important; font-weight: 600 !important; font-size: 15px !important; }
           table:first-of-type td input { max-width: 100%; width: 100%; }
           div[style*="overflowX: auto"] {
             width: 100%;
@@ -866,7 +867,7 @@ export default function ObracunPage() {
             
             return (
               <tr key={index} style={rowStyle}>
-                <td style={tdStyle} data-label="Artikal">{a.naziv}</td>
+                <td style={{...tdStyle, color: "#1e40af", fontWeight: 600}} data-label="Artikal">{a.naziv}</td>
                 <td style={tdStyle} data-label="Cijena">{a.cijena.toFixed(2)}</td>
                 <td style={tdStyle} data-label="Zestoko Količina (ml)">{a.zestokoKolicina ? a.zestokoKolicina.toFixed(3) : "-"}</td>
                 <td style={tdStyle} data-label="Proizvodna Cijena">{a.proizvodnaCijena ? a.proizvodnaCijena.toFixed(2) : "-"}</td>
