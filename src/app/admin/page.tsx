@@ -78,6 +78,8 @@ export default function AdminPage() {
   const loadUsers = async () => {
     try {
       setLoading(true);
+      setMessage(null);
+      
       const usersCollection = collection(db, "users");
       const usersSnapshot = await getDocs(usersCollection);
       
@@ -85,59 +87,82 @@ export default function AdminPage() {
       const subscriptionsMap: Record<string, Subscription> = {};
 
       for (const userDoc of usersSnapshot.docs) {
-        const userId = userDoc.id;
-        const userData = userDoc.data();
+        try {
+          const userId = userDoc.id;
+          const userData = userDoc.data();
 
-        // Učitaj subscription
-        const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-        const subscriptionDoc = await getDoc(subscriptionRef);
+          // Učitaj subscription
+          const subscriptionRef = doc(db, "users", userId, "subscription", "info");
+          let subscriptionDoc;
+          
+          try {
+            subscriptionDoc = await getDoc(subscriptionRef);
+          } catch (subError) {
+            console.warn(`Greška pri učitavanju subscription za korisnika ${userId}:`, subError);
+            // Nastavi sa default subscription
+          }
 
-        let subscription: Subscription = {
-          isActive: false,
-          monthlyPrice: 12,
-          lastPaymentDate: null,
-          expiryDate: null,
-          graceEndDate: null,
-          trialEndDate: null,
-          paymentHistory: [],
-        };
-
-        if (subscriptionDoc.exists()) {
-          const subData = subscriptionDoc.data();
-          subscription = {
-            isActive: subData.isActive || false,
-            monthlyPrice: subData.monthlyPrice || 12,
-            lastPaymentDate: subData.lastPaymentDate?.toDate() || null,
-            expiryDate: subData.expiryDate?.toDate() || null,
-            graceEndDate: subData.graceEndDate?.toDate() || null,
-            trialEndDate: subData.trialEndDate?.toDate() || null,
-            paymentHistory: (subData.paymentHistory || []).map((p: any) => ({
-              date: p.date?.toDate() || new Date(),
-              amount: p.amount || 0,
-              note: p.note || "",
-            })),
+          let subscription: Subscription = {
+            isActive: false,
+            monthlyPrice: 12,
+            lastPaymentDate: null,
+            expiryDate: null,
+            graceEndDate: null,
+            trialEndDate: null,
+            paymentHistory: [],
           };
+
+          if (subscriptionDoc && subscriptionDoc.exists()) {
+            try {
+              const subData = subscriptionDoc.data();
+              subscription = {
+                isActive: subData.isActive || false,
+                monthlyPrice: subData.monthlyPrice || 12,
+                lastPaymentDate: subData.lastPaymentDate?.toDate?.() || (subData.lastPaymentDate ? new Date(subData.lastPaymentDate) : null),
+                expiryDate: subData.expiryDate?.toDate?.() || (subData.expiryDate ? new Date(subData.expiryDate) : null),
+                graceEndDate: subData.graceEndDate?.toDate?.() || (subData.graceEndDate ? new Date(subData.graceEndDate) : null),
+                trialEndDate: subData.trialEndDate?.toDate?.() || (subData.trialEndDate ? new Date(subData.trialEndDate) : null),
+                paymentHistory: (subData.paymentHistory || []).map((p: any) => ({
+                  date: p.date?.toDate?.() || (p.date ? new Date(p.date) : new Date()),
+                  amount: p.amount || 0,
+                  note: p.note || "",
+                })),
+              };
+            } catch (parseError) {
+              console.warn(`Greška pri parsiranju subscription podataka za korisnika ${userId}:`, parseError);
+            }
+          }
+
+          // Email se ne čuva u Firestore, koristimo user ID ili appName
+          usersList.push({
+            id: userId,
+            email: userData.email || null, // Može biti null ako nije sačuvan u Firestore
+            appName: userData.appName || "N/A",
+            createdAt: userData.createdAt?.toDate?.() || (userData.createdAt ? new Date(userData.createdAt) : null),
+            lastSignIn: userData.lastSignIn?.toDate?.() || (userData.lastSignIn ? new Date(userData.lastSignIn) : null),
+          });
+
+          subscriptionsMap[userId] = subscription;
+        } catch (userError) {
+          console.warn(`Greška pri obradi korisnika ${userDoc.id}:`, userError);
+          // Nastavi sa sljedećim korisnikom
+          continue;
         }
-
-        // Učitaj email iz auth (možeš koristiti admin SDK za sve korisnike)
-        // Za sada koristimo appName iz Firestore
-        usersList.push({
-          id: userId,
-          email: userData.email || null,
-          appName: userData.appName || "N/A",
-          createdAt: userData.createdAt?.toDate() || null,
-          lastSignIn: userData.lastSignIn?.toDate() || null,
-        });
-
-        subscriptionsMap[userId] = subscription;
       }
 
       setUsers(usersList);
       setSubscriptions(subscriptionsMap);
       setLoading(false);
-    } catch (error) {
+      
+      if (usersList.length === 0) {
+        setMessage({ type: "error", text: "Nema korisnika u bazi podataka" });
+      }
+    } catch (error: any) {
       console.error("Greška pri učitavanju korisnika:", error);
-      setMessage({ type: "error", text: "Greška pri učitavanju korisnika" });
+      setMessage({ 
+        type: "error", 
+        text: `Greška pri učitavanju korisnika: ${error.message || "Nepoznata greška"}` 
+      });
       setLoading(false);
     }
   };
@@ -369,7 +394,7 @@ export default function AdminPage() {
                 return (
                   <tr key={user.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                     <td style={{ padding: "12px", fontSize: "14px", color: "#1f2937" }}>
-                      {user.email || "N/A"}
+                      {user.email || user.id.substring(0, 8) + "..."}
                     </td>
                     <td style={{ padding: "12px", fontSize: "14px", color: "#1f2937", fontWeight: 500 }}>
                       {user.appName}
