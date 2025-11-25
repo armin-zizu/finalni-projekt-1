@@ -255,13 +255,24 @@ export default function ObracunPage() {
         setArtikli((prev) =>
           prev.map((a) => {
             const cached = ulazCache[a.naziv];
-            if (cached && cached.ulaz !== 0) {
-              return {
-                ...a,
-                ulaz: cached.ulaz,
-                ukupno: a.pocetnoStanje + cached.ulaz,
-                staroPocetnoStanje: cached.staroPocetnoStanje,
-              };
+            if (cached) {
+              // Ako postoji cache, učitaj ulaz i staro početno stanje
+              // Čak i ako je ulaz 0 (već je ažuriran), postavi staroPocetnoStanje da se prikaže zagrada
+              if (cached.ulaz !== 0) {
+                // Ako ima ulaz, učitaj ga
+                return {
+                  ...a,
+                  ulaz: cached.ulaz,
+                  ukupno: a.pocetnoStanje + cached.ulaz,
+                  staroPocetnoStanje: cached.staroPocetnoStanje,
+                };
+              } else {
+                // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje da se prikaže zagrada
+                return {
+                  ...a,
+                  staroPocetnoStanje: cached.staroPocetnoStanje,
+                };
+              }
             }
             return a;
           })
@@ -431,18 +442,37 @@ export default function ObracunPage() {
     const datumString = formatirajDatum(trenutniDatum);
 
     // Sačuvaj ulaz u localStorage cache po datumu
-    const ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
+    // Učitaj postojeći cache da ne izgubimo podatke
+    const cacheKey = `ulazCache_${datumString}`;
+    const existingCache = localStorage.getItem(cacheKey);
+    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
+    if (existingCache) {
+      try {
+        ulazCache = JSON.parse(existingCache);
+      } catch (e) {
+        console.warn("Greška pri čitanju postojećeg cache-a:", e);
+      }
+    }
+    
+    // Ažuriraj cache sa novim podacima
     artikli.forEach((a) => {
       if (a.ulaz !== 0) {
+        // Ako ima ulaz, ažuriraj cache
         ulazCache[a.naziv] = {
           ulaz: a.ulaz,
           staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
+        };
+      } else if (a.staroPocetnoStanje !== undefined) {
+        // Ako nema ulaz ali ima staroPocetnoStanje (već je ažuriran), sačuvaj samo staroPocetnoStanje
+        // Postavi ulaz na 0 da znamo da je već ažuriran
+        ulazCache[a.naziv] = {
+          ulaz: 0,
+          staroPocetnoStanje: a.staroPocetnoStanje,
         };
       }
     });
 
     // Spremi cache u localStorage
-    const cacheKey = `ulazCache_${datumString}`;
     localStorage.setItem(cacheKey, JSON.stringify(ulazCache));
 
     // Ažuriraj cjenovnik i artikle - sačuvaj staro stanje prije ažuriranja
@@ -483,17 +513,41 @@ export default function ObracunPage() {
             vrijednostKM: 0, // Resetiraj vrijednost
             krajnjeStanje: 0, // Resetiraj krajnje stanje
             isKrajnjeSet: false, // Resetiraj flag
-            staroPocetnoStanje: staroPocetnoStanje, // Sačuvaj staro stanje
+            staroPocetnoStanje: staroPocetnoStanje, // Sačuvaj staro stanje da se prikaže zagrada
             sačuvanUlaz: sačuvanUlaz, // Sačuvaj ulaz za prikaz u arhivi
           };
         }
-        // Za artikle bez ulaza, resetiraj ulaz na 0 (isto kao u handleSaveObracun)
+        // Za artikle bez ulaza, resetiraj ulaz na 0 ali zadrži staroPocetnoStanje ako postoji
         return {
           ...a,
           ulaz: 0,
         };
       })
     );
+    
+    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
+    const cacheKey = `ulazCache_${datumString}`;
+    const existingCache = localStorage.getItem(cacheKey);
+    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
+    if (existingCache) {
+      try {
+        ulazCache = JSON.parse(existingCache);
+      } catch (e) {
+        console.warn("Greška pri čitanju postojećeg cache-a:", e);
+      }
+    }
+    
+    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
+    artikli.forEach((a) => {
+      if (a.staroPocetnoStanje !== undefined) {
+        ulazCache[a.naziv] = {
+          ulaz: 0, // Ulaz je sada 0 jer je ažuriran
+          staroPocetnoStanje: a.staroPocetnoStanje,
+        };
+      }
+    });
+    
+    localStorage.setItem(cacheKey, JSON.stringify(ulazCache));
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
     
