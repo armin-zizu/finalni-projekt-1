@@ -464,7 +464,7 @@ export default function ObracunPage() {
       })
     );
 
-    // Ažuriraj artikle u formi - postavi novo početno stanje i resetiraj ulaz
+    // Ažuriraj artikle u formi - postavi novo početno stanje i resetiraj ulaz (isto kao u handleSaveObracun)
     setArtikli((prev) =>
       prev.map((a) => {
         if (a.ulaz !== 0) {
@@ -487,7 +487,7 @@ export default function ObracunPage() {
             sačuvanUlaz: sačuvanUlaz, // Sačuvaj ulaz za prikaz u arhivi
           };
         }
-        // Za artikle bez ulaza, samo resetiraj ulaz na 0 (za slučaj da je bio neki ostatak)
+        // Za artikle bez ulaza, resetiraj ulaz na 0 (isto kao u handleSaveObracun)
         return {
           ...a,
           ulaz: 0,
@@ -496,7 +496,7 @@ export default function ObracunPage() {
     );
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
-    setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju
+    setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju (isto kao u handleSaveObracun)
     alert("Obračun ažuriran! Početno stanje artikala je ažurirano.");
   };
 
@@ -696,6 +696,7 @@ export default function ObracunPage() {
       setEditRashodIndex(null);
       setEditPrihodIndex(null);
       setIsAzuriran(false); // Resetiraj flag nakon spremanja
+      setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju
       
       // Resetiraj sačuvane ulaze u artiklima
       setArtikli((prev) =>
