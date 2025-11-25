@@ -22,7 +22,7 @@ function isAdmin() {
 function isAdmin() {
   return request.auth != null && 
          request.auth.token.email != null &&
-         request.auth.token.email == 'arminposlovni@gmail.com'; // Tvoj admin email
+         request.auth.token.email == 'gitara.zizu@gmail.com'; // Admin email
 }
 ```
 
