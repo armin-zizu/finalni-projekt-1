@@ -254,7 +254,7 @@ export default function ObracunPage() {
         setArtikli((prev) =>
           prev.map((a) => {
             const cached = ulazCache[a.naziv];
-            if (cached && cached.ulaz > 0) {
+            if (cached && cached.ulaz !== 0) {
               return {
                 ...a,
                 ulaz: cached.ulaz,
@@ -295,10 +295,10 @@ export default function ObracunPage() {
               ...a,
               ulaz: value,
               ukupno: a.pocetnoStanje + value,
-              // Sačuvaj staro početno stanje ako već nije postavljeno i ako ima ulaz
+              // Sačuvaj staro početno stanje ako već nije postavljeno i ako ima ulaz (pozitivan ili negativan)
               staroPocetnoStanje: a.staroPocetnoStanje !== undefined 
                 ? a.staroPocetnoStanje 
-                : (value > 0 ? a.pocetnoStanje : undefined),
+                : (value !== 0 ? a.pocetnoStanje : undefined),
               ...(a.krajnjeStanje > 0
                 ? {
                     utroseno: a.pocetnoStanje + value - a.krajnjeStanje,
@@ -420,8 +420,8 @@ export default function ObracunPage() {
 
   // Funkcija za ažuriranje obračuna (bez spremanja u arhivu)
   const handleAzurirajObracun = () => {
-    // Provjeri da li ima artikala s ulazom
-    const imaUlaz = artikli.some((a) => a.ulaz > 0);
+    // Provjeri da li ima artikala s ulazom (pozitivnim ili negativnim)
+    const imaUlaz = artikli.some((a) => a.ulaz !== 0);
     if (!imaUlaz) {
       alert("Nema artikala s ulazom za ažuriranje!");
       return;
@@ -432,7 +432,7 @@ export default function ObracunPage() {
     // Sačuvaj ulaz u localStorage cache po datumu
     const ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
     artikli.forEach((a) => {
-      if (a.ulaz > 0) {
+      if (a.ulaz !== 0) {
         ulazCache[a.naziv] = {
           ulaz: a.ulaz,
           staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
@@ -466,7 +466,7 @@ export default function ObracunPage() {
     // Ažuriraj artikle u formi - postavi novo početno stanje i resetiraj ulaz
     setArtikli((prev) =>
       prev.map((a) => {
-        if (a.ulaz > 0) {
+        if (a.ulaz !== 0) {
           const staroPocetnoStanje = a.staroPocetnoStanje ?? a.pocetnoStanje;
           const sačuvanUlaz = a.ulaz; // Sačuvaj ulaz prije resetiranja
           const novoPocetnoStanje = a.naziv.toLowerCase().includes("kafa")
@@ -512,9 +512,9 @@ export default function ObracunPage() {
 
     // Provjeri da li obračun ima ulaz (trenutni, sačuvani u state-u, ili iz cache-a)
     const imaUlaz = artikli.some((a) => {
-      const trenutniUlaz = a.ulaz > 0;
-      const sačuvanUlaz = a.sačuvanUlaz !== undefined && a.sačuvanUlaz > 0;
-      const cachedUlazZaArtikal = ulazCache[a.naziv]?.ulaz > 0;
+      const trenutniUlaz = a.ulaz !== 0;
+      const sačuvanUlaz = a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0;
+      const cachedUlazZaArtikal = ulazCache[a.naziv]?.ulaz !== 0;
       return trenutniUlaz || sačuvanUlaz || cachedUlazZaArtikal;
     });
 
@@ -530,7 +530,7 @@ export default function ObracunPage() {
         let staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
 
         if (a.ulaz === 0) {
-          if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz > 0) {
+          if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
             ulazZaPrikaz = a.sačuvanUlaz;
             staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
           } else if (ulazCache[a.naziv]) {
