@@ -1083,7 +1083,7 @@ export default function Profile() {
                 <div style={{ marginBottom: "12px" }}>
                   <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>Reference broj:</p>
                   <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", fontFamily: "monospace" }}>
-                    {auth.currentUser ? `REF-${auth.currentUser.uid.substring(0, 8).toUpperCase()}-${selectedMonths}` : "N/A"}
+                    {appName && selectedMonths ? `${appName.toUpperCase().replace(/\s+/g, "-")}-${selectedMonths}` : "N/A"}
                   </p>
                 </div>
                 <div style={{ marginBottom: "12px" }}>
