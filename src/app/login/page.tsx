@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "../../lib/firebase";
+import { initializeUser } from "../../lib/userInit";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -155,6 +156,15 @@ export default function LoginPage() {
       const idToken = await user.getIdToken();
       console.log("ID Token generisan:", idToken);
       console.log("Uspješna registracija:", user.email);
+
+      // Kreiraj početnu strukturu za novog korisnika u Firestore
+      try {
+        await initializeUser(user.uid, user.email);
+        console.log("Korisnik inicijalizovan u Firestore");
+      } catch (initError) {
+        console.error("Greška pri inicijalizaciji korisnika (nastavljam):", initError);
+        // Nastavi sa registracijom čak i ako inicijalizacija ne uspije
+      }
 
       // Dohvati IP adresu i lokaciju pri registraciji
       try {

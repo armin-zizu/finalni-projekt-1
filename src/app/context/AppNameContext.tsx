@@ -13,13 +13,8 @@ interface AppNameContextType {
 const AppNameContext = createContext<AppNameContextType | undefined>(undefined);
 
 export function AppNameProvider({ children }: { children: React.ReactNode }) {
-  // Učitaj iz localStorage prvo, zatim iz Firestore
-  const [appName, setAppName] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("appName") || "Moja Aplikacija";
-    }
-    return "Moja Aplikacija";
-  });
+  // Početna vrijednost - učitaj iz Firestore
+  const [appName, setAppName] = useState<string>("Moja Aplikacija");
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {

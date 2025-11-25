@@ -73,9 +73,8 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") {
       return initialCjenovnik;
     }
-    // Fallback: stari ključ za migraciju
-    const savedCjenovnik = localStorage.getItem("cjenovnik");
-    return savedCjenovnik ? JSON.parse(savedCjenovnik) : initialCjenovnik;
+    // Ne učitavaj iz localStorage pri inicijalizaciji - čekaj da se učita iz Firestore
+    return initialCjenovnik;
   });
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
 
