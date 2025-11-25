@@ -124,9 +124,20 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       
       const subscriptionRef = doc(db, "users", userId, "subscription", "info");
       console.log("SubscriptionContext - Subscription ref path:", subscriptionRef.path);
+      console.log("SubscriptionContext - Auth state:", auth.currentUser?.uid);
+      console.log("SubscriptionContext - Requesting user ID:", userId);
+      console.log("SubscriptionContext - IDs match:", auth.currentUser?.uid === userId);
       
-      const subscriptionDoc = await getDoc(subscriptionRef);
-      console.log("SubscriptionContext - Subscription doc exists:", subscriptionDoc.exists());
+      let subscriptionDoc;
+      try {
+        subscriptionDoc = await getDoc(subscriptionRef);
+        console.log("SubscriptionContext - Subscription doc exists:", subscriptionDoc.exists());
+      } catch (getError: any) {
+        console.error("SubscriptionContext - Error getting subscription doc:", getError);
+        console.error("SubscriptionContext - Error code:", getError?.code);
+        console.error("SubscriptionContext - Error message:", getError?.message);
+        throw getError;
+      }
       
       if (!subscriptionDoc.exists()) {
         console.log("SubscriptionContext - Document does not exist, will create new one");
