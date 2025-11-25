@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { auth, sendPasswordResetEmail, signOut, sendEmailVerification } from "../../lib/firebase";
 import { useAppName } from "../context/AppNameContext";
+import { useSubscription } from "../context/SubscriptionContext";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 
@@ -97,6 +98,12 @@ export default function Profile() {
   const [cjenovnikOldPassword, setCjenovnikOldPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
+  const { subscription, loading: subscriptionLoading, addPayment, updateMonthlyPrice } = useSubscription();
+  const [newPaymentAmount, setNewPaymentAmount] = useState("");
+  const [newPaymentNote, setNewPaymentNote] = useState("");
+  const [subscriptionMessage, setSubscriptionMessage] = useState("");
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [monthlyPrice, setMonthlyPrice] = useState("50");
   const router = useRouter();
 
   // Sinhronizuj localAppName sa appName iz contexta
@@ -909,6 +916,248 @@ export default function Profile() {
               : "Preuzmite sve podatke (arhiva i cjenovnik) kao PDF fajl"}
           </p>
         </div>
+      </div>
+
+      {/* Pretplata sekcija */}
+      <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
+        <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
+          Pretplata
+        </h2>
+        
+        {subscriptionLoading || !subscription ? (
+          <p style={{ color: "#6b7280", fontSize: "14px" }}>Učitavanje pretplate...</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {/* Status pretplate */}
+            <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+                <div>
+                  <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "4px" }}>Status pretplate</h3>
+                  <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                    {subscription.isTrial 
+                      ? `Trial period ističe za ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}`
+                      : subscription.isActive
+                      ? `Pretplata ističe za ${subscription.daysUntilExpiry} ${subscription.daysUntilExpiry === 1 ? "dan" : "dana"}`
+                      : subscription.isGracePeriod
+                      ? `Grace period ističe za ${subscription.daysInGrace} ${subscription.daysInGrace === 1 ? "dan" : "dana"}`
+                      : "Pretplata nije aktivna"}
+                  </p>
+                </div>
+                {(() => {
+                  let statusText = "N/A";
+                  let statusColor = "#6b7280";
+                  let statusBg = "#f3f4f6";
+                  
+                  if (subscription.isTrial) {
+                    statusText = `Trial (${subscription.daysRemaining} dana)`;
+                    statusColor = "#3b82f6";
+                    statusBg = "#dbeafe";
+                  } else if (subscription.isActive) {
+                    statusText = `Aktivna (${subscription.daysUntilExpiry} dana)`;
+                    statusColor = "#16a34a";
+                    statusBg = "#dcfce7";
+                  } else if (subscription.isGracePeriod) {
+                    statusText = `Grace period (${subscription.daysInGrace} dana)`;
+                    statusColor = "#f59e0b";
+                    statusBg = "#fef3c7";
+                  } else {
+                    statusText = "Neaktivna";
+                    statusColor = "#dc2626";
+                    statusBg = "#fee2e2";
+                  }
+                  
+                  return (
+                    <span
+                      style={{
+                        padding: "8px 16px",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        background: statusBg,
+                        color: statusColor,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {statusText}
+                    </span>
+                  );
+                })()}
+              </div>
+              
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+                <div>
+                  <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Mjesečna cijena</p>
+                  {isEditingPrice ? (
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                      <input
+                        type="number"
+                        value={monthlyPrice}
+                        onChange={(e) => setMonthlyPrice(e.target.value)}
+                        style={{ ...inputStyle, width: "120px" }}
+                        placeholder="Cijena"
+                        min="0"
+                        step="0.01"
+                      />
+                      <span style={{ fontSize: "14px", color: "#1f2937" }}>KM</span>
+                      <button style={buttonStyle} onClick={async () => {
+                        try {
+                          await updateMonthlyPrice(Number(monthlyPrice));
+                          setIsEditingPrice(false);
+                          setSubscriptionMessage("Cijena je ažurirana!");
+                          setTimeout(() => setSubscriptionMessage(""), 3000);
+                        } catch (error) {
+                          setSubscriptionMessage("Greška pri ažuriranju cijene");
+                        }
+                      }}>
+                        Spremi
+                      </button>
+                      <button
+                        style={{ ...buttonStyle, background: "#6b7280" }}
+                        onClick={() => {
+                          setIsEditingPrice(false);
+                          setMonthlyPrice(String(subscription.monthlyPrice));
+                        }}
+                      >
+                        Odustani
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <p style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937" }}>
+                        {subscription.monthlyPrice.toFixed(2)} KM
+                      </p>
+                      <button
+                        style={{ ...buttonStyle, padding: "4px 8px", fontSize: "12px" }}
+                        onClick={() => {
+                          setIsEditingPrice(true);
+                          setMonthlyPrice(String(subscription.monthlyPrice));
+                        }}
+                      >
+                        Uredi
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {subscription.lastPaymentDate && (
+                  <div>
+                    <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Posljednja uplata</p>
+                    <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                      {subscription.lastPaymentDate.toLocaleDateString("bs-BA")}
+                    </p>
+                  </div>
+                )}
+                
+                {subscription.expiryDate && (
+                  <div>
+                    <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Datum isteka</p>
+                    <p
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: 500,
+                        color: subscription.expiryDate < new Date() ? "#dc2626" : "#1f2937",
+                      }}
+                    >
+                      {subscription.expiryDate.toLocaleDateString("bs-BA")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Dodaj novu uplatu */}
+            <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px" }}>
+                Plaćanje pretplate
+              </h3>
+              <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "16px" }}>
+                Unesite iznos uplate da aktivirate ili obnovite pretplatu. Pretplata traje 1 mjesec od datuma uplate.
+              </p>
+              <h4 style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                Dodaj novu uplatu
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                  <input
+                    type="number"
+                    value={newPaymentAmount}
+                    onChange={(e) => setNewPaymentAmount(e.target.value)}
+                    style={{ ...inputStyle, width: "150px" }}
+                    placeholder="Iznos (KM)"
+                    min="0"
+                    step="0.01"
+                  />
+                  <input
+                    type="text"
+                    value={newPaymentNote}
+                    onChange={(e) => setNewPaymentNote(e.target.value)}
+                    style={{ ...inputStyle, width: "200px" }}
+                    placeholder="Napomena (opcionalno)"
+                  />
+                  <button style={buttonStyle} onClick={async () => {
+                    if (!newPaymentAmount || Number(newPaymentAmount) <= 0) {
+                      setSubscriptionMessage("Unesite validan iznos");
+                      return;
+                    }
+                    try {
+                      await addPayment(Number(newPaymentAmount), newPaymentNote || undefined);
+                      setNewPaymentAmount("");
+                      setNewPaymentNote("");
+                      setSubscriptionMessage("Uplata je dodana uspješno!");
+                      setTimeout(() => setSubscriptionMessage(""), 3000);
+                    } catch (error) {
+                      setSubscriptionMessage("Greška pri dodavanju uplate");
+                    }
+                  }}>
+                    Dodaj uplatu
+                  </button>
+                </div>
+                {subscriptionMessage && (
+                  <p
+                    style={{
+                      fontSize: "14px",
+                      color: subscriptionMessage.includes("Greška") ? "#dc2626" : "#16a34a",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {subscriptionMessage}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Historija uplata */}
+            {subscription.paymentHistory && subscription.paymentHistory.length > 0 && (
+              <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                  Historija uplata
+                </h3>
+                <div style={tableWrapperStyle} className={tableWrapperClassName}>
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>Datum uplate</th>
+                        <th style={thStyle}>Iznos</th>
+                        <th style={thStyle}>Napomena</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subscription.paymentHistory
+                        .sort((a, b) => b.date.getTime() - a.date.getTime())
+                        .map((payment, index) => (
+                        <tr key={index}>
+                          <td style={tdStyle}>{payment.date.toLocaleDateString("bs-BA")} {payment.date.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })}</td>
+                          <td style={tdStyle}>{payment.amount.toFixed(2)} KM</td>
+                          <td style={tdStyle}>{payment.note || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
