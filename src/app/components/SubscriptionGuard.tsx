@@ -1,15 +1,37 @@
 "use client";
 
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { useSubscription } from "../context/SubscriptionContext";
 import { usePathname } from "next/navigation";
+import { auth } from "../../lib/firebase";
 
 export default function SubscriptionGuard({ children }: { children: ReactNode }) {
   const { subscription, loading } = useSubscription();
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Uvijek dozvoli pristup profilu
-  if (pathname === "/profile") {
+  useEffect(() => {
+    const checkAdmin = () => {
+      const user = auth.currentUser;
+      const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@example.com";
+      setIsAdmin(user?.email === ADMIN_EMAIL);
+    };
+
+    const unsubscribe = auth.onAuthStateChanged(() => {
+      checkAdmin();
+    });
+
+    checkAdmin();
+    return () => unsubscribe();
+  }, []);
+
+  // Uvijek dozvoli pristup profilu i admin panelu
+  if (pathname === "/profile" || pathname === "/admin") {
+    return <>{children}</>;
+  }
+
+  // Admin može pristupiti svim stranicama bez pretplate
+  if (isAdmin) {
     return <>{children}</>;
   }
 

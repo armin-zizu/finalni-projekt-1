@@ -31,7 +31,7 @@ interface SubscriptionContextType {
   subscription: SubscriptionStatus | null;
   loading: boolean;
   refreshSubscription: () => Promise<void>;
-  addPayment: (amount: number, note?: string) => Promise<void>;
+  addPayment: (amount: number, months?: number, note?: string) => Promise<void>;
   updateMonthlyPrice: (price: number) => Promise<void>;
 }
 
@@ -69,11 +69,11 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     if (data.expiryDate) {
       expiryDate = data.expiryDate.toDate ? data.expiryDate.toDate() : new Date(data.expiryDate);
       
-      if (now < expiryDate) {
+      if (expiryDate && now < expiryDate) {
         // Pretplata je aktivna
         isActive = true;
         daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      } else {
+      } else if (expiryDate) {
         // Pretplata je istekla, provjeri grace period
         if (data.graceEndDate) {
           graceEndDate = data.graceEndDate.toDate ? data.graceEndDate.toDate() : new Date(data.graceEndDate);
@@ -83,7 +83,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
           graceEndDate.setDate(graceEndDate.getDate() + 7);
         }
 
-        if (now < graceEndDate) {
+        if (graceEndDate && now < graceEndDate) {
           // U grace periodu
           isGracePeriod = true;
           isActive = false; // Neaktivna, ali ima pristup
