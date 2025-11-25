@@ -106,6 +106,8 @@ export default function Profile() {
   const [monthlyPrice, setMonthlyPrice] = useState("12");
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"paypal" | "bank">("paypal");
+  const [bankReferenceNumber, setBankReferenceNumber] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1098,7 +1100,7 @@ export default function Profile() {
                 Plaćanje pretplate
               </h3>
               <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "16px" }}>
-                Odaberite period pretplate i platite karticom. Cijena: 12 KM/mjesec.
+                Odaberite period pretplate i način plaćanja. Cijena: 12 KM/mjesec.
               </p>
               
               {/* Odabir perioda */}
@@ -1144,54 +1146,139 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Stripe Checkout Button */}
-              <button
-                onClick={async () => {
-                  const user = auth.currentUser;
-                  if (!user) {
-                    setSubscriptionMessage("Morate biti prijavljeni da biste platili.");
-                    return;
-                  }
+              {/* Odabir načina plaćanja */}
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", marginBottom: "8px", display: "block" }}>
+                  Način plaćanja:
+                </label>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => setPaymentMethod("paypal")}
+                    style={{
+                      padding: "12px 20px",
+                      border: paymentMethod === "paypal" ? "2px solid #0070ba" : "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      background: paymentMethod === "paypal" ? "#e6f2ff" : "#fff",
+                      color: paymentMethod === "paypal" ? "#0070ba" : "#1f2937",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: paymentMethod === "paypal" ? 600 : 500,
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    💳 PayPal / Kartica
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("bank")}
+                    style={{
+                      padding: "12px 20px",
+                      border: paymentMethod === "bank" ? "2px solid #16a34a" : "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      background: paymentMethod === "bank" ? "#dcfce7" : "#fff",
+                      color: paymentMethod === "bank" ? "#16a34a" : "#1f2937",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: paymentMethod === "bank" ? 600 : 500,
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    🏦 Bankovni Transfer
+                  </button>
+                </div>
+              </div>
 
-                  setIsProcessingPayment(true);
-                  try {
-                    const response = await fetch("/api/create-checkout-session", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        months: selectedMonths,
-                        amount: 12 * selectedMonths,
-                        userId: user.uid,
-                      }),
-                    });
+              {/* PayPal Payment */}
+              {paymentMethod === "paypal" && (
+                <div>
+                  <button
+                    onClick={async () => {
+                      const user = auth.currentUser;
+                      if (!user) {
+                        setSubscriptionMessage("Morate biti prijavljeni da biste platili.");
+                        return;
+                      }
 
-                    const data = await response.json();
-                    if (data.url) {
-                      window.location.href = data.url;
-                    } else {
-                      throw new Error("Greška pri kreiranju checkout session");
-                    }
-                  } catch (error) {
-                    console.error("Greška pri plaćanju:", error);
-                    setSubscriptionMessage("Greška pri pokretanju plaćanja. Pokušajte ponovo.");
-                    setIsProcessingPayment(false);
-                  }
-                }}
-                disabled={isProcessingPayment}
-                style={{
-                  ...buttonStyle,
-                  width: "100%",
-                  padding: "14px",
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  background: isProcessingPayment ? "#9ca3af" : "#3b82f6",
-                  cursor: isProcessingPayment ? "not-allowed" : "pointer",
-                }}
-              >
-                {isProcessingPayment ? "Obrađuje se..." : `Plati ${12 * selectedMonths} KM karticom`}
-              </button>
+                      setIsProcessingPayment(true);
+                      try {
+                        const response = await fetch("/api/create-paypal-order", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify({
+                            months: selectedMonths,
+                            amount: 12 * selectedMonths,
+                            userId: user.uid,
+                          }),
+                        });
+
+                        const data = await response.json();
+                        if (data.orderID) {
+                          // Redirect to PayPal
+                          window.location.href = `https://www.paypal.com/checkoutnow?token=${data.orderID}`;
+                        } else {
+                          throw new Error("Greška pri kreiranju PayPal ordera");
+                        }
+                      } catch (error) {
+                        console.error("Greška pri plaćanju:", error);
+                        setSubscriptionMessage("Greška pri pokretanju plaćanja. Pokušajte ponovo.");
+                        setIsProcessingPayment(false);
+                      }
+                    }}
+                    disabled={isProcessingPayment}
+                    style={{
+                      ...buttonStyle,
+                      width: "100%",
+                      padding: "14px",
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      background: isProcessingPayment ? "#9ca3af" : "#0070ba",
+                      cursor: isProcessingPayment ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {isProcessingPayment ? "Obrađuje se..." : `Plati ${12 * selectedMonths} KM preko PayPal-a`}
+                  </button>
+                </div>
+              )}
+
+              {/* Bank Transfer */}
+              {paymentMethod === "bank" && (
+                <div style={{ padding: "16px", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                  <h4 style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                    Instrukcije za bankovni transfer:
+                  </h4>
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>Broj računa:</p>
+                    <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", fontFamily: "monospace" }}>
+                      {process.env.NEXT_PUBLIC_BANK_ACCOUNT || "XXX-XXX-XXXXXXX-XX"}
+                    </p>
+                  </div>
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>Reference broj:</p>
+                    <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", fontFamily: "monospace" }}>
+                      {bankReferenceNumber || (auth.currentUser ? `REF-${auth.currentUser.uid.substring(0, 8).toUpperCase()}-${selectedMonths}` : "N/A")}
+                    </p>
+                  </div>
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>Iznos:</p>
+                    <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                      {12 * selectedMonths} KM
+                    </p>
+                  </div>
+                  <div style={{ marginBottom: "12px" }}>
+                    <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "4px" }}>Svrha plaćanja:</p>
+                    <p style={{ fontSize: "14px", color: "#1f2937" }}>
+                      Pretplata - {selectedMonths} {selectedMonths === 1 ? "mjesec" : "mjeseci"}
+                    </p>
+                  </div>
+                  <div style={{ padding: "12px", background: "#fff3cd", borderRadius: "6px", border: "1px solid #ffc107" }}>
+                    <p style={{ fontSize: "12px", color: "#856404", margin: 0 }}>
+                      ⚠️ <strong>Važno:</strong> Nakon što izvršite transfer, pretplata će biti aktivirana u roku od 24 sata nakon provjere uplate. 
+                      Reference broj je jedinstven - molimo koristite ga prilikom transfera.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {subscriptionMessage && (
                 <p
