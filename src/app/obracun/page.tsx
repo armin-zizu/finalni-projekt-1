@@ -496,7 +496,13 @@ export default function ObracunPage() {
     );
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
-    setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju (isto kao u handleSaveObracun)
+    
+    // Povećaj reset key da se input polja potpuno resetiraju (isto kao u handleSaveObracun)
+    // Koristimo setTimeout da se osigura da se React stigne ažurirati prije nego što se prikaže alert
+    setTimeout(() => {
+      setResetKey((prev) => prev + 1);
+    }, 0);
+    
     alert("Obračun ažuriran! Početno stanje artikala je ažurirano.");
   };
 
