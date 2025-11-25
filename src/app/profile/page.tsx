@@ -619,6 +619,23 @@ export default function Profile() {
           Pretplata
         </h2>
         
+        {/* Debug info - privremeno */}
+        <div style={{ padding: "12px", background: "#fef3c7", borderRadius: "6px", marginBottom: "16px", fontSize: "12px", border: "1px solid #f59e0b" }}>
+          <p style={{ margin: "4px 0", fontWeight: 600 }}>DEBUG INFO:</p>
+          <p style={{ margin: "4px 0" }}>subscriptionContextLoading: {String(subscriptionContextLoading)}</p>
+          <p style={{ margin: "4px 0" }}>subscriptionLoading: {String(subscriptionLoading)}</p>
+          <p style={{ margin: "4px 0" }}>subscription: {subscription ? "EXISTS" : "NULL"}</p>
+          <p style={{ margin: "4px 0" }}>subscriptionContext: {subscriptionContext ? "EXISTS" : "NULL"}</p>
+          {subscriptionContext && (
+            <>
+              <p style={{ margin: "4px 0" }}>isTrial: {String(subscriptionContext.isTrial)}</p>
+              <p style={{ margin: "4px 0" }}>isActive: {String(subscriptionContext.isActive)}</p>
+              <p style={{ margin: "4px 0" }}>isGracePeriod: {String(subscriptionContext.isGracePeriod)}</p>
+              <p style={{ margin: "4px 0" }}>daysRemaining: {subscriptionContext.daysRemaining}</p>
+            </>
+          )}
+        </div>
+        
         {subscriptionContextLoading || (subscriptionLoading && !subscription) ? (
           <p style={{ color: "#6b7280", fontSize: "14px" }}>Učitavanje pretplate...</p>
         ) : subscription && subscriptionContext ? (
