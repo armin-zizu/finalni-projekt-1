@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
-import { FaTachometerAlt, FaCalculator, FaArchive, FaTags, FaDollarSign, FaUser, FaBars } from "react-icons/fa";
+import { FaTachometerAlt, FaCalculator, FaArchive, FaTags, FaDollarSign, FaUser, FaBars, FaShieldAlt } from "react-icons/fa";
 import { useAppName } from "../context/AppNameContext";
 
 const Sidebar = () => {
@@ -13,11 +13,15 @@ const Sidebar = () => {
   const { appName } = useAppName();
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // Provjera autentifikacije
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsAuthenticated(!!user);
+      // Provjeri da li je admin
+      const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@example.com";
+      setIsAdmin(user?.email === ADMIN_EMAIL);
     });
     return () => unsubscribe();
   }, []);
@@ -28,7 +32,8 @@ const Sidebar = () => {
     { href: "/arhiva", label: "Arhiva", icon: <FaArchive /> },
     { href: "/cjenovnik", label: "Cjenovnik", icon: <FaTags /> },
     { href: "/profit", label: "Profit", icon: <FaDollarSign /> },
-    { href: "/profile", label: "Profil", icon: <FaUser /> }, // Dodan ispravan link za profil
+    { href: "/profile", label: "Profil", icon: <FaUser /> },
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: <FaShieldAlt /> }] : []),
   ];
 
   return (
