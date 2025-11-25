@@ -13,19 +13,28 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:917711656028:web:34b091221909d7f4ab0299',
 };
 
-// Debug log (samo u development modu)
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+// Debug log (i u production da vidimo koji API key se koristi)
+if (typeof window !== 'undefined') {
+  const apiKeyPrefix = firebaseConfig.apiKey?.substring(0, 20) || 'MISSING';
+  const isOldApiKey = apiKeyPrefix.includes('AIzaSyAj0So6ODm7uJzQPshWwKt4jquMtKe2gNM') || apiKeyPrefix.includes('AIzaSyAj');
+  const isCorrectApiKey = apiKeyPrefix.includes('AIzaSyB1PZRZcpjrOvpwEWunbHiUstIUuYIE6k4') || apiKeyPrefix.includes('AIzaSyB1');
+  
   console.log('Firebase Config Check:', {
     hasApiKey: !!firebaseConfig.apiKey,
-    apiKeyPrefix: firebaseConfig.apiKey?.substring(0, 10) + '...',
+    apiKeyPrefix: apiKeyPrefix + '...',
     authDomain: firebaseConfig.authDomain,
     projectId: firebaseConfig.projectId,
-    allEnvVars: {
-      NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? 'EXISTS' : 'MISSING',
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ? 'EXISTS' : 'MISSING',
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ? 'EXISTS' : 'MISSING',
-    }
+    isOldApiKey: isOldApiKey,
+    isCorrectApiKey: isCorrectApiKey,
+    environment: process.env.NODE_ENV,
   });
+  
+  // Upozorenje ako se koristi stari API key
+  if (isOldApiKey) {
+    console.error('⚠️ UPOZORENJE: Koristi se STARI API key! Ažuriraj environment varijable na Vercel-u!');
+    console.error('👉 Otvori: https://vercel.com/dashboard → Settings → Environment Variables');
+    console.error('👉 Ažuriraj NEXT_PUBLIC_FIREBASE_API_KEY na: AIzaSyB1PZRZcpjrOvpwEWunbHiUstIUuYIE6k4');
+  }
 }
 
 // Provjera konfiguracije
