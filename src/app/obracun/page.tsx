@@ -221,24 +221,84 @@ export default function ObracunPage() {
 
   // Inicijalizacija artikala na osnovu cjenovnika
   useEffect(() => {
-    const inicijalniArtikli = cjenovnik.map((item) => ({
-      naziv: item.naziv,
-      cijena: item.cijena,
-      pocetnoStanje: item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje,
-      ulaz: item.naziv.toLowerCase().includes("kafa") ? 0 : 0,
-      ukupno: item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje,
-      utroseno: 0,
-      krajnjeStanje: 0,
-      vrijednostKM: 0,
-      zestokoKolicina: item.zestokoKolicina,
-      proizvodnaCijena: item.proizvodnaCijena,
-      isKrajnjeSet: false,
-      staroPocetnoStanje: undefined,
-      sačuvanUlaz: undefined,
-    }));
+    const datumString = formatirajDatum(trenutniDatum);
+    const cacheKey = `ulazCache_${datumString}`;
+    const cachedUlaz = localStorage.getItem(cacheKey);
+    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
+    
+    if (cachedUlaz) {
+      try {
+        ulazCache = JSON.parse(cachedUlaz);
+      } catch (e) {
+        console.warn("Greška pri čitanju cache-a ulaza pri inicijalizaciji:", e);
+      }
+    }
+    
+    const inicijalniArtikli = cjenovnik.map((item) => {
+      const cached = ulazCache[item.naziv];
+      const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
+      
+      // Ako postoji cache, učitaj ulaz i staro početno stanje
+      if (cached && cached.staroPocetnoStanje !== undefined) {
+        if (cached.ulaz !== 0) {
+          // Ako ima ulaz, učitaj ga
+          return {
+            naziv: item.naziv,
+            cijena: item.cijena,
+            pocetnoStanje: pocetnoStanje,
+            ulaz: cached.ulaz,
+            ukupno: pocetnoStanje + cached.ulaz,
+            utroseno: 0,
+            krajnjeStanje: 0,
+            vrijednostKM: 0,
+            zestokoKolicina: item.zestokoKolicina,
+            proizvodnaCijena: item.proizvodnaCijena,
+            isKrajnjeSet: false,
+            staroPocetnoStanje: cached.staroPocetnoStanje,
+            sačuvanUlaz: undefined,
+          };
+        } else {
+          // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje
+          return {
+            naziv: item.naziv,
+            cijena: item.cijena,
+            pocetnoStanje: pocetnoStanje,
+            ulaz: 0,
+            ukupno: pocetnoStanje,
+            utroseno: 0,
+            krajnjeStanje: 0,
+            vrijednostKM: 0,
+            zestokoKolicina: item.zestokoKolicina,
+            proizvodnaCijena: item.proizvodnaCijena,
+            isKrajnjeSet: false,
+            staroPocetnoStanje: cached.staroPocetnoStanje,
+            sačuvanUlaz: undefined,
+          };
+        }
+      }
+      
+      // Ako nema cache, inicijaliziraj normalno
+      return {
+        naziv: item.naziv,
+        cijena: item.cijena,
+        pocetnoStanje: pocetnoStanje,
+        ulaz: 0,
+        ukupno: pocetnoStanje,
+        utroseno: 0,
+        krajnjeStanje: 0,
+        vrijednostKM: 0,
+        zestokoKolicina: item.zestokoKolicina,
+        proizvodnaCijena: item.proizvodnaCijena,
+        isKrajnjeSet: false,
+        staroPocetnoStanje: undefined,
+        sačuvanUlaz: undefined,
+      };
+    });
+    
     setArtikli(inicijalniArtikli);
     setIsAzuriran(false); // Resetiraj flag pri inicijalizaciji
-  }, [cjenovnik]);
+    setResetKey(0); // Resetiraj reset key pri inicijalizaciji
+  }, [cjenovnik, trenutniDatum]);
 
   // Učitaj ulaz iz cache-a kada se promijeni datum (backup - ako se promijeni datum nakon inicijalizacije)
   useEffect(() => {
