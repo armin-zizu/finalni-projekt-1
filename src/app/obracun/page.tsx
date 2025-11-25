@@ -240,7 +240,7 @@ export default function ObracunPage() {
     setIsAzuriran(false); // Resetiraj flag pri inicijalizaciji
   }, [cjenovnik]);
 
-  // Učitaj ulaz iz cache-a kada se promijeni datum
+  // Učitaj ulaz iz cache-a kada se promijeni datum (backup - ako se promijeni datum nakon inicijalizacije)
   useEffect(() => {
     if (cjenovnik.length === 0 || artikli.length === 0) return;
     
@@ -282,7 +282,7 @@ export default function ObracunPage() {
         console.warn("Greška pri čitanju cache-a ulaza:", e);
       }
     }
-  }, [trenutniDatum, cjenovnik, artikli.length]);
+  }, [trenutniDatum]);
 
   const formatirajDatum = (datum: Date): string => {
     const dan = datum.getDate().toString().padStart(2, "0");
