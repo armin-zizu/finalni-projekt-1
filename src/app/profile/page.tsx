@@ -1213,8 +1213,11 @@ export default function Profile() {
                         });
 
                         const data = await response.json();
-                        if (data.orderID) {
+                        if (data.approvalUrl) {
                           // Redirect to PayPal
+                          window.location.href = data.approvalUrl;
+                        } else if (data.orderID) {
+                          // Fallback na stari način
                           window.location.href = `https://www.paypal.com/checkoutnow?token=${data.orderID}`;
                         } else {
                           throw new Error("Greška pri kreiranju PayPal ordera");
