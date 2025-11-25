@@ -29,6 +29,12 @@ interface Subscription {
     amount: number;
     note: string;
   }>;
+  // Calculated fields
+  isTrial?: boolean;
+  isGracePeriod?: boolean;
+  daysRemaining?: number;
+  daysUntilExpiry?: number;
+  daysInGrace?: number;
 }
 
 export default function AdminPage() {
@@ -115,18 +121,56 @@ export default function AdminPage() {
           if (subscriptionDoc && subscriptionDoc.exists()) {
             try {
               const subData = subscriptionDoc.data();
+              const now = new Date();
+              const userCreatedAt = userData.createdAt?.toDate?.() || (userData.createdAt ? new Date(userData.createdAt) : null);
+              
+              // Parse dates
+              const trialEndDate = subData.trialEndDate?.toDate?.() || (subData.trialEndDate ? new Date(subData.trialEndDate) : null);
+              const expiryDate = subData.expiryDate?.toDate?.() || (subData.expiryDate ? new Date(subData.expiryDate) : null);
+              const graceEndDate = subData.graceEndDate?.toDate?.() || (subData.graceEndDate ? new Date(subData.graceEndDate) : null);
+              
+              // Calculate status
+              let isTrial = false;
+              let isGracePeriod = false;
+              let daysRemaining = 0;
+              let daysUntilExpiry = 0;
+              let daysInGrace = 0;
+              
+              // Check trial period
+              if (trialEndDate && now < trialEndDate) {
+                isTrial = true;
+                daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              } else if (expiryDate) {
+                if (now < expiryDate) {
+                  // Active subscription
+                  daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                } else {
+                  // Expired, check grace period
+                  const calculatedGraceEnd = graceEndDate || (expiryDate ? new Date(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000) : null);
+                  if (calculatedGraceEnd && now < calculatedGraceEnd) {
+                    isGracePeriod = true;
+                    daysInGrace = Math.ceil((calculatedGraceEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                  }
+                }
+              }
+              
               subscription = {
                 isActive: subData.isActive || false,
                 monthlyPrice: subData.monthlyPrice || 12,
                 lastPaymentDate: subData.lastPaymentDate?.toDate?.() || (subData.lastPaymentDate ? new Date(subData.lastPaymentDate) : null),
-                expiryDate: subData.expiryDate?.toDate?.() || (subData.expiryDate ? new Date(subData.expiryDate) : null),
-                graceEndDate: subData.graceEndDate?.toDate?.() || (subData.graceEndDate ? new Date(subData.graceEndDate) : null),
-                trialEndDate: subData.trialEndDate?.toDate?.() || (subData.trialEndDate ? new Date(subData.trialEndDate) : null),
+                expiryDate: expiryDate,
+                graceEndDate: graceEndDate,
+                trialEndDate: trialEndDate,
                 paymentHistory: (subData.paymentHistory || []).map((p: any) => ({
                   date: p.date?.toDate?.() || (p.date ? new Date(p.date) : new Date()),
                   amount: p.amount || 0,
                   note: p.note || "",
                 })),
+                isTrial,
+                isGracePeriod,
+                daysRemaining,
+                daysUntilExpiry,
+                daysInGrace,
               };
             } catch (parseError) {
               console.warn(`Greška pri parsiranju subscription podataka za korisnika ${userId}:`, parseError);
@@ -372,10 +416,16 @@ export default function AdminPage() {
                   App Name
                 </th>
                 <th style={{ padding: "12px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
-                  Status
+                  Status Pretplate
                 </th>
                 <th style={{ padding: "12px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
-                  Ističe
+                  Preostalo Dana
+                </th>
+                <th style={{ padding: "12px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
+                  Registracija
+                </th>
+                <th style={{ padding: "12px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
+                  Uplate
                 </th>
                 <th style={{ padding: "12px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
                   Akcije
@@ -386,10 +436,51 @@ export default function AdminPage() {
               {filteredUsers.map((user) => {
                 const subscription = subscriptions[user.id];
                 const isActive = subscription?.isActive || false;
-                const expiryDate = subscription?.expiryDate;
-                const daysUntilExpiry = expiryDate
-                  ? Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-                  : null;
+                const isTrial = subscription?.isTrial || false;
+                const isGracePeriod = subscription?.isGracePeriod || false;
+                const daysRemaining = subscription?.daysRemaining || 0;
+                const daysUntilExpiry = subscription?.daysUntilExpiry || 0;
+                const daysInGrace = subscription?.daysInGrace || 0;
+                const paymentCount = subscription?.paymentHistory?.length || 0;
+                
+                // Determine status text and color
+                let statusText = "Neaktivna";
+                let statusColor = "#dc2626";
+                let statusBg = "#fee2e2";
+                
+                if (isTrial) {
+                  statusText = `Trial (${daysRemaining} dana)`;
+                  statusColor = "#2563eb";
+                  statusBg = "#dbeafe";
+                } else if (isActive && daysUntilExpiry > 0) {
+                  statusText = `Aktivna (${daysUntilExpiry} dana)`;
+                  statusColor = "#16a34a";
+                  statusBg = "#dcfce7";
+                } else if (isGracePeriod) {
+                  statusText = `Grace Period (${daysInGrace} dana)`;
+                  statusColor = "#f59e0b";
+                  statusBg = "#fef3c7";
+                } else if (isActive) {
+                  statusText = "Aktivna";
+                  statusColor = "#16a34a";
+                  statusBg = "#dcfce7";
+                } else {
+                  statusText = "Neaktivna";
+                  statusColor = "#dc2626";
+                  statusBg = "#fee2e2";
+                }
+                
+                // Calculate remaining days text
+                let remainingDaysText = "N/A";
+                if (isTrial) {
+                  remainingDaysText = `${daysRemaining} dana (Trial)`;
+                } else if (isActive && daysUntilExpiry > 0) {
+                  remainingDaysText = `${daysUntilExpiry} dana`;
+                } else if (isGracePeriod) {
+                  remainingDaysText = `${daysInGrace} dana (Grace)`;
+                } else if (subscription?.expiryDate) {
+                  remainingDaysText = "Istekla";
+                }
 
                 return (
                   <tr key={user.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
@@ -406,19 +497,25 @@ export default function AdminPage() {
                           borderRadius: "12px",
                           fontSize: "12px",
                           fontWeight: 600,
-                          backgroundColor: isActive ? "#dcfce7" : "#fee2e2",
-                          color: isActive ? "#16a34a" : "#dc2626",
+                          backgroundColor: statusBg,
+                          color: statusColor,
                         }}
                       >
-                        {isActive ? "Aktivna" : "Neaktivna"}
+                        {statusText}
                       </span>
                     </td>
                     <td style={{ padding: "12px", fontSize: "14px", color: "#1f2937" }}>
-                      {expiryDate
-                        ? daysUntilExpiry !== null
-                          ? `${daysUntilExpiry > 0 ? daysUntilExpiry : 0} dana`
-                          : "Istekla"
-                        : "N/A"}
+                      {remainingDaysText}
+                    </td>
+                    <td style={{ padding: "12px", fontSize: "12px", color: "#6b7280" }}>
+                      {user.createdAt ? user.createdAt.toLocaleDateString("bs-BA") : "N/A"}
+                    </td>
+                    <td style={{ padding: "12px", fontSize: "14px", color: "#1f2937" }}>
+                      {paymentCount > 0 ? (
+                        <span style={{ fontWeight: 600, color: "#3b82f6" }}>{paymentCount} uplata</span>
+                      ) : (
+                        <span style={{ color: "#9ca3af" }}>Nema uplata</span>
+                      )}
                     </td>
                     <td style={{ padding: "12px" }}>
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
