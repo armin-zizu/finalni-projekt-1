@@ -1349,7 +1349,7 @@ export default function Profile() {
               setBackupMessage(`Backup uspješno preuzet! (${arhiva.length} obračuna, ${cjenovnik.length} artikala)`);
               setTimeout(() => setBackupMessage(""), 5000);
             }}
-            style={buttonStyle}
+            style={{ ...buttonStyle, width: "auto", display: "inline-block" }}
           >
             Preuzmi backup podataka (PDF)
           </button>
