@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import { db } from "../../lib/firestore";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useSubscription } from "../context/SubscriptionContext";
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",
@@ -101,7 +102,8 @@ export default function Profile() {
   const [emailMessage, setEmailMessage] = useState("");
   const router = useRouter();
   
-  // Subscription state
+  // Subscription state - koristi SubscriptionContext
+  const { subscription: subscriptionContext, refreshSubscription } = useSubscription();
   const [subscription, setSubscription] = useState<{
     isActive: boolean;
     monthlyPrice: number;
@@ -438,6 +440,10 @@ export default function Profile() {
       
       setSubscription((prev) => prev ? { ...prev, monthlyPrice: price } : null);
       setIsEditingPrice(false);
+      
+      // Refresh subscription context
+      await refreshSubscription();
+      
       setSubscriptionMessage("Cijena mjesečne pretplate uspješno ažurirana!");
       setTimeout(() => setSubscriptionMessage(""), 3000);
     } catch (error) {
@@ -481,12 +487,17 @@ export default function Profile() {
         return bTime - aTime;
       });
 
+      // Izračunaj graceEndDate (15 dana nakon isteka pretplate)
+      const graceEndDate = new Date(expiryDate);
+      graceEndDate.setDate(graceEndDate.getDate() + 15);
+
       await setDoc(
         subscriptionRef,
         {
           isActive: true,
           lastPaymentDate: now,
           expiryDate: expiryDate,
+          graceEndDate: graceEndDate,
           paymentHistory: updatedHistory,
         },
         { merge: true }
@@ -499,6 +510,9 @@ export default function Profile() {
         expiryDate: expiryDate,
         paymentHistory: updatedHistory,
       });
+
+      // Refresh subscription context
+      await refreshSubscription();
 
       setNewPaymentAmount("");
       setNewPaymentNote("");
