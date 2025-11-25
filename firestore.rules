@@ -6,8 +6,7 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null && 
              request.auth.token.email != null &&
-             (request.auth.token.email == 'admin@example.com' || 
-              request.auth.token.email.matches('.*@.*')); // Možeš dodati više admin email-ova
+             request.auth.token.email == 'gitara.zizu@gmail.com';
     }
     
     // Users collection - korisnik može pristupiti samo svojim podacima, admin može sve
