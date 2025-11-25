@@ -619,9 +619,9 @@ export default function Profile() {
           Pretplata
         </h2>
         
-        {subscriptionLoading || !subscriptionContext ? (
+        {(subscriptionLoading && !subscription) || !subscriptionContext ? (
           <p style={{ color: "#6b7280", fontSize: "14px" }}>Učitavanje...</p>
-        ) : (
+        ) : subscription && subscriptionContext ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Status pretplate - koristi SubscriptionContext */}
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
