@@ -119,9 +119,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     try {
       const userId = user.uid;
       console.log("SubscriptionContext - Loading subscription for user:", userId);
+      console.log("SubscriptionContext - User authenticated:", !!user);
+      console.log("SubscriptionContext - User UID:", userId);
+      
       const subscriptionRef = doc(db, "users", userId, "subscription", "info");
+      console.log("SubscriptionContext - Subscription ref path:", subscriptionRef.path);
+      
       const subscriptionDoc = await getDoc(subscriptionRef);
       console.log("SubscriptionContext - Subscription doc exists:", subscriptionDoc.exists());
+      
+      if (!subscriptionDoc.exists()) {
+        console.log("SubscriptionContext - Document does not exist, will create new one");
+      }
 
       let subscriptionData: any = {};
       if (subscriptionDoc.exists()) {
@@ -143,10 +152,17 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         };
 
         // Koristimo Timestamp za Firestore
-        await setDoc(subscriptionRef, {
-          ...subscriptionData,
-          trialEndDate: Timestamp.fromDate(trialEndDate),
-        });
+        console.log("SubscriptionContext - Creating new subscription document with trialEndDate:", trialEndDate);
+        try {
+          await setDoc(subscriptionRef, {
+            ...subscriptionData,
+            trialEndDate: Timestamp.fromDate(trialEndDate),
+          });
+          console.log("SubscriptionContext - Successfully created subscription document");
+        } catch (createError) {
+          console.error("SubscriptionContext - Error creating subscription document:", createError);
+          throw createError;
+        }
 
         // Koristimo lokalno izračunati datum za status
         subscriptionData.trialEndDate = trialEndDate;
