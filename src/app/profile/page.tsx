@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import { db } from "../../lib/firestore";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { useSubscription } from "../context/SubscriptionContext";
+import { useSubscription as useSubscriptionContext } from "../context/SubscriptionContext";
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",
@@ -623,23 +623,61 @@ export default function Profile() {
           <p style={{ color: "#6b7280", fontSize: "14px" }}>Učitavanje...</p>
         ) : subscription ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            {/* Status pretplate */}
+            {/* Status pretplate - koristi SubscriptionContext */}
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", flexWrap: "wrap" }}>
-                <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937" }}>Status pretplate</h3>
-                <span
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    fontSize: "14px",
-                    fontWeight: 500,
-                    background: subscription.isActive && !isSubscriptionExpired() ? "#dcfce7" : "#fee2e2",
-                    color: subscription.isActive && !isSubscriptionExpired() ? "#16a34a" : "#dc2626",
-                  }}
-                >
-                  {subscription.isActive && !isSubscriptionExpired() ? "✓ Aktivna" : "✗ Neaktivna"}
-                </span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+                <div>
+                  <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "4px" }}>Status pretplate</h3>
+                  <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                    {subscriptionContext?.isTrial 
+                      ? `Trial period ističe za ${subscriptionContext.daysRemaining} ${subscriptionContext.daysRemaining === 1 ? "dan" : "dana"}`
+                      : subscriptionContext?.isActive
+                      ? `Pretplata ističe za ${subscriptionContext.daysUntilExpiry} ${subscriptionContext.daysUntilExpiry === 1 ? "dan" : "dana"}`
+                      : subscriptionContext?.isGracePeriod
+                      ? `Grace period ističe za ${subscriptionContext.daysInGrace} ${subscriptionContext.daysInGrace === 1 ? "dan" : "dana"}`
+                      : "Pretplata nije aktivna"}
+                  </p>
+                </div>
+                {subscriptionContext && (
+                  <span
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      background: getSubscriptionStatus().bg,
+                      color: getSubscriptionStatus().color,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {getSubscriptionStatus().text}
+                  </span>
+                )}
               </div>
+              
+              {/* Dugme za aktivaciju pretplate ako nije aktivna */}
+              {subscriptionContext && (!subscriptionContext.isActive || subscriptionContext.isGracePeriod) && (
+                <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                  <p style={{ fontSize: "14px", color: "#1f2937", marginBottom: "12px", fontWeight: 500 }}>
+                    Aktiviraj pretplatu za {subscription.monthlyPrice.toFixed(2)} KM/mjesec
+                  </p>
+                  <button
+                    onClick={() => {
+                      // Scroll to payment section
+                      document.getElementById("payment-section")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    style={{
+                      ...buttonStyle,
+                      background: "#3b82f6",
+                      padding: "10px 20px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Aktiviraj pretplatu
+                  </button>
+                </div>
+              )}
               
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
                 <div>
@@ -710,10 +748,16 @@ export default function Profile() {
             </div>
 
             {/* Dodaj novu uplatu */}
-            <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
-                Dodaj novu uplatu
+            <div id="payment-section" style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px" }}>
+                Plaćanje pretplate
               </h3>
+              <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "16px" }}>
+                Unesite iznos uplate da aktivirate ili obnovite pretplatu. Pretplata traje 1 mjesec od datuma uplate.
+              </p>
+              <h4 style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                Dodaj novu uplatu
+              </h4>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                   <input
@@ -1560,7 +1604,8 @@ export default function Profile() {
             ...buttonStyle,
             background: "#dc2626",
             marginTop: "24px",
-            width: "100%",
+            width: "auto",
+            display: "inline-block",
           }}
         >
           Odjava
