@@ -619,9 +619,9 @@ export default function Profile() {
           Pretplata
         </h2>
         
-        {subscriptionLoading ? (
+        {subscriptionLoading || !subscriptionContext ? (
           <p style={{ color: "#6b7280", fontSize: "14px" }}>Učitavanje...</p>
-        ) : subscription ? (
+        ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Status pretplate - koristi SubscriptionContext */}
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
@@ -629,16 +629,16 @@ export default function Profile() {
                 <div>
                   <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "4px" }}>Status pretplate</h3>
                   <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
-                    {subscriptionContext?.isTrial 
+                    {subscriptionContext.isTrial 
                       ? `Trial period ističe za ${subscriptionContext.daysRemaining} ${subscriptionContext.daysRemaining === 1 ? "dan" : "dana"}`
-                      : subscriptionContext?.isActive
+                      : subscriptionContext.isActive
                       ? `Pretplata ističe za ${subscriptionContext.daysUntilExpiry} ${subscriptionContext.daysUntilExpiry === 1 ? "dan" : "dana"}`
-                      : subscriptionContext?.isGracePeriod
+                      : subscriptionContext.isGracePeriod
                       ? `Grace period ističe za ${subscriptionContext.daysInGrace} ${subscriptionContext.daysInGrace === 1 ? "dan" : "dana"}`
                       : "Pretplata nije aktivna"}
                   </p>
                 </div>
-                {subscriptionContext && (() => {
+                {(() => {
                   let statusText = "N/A";
                   let statusColor = "#6b7280";
                   let statusBg = "#f3f4f6";
@@ -680,7 +680,7 @@ export default function Profile() {
               </div>
               
               {/* Dugme za aktivaciju pretplate ako nije aktivna */}
-              {subscriptionContext && (!subscriptionContext.isActive || subscriptionContext.isGracePeriod) && (
+              {(!subscriptionContext.isActive || subscriptionContext.isGracePeriod) && (
                 <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
                   <p style={{ fontSize: "14px", color: "#1f2937", marginBottom: "12px", fontWeight: 500 }}>
                     Aktiviraj pretplatu za {subscription.monthlyPrice.toFixed(2)} KM/mjesec
