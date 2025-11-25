@@ -6,8 +6,8 @@ import { collection, getDocs, doc, getDoc, setDoc, Timestamp } from "firebase/fi
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
 
-// Admin email - promijeni na svoj email
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@example.com";
+// Admin email
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
 
 interface User {
   id: string;

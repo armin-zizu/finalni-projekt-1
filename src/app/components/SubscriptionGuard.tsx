@@ -13,7 +13,7 @@ export default function SubscriptionGuard({ children }: { children: ReactNode })
   useEffect(() => {
     const checkAdmin = () => {
       const user = auth.currentUser;
-      const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@example.com";
+      const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
       setIsAdmin(user?.email === ADMIN_EMAIL);
     };
 

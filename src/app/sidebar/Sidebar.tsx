@@ -20,7 +20,7 @@ const Sidebar = () => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsAuthenticated(!!user);
       // Provjeri da li je admin
-      const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@example.com";
+      const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
       setIsAdmin(user?.email === ADMIN_EMAIL);
     });
     return () => unsubscribe();
