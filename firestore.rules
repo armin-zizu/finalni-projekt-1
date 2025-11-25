@@ -20,10 +20,5 @@ service cloud.firestore {
       }
     }
     
-    // Fallback pravilo za sve ostalo (trenutno dozvoljeno do 2025-12-15)
-    // OVO MORA BITI NA KRAJU jer match /{document=**} hvata sve
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 12, 15);
-    }
   }
 }
