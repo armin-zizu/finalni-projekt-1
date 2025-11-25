@@ -217,6 +217,7 @@ export default function ObracunPage() {
   const [editPrihod, setEditPrihod] = useState<Prihod>({ naziv: "", cijena: 0 });
   const [trenutniDatum, setTrenutniDatum] = useState<Date>(new Date());
   const [isAzuriran, setIsAzuriran] = useState<boolean>(false); // Praćenje da li je obračun bio ažuriran
+  const [resetKey, setResetKey] = useState<number>(0); // Key za reset input polja
 
   // Inicijalizacija artikala na osnovu cjenovnika
   useEffect(() => {
@@ -495,6 +496,7 @@ export default function ObracunPage() {
     );
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
+    setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju
     alert("Obračun ažuriran! Početno stanje artikala je ažurirano.");
   };
 
@@ -925,7 +927,7 @@ export default function ObracunPage() {
                 </td>
                 <td style={tdStyle} data-label="Ulaz">
                   <input
-                    key={`ulaz-${index}-${isAzuriran ? 'reset' : a.ulaz}`}
+                    key={`ulaz-${index}-${resetKey}`}
                     type="number"
                     value={a.ulaz === 0 ? "" : a.ulaz}
                     onFocus={(e) => e.target.select()}
