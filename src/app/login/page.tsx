@@ -31,6 +31,7 @@ export default function LoginPage() {
     setError("");
     try {
       console.log("Pokušavam prijavu s e-mailom:", email);
+      console.log("Firebase Auth Domain:", auth.config?.authDomain || 'N/A');
       const result = await signInWithEmailAndPassword(auth, email, password);
       const user = result.user;
       
@@ -110,7 +111,9 @@ export default function LoginPage() {
       
       console.error("Greška pri e-mail prijavi:", err);
       
-      if (err.code === "auth/user-not-found") {
+      if (err.code === "auth/configuration-not-found") {
+        setError("Email/Password autentifikacija nije omogućena u Firebase Console. Otvori: https://console.firebase.google.com/project/zadnji-projekt/authentication/providers i omogući Email/Password sign-in method.");
+      } else if (err.code === "auth/user-not-found") {
         setError("Korisnik s ovim e-mailom ne postoji. Registriraj se.");
       } else if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
         setError("Pogrešna lozinka. Pokušaj ponovo.");
