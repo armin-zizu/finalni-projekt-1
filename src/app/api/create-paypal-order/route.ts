@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       purchase_units: [
         {
           amount: {
-            currency_code: "BAM",
+            currency_code: "EUR", // PayPal sandbox ne podržava BAM, koristimo EUR za testiranje
             value: amount.toFixed(2),
           },
           description: `Pretplata - ${months} ${months === 1 ? "mjesec" : "mjeseci"}`,
@@ -30,12 +30,15 @@ export async function POST(request: NextRequest) {
         brand_name: "Office App",
         landing_page: "BILLING",
         user_action: "PAY_NOW",
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/profile?payment=success&token={token}`,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/profile?payment=success`,
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/profile?payment=cancelled`,
       },
     });
 
-    return NextResponse.json({ orderID: order.id });
+    // Vrati approval URL umjesto order ID
+    const approvalUrl = order.links?.find((link: any) => link.rel === "approve")?.href;
+    
+    return NextResponse.json({ orderID: order.id, approvalUrl });
   } catch (error: any) {
     console.error("Error creating PayPal order:", error);
     return NextResponse.json(
