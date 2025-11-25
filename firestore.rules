@@ -7,10 +7,10 @@ service cloud.firestore {
       // Korisnik može čitati i pisati svoje podatke
       allow read, write: if request.auth != null && request.auth.uid == userId;
       
-      // Subscription podkolekcija - EKSPLICITNO dozvoljeno
+      // Subscription podkolekcija - PRIVREMENO omogućeno za sve autentifikovane korisnike
       match /subscription/{subscriptionId} {
-        // Korisnik može čitati i pisati svoju pretplatu
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Privremeno omogućeno za sve autentifikovane korisnike (debug)
+        allow read, write: if request.auth != null;
       }
       
       // Obračuni podkolekcija
@@ -19,6 +19,5 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
-    
   }
 }
