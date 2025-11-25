@@ -103,7 +103,7 @@ export default function Profile() {
   const router = useRouter();
   
   // Subscription state - koristi SubscriptionContext
-  const { subscription: subscriptionContext, refreshSubscription } = useSubscription();
+  const { subscription: subscriptionContext, loading: subscriptionContextLoading, refreshSubscription } = useSubscription();
   const [subscription, setSubscription] = useState<{
     isActive: boolean;
     monthlyPrice: number;
@@ -619,8 +619,8 @@ export default function Profile() {
           Pretplata
         </h2>
         
-        {(subscriptionLoading && !subscription) || !subscriptionContext ? (
-          <p style={{ color: "#6b7280", fontSize: "14px" }}>Učitavanje...</p>
+        {subscriptionContextLoading || (subscriptionLoading && !subscription) ? (
+          <p style={{ color: "#6b7280", fontSize: "14px" }}>Učitavanje pretplate...</p>
         ) : subscription && subscriptionContext ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Status pretplate - koristi SubscriptionContext */}
