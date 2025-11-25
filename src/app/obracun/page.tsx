@@ -239,6 +239,38 @@ export default function ObracunPage() {
     setIsAzuriran(false); // Resetiraj flag pri inicijalizaciji
   }, [cjenovnik]);
 
+  // Učitaj ulaz iz cache-a kada se promijeni datum
+  useEffect(() => {
+    if (cjenovnik.length === 0 || artikli.length === 0) return;
+    
+    const datumString = formatirajDatum(trenutniDatum);
+    const cacheKey = `ulazCache_${datumString}`;
+    const cachedUlaz = localStorage.getItem(cacheKey);
+    
+    if (cachedUlaz) {
+      try {
+        const ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = JSON.parse(cachedUlaz);
+        
+        setArtikli((prev) =>
+          prev.map((a) => {
+            const cached = ulazCache[a.naziv];
+            if (cached && cached.ulaz > 0) {
+              return {
+                ...a,
+                ulaz: cached.ulaz,
+                ukupno: a.pocetnoStanje + cached.ulaz,
+                staroPocetnoStanje: cached.staroPocetnoStanje,
+              };
+            }
+            return a;
+          })
+        );
+      } catch (e) {
+        console.warn("Greška pri čitanju cache-a ulaza:", e);
+      }
+    }
+  }, [trenutniDatum, cjenovnik]);
+
   const formatirajDatum = (datum: Date): string => {
     const dan = datum.getDate().toString().padStart(2, "0");
     const mjesec = (datum.getMonth() + 1).toString().padStart(2, "0");
@@ -263,6 +295,10 @@ export default function ObracunPage() {
               ...a,
               ulaz: value,
               ukupno: a.pocetnoStanje + value,
+              // Sačuvaj staro početno stanje ako već nije postavljeno i ako ima ulaz
+              staroPocetnoStanje: a.staroPocetnoStanje !== undefined 
+                ? a.staroPocetnoStanje 
+                : (value > 0 ? a.pocetnoStanje : undefined),
               ...(a.krajnjeStanje > 0
                 ? {
                     utroseno: a.pocetnoStanje + value - a.krajnjeStanje,
@@ -871,7 +907,14 @@ export default function ObracunPage() {
                 <td style={tdStyle} data-label="Cijena">{a.cijena.toFixed(2)}</td>
                 <td style={tdStyle} data-label="Zestoko Količina (ml)">{a.zestokoKolicina ? a.zestokoKolicina.toFixed(3) : "-"}</td>
                 <td style={tdStyle} data-label="Proizvodna Cijena">{a.proizvodnaCijena ? a.proizvodnaCijena.toFixed(2) : "-"}</td>
-                <td style={tdStyle} data-label="Početno stanje">{a.pocetnoStanje}</td>
+                <td style={tdStyle} data-label="Početno stanje">
+                  {a.pocetnoStanje}
+                  {a.staroPocetnoStanje !== undefined && a.staroPocetnoStanje !== a.pocetnoStanje && (
+                    <span style={{ color: "#eab308", marginLeft: "4px", fontSize: "12px" }}>
+                      ({a.staroPocetnoStanje})
+                    </span>
+                  )}
+                </td>
                 <td style={tdStyle} data-label="Ulaz">
                   <input
                     type="number"

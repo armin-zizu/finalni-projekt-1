@@ -799,7 +799,18 @@ export default function ProfitPage() {
       />
 
       {/* ---- Chart ukupnog profita ---- */}
-      <div style={{ width: "100%", maxWidth: "100%", height: 300, marginBottom: 20, overflow: "hidden", boxSizing: "border-box" }}>
+      <div style={{ 
+        width: "100%", 
+        maxWidth: "100%", 
+        height: 300, 
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: 20,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+        marginBottom: 20, 
+        overflow: "hidden", 
+        boxSizing: "border-box" 
+      }}>
         <ResponsiveContainer width="100%" height="100%" minHeight={280}>
           <LineChart data={chartData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
