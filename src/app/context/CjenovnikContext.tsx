@@ -94,9 +94,24 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             const data = userDoc.data();
-            if (data.cjenovnik && Array.isArray(data.cjenovnik)) {
+            if (data.cjenovnik && Array.isArray(data.cjenovnik) && data.cjenovnik.length > 0) {
               firestoreCjenovnik = data.cjenovnik;
               console.log("Cjenovnik učitano iz Firestore:", firestoreCjenovnik.length, "artikala");
+            } else {
+              // Ako nema cjenovnika u Firestore, inicijalizuj ga
+              console.log("Cjenovnik ne postoji u Firestore, inicijalizujem...");
+              await setDoc(userDocRef, { cjenovnik: initialCjenovnik }, { merge: true });
+              firestoreCjenovnik = initialCjenovnik;
+            }
+          } else {
+            // Korisnik ne postoji u Firestore - inicijalizuj ga
+            console.log("Korisnik ne postoji u Firestore, inicijalizujem...");
+            try {
+              const { initializeUser } = await import("../../lib/userInit");
+              await initializeUser(userId, user.email);
+              firestoreCjenovnik = initialCjenovnik;
+            } catch (initError) {
+              console.error("Greška pri inicijalizaciji korisnika:", initError);
             }
           }
         } catch (error: any) {
