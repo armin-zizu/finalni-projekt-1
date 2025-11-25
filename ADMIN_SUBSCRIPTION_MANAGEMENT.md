@@ -106,7 +106,7 @@ Možeš koristiti Firebase Admin SDK ili Firebase Console da direktno ažuriraš
   paymentHistory: [
     {
       date: Timestamp (2024-01-15),
-      amount: 36, // 12 * 3
+      amount: 36, // 12 * 3 = 36 KM
       note: "Bank Transfer - 3 mjeseci"
     }
   ]
@@ -181,8 +181,10 @@ Možeš koristiti Firebase Admin SDK ili Firebase Console da direktno ažuriraš
 
 **Primjer:**
 - Reference: `MOJA-APLIKACIJA-3`
-- App Name: "Moja Aplikacija"
+- App Name: "Moja Aplikacija" (korisnik ga postavlja u profilu)
 - Period: 3 mjeseca
+
+**Važno:** Reference broj se automatski mijenja kada korisnik promijeni ime aplikacije!
 
 ### Koraci:
 
