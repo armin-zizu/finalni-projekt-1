@@ -1,5 +1,5 @@
 // lib/firestore.js
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, doc, setDoc, serverTimestamp, collection, getDocs, onSnapshot } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -11,6 +11,7 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+// Koristi postojeću app instancu ako postoji, inače kreiraj novu
+const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export { doc, setDoc, serverTimestamp, collection, getDocs, onSnapshot };

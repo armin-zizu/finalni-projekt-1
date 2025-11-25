@@ -12,8 +12,23 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Debug log (samo u development modu)
+if (process.env.NODE_ENV === 'development') {
+  console.log('Firebase Config Check:', {
+    hasApiKey: !!firebaseConfig.apiKey,
+    apiKeyPrefix: firebaseConfig.apiKey?.substring(0, 10) + '...',
+    authDomain: firebaseConfig.authDomain,
+    projectId: firebaseConfig.projectId,
+  });
+}
+
 // Provjera konfiguracije
 if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+  console.error('Firebase Config Error:', {
+    apiKey: firebaseConfig.apiKey ? 'EXISTS' : 'MISSING',
+    authDomain: firebaseConfig.authDomain ? 'EXISTS' : 'MISSING',
+    projectId: firebaseConfig.projectId ? 'EXISTS' : 'MISSING',
+  });
   throw new Error('Missing Firebase configuration. Check .env.local for NEXT_PUBLIC_ variables.');
 }
 
