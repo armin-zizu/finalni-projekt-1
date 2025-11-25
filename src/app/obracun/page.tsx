@@ -925,6 +925,7 @@ export default function ObracunPage() {
                 </td>
                 <td style={tdStyle} data-label="Ulaz">
                   <input
+                    key={`ulaz-${index}-${a.ulaz}`}
                     type="number"
                     value={a.ulaz === 0 ? "" : a.ulaz}
                     onFocus={(e) => e.target.select()}
