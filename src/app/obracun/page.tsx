@@ -476,13 +476,21 @@ export default function ObracunPage() {
           return {
             ...a,
             pocetnoStanje: novoPocetnoStanje,
-            ulaz: 0,
+            ulaz: 0, // Resetiraj ulaz na 0 da se obriše iz input polja
             ukupno: novoPocetnoStanje,
+            utroseno: 0, // Resetiraj utrošeno jer se početno stanje promijenilo
+            vrijednostKM: 0, // Resetiraj vrijednost
+            krajnjeStanje: 0, // Resetiraj krajnje stanje
+            isKrajnjeSet: false, // Resetiraj flag
             staroPocetnoStanje: staroPocetnoStanje, // Sačuvaj staro stanje
             sačuvanUlaz: sačuvanUlaz, // Sačuvaj ulaz za prikaz u arhivi
           };
         }
-        return a;
+        // Za artikle bez ulaza, samo resetiraj ulaz na 0 (za slučaj da je bio neki ostatak)
+        return {
+          ...a,
+          ulaz: 0,
+        };
       })
     );
 
