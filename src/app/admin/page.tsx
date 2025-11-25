@@ -47,6 +47,8 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedUserDetails, setSelectedUserDetails] = useState<User | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMonths, setPaymentMonths] = useState(1);
   const [paymentNote, setPaymentNote] = useState("");
@@ -535,6 +537,26 @@ export default function AdminPage() {
                           }}
                         >
                           {isActive ? <FaTimes /> : <FaCheck />} {isActive ? "Deaktiviraj" : "Aktiviraj"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedUserDetails(user);
+                            setShowDetailsModal(true);
+                          }}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "6px",
+                            border: "none",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            backgroundColor: "#6b7280",
+                            color: "#fff",
+                            transition: "all 0.2s",
+                            marginRight: "4px",
+                          }}
+                        >
+                          Detalji
                         </button>
                         <button
                           onClick={() => {
