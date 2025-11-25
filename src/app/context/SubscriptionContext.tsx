@@ -111,7 +111,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     trialEndDate,
     expiryDate,
     graceEndDate,
-    monthlyPrice: data.monthlyPrice || 12,
+    monthlyPrice: 12, // Fiksna cijena - uvijek 12 KM
     lastPaymentDate: data.lastPaymentDate ? (data.lastPaymentDate.toDate ? data.lastPaymentDate.toDate() : new Date(data.lastPaymentDate)) : null,
     daysRemaining,
     daysUntilExpiry,
@@ -141,6 +141,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       let subscriptionData: any = {};
       if (subscriptionDoc.exists()) {
         subscriptionData = subscriptionDoc.data();
+        // Ažuriraj monthlyPrice na 12 ako je stara vrijednost
+        if (subscriptionData.monthlyPrice !== 12) {
+          subscriptionData.monthlyPrice = 12;
+          await setDoc(subscriptionRef, { monthlyPrice: 12 }, { merge: true });
+        }
       } else {
         // Kreiraj default pretplatu sa trial periodom
         const userCreatedAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date();
