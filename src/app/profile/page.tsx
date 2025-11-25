@@ -98,12 +98,10 @@ export default function Profile() {
   const [cjenovnikOldPassword, setCjenovnikOldPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
-  const { subscription, loading: subscriptionLoading, addPayment, updateMonthlyPrice } = useSubscription();
+  const { subscription, loading: subscriptionLoading, addPayment } = useSubscription();
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
-  const [isEditingPrice, setIsEditingPrice] = useState(false);
-  const [monthlyPrice, setMonthlyPrice] = useState("12");
   const [selectedMonths, setSelectedMonths] = useState(1);
   const router = useRouter();
 
@@ -988,56 +986,9 @@ export default function Profile() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
                 <div>
                   <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Mjesečna cijena</p>
-                  {isEditingPrice ? (
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                      <input
-                        type="number"
-                        value={monthlyPrice}
-                        onChange={(e) => setMonthlyPrice(e.target.value)}
-                        style={{ ...inputStyle, width: "120px" }}
-                        placeholder="Cijena"
-                        min="0"
-                        step="0.01"
-                      />
-                      <span style={{ fontSize: "14px", color: "#1f2937" }}>KM</span>
-                      <button style={buttonStyle} onClick={async () => {
-                        try {
-                          await updateMonthlyPrice(Number(monthlyPrice));
-                          setIsEditingPrice(false);
-                          setSubscriptionMessage("Cijena je ažurirana!");
-                          setTimeout(() => setSubscriptionMessage(""), 3000);
-                        } catch (error) {
-                          setSubscriptionMessage("Greška pri ažuriranju cijene");
-                        }
-                      }}>
-                        Spremi
-                      </button>
-                      <button
-                        style={{ ...buttonStyle, background: "#6b7280" }}
-                        onClick={() => {
-                          setIsEditingPrice(false);
-                          setMonthlyPrice(String(subscription.monthlyPrice));
-                        }}
-                      >
-                        Odustani
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <p style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937" }}>
-                        {subscription.monthlyPrice.toFixed(2)} KM
-                      </p>
-                      <button
-                        style={{ ...buttonStyle, padding: "4px 8px", fontSize: "12px" }}
-                        onClick={() => {
-                          setIsEditingPrice(true);
-                          setMonthlyPrice(String(subscription.monthlyPrice));
-                        }}
-                      >
-                        Uredi
-                      </button>
-                    </div>
-                  )}
+                  <p style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937" }}>
+                    {subscription.monthlyPrice.toFixed(2)} KM
+                  </p>
                 </div>
                 
                 {subscription.lastPaymentDate && (
