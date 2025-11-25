@@ -487,9 +487,9 @@ export default function Profile() {
         return bTime - aTime;
       });
 
-      // Izračunaj graceEndDate (15 dana nakon isteka pretplate)
+      // Izračunaj graceEndDate (7 dana nakon isteka pretplate)
       const graceEndDate = new Date(expiryDate);
-      graceEndDate.setDate(graceEndDate.getDate() + 15);
+      graceEndDate.setDate(graceEndDate.getDate() + 7);
 
       await setDoc(
         subscriptionRef,

@@ -71,9 +71,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           if (data.graceEndDate) {
             graceEndDate = data.graceEndDate.toDate ? data.graceEndDate.toDate() : new Date(data.graceEndDate);
           } else {
-            // Kreiraj grace period (15 dana od isteka pretplate)
+            // Kreiraj grace period (7 dana od isteka pretplate)
             graceEndDate = new Date(expiryDate);
-            graceEndDate.setDate(graceEndDate.getDate() + 15);
+            graceEndDate.setDate(graceEndDate.getDate() + 7);
           }
 
           if (now < graceEndDate) {
