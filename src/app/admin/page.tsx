@@ -729,6 +729,232 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Modal za detalje korisnika */}
+      {showDetailsModal && selectedUserDetails && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            setShowDetailsModal(false);
+            setSelectedUserDetails(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "700px",
+              width: "90%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", marginBottom: "20px" }}>
+              Detalji Korisnika - {selectedUserDetails.appName}
+            </h2>
+
+            {(() => {
+              const subscription = subscriptions[selectedUserDetails.id];
+              const isTrial = subscription?.isTrial || false;
+              const isGracePeriod = subscription?.isGracePeriod || false;
+              const isActive = subscription?.isActive || false;
+              
+              return (
+                <>
+                  {/* Osnovne informacije */}
+                  <div style={{ marginBottom: "24px", padding: "16px", background: "#f9fafb", borderRadius: "8px" }}>
+                    <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                      Osnovne Informacije
+                    </h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                      <div>
+                        <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Email:</p>
+                        <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                          {selectedUserDetails.email || "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>App Name:</p>
+                        <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                          {selectedUserDetails.appName}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>User ID:</p>
+                        <p style={{ fontSize: "12px", fontFamily: "monospace", color: "#6b7280" }}>
+                          {selectedUserDetails.id}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Registracija:</p>
+                        <p style={{ fontSize: "14px", color: "#1f2937" }}>
+                          {selectedUserDetails.createdAt
+                            ? selectedUserDetails.createdAt.toLocaleDateString("bs-BA") +
+                              " " +
+                              selectedUserDetails.createdAt.toLocaleTimeString("bs-BA", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status pretplate */}
+                  <div style={{ marginBottom: "24px", padding: "16px", background: "#f9fafb", borderRadius: "8px" }}>
+                    <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                      Status Pretplate
+                    </h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                      <div>
+                        <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Status:</p>
+                        <span
+                          style={{
+                            padding: "4px 12px",
+                            borderRadius: "12px",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            backgroundColor: isTrial
+                              ? "#dbeafe"
+                              : isActive
+                              ? "#dcfce7"
+                              : isGracePeriod
+                              ? "#fef3c7"
+                              : "#fee2e2",
+                            color: isTrial
+                              ? "#2563eb"
+                              : isActive
+                              ? "#16a34a"
+                              : isGracePeriod
+                              ? "#f59e0b"
+                              : "#dc2626",
+                          }}
+                        >
+                          {isTrial
+                            ? `Trial (${subscription?.daysRemaining || 0} dana)`
+                            : isActive
+                            ? `Aktivna (${subscription?.daysUntilExpiry || 0} dana)`
+                            : isGracePeriod
+                            ? `Grace Period (${subscription?.daysInGrace || 0} dana)`
+                            : "Neaktivna"}
+                        </span>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Mjesečna Cijena:</p>
+                        <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                          {subscription?.monthlyPrice || 12} KM
+                        </p>
+                      </div>
+                      {subscription?.trialEndDate && (
+                        <div>
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Trial Ističe:</p>
+                          <p style={{ fontSize: "14px", color: "#1f2937" }}>
+                            {subscription.trialEndDate.toLocaleDateString("bs-BA")}
+                          </p>
+                        </div>
+                      )}
+                      {subscription?.expiryDate && (
+                        <div>
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Pretplata Ističe:</p>
+                          <p style={{ fontSize: "14px", color: "#1f2937" }}>
+                            {subscription.expiryDate.toLocaleDateString("bs-BA")}
+                          </p>
+                        </div>
+                      )}
+                      {subscription?.lastPaymentDate && (
+                        <div>
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Posljednja Uplata:</p>
+                          <p style={{ fontSize: "14px", color: "#1f2937" }}>
+                            {subscription.lastPaymentDate.toLocaleDateString("bs-BA")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Historija uplata */}
+                  {subscription?.paymentHistory && subscription.paymentHistory.length > 0 && (
+                    <div style={{ marginBottom: "24px" }}>
+                      <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                        Historija Uplata ({subscription.paymentHistory.length})
+                      </h3>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead>
+                            <tr style={{ background: "#f9fafb" }}>
+                              <th style={{ padding: "8px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
+                                Datum
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
+                                Iznos
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
+                                Napomena
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {subscription.paymentHistory
+                              .sort((a, b) => b.date.getTime() - a.date.getTime())
+                              .map((payment, index) => (
+                                <tr key={index} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                                  <td style={{ padding: "8px", fontSize: "14px", color: "#1f2937" }}>
+                                    {payment.date.toLocaleDateString("bs-BA")}
+                                  </td>
+                                  <td style={{ padding: "8px", fontSize: "14px", fontWeight: 600, color: "#16a34a" }}>
+                                    {payment.amount.toFixed(2)} KM
+                                  </td>
+                                  <td style={{ padding: "8px", fontSize: "14px", color: "#6b7280" }}>
+                                    {payment.note || "-"}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                    <button
+                      onClick={() => {
+                        setShowDetailsModal(false);
+                        setSelectedUserDetails(null);
+                      }}
+                      style={{
+                        padding: "10px 20px",
+                        borderRadius: "6px",
+                        border: "1px solid #e5e7eb",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        backgroundColor: "#fff",
+                        color: "#374151",
+                      }}
+                    >
+                      Zatvori
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
