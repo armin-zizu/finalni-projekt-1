@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { auth, sendPasswordResetEmail, signOut, sendEmailVerification } from "../../lib/firebase";
 import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 
 const containerStyle: React.CSSProperties = {
@@ -103,8 +103,35 @@ export default function Profile() {
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
   const [isEditingPrice, setIsEditingPrice] = useState(false);
-  const [monthlyPrice, setMonthlyPrice] = useState("50");
+  const [monthlyPrice, setMonthlyPrice] = useState("12");
+  const [selectedMonths, setSelectedMonths] = useState(1);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Provjeri da li je plaćanje uspješno
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    const sessionId = searchParams.get("session_id");
+    
+    if (payment === "success" && sessionId) {
+      setSubscriptionMessage("Uplata je uspješno izvršena! Pretplata je aktivirana.");
+      setTimeout(() => {
+        setSubscriptionMessage("");
+        router.replace("/profile"); // Ukloni query parametre
+      }, 5000);
+      // Refresh subscription status
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } else if (payment === "cancelled") {
+      setSubscriptionMessage("Plaćanje je otkazano.");
+      setTimeout(() => {
+        setSubscriptionMessage("");
+        router.replace("/profile");
+      }, 3000);
+    }
+  }, [searchParams, router]);
 
   // Sinhronizuj localAppName sa appName iz contexta
   useEffect(() => {
@@ -1065,65 +1092,119 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Dodaj novu uplatu */}
+            {/* Plaćanje pretplate */}
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px" }}>
                 Plaćanje pretplate
               </h3>
               <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "16px" }}>
-                Unesite iznos uplate da aktivirate ili obnovite pretplatu. Pretplata traje 1 mjesec od datuma uplate.
+                Odaberite period pretplate i platite karticom. Cijena: 12 KM/mjesec.
               </p>
-              <h4 style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
-                Dodaj novu uplatu
-              </h4>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                  <input
-                    type="number"
-                    value={newPaymentAmount}
-                    onChange={(e) => setNewPaymentAmount(e.target.value)}
-                    style={{ ...inputStyle, width: "150px" }}
-                    placeholder="Iznos (KM)"
-                    min="0"
-                    step="0.01"
-                  />
-                  <input
-                    type="text"
-                    value={newPaymentNote}
-                    onChange={(e) => setNewPaymentNote(e.target.value)}
-                    style={{ ...inputStyle, width: "200px" }}
-                    placeholder="Napomena (opcionalno)"
-                  />
-                  <button style={buttonStyle} onClick={async () => {
-                    if (!newPaymentAmount || Number(newPaymentAmount) <= 0) {
-                      setSubscriptionMessage("Unesite validan iznos");
-                      return;
-                    }
-                    try {
-                      await addPayment(Number(newPaymentAmount), newPaymentNote || undefined);
-                      setNewPaymentAmount("");
-                      setNewPaymentNote("");
-                      setSubscriptionMessage("Uplata je dodana uspješno!");
-                      setTimeout(() => setSubscriptionMessage(""), 3000);
-                    } catch (error) {
-                      setSubscriptionMessage("Greška pri dodavanju uplate");
-                    }
-                  }}>
-                    Dodaj uplatu
-                  </button>
+              
+              {/* Odabir perioda */}
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", marginBottom: "8px", display: "block" }}>
+                  Odaberite period:
+                </label>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {[1, 2, 3, 6].map((months) => {
+                    const totalPrice = 12 * months;
+                    return (
+                      <button
+                        key={months}
+                        onClick={() => setSelectedMonths(months)}
+                        style={{
+                          padding: "12px 20px",
+                          border: selectedMonths === months ? "2px solid #3b82f6" : "1px solid #e5e7eb",
+                          borderRadius: "8px",
+                          background: selectedMonths === months ? "#eff6ff" : "#fff",
+                          color: selectedMonths === months ? "#3b82f6" : "#1f2937",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: selectedMonths === months ? 600 : 500,
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        {months} {months === 1 ? "mjesec" : "mjeseci"}
+                        <br />
+                        <span style={{ fontSize: "12px", opacity: 0.8 }}>{totalPrice} KM</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                {subscriptionMessage && (
-                  <p
-                    style={{
-                      fontSize: "14px",
-                      color: subscriptionMessage.includes("Greška") ? "#dc2626" : "#16a34a",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {subscriptionMessage}
-                  </p>
-                )}
               </div>
+
+              {/* Ukupna cijena */}
+              <div style={{ marginBottom: "16px", padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "14px", color: "#6b7280" }}>Ukupno za plaćanje:</span>
+                  <span style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937" }}>
+                    {12 * selectedMonths} KM
+                  </span>
+                </div>
+              </div>
+
+              {/* Stripe Checkout Button */}
+              <button
+                onClick={async () => {
+                  const user = auth.currentUser;
+                  if (!user) {
+                    setSubscriptionMessage("Morate biti prijavljeni da biste platili.");
+                    return;
+                  }
+
+                  setIsProcessingPayment(true);
+                  try {
+                    const response = await fetch("/api/create-checkout-session", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        months: selectedMonths,
+                        amount: 12 * selectedMonths,
+                        userId: user.uid,
+                      }),
+                    });
+
+                    const data = await response.json();
+                    if (data.url) {
+                      window.location.href = data.url;
+                    } else {
+                      throw new Error("Greška pri kreiranju checkout session");
+                    }
+                  } catch (error) {
+                    console.error("Greška pri plaćanju:", error);
+                    setSubscriptionMessage("Greška pri pokretanju plaćanja. Pokušajte ponovo.");
+                    setIsProcessingPayment(false);
+                  }
+                }}
+                disabled={isProcessingPayment}
+                style={{
+                  ...buttonStyle,
+                  width: "100%",
+                  padding: "14px",
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  background: isProcessingPayment ? "#9ca3af" : "#3b82f6",
+                  cursor: isProcessingPayment ? "not-allowed" : "pointer",
+                }}
+              >
+                {isProcessingPayment ? "Obrađuje se..." : `Plati ${12 * selectedMonths} KM karticom`}
+              </button>
+
+              {subscriptionMessage && (
+                <p
+                  style={{
+                    fontSize: "14px",
+                    color: subscriptionMessage.includes("Greška") ? "#dc2626" : "#16a34a",
+                    fontWeight: 500,
+                    marginTop: "12px",
+                  }}
+                >
+                  {subscriptionMessage}
+                </p>
+              )}
             </div>
 
             {/* Historija uplata */}

@@ -111,7 +111,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     trialEndDate,
     expiryDate,
     graceEndDate,
-    monthlyPrice: data.monthlyPrice || 50,
+    monthlyPrice: data.monthlyPrice || 12,
     lastPaymentDate: data.lastPaymentDate ? (data.lastPaymentDate.toDate ? data.lastPaymentDate.toDate() : new Date(data.lastPaymentDate)) : null,
     daysRemaining,
     daysUntilExpiry,
@@ -149,7 +149,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
         subscriptionData = {
           isActive: true,
-          monthlyPrice: 50,
+          monthlyPrice: 12,
           lastPaymentDate: null,
           expiryDate: null,
           graceEndDate: null,
@@ -224,7 +224,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     await loadSubscription();
   };
 
-  const addPayment = async (amount: number, note?: string) => {
+  const addPayment = async (amount: number, months: number = 1, note?: string) => {
     const user = auth.currentUser;
     if (!user) throw new Error("Korisnik nije prijavljen");
 
@@ -235,7 +235,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
       const now = new Date();
       const newExpiryDate = new Date(now);
-      newExpiryDate.setDate(newExpiryDate.getDate() + 30); // 30 dana od uplate
+      newExpiryDate.setMonth(newExpiryDate.getMonth() + months); // Dodaj mjesece
 
       const payment: Payment = {
         date: now,
@@ -252,7 +252,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       paymentHistory.push({
         date: Timestamp.fromDate(now),
         amount,
-        note: note || "",
+        note: note || `${months} ${months === 1 ? 'mjesec' : 'mjeseci'}`,
       });
 
       await setDoc(subscriptionRef, {

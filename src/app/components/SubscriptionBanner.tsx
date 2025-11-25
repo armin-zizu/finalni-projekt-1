@@ -108,6 +108,11 @@ export default function SubscriptionBanner() {
     );
   }
 
+  // Ako je pretplata aktivna i nije u trial periodu i ima više od 7 dana, ne prikazuj banner
+  if (subscription.isActive && !subscription.isTrial && subscription.daysUntilExpiry > 7) {
+    return null;
+  }
+
   // Pretplata ističe uskoro (manje od 7 dana)
   if (subscription.isActive && !subscription.isTrial && subscription.daysUntilExpiry <= 7) {
     return (
