@@ -495,8 +495,8 @@ export default function ObracunPage() {
     );
 
     // Ažuriraj artikle u formi - postavi novo početno stanje i resetiraj ulaz (isto kao u handleSaveObracun)
-    setArtikli((prev) =>
-      prev.map((a) => {
+    setArtikli((prev) => {
+      const updated = prev.map((a) => {
         if (a.ulaz !== 0) {
           const staroPocetnoStanje = a.staroPocetnoStanje ?? a.pocetnoStanje;
           const sačuvanUlaz = a.ulaz; // Sačuvaj ulaz prije resetiranja
@@ -522,32 +522,34 @@ export default function ObracunPage() {
           ...a,
           ulaz: 0,
         };
-      })
-    );
-    
-    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
-    const cacheKey = `ulazCache_${datumString}`;
-    const existingCache = localStorage.getItem(cacheKey);
-    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
-    if (existingCache) {
-      try {
-        ulazCache = JSON.parse(existingCache);
-      } catch (e) {
-        console.warn("Greška pri čitanju postojećeg cache-a:", e);
+      });
+      
+      // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
+      const cacheKey = `ulazCache_${datumString}`;
+      const existingCache = localStorage.getItem(cacheKey);
+      let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
+      if (existingCache) {
+        try {
+          ulazCache = JSON.parse(existingCache);
+        } catch (e) {
+          console.warn("Greška pri čitanju postojećeg cache-a:", e);
+        }
       }
-    }
-    
-    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
-    artikli.forEach((a) => {
-      if (a.staroPocetnoStanje !== undefined) {
-        ulazCache[a.naziv] = {
-          ulaz: 0, // Ulaz je sada 0 jer je ažuriran
-          staroPocetnoStanje: a.staroPocetnoStanje,
-        };
-      }
+      
+      // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
+      updated.forEach((a) => {
+        if (a.staroPocetnoStanje !== undefined) {
+          ulazCache[a.naziv] = {
+            ulaz: 0, // Ulaz je sada 0 jer je ažuriran
+            staroPocetnoStanje: a.staroPocetnoStanje,
+          };
+        }
+      });
+      
+      localStorage.setItem(cacheKey, JSON.stringify(ulazCache));
+      
+      return updated;
     });
-    
-    localStorage.setItem(cacheKey, JSON.stringify(ulazCache));
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
     
