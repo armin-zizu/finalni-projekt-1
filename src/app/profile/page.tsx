@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import { db } from "../../lib/firestore";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { useSubscription as useSubscriptionContext } from "../context/SubscriptionContext";
+import { useSubscription } from "../context/SubscriptionContext";
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",
@@ -638,21 +638,45 @@ export default function Profile() {
                       : "Pretplata nije aktivna"}
                   </p>
                 </div>
-                {subscriptionContext && (
-                  <span
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: "6px",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      background: getSubscriptionStatus().bg,
-                      color: getSubscriptionStatus().color,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {getSubscriptionStatus().text}
-                  </span>
-                )}
+                {subscriptionContext && (() => {
+                  let statusText = "N/A";
+                  let statusColor = "#6b7280";
+                  let statusBg = "#f3f4f6";
+                  
+                  if (subscriptionContext.isTrial) {
+                    statusText = `Trial (${subscriptionContext.daysRemaining} dana)`;
+                    statusColor = "#3b82f6";
+                    statusBg = "#dbeafe";
+                  } else if (subscriptionContext.isActive) {
+                    statusText = `Aktivna (${subscriptionContext.daysUntilExpiry} dana)`;
+                    statusColor = "#16a34a";
+                    statusBg = "#dcfce7";
+                  } else if (subscriptionContext.isGracePeriod) {
+                    statusText = `Grace period (${subscriptionContext.daysInGrace} dana)`;
+                    statusColor = "#f59e0b";
+                    statusBg = "#fef3c7";
+                  } else {
+                    statusText = "Neaktivna";
+                    statusColor = "#dc2626";
+                    statusBg = "#fee2e2";
+                  }
+                  
+                  return (
+                    <span
+                      style={{
+                        padding: "8px 16px",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        background: statusBg,
+                        color: statusColor,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {statusText}
+                    </span>
+                  );
+                })()}
               </div>
               
               {/* Dugme za aktivaciju pretplate ako nije aktivna */}
