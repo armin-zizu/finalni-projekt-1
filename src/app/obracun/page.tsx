@@ -255,8 +255,8 @@ export default function ObracunPage() {
         setArtikli((prev) =>
           prev.map((a) => {
             const cached = ulazCache[a.naziv];
-            if (cached) {
-              // Ako postoji cache, učitaj ulaz i staro početno stanje
+            if (cached && cached.staroPocetnoStanje !== undefined) {
+              // Ako postoji cache sa staroPocetnoStanje, učitaj ga
               // Čak i ako je ulaz 0 (već je ažuriran), postavi staroPocetnoStanje da se prikaže zagrada
               if (cached.ulaz !== 0) {
                 // Ako ima ulaz, učitaj ga
@@ -268,6 +268,7 @@ export default function ObracunPage() {
                 };
               } else {
                 // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje da se prikaže zagrada
+                // Ne mijenjaj početno stanje, samo postavi staroPocetnoStanje
                 return {
                   ...a,
                   staroPocetnoStanje: cached.staroPocetnoStanje,
@@ -281,7 +282,7 @@ export default function ObracunPage() {
         console.warn("Greška pri čitanju cache-a ulaza:", e);
       }
     }
-  }, [trenutniDatum, cjenovnik]);
+  }, [trenutniDatum, cjenovnik, artikli.length]);
 
   const formatirajDatum = (datum: Date): string => {
     const dan = datum.getDate().toString().padStart(2, "0");
