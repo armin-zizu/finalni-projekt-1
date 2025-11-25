@@ -8,7 +8,16 @@ export default function SubscriptionBanner() {
   const { subscription, loading } = useSubscription();
   const router = useRouter();
 
-  if (loading || !subscription) {
+  // Debug logging
+  console.log("SubscriptionBanner - loading:", loading, "subscription:", subscription);
+
+  if (loading) {
+    console.log("SubscriptionBanner - Still loading, returning null");
+    return null;
+  }
+
+  if (!subscription) {
+    console.log("SubscriptionBanner - No subscription, returning null");
     return null;
   }
 

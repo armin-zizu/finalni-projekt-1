@@ -107,7 +107,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const loadSubscription = async () => {
     const user = auth.currentUser;
+    console.log("SubscriptionContext - loadSubscription called, user:", user?.email);
+    
     if (!user) {
+      console.log("SubscriptionContext - No user, setting subscription to null");
       setSubscription(null);
       setLoading(false);
       return;
@@ -115,8 +118,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
     try {
       const userId = user.uid;
+      console.log("SubscriptionContext - Loading subscription for user:", userId);
       const subscriptionRef = doc(db, "users", userId, "subscription", "info");
       const subscriptionDoc = await getDoc(subscriptionRef);
+      console.log("SubscriptionContext - Subscription doc exists:", subscriptionDoc.exists());
 
       let subscriptionData: any = {};
       if (subscriptionDoc.exists()) {
@@ -158,12 +163,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       }
 
       const status = calculateSubscriptionStatus(subscriptionData, userCreatedAt);
+      console.log("SubscriptionContext - Calculated status:", status);
       setSubscription(status);
     } catch (error) {
-      console.error("Greška pri učitavanju pretplate:", error);
+      console.error("SubscriptionContext - Greška pri učitavanju pretplate:", error);
       setSubscription(null);
     } finally {
       setLoading(false);
+      console.log("SubscriptionContext - Loading complete, loading set to false");
     }
   };
 
