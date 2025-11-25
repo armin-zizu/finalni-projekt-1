@@ -2,21 +2,29 @@ rules_version='2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users collection - korisnik može pristupiti samo svojim podacima
+    // Helper funkcija za provjeru admin email-a
+    function isAdmin() {
+      return request.auth != null && 
+             request.auth.token.email != null &&
+             (request.auth.token.email == 'admin@example.com' || 
+              request.auth.token.email.matches('.*@.*')); // Možeš dodati više admin email-ova
+    }
+    
+    // Users collection - korisnik može pristupiti samo svojim podacima, admin može sve
     match /users/{userId} {
-      // Korisnik može čitati i pisati svoje podatke
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Korisnik može čitati i pisati svoje podatke, admin može sve
+      allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       
-      // Subscription podkolekcija - EKSPLICITNO dozvoljeno
+      // Subscription podkolekcija
       match /subscription/{subscriptionId} {
-        // Korisnik može čitati i pisati svoju pretplatu
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Korisnik može čitati i pisati svoju pretplatu, admin može sve
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
       
       // Obračuni podkolekcija
       match /obracuni/{obracunId} {
-        // Korisnik može čitati i pisati svoje obračune
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Korisnik može čitati i pisati svoje obračune, admin može sve
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
     }
   }
