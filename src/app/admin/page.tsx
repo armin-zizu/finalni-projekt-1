@@ -159,8 +159,11 @@ export default function AdminPage() {
                 }
               }
               
+              // Uzmi isActive direktno iz Firebase podataka
+              const isActiveFromFirebase = subData.isActive === true;
+              
               subscription = {
-                isActive: subData.isActive || false,
+                isActive: isActiveFromFirebase,
                 monthlyPrice: subData.monthlyPrice || 12,
                 lastPaymentDate: subData.lastPaymentDate?.toDate?.() || (subData.lastPaymentDate ? new Date(subData.lastPaymentDate) : null),
                 expiryDate: expiryDate,
@@ -173,7 +176,7 @@ export default function AdminPage() {
                   validUntil: p.validUntil?.toDate?.() || (p.validUntil ? new Date(p.validUntil) : undefined),
                 })),
                 isTrial,
-                isPremium: hasPayment && !isTrial && (isActive || isGracePeriod),
+                isPremium: hasPayment && !isTrial && (isActiveFromFirebase || isGracePeriod),
                 isGracePeriod,
                 daysRemaining,
                 daysUntilExpiry,
