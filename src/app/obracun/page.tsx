@@ -643,12 +643,21 @@ export default function ObracunPage() {
       }
     }
 
-    // Provjeri da li obračun ima ulaz (trenutni, sačuvani u state-u, ili iz cache-a)
+    // Provjeri da li obračun ima ulaz - samo provjeri trenutni ulaz u state-u
+    // Ne provjeravaj cache jer to može biti iz prethodnih obračuna
+    // Ulaz se smatra da postoji samo ako je trenutno unesen u ovom obračunu
+    // ili ako je bio unesen i obračun je ažuriran (sačuvanUlaz)
     const imaUlaz = artikli.some((a) => {
-      const trenutniUlaz = a.ulaz !== 0;
-      const sačuvanUlaz = a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0;
-      const cachedUlazZaArtikal = ulazCache[a.naziv]?.ulaz !== 0;
-      return trenutniUlaz || sačuvanUlaz || cachedUlazZaArtikal;
+      // Provjeri samo trenutni ulaz u state-u (koji je unesen u ovom obračunu)
+      // ili sačuvan ulaz koji je bio unesen prije ažuriranja u ovom obračunu
+      // NE provjeravaj cache iz localStorage jer to može biti iz prethodnih obračuna
+      if (a.ulaz !== 0) {
+        return true; // Trenutno ima ulaz
+      }
+      if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
+        return true; // Ima sačuvan ulaz iz ovog obračuna (nakon ažuriranja)
+      }
+      return false;
     });
 
     const arhiviraniObracun: ArhiviraniObracun = {
