@@ -951,6 +951,9 @@ export default function AdminPage() {
                               <th style={{ padding: "8px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
                                 Napomena
                               </th>
+                              <th style={{ padding: "8px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
+                                Važi do
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -966,6 +969,11 @@ export default function AdminPage() {
                                   </td>
                                   <td style={{ padding: "8px", fontSize: "14px", color: "#6b7280" }}>
                                     {payment.note || "-"}
+                                  </td>
+                                  <td style={{ padding: "8px", fontSize: "14px", color: "#1f2937" }}>
+                                    {payment.validUntil 
+                                      ? payment.validUntil.toLocaleDateString("bs-BA")
+                                      : "-"}
                                   </td>
                                 </tr>
                               ))}
