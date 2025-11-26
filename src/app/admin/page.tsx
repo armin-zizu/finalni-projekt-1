@@ -53,6 +53,7 @@ export default function AdminPage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMonths, setPaymentMonths] = useState(1);
   const [paymentNote, setPaymentNote] = useState("");
+  const [activateOnPayment, setActivateOnPayment] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -339,7 +340,7 @@ export default function AdminPage() {
       await setDoc(
         subscriptionRef,
         {
-          isActive: true,
+          isActive: activateOnPayment,
           lastPaymentDate: Timestamp.fromDate(now),
           expiryDate: Timestamp.fromDate(newExpiryDate),
           graceEndDate: null,
@@ -355,8 +356,9 @@ export default function AdminPage() {
       setPaymentAmount("");
       setPaymentMonths(1);
       setPaymentNote("");
+      setActivateOnPayment(true);
       setSelectedUser(null);
-      setMessage({ type: "success", text: "Uplata dodana uspješno" });
+      setMessage({ type: "success", text: `Uplata dodana uspješno. Pretplata ${activateOnPayment ? "aktivirana" : "deaktivirana"}.` });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error("Greška pri dodavanju uplate:", error);
@@ -494,10 +496,15 @@ export default function AdminPage() {
                 let statusColor = "#dc2626";
                 let statusBg = "#fee2e2";
                 
+                const isPremium = subscription?.isPremium || false;
                 if (isTrial) {
-                  statusText = `Trial (${daysRemaining} dana)`;
+                  statusText = `Probni period (${daysRemaining} dana)`;
                   statusColor = "#2563eb";
                   statusBg = "#dbeafe";
+                } else if (isPremium) {
+                  statusText = `Premium (${daysUntilExpiry} dana)`;
+                  statusColor = "#16a34a";
+                  statusBg = "#dcfce7";
                 } else if (isActive && daysUntilExpiry > 0) {
                   statusText = `Aktivna (${daysUntilExpiry} dana)`;
                   statusColor = "#16a34a";
