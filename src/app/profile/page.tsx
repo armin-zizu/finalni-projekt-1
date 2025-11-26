@@ -497,90 +497,68 @@ export default function Profile() {
           Pregled sesija
         </h2>
         <div style={tableWrapperStyle} className={tableWrapperClassName}>
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Sesija ID</th>
-                <th style={thStyle}>Datum logovanja</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Uređaj</th>
-                <th style={thStyle}>Lokacija</th>
-                <th style={thStyle}>IP adresa</th>
-                <th style={thStyle}>Ime sesije</th>
-                <th style={thStyle}>Akcije</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((session) => (
-                <tr key={session.id}>
-                  <td style={tdStyle}>{session.id}</td>
-                  <td style={tdStyle}>{session.date}</td>
-                  <td style={tdStyle}>{session.status}</td>
-                  <td style={tdStyle}>{session.device}</td>
-                  <td style={tdStyle}>{session.location}</td>
-                  <td style={tdStyle}>{session.ip}</td>
-                  <td style={tdStyle}>
-                    {editingSessionId === session.id ? (
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <input
-                          type="text"
-                          value={editedSessionName}
-                          onChange={(e) => setEditedSessionName(e.target.value)}
-                          style={inputStyle}
-                        />
-                        <button style={buttonStyle} onClick={() => handleSaveSessionName(session.id)}>
-                          Spremi
-                        </button>
-                        <button style={{ ...buttonStyle, background: "#6b7280" }} onClick={handleCancelEdit}>
-                          Odustani
-                        </button>
-                      </div>
-                    ) : (
-                      session.name
-                    )}
-                  </td>
-                  <td style={tdStyle}>
-                    <button
-                      style={{ ...buttonStyle, ...{ background: "#dc2626" } }}
-                      onClick={() => handleDeleteSession(session.id)}
-                    >
-                      Obriši
-                    </button>
-                    {session.status === "Aktivna" && (
-                      <button
-                        style={buttonStyle}
-                        onClick={() => handleEditSessionName(session.id, session.name)}
-                      >
-                        Uredi
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Sesija ID</th>
+              <th style={thStyle}>Datum logovanja</th>
+              <th style={thStyle}>Status</th>
+              <th style={thStyle}>Uređaj</th>
+              <th style={thStyle}>Lokacija</th>
+              <th style={thStyle}>IP adresa</th>
+              <th style={thStyle}>Ime sesije</th>
+              <th style={thStyle}>Akcije</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessions.map((session) => (
+              <tr key={session.id}>
+                <td style={tdStyle}>{session.id}</td>
+                <td style={tdStyle}>{session.date}</td>
+                <td style={tdStyle}>{session.status}</td>
+                <td style={tdStyle}>{session.device}</td>
+                <td style={tdStyle}>{session.location}</td>
+                <td style={tdStyle}>{session.ip}</td>
+                <td style={tdStyle}>
+                  {editingSessionId === session.id ? (
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        value={editedSessionName}
+                        onChange={(e) => setEditedSessionName(e.target.value)}
+                        style={inputStyle}
+                      />
+                      <button style={buttonStyle} onClick={() => handleSaveSessionName(session.id)}>
+                        Spremi
                       </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
-        <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
-          Postavke aplikacije
-        </h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", marginBottom: "4px" }}>Automatsko spremanje</p>
-              <p style={{ fontSize: "12px", color: "#6b7280" }}>Automatski spremi promjene u localStorage</p>
-            </div>
-            <span style={{ color: "#16a34a", fontSize: "14px", fontWeight: 500 }}>✓ Omogućeno</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", marginBottom: "4px" }}>Offline režim</p>
-              <p style={{ fontSize: "12px", color: "#6b7280" }}>Aplikacija radi bez internetske veze</p>
-            </div>
-            <span style={{ color: "#16a34a", fontSize: "14px", fontWeight: 500 }}>✓ Omogućeno</span>
-          </div>
+                      <button style={{ ...buttonStyle, background: "#6b7280" }} onClick={handleCancelEdit}>
+                        Odustani
+                      </button>
+                    </div>
+                  ) : (
+                    session.name
+                  )}
+                </td>
+                <td style={tdStyle}>
+                  <button
+                    style={{ ...buttonStyle, ...{ background: "#dc2626" } }}
+                    onClick={() => handleDeleteSession(session.id)}
+                  >
+                    Obriši
+                  </button>
+                  {session.status === "Aktivna" && (
+                    <button
+                      style={buttonStyle}
+                      onClick={() => handleEditSessionName(session.id, session.name)}
+                    >
+                      Uredi
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         </div>
       </div>
 
@@ -638,7 +616,7 @@ export default function Profile() {
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: "12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                 <label style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Od datuma:</label>
-                <input
+          <input
                   type="date"
                   value={backupFromDate}
                   onChange={(e) => setBackupFromDate(e.target.value)}
@@ -662,7 +640,7 @@ export default function Profile() {
                 style={{ ...buttonStyle, background: "#6b7280", width: "auto" }}
               >
                 Resetuj filtere
-              </button>
+            </button>
             </div>
           )}
 
@@ -1460,22 +1438,22 @@ export default function Profile() {
           Detalji naloga
         </h2>
         <div style={tableWrapperStyle} className={tableWrapperClassName}>
-          <table style={tableStyle}>
-            <tbody>
-              <tr>
-                <td style={tdStyle}>E-mail:</td>
-                <td style={tdStyle}>{email || "N/A"}</td>
-              </tr>
-              <tr>
-                <td style={tdStyle}>Datum registracije:</td>
-                <td style={tdStyle}>{auth.currentUser?.metadata?.creationTime ? new Date(auth.currentUser.metadata.creationTime).toLocaleDateString("bs-BA") : "N/A"}</td>
-              </tr>
+        <table style={tableStyle}>
+          <tbody>
+            <tr>
+              <td style={tdStyle}>E-mail:</td>
+              <td style={tdStyle}>{email || "N/A"}</td>
+            </tr>
+            <tr>
+              <td style={tdStyle}>Datum registracije:</td>
+              <td style={tdStyle}>{auth.currentUser?.metadata?.creationTime ? new Date(auth.currentUser.metadata.creationTime).toLocaleDateString("bs-BA") : "N/A"}</td>
+            </tr>
               <tr>
                 <td style={tdStyle}>Zadnja prijava:</td>
                 <td style={tdStyle}>{auth.currentUser?.metadata?.lastSignInTime ? new Date(auth.currentUser.metadata.lastSignInTime).toLocaleString("bs-BA") : "N/A"}</td>
               </tr>
-            </tbody>
-          </table>
+          </tbody>
+        </table>
         </div>
 
         {/* Promjena email-a */}
@@ -1496,7 +1474,7 @@ export default function Profile() {
             />
             <button style={buttonStyle} onClick={handleChangeEmail}>
               Pošalji verifikacijski link
-            </button>
+        </button>
           </div>
           {emailMessage && (
             <p style={{ 
