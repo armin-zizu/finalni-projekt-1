@@ -105,6 +105,8 @@ export default function Profile() {
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
   const [selectedMonths, setSelectedMonths] = useState(1);
+  const [paymentRequested, setPaymentRequested] = useState(false);
+  const [requestingPayment, setRequestingPayment] = useState(false);
   const router = useRouter();
 
   // Sinhronizuj localAppName sa appName iz contexta
