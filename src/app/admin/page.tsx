@@ -357,6 +357,12 @@ export default function AdminPage() {
           graceEndDate: null,
           monthlyPrice: 12,
           paymentHistory: paymentHistory,
+          // Resetuj payment verification status kada se doda uplata
+          paymentPendingVerification: false,
+          paymentRequestedAt: null,
+          paymentRequestedAmount: null,
+          paymentRequestedMonths: null,
+          paymentReferenceNumber: null,
           updatedAt: Timestamp.fromDate(now),
         },
         { merge: true }
@@ -430,6 +436,106 @@ export default function AdminPage() {
           }}
         >
           {message.text}
+        </div>
+      )}
+
+      {/* Korisnici koji su prijavili uplatu */}
+      {users.filter(user => subscriptions[user.id]?.paymentPendingVerification).length > 0 && (
+        <div style={{ marginBottom: "24px", padding: "16px", background: "#fef3c7", borderRadius: "8px", border: "2px solid #f59e0b" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
+            <span style={{ fontSize: "20px" }}>⚠️</span>
+            <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#92400e", margin: 0 }}>
+              Uplate koje čekaju provjeru ({users.filter(user => subscriptions[user.id]?.paymentPendingVerification).length})
+            </h2>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {users
+              .filter(user => subscriptions[user.id]?.paymentPendingVerification)
+              .map(user => {
+                const subscription = subscriptions[user.id];
+                return (
+                  <div
+                    key={user.id}
+                    style={{
+                      padding: "12px",
+                      background: "#fff",
+                      borderRadius: "6px",
+                      border: "1px solid #fbbf24",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "12px",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: "200px" }}>
+                      <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", margin: "0 0 4px 0" }}>
+                        {user.appName} ({user.email || user.id.substring(0, 8) + "..."})
+                      </p>
+                      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                        <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                          <strong>Iznos:</strong> {subscription?.paymentRequestedAmount || 0} KM
+                        </p>
+                        <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                          <strong>Period:</strong> {subscription?.paymentRequestedMonths || 0} {subscription?.paymentRequestedMonths === 1 ? "mjesec" : "mjeseci"}
+                        </p>
+                        {subscription?.paymentReferenceNumber && (
+                          <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                            <strong>Reference:</strong> {subscription.paymentReferenceNumber}
+                          </p>
+                        )}
+                        {subscription?.paymentRequestedAt && (
+                          <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                            <strong>Prijavljeno:</strong> {subscription.paymentRequestedAt.toLocaleDateString("bs-BA")} {subscription.paymentRequestedAt.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setPaymentAmount((subscription?.paymentRequestedAmount || 0).toString());
+                          setPaymentMonths(subscription?.paymentRequestedMonths || 1);
+                          setPaymentNote(subscription?.paymentReferenceNumber ? `Reference: ${subscription.paymentReferenceNumber}` : "");
+                          setShowPaymentModal(true);
+                        }}
+                        style={{
+                          padding: "8px 16px",
+                          background: "#16a34a",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Odobri uplatu
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedUserDetails(user);
+                          setShowDetailsModal(true);
+                        }}
+                        style={{
+                          padding: "8px 16px",
+                          background: "#3b82f6",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Detalji
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </div>
       )}
 
