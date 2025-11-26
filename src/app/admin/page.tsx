@@ -148,7 +148,7 @@ export default function AdminPage() {
                   daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                 } else {
                   // Expired, check grace period
-                  const calculatedGraceEnd = graceEndDate || (expiryDate ? new Date(expiryDate.getTime() + 7 * 24 * 60 * 60 * 1000) : null);
+                  const calculatedGraceEnd = graceEndDate || (expiryDate ? new Date(expiryDate.getTime() + 5 * 24 * 60 * 60 * 1000) : null);
                   if (calculatedGraceEnd && now < calculatedGraceEnd) {
                     isGracePeriod = true;
                     daysInGrace = Math.ceil((calculatedGraceEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));

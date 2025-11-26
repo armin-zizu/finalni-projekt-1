@@ -12,8 +12,9 @@ export default function SubscriptionBanner() {
     return null;
   }
 
-  // Trial period - prikaži banner
-  if (subscription.isTrial) {
+  // Trial period - prikaži banner samo ako korisnik nije uplatio
+  // Ako ima lastPaymentDate, znači da je uplatio i ne prikazujemo trial banner
+  if (subscription.isTrial && !subscription.lastPaymentDate) {
     return (
       <div
         style={{
@@ -108,18 +109,19 @@ export default function SubscriptionBanner() {
     );
   }
 
-  // Ako je pretplata aktivna i nije u trial periodu i ima više od 7 dana, ne prikazuj banner
-  if (subscription.isActive && !subscription.isTrial && subscription.daysUntilExpiry > 7) {
+  // Ako je korisnik uplatio (ima lastPaymentDate), ne prikazuj trial banner
+  // Ako je pretplata aktivna i nije u trial periodu i ima više od 3 dana, ne prikazuj banner
+  if (subscription.isActive && !subscription.isTrial && subscription.daysUntilExpiry > 3) {
     return null;
   }
 
-  // Pretplata ističe uskoro (manje od 7 dana)
-  if (subscription.isActive && !subscription.isTrial && subscription.daysUntilExpiry <= 7) {
+  // Pretplata ističe uskoro (3, 2, ili 1 dan prije isteka)
+  if (subscription.isActive && !subscription.isTrial && subscription.daysUntilExpiry <= 3 && subscription.daysUntilExpiry > 0) {
     return (
       <div
         style={{
-          background: subscription.daysUntilExpiry <= 3 ? "#fef3c7" : "#dbeafe",
-          borderBottom: `2px solid ${subscription.daysUntilExpiry <= 3 ? "#f59e0b" : "#3b82f6"}`,
+          background: "#fef3c7",
+          borderBottom: "2px solid #f59e0b",
           padding: "12px 20px",
           display: "flex",
           alignItems: "center",
@@ -129,12 +131,10 @@ export default function SubscriptionBanner() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-          <span style={{ fontSize: "20px" }}>
-            {subscription.daysUntilExpiry <= 3 ? "⚠️" : "ℹ️"}
-          </span>
+          <span style={{ fontSize: "20px" }}>⚠️</span>
           <div>
             <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
-              Pretplata ističe za {subscription.daysUntilExpiry} {subscription.daysUntilExpiry === 1 ? "dan" : "dana"}
+              Pretplata ističe za {subscription.daysUntilExpiry} {subscription.daysUntilExpiry === 1 ? "dan" : "dana"}!
             </p>
             <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
               Obnovi pretplatu da nastaviš koristiti aplikaciju
@@ -145,7 +145,7 @@ export default function SubscriptionBanner() {
           onClick={() => router.push("/profile")}
           style={{
             padding: "8px 16px",
-            background: "#3b82f6",
+            background: "#f59e0b",
             color: "white",
             border: "none",
             borderRadius: "6px",

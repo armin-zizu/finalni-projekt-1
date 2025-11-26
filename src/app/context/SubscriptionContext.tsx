@@ -78,9 +78,9 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
         if (data.graceEndDate) {
           graceEndDate = data.graceEndDate.toDate ? data.graceEndDate.toDate() : new Date(data.graceEndDate);
         } else {
-          // Kreiraj grace period (7 dana od isteka pretplate)
+          // Kreiraj grace period (5 dana od isteka pretplate)
           graceEndDate = new Date(expiryDate);
-          graceEndDate.setDate(graceEndDate.getDate() + 7);
+          graceEndDate.setDate(graceEndDate.getDate() + 5);
         }
 
         if (graceEndDate && now < graceEndDate) {
