@@ -1152,6 +1152,73 @@ export default function Profile() {
                 </div>
               </div>
 
+              {/* Dugme "Plaćeno" */}
+              <div style={{ marginTop: "16px" }}>
+                <button
+                  onClick={async () => {
+                    const user = auth.currentUser;
+                    if (!user) {
+                      setSubscriptionMessage("Niste prijavljeni!");
+                      setTimeout(() => setSubscriptionMessage(""), 5000);
+                      return;
+                    }
+
+                    try {
+                      setRequestingPayment(true);
+                      const userId = user.uid;
+                      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
+                      
+                      await setDoc(
+                        subscriptionRef,
+                        {
+                          paymentPendingVerification: true,
+                          paymentRequestedAt: Timestamp.fromDate(new Date()),
+                          paymentRequestedAmount: 12 * selectedMonths,
+                          paymentRequestedMonths: selectedMonths,
+                          paymentReferenceNumber: appName && selectedMonths ? `${appName.toUpperCase().replace(/\s+/g, "-")}-${selectedMonths}` : null,
+                          updatedAt: Timestamp.fromDate(new Date()),
+                        },
+                        { merge: true }
+                      );
+
+                      setPaymentRequested(true);
+                      setSubscriptionMessage("Uspješno ste prijavili uplatu! Admin će provjeriti uplatu u najkraćem roku.");
+                      setTimeout(() => setSubscriptionMessage(""), 5000);
+                    } catch (error: any) {
+                      console.error("Greška pri prijavi uplate:", error);
+                      setSubscriptionMessage("Greška pri prijavi uplate: " + (error.message || "Nepoznata greška"));
+                      setTimeout(() => setSubscriptionMessage(""), 5000);
+                    } finally {
+                      setRequestingPayment(false);
+                    }
+                  }}
+                  disabled={requestingPayment || paymentRequested || subscription?.paymentPendingVerification}
+                  style={{
+                    padding: "12px 24px",
+                    background: paymentRequested || subscription?.paymentPendingVerification ? "#9ca3af" : "#16a34a",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: requestingPayment || paymentRequested || subscription?.paymentPendingVerification ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    width: "100%",
+                    opacity: requestingPayment || paymentRequested || subscription?.paymentPendingVerification ? 0.6 : 1,
+                  }}
+                >
+                  {requestingPayment 
+                    ? "Prijavljivanje..." 
+                    : paymentRequested || subscription?.paymentPendingVerification
+                    ? "✓ Uplata je prijavljena - čeka provjeru"
+                    : "✓ Plaćeno - Prijavi uplatu"}
+                </button>
+                {(paymentRequested || subscription?.paymentPendingVerification) && (
+                  <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px", textAlign: "center" }}>
+                    Vaša uplata je prijavljena i čeka provjeru od strane administratora.
+                  </p>
+                )}
+              </div>
+
               {subscriptionMessage && (
                 <p
                   style={{
