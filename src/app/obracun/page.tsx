@@ -643,19 +643,17 @@ export default function ObracunPage() {
       }
     }
 
-    // Provjeri da li obračun ima ulaz - samo provjeri trenutni ulaz u state-u
+    // Provjeri da li obračun ima ulaz
+    // Provjeri trenutni ulaz u state-u ili sačuvan ulaz (ako je obračun već ažuriran)
     // Ne provjeravaj cache jer to može biti iz prethodnih obračuna
-    // Ulaz se smatra da postoji samo ako je trenutno unesen u ovom obračunu
-    // ili ako je bio unesen i obračun je ažuriran (sačuvanUlaz)
     const imaUlaz = artikli.some((a) => {
-      // Provjeri samo trenutni ulaz u state-u (koji je unesen u ovom obračunu)
-      // ili sačuvan ulaz koji je bio unesen prije ažuriranja u ovom obračunu
-      // NE provjeravaj cache iz localStorage jer to može biti iz prethodnih obračuna
+      // Provjeri trenutni ulaz
       if (a.ulaz !== 0) {
-        return true; // Trenutno ima ulaz
+        return true;
       }
+      // Provjeri sačuvan ulaz (ako je obračun već ažuriran, ulaz je resetovan na 0 ali je sačuvan)
       if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
-        return true; // Ima sačuvan ulaz iz ovog obračuna (nakon ažuriranja)
+        return true;
       }
       return false;
     });

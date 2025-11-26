@@ -780,9 +780,15 @@ export default function ArhivaPage() {
       ) : (
         <div>
           {arhiva.map((item, index) => {
-            // Odredi stil na osnovu flagova
+            // Provjeri da li stvarno ima ulaz u artiklima (ne samo flag)
+            const stvarnoImaUlaz = item.artikli.some((a) => {
+              const ulaz = a.ulaz ?? a.sačuvanUlaz ?? 0;
+              return ulaz !== 0;
+            });
+            
+            // Odredi stil na osnovu flagova - koristi stvarni ulaz, ne samo flag
             let containerStyle = obracunContainerStyle;
-            if (item.imaUlaz) {
+            if (stvarnoImaUlaz) {
               containerStyle = obracunContainerUlazStyle; // Žuta za ulaz
             } else if (item.isAzuriran) {
               containerStyle = obracunContainerAzuriranStyle; // Narandžasta za ažurirane
@@ -804,12 +810,12 @@ export default function ArhivaPage() {
               >
                 <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937" }}>
                   Obračun - {item.datum}
-                  {item.imaUlaz && (
+                  {stvarnoImaUlaz && (
                     <span style={{ fontSize: "14px", color: "#eab308", fontWeight: 500, marginLeft: "8px" }}>
                       (Ima ulaz)
                     </span>
                   )}
-                  {item.isAzuriran && !item.imaUlaz && (
+                  {item.isAzuriran && !stvarnoImaUlaz && (
                     <span style={{ fontSize: "14px", color: "#f59e0b", fontWeight: 500, marginLeft: "8px" }}>
                       (Ažurirano)
                     </span>
@@ -941,7 +947,11 @@ export default function ArhivaPage() {
                         )}
                       </td>
                       <td style={tdStyle}>
-                        {a.ulaz !== undefined && a.ulaz !== null ? (a.ulaz > 0 ? a.ulaz : "-") : "-"}
+                        {(() => {
+                          // Prioritet: 1. ulaz, 2. sačuvanUlaz
+                          const ulazZaPrikaz = a.ulaz ?? a.sačuvanUlaz ?? 0;
+                          return ulazZaPrikaz !== 0 ? ulazZaPrikaz : "-";
+                        })()}
                       </td>
                       <td style={tdStyle}>{a.ukupno ?? "-"}</td>
                       <td style={tdStyle}>{a.utroseno ?? "-"}</td>
