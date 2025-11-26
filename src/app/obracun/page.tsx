@@ -666,25 +666,26 @@ export default function ObracunPage() {
       neto,
       artikli: artikli.map((a) => {
         // Prioritet: 1. trenutni ulaz, 2. sačuvani ulaz u state-u, 3. ulaz iz cache-a
-        let ulazZaPrikaz = a.ulaz;
+        let ulazZaPrikaz = 0;
         let staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
 
-        // Ako trenutni ulaz nije 0, koristi ga
+        // Ako trenutni ulaz nije 0, koristi ga (direktno spremanje bez ažuriranja)
         if (a.ulaz !== 0) {
           ulazZaPrikaz = a.ulaz;
           // Ako nema staroPocetnoStanje, postavi ga na trenutno početno stanje
           if (a.staroPocetnoStanje === undefined) {
             staroPocetnoStanjeZaPrikaz = a.pocetnoStanje;
           }
-        } else {
-          // Ako trenutni ulaz je 0, provjeri sačuvan ulaz ili cache
-          if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
-            ulazZaPrikaz = a.sačuvanUlaz;
-            staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
-          } else if (ulazCache[a.naziv] && ulazCache[a.naziv].ulaz !== 0) {
-            ulazZaPrikaz = ulazCache[a.naziv].ulaz;
-            staroPocetnoStanjeZaPrikaz = ulazCache[a.naziv].staroPocetnoStanje;
-          }
+        } 
+        // Ako trenutni ulaz je 0, provjeri sačuvan ulaz (ako je obračun već ažuriran)
+        else if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
+          ulazZaPrikaz = a.sačuvanUlaz;
+          staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
+        } 
+        // Ako nema ni trenutni ni sačuvan ulaz, provjeri cache
+        else if (ulazCache[a.naziv] && ulazCache[a.naziv].ulaz !== 0) {
+          ulazZaPrikaz = ulazCache[a.naziv].ulaz;
+          staroPocetnoStanjeZaPrikaz = ulazCache[a.naziv].staroPocetnoStanje;
         }
         
         return {
