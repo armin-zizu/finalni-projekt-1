@@ -738,6 +738,23 @@ export default function AdminPage() {
               />
             </div>
 
+            <div style={{ marginBottom: "20px", padding: "12px", background: "#f9fafb", borderRadius: "6px", border: "1px solid #e5e7eb" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={activateOnPayment}
+                  onChange={(e) => setActivateOnPayment(e.target.checked)}
+                  style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                />
+                <span style={{ fontSize: "14px", color: "#1f2937", fontWeight: 500 }}>
+                  Aktiviraj pretplatu nakon dodavanja uplate
+                </span>
+              </label>
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", marginLeft: "26px" }}>
+                Ako je označeno, pretplata će biti automatski aktivirana. Ako nije, pretplata će biti deaktivirana.
+              </p>
+            </div>
+
             <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
               <button
                 onClick={() => {
@@ -746,6 +763,7 @@ export default function AdminPage() {
                   setPaymentAmount("");
                   setPaymentMonths(1);
                   setPaymentNote("");
+                  setActivateOnPayment(true);
                 }}
                 style={{
                   padding: "10px 20px",
