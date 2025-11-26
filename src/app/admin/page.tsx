@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { auth, db } from "../../lib/firebase";
 import { collection, getDocs, doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // Admin email
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
@@ -57,6 +58,7 @@ export default function AdminPage() {
   const [activateOnPayment, setActivateOnPayment] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni">("dnevni");
 
   // Provjeri da li je korisnik admin
   useEffect(() => {
@@ -436,6 +438,122 @@ export default function AdminPage() {
     );
   });
 
+  // Prikupi sve uplate iz svih korisnika
+  const allPayments = useMemo(() => {
+    const payments: Array<{ date: Date; amount: number; userId: string; appName: string }> = [];
+    
+    Object.entries(subscriptions).forEach(([userId, subscription]) => {
+      if (subscription.paymentHistory && subscription.paymentHistory.length > 0) {
+        subscription.paymentHistory.forEach((payment) => {
+          payments.push({
+            date: payment.date,
+            amount: payment.amount,
+            userId: userId,
+            appName: users.find(u => u.id === userId)?.appName || "N/A",
+          });
+        });
+      }
+    });
+    
+    return payments.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [subscriptions, users]);
+
+  // Grupiši uplate po periodu
+  const revenueChartData = useMemo(() => {
+    if (allPayments.length === 0) return [];
+
+    const now = new Date();
+    let startDate: Date;
+    
+    // Odredi početni datum na osnovu filtera
+    if (revenueFilter === "dnevni") {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 30); // Zadnjih 30 dana
+    } else if (revenueFilter === "tjedni") {
+      startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 84); // Zadnjih 12 tjedana
+    } else {
+      startDate = new Date(now);
+      startDate.setMonth(startDate.getMonth() - 12); // Zadnjih 12 mjeseci
+    }
+
+    // Filtriraj uplate
+    const filteredPayments = allPayments.filter(p => p.date >= startDate);
+
+    // Grupiši po periodu
+    const grouped: Record<string, { amount: number; sortKey: string }> = {};
+
+    filteredPayments.forEach((payment) => {
+      let key: string;
+      let sortKey: string; // Za sortiranje
+      const date = new Date(payment.date);
+      
+      if (revenueFilter === "dnevni") {
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        key = `${day}.${month}.${year}`;
+        sortKey = `${year}-${month}-${day}`;
+      } else if (revenueFilter === "tjedni") {
+        // Pronađi početak tjedna (ponedjeljak)
+        const weekStart = new Date(date);
+        const dayOfWeek = date.getDay();
+        const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Ponedjeljak
+        weekStart.setDate(diff);
+        weekStart.setHours(0, 0, 0, 0);
+        
+        const day = String(weekStart.getDate()).padStart(2, "0");
+        const month = String(weekStart.getMonth() + 1).padStart(2, "0");
+        const year = weekStart.getFullYear();
+        key = `Tjedan ${day}.${month}.${year}`;
+        sortKey = `${year}-${month}-${day}`;
+      } else {
+        // Mjesečni
+        const monthNames = ["januar", "februar", "mart", "april", "maj", "juni", "juli", "august", "septembar", "oktobar", "novembar", "decembar"];
+        const month = monthNames[date.getMonth()];
+        const year = date.getFullYear();
+        key = `${month} ${year}`;
+        sortKey = `${year}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      }
+
+      if (!grouped[key]) {
+        grouped[key] = { amount: 0, sortKey };
+      }
+      grouped[key].amount += payment.amount;
+    });
+
+    // Konvertuj u array i sortiraj
+    return Object.entries(grouped)
+      .map(([period, data]) => ({ 
+        period, 
+        zarada: Number(data.amount.toFixed(2)),
+        sortKey: data.sortKey 
+      }))
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map(({ period, zarada }) => ({ period, zarada }));
+  }, [allPayments, revenueFilter]);
+
+  // Ukupna zarada za odabrani period
+  const totalRevenue = useMemo(() => {
+    return revenueChartData.reduce((sum, item) => sum + item.zarada, 0);
+  }, [revenueChartData]);
+
+  // Custom Tooltip za grafikon
+  const RevenueTooltip = ({ active, payload, label }: { active?: boolean; payload?: any; label?: string }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div style={{ backgroundColor: "#1f2937", color: "#fff", padding: 12, borderRadius: 8 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
+          <div style={{ marginBottom: 4 }}>
+            <span style={{ color: "#10b981", fontWeight: 500 }}>Zarada: </span>
+            {payload[0].value.toFixed(2)} KM
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (isAdmin === null || loading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
@@ -479,6 +597,135 @@ export default function AdminPage() {
           {message.text}
         </div>
       )}
+
+      {/* Grafikon zarade */}
+      <div style={{ marginBottom: "32px", background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "16px" }}>
+          <div>
+            <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", marginBottom: "4px" }}>
+              Grafikon Zarade
+            </h2>
+            <p style={{ fontSize: "14px", color: "#6b7280" }}>
+              Ukupna zarada od pretplata korisnika
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              onClick={() => setRevenueFilter("dnevni")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "none",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: "pointer",
+                backgroundColor: revenueFilter === "dnevni" ? "#3b82f6" : "#f3f4f6",
+                color: revenueFilter === "dnevni" ? "#fff" : "#374151",
+                transition: "all 0.2s",
+              }}
+            >
+              Dnevni
+            </button>
+            <button
+              onClick={() => setRevenueFilter("tjedni")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "none",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: "pointer",
+                backgroundColor: revenueFilter === "tjedni" ? "#3b82f6" : "#f3f4f6",
+                color: revenueFilter === "tjedni" ? "#fff" : "#374151",
+                transition: "all 0.2s",
+              }}
+            >
+              Tjedni
+            </button>
+            <button
+              onClick={() => setRevenueFilter("mjesečni")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "none",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: "pointer",
+                backgroundColor: revenueFilter === "mjesečni" ? "#3b82f6" : "#f3f4f6",
+                color: revenueFilter === "mjesečni" ? "#fff" : "#374151",
+                transition: "all 0.2s",
+              }}
+            >
+              Mjesečni
+            </button>
+          </div>
+        </div>
+
+        {revenueChartData.length > 0 ? (
+          <>
+            <div style={{ marginBottom: "16px", padding: "12px", background: "#f9fafb", borderRadius: "8px", display: "inline-block" }}>
+              <span style={{ fontSize: "14px", color: "#6b7280", marginRight: "8px" }}>Ukupna zarada za period:</span>
+              <span style={{ fontSize: "18px", fontWeight: 600, color: "#10b981" }}>
+                {totalRevenue.toFixed(2)} KM
+              </span>
+            </div>
+            <div style={{ 
+              width: "100%", 
+              height: "400px", 
+              marginTop: "20px",
+              backgroundColor: "#fff",
+              borderRadius: "12px",
+              padding: "20px",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+              boxSizing: "border-box",
+              overflow: "hidden"
+            }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={revenueChartData} margin={{ top: 20, right: 20, left: 10, bottom: 80 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="period" 
+                    stroke="#6b7280"
+                    style={{ fontSize: "12px" }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis 
+                    stroke="#6b7280"
+                    style={{ fontSize: "12px" }}
+                    tickFormatter={(value) => `${value} KM`}
+                  />
+                  <Tooltip content={<RevenueTooltip />} />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="zarada" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    dot={{ fill: "#10b981", r: 4 }}
+                    activeDot={{ r: 6 }}
+                    name="Zarada (KM)"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <style jsx>{`
+              .recharts-wrapper {
+                width: 100% !important;
+              }
+              .recharts-surface {
+                width: 100% !important;
+              }
+            `}</style>
+          </>
+        ) : (
+          <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+            <FaDollarSign style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.5 }} />
+            <p style={{ fontSize: "16px" }}>Nema podataka o uplatama za odabrani period.</p>
+          </div>
+        )}
+      </div>
 
       {/* Korisnici koji su prijavili uplatu */}
       {users.filter(user => subscriptions[user.id]?.paymentPendingVerification).length > 0 && (
@@ -631,7 +878,7 @@ export default function AdminPage() {
 
       {/* Pretraga */}
       <div style={{ marginBottom: "24px" }}>
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", maxWidth: "100%" }}>
           <FaSearch
             style={{
               position: "absolute",
@@ -648,11 +895,13 @@ export default function AdminPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               width: "100%",
+              maxWidth: "100%",
               padding: "12px 12px 12px 40px",
               borderRadius: "8px",
               border: "1px solid #e5e7eb",
               fontSize: "14px",
               outline: "none",
+              boxSizing: "border-box",
             }}
           />
         </div>
