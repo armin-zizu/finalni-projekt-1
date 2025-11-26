@@ -1528,7 +1528,7 @@ export default function Profile() {
 
         {/* Promjena email-a */}
         <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px", textAlign: "center" }}>
             📧 Promijeni e-mail adresu
           </h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
