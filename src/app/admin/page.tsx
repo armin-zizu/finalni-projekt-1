@@ -139,8 +139,9 @@ export default function AdminPage() {
               let daysUntilExpiry = 0;
               let daysInGrace = 0;
               
-              // Check trial period
-              if (trialEndDate && now < trialEndDate) {
+              // Check trial period (samo ako nema uplate)
+              const hasPayment = subData.lastPaymentDate != null;
+              if (trialEndDate && now < trialEndDate && !hasPayment) {
                 isTrial = true;
                 daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
               } else if (expiryDate) {
