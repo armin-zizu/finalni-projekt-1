@@ -193,13 +193,46 @@ export default function AdminPage() {
             }
           }
 
-          // Pokušaj učitati email iz Firestore, ako ne postoji, koristi null
-          // Email se može čuvati u Firestore dokumentu korisnika
+          // Pokušaj učitati email iz Firestore
           let userEmail = userData.email || null;
           
-          // Ako email nije u Firestore, možemo ga dobiti iz Firebase Auth
-          // Ali pošto ovo je client-side, ne možemo direktno pristupiti Auth API bez Admin SDK
-          // Zato koristimo email iz Firestore ako postoji, inače null
+          // Ako email nije u Firestore, pokušaj ga dobiti iz Firebase Auth REST API
+          if (!userEmail) {
+            try {
+              const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyB1PZRZcpjrOvpwEWunbHiUstIUuYIE6k4';
+              const response = await fetch(
+                `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    localId: [userId]
+                  }),
+                }
+              );
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (data.users && data.users.length > 0 && data.users[0].email) {
+                  userEmail = data.users[0].email;
+                  // Ažuriraj Firestore dokument sa email-om
+                  try {
+                    await setDoc(
+                      doc(db, "users", userId),
+                      { email: userEmail },
+                      { merge: true }
+                    );
+                  } catch (updateError) {
+                    console.warn(`Greška pri ažuriranju email-a u Firestore za korisnika ${userId}:`, updateError);
+                  }
+                }
+              }
+            } catch (authError) {
+              console.warn(`Greška pri dohvaćanju email-a iz Firebase Auth za korisnika ${userId}:`, authError);
+            }
+          }
           
           usersList.push({
             id: userId,
