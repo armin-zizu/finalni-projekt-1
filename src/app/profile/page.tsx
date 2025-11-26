@@ -203,37 +203,65 @@ export default function Profile() {
 
       // Dohvati IP info ako nije dostupan
       if (ipInfo.ip === "N/A") {
-        await fetchIPAndLocation().then(({ ip, location, isp }) => {
+        fetchIPAndLocation().then(({ ip, location, isp }) => {
           ipInfo = { ip, location, isp };
-        });
-      }
-
-      // Provjeri da li postoji sesija sa istom IP adresom za ovog korisnika
-      const existingSessionWithSameIP = existingSessions.find(s => 
-        s.userEmail === user.email && 
-        s.ip === ipInfo.ip && 
-        ipInfo.ip !== "N/A"
-      );
-
-      if (!activeSession && !existingSessionWithSameIP) {
-        // Kreiraj novu sesiju samo ako nema aktivne sesije i nema sesije sa istom IP
-        createSession(ipInfo);
-      } else if (activeSession) {
-        // Koristi postojeću aktivnu sesiju, ali ažuriraj IP ako je noviji
-        if (ipInfo.ip !== "N/A" && activeSession.ip === "N/A") {
-          activeSession.ip = ipInfo.ip;
-          activeSession.location = ipInfo.location;
-          const updatedSessions = existingSessions.map(s => 
-            s.id === activeSession.id ? activeSession : s
+          
+          // Provjeri da li postoji sesija sa istom IP adresom za ovog korisnika
+          const existingSessionWithSameIP = existingSessions.find(s => 
+            s.userEmail === user.email && 
+            s.ip === ipInfo.ip && 
+            ipInfo.ip !== "N/A"
           );
-          localStorage.setItem("userSessions", JSON.stringify(updatedSessions));
-          setSessions(updatedSessions);
+
+          if (!activeSession && !existingSessionWithSameIP) {
+            // Kreiraj novu sesiju samo ako nema aktivne sesije i nema sesije sa istom IP
+            createSession(ipInfo);
+          } else if (activeSession) {
+            // Koristi postojeću aktivnu sesiju, ali ažuriraj IP ako je noviji
+            if (ipInfo.ip !== "N/A" && activeSession.ip === "N/A") {
+              activeSession.ip = ipInfo.ip;
+              activeSession.location = ipInfo.location;
+              const updatedSessions = existingSessions.map(s => 
+                s.id === activeSession.id ? activeSession : s
+              );
+              localStorage.setItem("userSessions", JSON.stringify(updatedSessions));
+              setSessions(updatedSessions);
+            } else {
+              setSessions(existingSessions);
+            }
+          } else {
+            // Postoji sesija sa istom IP, ne kreiraj novu
+            setSessions(existingSessions);
+          }
+        });
+      } else {
+        // Provjeri da li postoji sesija sa istom IP adresom za ovog korisnika
+        const existingSessionWithSameIP = existingSessions.find(s => 
+          s.userEmail === user.email && 
+          s.ip === ipInfo.ip && 
+          ipInfo.ip !== "N/A"
+        );
+
+        if (!activeSession && !existingSessionWithSameIP) {
+          // Kreiraj novu sesiju samo ako nema aktivne sesije i nema sesije sa istom IP
+          createSession(ipInfo);
+        } else if (activeSession) {
+          // Koristi postojeću aktivnu sesiju, ali ažuriraj IP ako je noviji
+          if (ipInfo.ip !== "N/A" && activeSession.ip === "N/A") {
+            activeSession.ip = ipInfo.ip;
+            activeSession.location = ipInfo.location;
+            const updatedSessions = existingSessions.map(s => 
+              s.id === activeSession.id ? activeSession : s
+            );
+            localStorage.setItem("userSessions", JSON.stringify(updatedSessions));
+            setSessions(updatedSessions);
+          } else {
+            setSessions(existingSessions);
+          }
         } else {
+          // Postoji sesija sa istom IP, ne kreiraj novu
           setSessions(existingSessions);
         }
-      } else {
-        // Postoji sesija sa istom IP, ne kreiraj novu
-        setSessions(existingSessions);
       }
 
       function createSession(ipInfo: { ip: string; location: string; isp: string }) {
