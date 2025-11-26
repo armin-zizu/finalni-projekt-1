@@ -114,6 +114,15 @@ export default function Profile() {
     setLocalAppName(appName);
   }, [appName]);
 
+  // Učitaj paymentRequested status
+  useEffect(() => {
+    if (subscription?.paymentPendingVerification) {
+      setPaymentRequested(true);
+    } else {
+      setPaymentRequested(false);
+    }
+  }, [subscription]);
+
   // Učitaj postojeće šifre
   useEffect(() => {
     const savedProfitPassword = localStorage.getItem("profitPassword");
