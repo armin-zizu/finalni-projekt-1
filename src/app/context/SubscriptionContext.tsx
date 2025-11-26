@@ -252,6 +252,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         subscriptionData = subscriptionDoc.data();
       }
 
+      // Pronađi postojeći expiry date
+      let existingExpiryDate: Date | null = null;
+      if (subscriptionData.expiryDate) {
+        existingExpiryDate = subscriptionData.expiryDate.toDate ? subscriptionData.expiryDate.toDate() : new Date(subscriptionData.expiryDate);
+      }
+
       // Pronađi trial end date
       let trialEndDate: Date | null = null;
       if (subscriptionData.trialEndDate) {
@@ -261,11 +267,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         trialEndDate.setDate(trialEndDate.getDate() + 15);
       }
 
-      // Ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
+      // Ako postoji postojeći expiry date i još nije istekao, dodaj nove mjesece na taj datum
+      // Inače, ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
       // Inače računaj od današnjeg datuma
       let startDate = now;
-      if (trialEndDate && now < trialEndDate) {
-        startDate = trialEndDate; // Počni od kraja trial perioda
+      if (existingExpiryDate && now < existingExpiryDate) {
+        // Postojeća pretplata još nije istekla - dodaj na postojeći expiry date
+        startDate = existingExpiryDate;
+      } else if (trialEndDate && now < trialEndDate) {
+        // Trial period još traje - počni od kraja trial perioda
+        startDate = trialEndDate;
       }
 
       // Izračunaj expiry date od start date

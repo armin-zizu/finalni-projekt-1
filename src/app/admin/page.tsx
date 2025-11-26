@@ -296,19 +296,33 @@ export default function AdminPage() {
       const now = new Date();
       const amount = parseFloat(paymentAmount);
       
+      let subscriptionData: any = {};
+      if (subscriptionDoc.exists()) {
+        subscriptionData = subscriptionDoc.data();
+      }
+
+      // Pronađi postojeći expiry date
+      let existingExpiryDate: Date | null = null;
+      if (subscriptionData.expiryDate) {
+        existingExpiryDate = subscriptionData.expiryDate.toDate ? subscriptionData.expiryDate.toDate() : new Date(subscriptionData.expiryDate);
+      }
+
       // Pronađi trial end date
       let trialEndDate: Date | null = null;
-      if (subscriptionDoc.exists()) {
-        const subData = subscriptionDoc.data();
-        if (subData.trialEndDate) {
-          trialEndDate = subData.trialEndDate.toDate ? subData.trialEndDate.toDate() : new Date(subData.trialEndDate);
-        }
+      if (subscriptionData.trialEndDate) {
+        trialEndDate = subscriptionData.trialEndDate.toDate ? subscriptionData.trialEndDate.toDate() : new Date(subscriptionData.trialEndDate);
       }
       
-      // Ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
+      // Ako postoji postojeći expiry date i još nije istekao, dodaj nove mjesece na taj datum
+      // Inače, ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
+      // Inače računaj od današnjeg datuma
       let startDate = now;
-      if (trialEndDate && now < trialEndDate) {
-        startDate = trialEndDate; // Počni od kraja trial perioda
+      if (existingExpiryDate && now < existingExpiryDate) {
+        // Postojeća pretplata još nije istekla - dodaj na postojeći expiry date
+        startDate = existingExpiryDate;
+      } else if (trialEndDate && now < trialEndDate) {
+        // Trial period još traje - počni od kraja trial perioda
+        startDate = trialEndDate;
       }
       
       // Izračunaj expiry date od start date
@@ -317,17 +331,6 @@ export default function AdminPage() {
       
       // Izračunaj validUntil za payment history
       const validUntil = new Date(newExpiryDate);
-
-      const payment = {
-        date: Timestamp.fromDate(now),
-        amount: amount,
-        note: paymentNote || `Bank Transfer - ${paymentMonths} ${paymentMonths === 1 ? "mjesec" : "mjeseci"}`,
-      };
-
-      let subscriptionData: any = {};
-      if (subscriptionDoc.exists()) {
-        subscriptionData = subscriptionDoc.data();
-      }
 
       const paymentHistory = subscriptionData.paymentHistory || [];
       paymentHistory.push({
