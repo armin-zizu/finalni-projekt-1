@@ -27,6 +27,11 @@ interface SubscriptionStatus {
   daysUntilExpiry: number; // Preostalo dana do isteka pretplate
   daysInGrace: number; // Preostalo dana u grace periodu
   paymentHistory: Payment[];
+  paymentPendingVerification?: boolean; // Da li korisnik prijavio uplatu
+  paymentRequestedAt?: Date | null; // Datum kada je korisnik prijavio uplatu
+  paymentRequestedAmount?: number; // Iznos koji je korisnik prijavio
+  paymentRequestedMonths?: number; // Period koji je korisnik prijavio
+  paymentReferenceNumber?: string | null; // Reference broj koji je korisnik koristio
 }
 
 interface SubscriptionContextType {
@@ -125,6 +130,11 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     daysUntilExpiry,
     daysInGrace,
     paymentHistory,
+    paymentPendingVerification: data.paymentPendingVerification || false,
+    paymentRequestedAt: data.paymentRequestedAt ? (data.paymentRequestedAt.toDate ? data.paymentRequestedAt.toDate() : new Date(data.paymentRequestedAt)) : null,
+    paymentRequestedAmount: data.paymentRequestedAmount || 0,
+    paymentRequestedMonths: data.paymentRequestedMonths || 0,
+    paymentReferenceNumber: data.paymentReferenceNumber || null,
   };
 }
 

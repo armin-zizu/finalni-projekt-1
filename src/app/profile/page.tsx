@@ -6,6 +6,8 @@ import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
+import { db } from "../../lib/firestore";
+import { doc, setDoc, Timestamp } from "firebase/firestore";
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",

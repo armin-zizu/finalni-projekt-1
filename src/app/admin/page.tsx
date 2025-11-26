@@ -181,6 +181,11 @@ export default function AdminPage() {
                 daysRemaining,
                 daysUntilExpiry,
                 daysInGrace,
+                paymentPendingVerification: subData.paymentPendingVerification || false,
+                paymentRequestedAt: subData.paymentRequestedAt?.toDate?.() || (subData.paymentRequestedAt ? new Date(subData.paymentRequestedAt) : null),
+                paymentRequestedAmount: subData.paymentRequestedAmount || 0,
+                paymentRequestedMonths: subData.paymentRequestedMonths || 0,
+                paymentReferenceNumber: subData.paymentReferenceNumber || null,
               };
             } catch (parseError) {
               console.warn(`Greška pri parsiranju subscription podataka za korisnika ${userId}:`, parseError);
@@ -995,6 +1000,37 @@ export default function AdminPage() {
                         </div>
                       )}
                     </div>
+                    
+                    {/* Payment Verification Status */}
+                    {subscription?.paymentPendingVerification && (
+                      <div style={{ marginTop: "16px", padding: "12px", background: "#fef3c7", borderRadius: "6px", border: "1px solid #f59e0b" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                          <span style={{ fontSize: "18px" }}>⚠️</span>
+                          <p style={{ fontSize: "14px", fontWeight: 600, color: "#92400e", margin: 0 }}>
+                            Uplata čeka provjeru
+                          </p>
+                        </div>
+                        <div style={{ marginLeft: "26px" }}>
+                          <p style={{ fontSize: "12px", color: "#78350f", margin: "4px 0" }}>
+                            <strong>Iznos:</strong> {subscription.paymentRequestedAmount || 0} KM
+                          </p>
+                          <p style={{ fontSize: "12px", color: "#78350f", margin: "4px 0" }}>
+                            <strong>Period:</strong> {subscription.paymentRequestedMonths || 0} {subscription.paymentRequestedMonths === 1 ? "mjesec" : "mjeseci"}
+                          </p>
+                          {subscription.paymentReferenceNumber && (
+                            <p style={{ fontSize: "12px", color: "#78350f", margin: "4px 0" }}>
+                              <strong>Reference broj:</strong> {subscription.paymentReferenceNumber}
+                            </p>
+                          )}
+                          {subscription.paymentRequestedAt && (
+                            <p style={{ fontSize: "12px", color: "#78350f", margin: "4px 0" }}>
+                              <strong>Prijavljeno:</strong> {subscription.paymentRequestedAt.toLocaleDateString("bs-BA")} {subscription.paymentRequestedAt.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
                       <button
                         onClick={() => toggleSubscription(selectedUserDetails.id, isActive)}
