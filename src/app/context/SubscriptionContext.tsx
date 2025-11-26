@@ -10,11 +10,13 @@ interface Payment {
   date: Date;
   amount: number;
   note?: string;
+  validUntil?: Date; // Do kada važi uplata
 }
 
 interface SubscriptionStatus {
   isActive: boolean;
   isTrial: boolean;
+  isPremium: boolean; // Premium status (nakon uplate)
   isGracePeriod: boolean;
   trialEndDate: Date | null;
   expiryDate: Date | null;
@@ -59,8 +61,9 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     trialEndDate.setDate(trialEndDate.getDate() + 15);
   }
 
-  // Provjeri da li je u trial periodu
-  if (trialEndDate && now < trialEndDate) {
+  // Provjeri da li je u trial periodu (samo ako nema uplate)
+  const hasPayment = data.lastPaymentDate != null;
+  if (trialEndDate && now < trialEndDate && !hasPayment) {
     isTrial = true;
     isActive = true;
     daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -102,11 +105,16 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     date: p.date?.toDate ? p.date.toDate() : new Date(p.date),
     amount: p.amount || 0,
     note: p.note || "",
+    validUntil: p.validUntil?.toDate ? p.validUntil.toDate() : (p.validUntil ? new Date(p.validUntil) : undefined),
   }));
+  
+  // Provjeri da li je Premium (ima uplatu i nije u trial periodu)
+  const isPremium = hasPayment && !isTrial && (isActive || isGracePeriod);
 
   return {
     isActive,
     isTrial,
+    isPremium,
     isGracePeriod,
     trialEndDate,
     expiryDate,
@@ -239,25 +247,40 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const subscriptionDoc = await getDoc(subscriptionRef);
 
       const now = new Date();
-      const newExpiryDate = new Date(now);
-      newExpiryDate.setMonth(newExpiryDate.getMonth() + months); // Dodaj mjesece
-
-      const payment: Payment = {
-        date: now,
-        amount,
-        note: note || "",
-      };
-
       let subscriptionData: any = {};
       if (subscriptionDoc.exists()) {
         subscriptionData = subscriptionDoc.data();
       }
 
+      // Pronađi trial end date
+      let trialEndDate: Date | null = null;
+      if (subscriptionData.trialEndDate) {
+        trialEndDate = subscriptionData.trialEndDate.toDate ? subscriptionData.trialEndDate.toDate() : new Date(subscriptionData.trialEndDate);
+      } else if (user.metadata.creationTime) {
+        trialEndDate = new Date(user.metadata.creationTime);
+        trialEndDate.setDate(trialEndDate.getDate() + 15);
+      }
+
+      // Ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
+      // Inače računaj od današnjeg datuma
+      let startDate = now;
+      if (trialEndDate && now < trialEndDate) {
+        startDate = trialEndDate; // Počni od kraja trial perioda
+      }
+
+      // Izračunaj expiry date od start date
+      const newExpiryDate = new Date(startDate);
+      newExpiryDate.setMonth(newExpiryDate.getMonth() + months);
+
+      // Izračunaj validUntil za payment history
+      const validUntil = new Date(newExpiryDate);
+
       const paymentHistory = subscriptionData.paymentHistory || [];
       paymentHistory.push({
         date: Timestamp.fromDate(now),
         amount,
-        note: note || `${months} ${months === 1 ? 'mjesec' : 'mjeseci'}`,
+        note: note || `Bank Transfer - ${months} ${months === 1 ? 'mjesec' : 'mjeseci'}`,
+        validUntil: Timestamp.fromDate(validUntil),
       });
 
       await setDoc(subscriptionRef, {

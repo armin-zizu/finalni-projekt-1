@@ -35,8 +35,8 @@ export default function SubscriptionBanner() {
           <div>
             <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
               {subscription.daysRemaining <= 3
-                ? `Trial period ističe za ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}!`
-                : `Trial period: Preostalo ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}`}
+                ? `Probni period ističe za ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}!`
+                : `Probni period: Preostalo ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}`}
             </p>
             <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
               Aktiviraj pretplatu da nastaviš koristiti aplikaciju

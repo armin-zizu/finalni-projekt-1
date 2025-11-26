@@ -934,7 +934,9 @@ export default function Profile() {
                   <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "4px" }}>Status pretplate</h3>
                   <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
                     {subscription.isTrial 
-                      ? `Trial period ističe za ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}`
+                      ? `Probni period ističe za ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}`
+                      : subscription.isPremium
+                      ? `Premium pretplata ističe za ${subscription.daysUntilExpiry} ${subscription.daysUntilExpiry === 1 ? "dan" : "dana"}`
                       : subscription.isActive
                       ? `Pretplata ističe za ${subscription.daysUntilExpiry} ${subscription.daysUntilExpiry === 1 ? "dan" : "dana"}`
                       : subscription.isGracePeriod
@@ -1133,6 +1135,7 @@ export default function Profile() {
                         <th style={thStyle}>Datum uplate</th>
                         <th style={thStyle}>Iznos</th>
                         <th style={thStyle}>Napomena</th>
+                        <th style={thStyle}>Važi do</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1143,6 +1146,11 @@ export default function Profile() {
                           <td style={tdStyle}>{payment.date.toLocaleDateString("bs-BA")} {payment.date.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })}</td>
                           <td style={tdStyle}>{payment.amount.toFixed(2)} KM</td>
                           <td style={tdStyle}>{payment.note || "-"}</td>
+                          <td style={tdStyle}>
+                            {payment.validUntil 
+                              ? payment.validUntil.toLocaleDateString("bs-BA")
+                              : "-"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

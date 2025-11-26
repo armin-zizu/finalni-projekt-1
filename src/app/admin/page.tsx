@@ -31,6 +31,7 @@ interface Subscription {
   }>;
   // Calculated fields
   isTrial?: boolean;
+  isPremium?: boolean;
   isGracePeriod?: boolean;
   daysRemaining?: number;
   daysUntilExpiry?: number;
@@ -167,8 +168,10 @@ export default function AdminPage() {
                   date: p.date?.toDate?.() || (p.date ? new Date(p.date) : new Date()),
                   amount: p.amount || 0,
                   note: p.note || "",
+                  validUntil: p.validUntil?.toDate?.() || (p.validUntil ? new Date(p.validUntil) : undefined),
                 })),
                 isTrial,
+                isPremium: hasPayment && !isTrial && (isActive || isGracePeriod),
                 isGracePeriod,
                 daysRemaining,
                 daysUntilExpiry,
@@ -225,13 +228,28 @@ export default function AdminPage() {
 
       if (subscriptionDoc.exists()) {
         const subData = subscriptionDoc.data();
+        
+        // Pronađi trial end date
+        let trialEndDate: Date | null = null;
+        if (subData.trialEndDate) {
+          trialEndDate = subData.trialEndDate.toDate ? subData.trialEndDate.toDate() : new Date(subData.trialEndDate);
+        }
+        
+        // Ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
+        let startDate = now;
+        if (trialEndDate && now < trialEndDate) {
+          startDate = trialEndDate;
+        }
+        
+        const expiryDate = newStatus
+          ? new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000) // +30 dana od start date
+          : new Date(0); // Prošli datum
+        
         await setDoc(
           subscriptionRef,
           {
             isActive: newStatus,
-            expiryDate: newStatus
-              ? Timestamp.fromDate(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)) // +30 dana
-              : Timestamp.fromDate(new Date(0)), // Prošli datum
+            expiryDate: Timestamp.fromDate(expiryDate),
             graceEndDate: null,
             updatedAt: Timestamp.fromDate(now),
           },
@@ -275,8 +293,28 @@ export default function AdminPage() {
 
       const now = new Date();
       const amount = parseFloat(paymentAmount);
-      const newExpiryDate = new Date(now);
+      
+      // Pronađi trial end date
+      let trialEndDate: Date | null = null;
+      if (subscriptionDoc.exists()) {
+        const subData = subscriptionDoc.data();
+        if (subData.trialEndDate) {
+          trialEndDate = subData.trialEndDate.toDate ? subData.trialEndDate.toDate() : new Date(subData.trialEndDate);
+        }
+      }
+      
+      // Ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
+      let startDate = now;
+      if (trialEndDate && now < trialEndDate) {
+        startDate = trialEndDate; // Počni od kraja trial perioda
+      }
+      
+      // Izračunaj expiry date od start date
+      const newExpiryDate = new Date(startDate);
       newExpiryDate.setMonth(newExpiryDate.getMonth() + paymentMonths);
+      
+      // Izračunaj validUntil za payment history
+      const validUntil = new Date(newExpiryDate);
 
       const payment = {
         date: Timestamp.fromDate(now),
@@ -290,7 +328,12 @@ export default function AdminPage() {
       }
 
       const paymentHistory = subscriptionData.paymentHistory || [];
-      paymentHistory.push(payment);
+      paymentHistory.push({
+        date: Timestamp.fromDate(now),
+        amount: amount,
+        note: paymentNote || `Bank Transfer - ${paymentMonths} ${paymentMonths === 1 ? "mjesec" : "mjeseci"}`,
+        validUntil: Timestamp.fromDate(validUntil),
+      });
 
       await setDoc(
         subscriptionRef,
@@ -845,7 +888,9 @@ export default function AdminPage() {
                           }}
                         >
                           {isTrial
-                            ? `Trial (${subscription?.daysRemaining || 0} dana)`
+                            ? `Probni period (${subscription?.daysRemaining || 0} dana)`
+                            : subscription?.isPremium
+                            ? `Premium (${subscription?.daysUntilExpiry || 0} dana)`
                             : isActive
                             ? `Aktivna (${subscription?.daysUntilExpiry || 0} dana)`
                             : isGracePeriod
