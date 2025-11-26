@@ -514,6 +514,55 @@ export default function AdminPage() {
                         Odobri uplatu
                       </button>
                       <button
+                        onClick={async () => {
+                          if (!confirm(`Da li ste sigurni da želite odbiti uplatu za korisnika ${user.appName}?`)) {
+                            return;
+                          }
+
+                          try {
+                            setSaving(true);
+                            const subscriptionRef = doc(db, "users", user.id, "subscription", "info");
+                            
+                            await setDoc(
+                              subscriptionRef,
+                              {
+                                paymentPendingVerification: false,
+                                paymentRequestedAt: null,
+                                paymentRequestedAmount: null,
+                                paymentRequestedMonths: null,
+                                paymentReferenceNumber: null,
+                                updatedAt: Timestamp.fromDate(new Date()),
+                              },
+                              { merge: true }
+                            );
+
+                            await loadUsers();
+                            setMessage({ type: "success", text: `Uplata odbijena za korisnika ${user.appName}` });
+                            setTimeout(() => setMessage(null), 3000);
+                          } catch (error) {
+                            console.error("Greška pri odbijanju uplate:", error);
+                            setMessage({ type: "error", text: "Greška pri odbijanju uplate" });
+                            setTimeout(() => setMessage(null), 3000);
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                        disabled={saving}
+                        style={{
+                          padding: "8px 16px",
+                          background: "#dc2626",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: saving ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                          opacity: saving ? 0.6 : 1,
+                        }}
+                      >
+                        {saving ? "Odbijanje..." : "Odbij uplatu"}
+                      </button>
+                      <button
                         onClick={() => {
                           setSelectedUserDetails(user);
                           setShowDetailsModal(true);
