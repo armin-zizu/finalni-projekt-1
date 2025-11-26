@@ -950,11 +950,17 @@ export default function ArhivaPage() {
                         {(() => {
                           // Prioritet: 1. ulaz, 2. sačuvanUlaz
                           // Provjeri da li postoji ulaz (može biti 0, negativan ili pozitivan)
-                          const ulazZaPrikaz = a.ulaz !== undefined && a.ulaz !== null 
-                            ? a.ulaz 
-                            : (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== null 
-                                ? a.sačuvanUlaz 
-                                : 0);
+                          let ulazZaPrikaz = 0;
+                          
+                          // Prvo provjeri ulaz (može biti 0, negativan ili pozitivan)
+                          if (a.ulaz !== undefined && a.ulaz !== null && a.ulaz !== 0) {
+                            ulazZaPrikaz = a.ulaz;
+                          } 
+                          // Ako ulaz nije postavljen ili je 0, provjeri sačuvanUlaz
+                          else if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== null && a.sačuvanUlaz !== 0) {
+                            ulazZaPrikaz = a.sačuvanUlaz;
+                          }
+                          
                           // Prikaži ulaz ako postoji (može biti i negativan)
                           return ulazZaPrikaz !== 0 ? ulazZaPrikaz : "-";
                         })()}

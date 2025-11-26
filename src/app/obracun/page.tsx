@@ -655,6 +655,10 @@ export default function ObracunPage() {
       if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
         return true;
       }
+      // Provjeri cache (ako postoji ulaz u cache-u za ovaj datum)
+      if (ulazCache[a.naziv] && ulazCache[a.naziv].ulaz !== 0) {
+        return true;
+      }
       return false;
     });
 
