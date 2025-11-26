@@ -1007,6 +1007,11 @@ export default function AdminPage() {
           >
             <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", marginBottom: "20px" }}>
               Detalji Korisnika - {selectedUserDetails.appName}
+              {selectedUserDetails.email && (
+                <span style={{ fontSize: "14px", fontWeight: 400, color: "#6b7280", marginLeft: "8px" }}>
+                  ({selectedUserDetails.email})
+                </span>
+              )}
             </h2>
 
             {(() => {
