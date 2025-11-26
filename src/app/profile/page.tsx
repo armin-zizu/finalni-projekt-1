@@ -960,9 +960,13 @@ export default function Profile() {
                   let statusBg = "#f3f4f6";
                   
                   if (subscription.isTrial) {
-                    statusText = `Trial (${subscription.daysRemaining} dana)`;
+                    statusText = `Probni period (${subscription.daysRemaining} dana)`;
                     statusColor = "#3b82f6";
                     statusBg = "#dbeafe";
+                  } else if (subscription.isPremium) {
+                    statusText = `Premium (${subscription.daysUntilExpiry} dana)`;
+                    statusColor = "#16a34a";
+                    statusBg = "#dcfce7";
                   } else if (subscription.isActive) {
                     statusText = `Aktivna (${subscription.daysUntilExpiry} dana)`;
                     statusColor = "#16a34a";
