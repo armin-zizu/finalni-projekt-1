@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../../lib/firebase";
 import { collection, getDocs, doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
 
@@ -192,10 +193,17 @@ export default function AdminPage() {
             }
           }
 
-          // Email se ne čuva u Firestore, koristimo user ID ili appName
+          // Pokušaj učitati email iz Firestore, ako ne postoji, koristi null
+          // Email se može čuvati u Firestore dokumentu korisnika
+          let userEmail = userData.email || null;
+          
+          // Ako email nije u Firestore, možemo ga dobiti iz Firebase Auth
+          // Ali pošto ovo je client-side, ne možemo direktno pristupiti Auth API bez Admin SDK
+          // Zato koristimo email iz Firestore ako postoji, inače null
+          
           usersList.push({
             id: userId,
-            email: userData.email || null, // Može biti null ako nije sačuvan u Firestore
+            email: userEmail,
             appName: userData.appName || "N/A",
             createdAt: userData.createdAt?.toDate?.() || (userData.createdAt ? new Date(userData.createdAt) : null),
             lastSignIn: userData.lastSignIn?.toDate?.() || (userData.lastSignIn ? new Date(userData.lastSignIn) : null),
