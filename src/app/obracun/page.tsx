@@ -683,6 +683,8 @@ export default function ObracunPage() {
         } 
         // Ako trenutni ulaz je 0, provjeri sačuvan ulaz (ako je obračun već ažuriran)
         else if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
+          // Kada je obračun ažuriran, ulaz je resetovan na 0, ali je sačuvan u sačuvanUlaz
+          // Koristi sačuvanUlaz za prikaz u arhivi
           ulazZaPrikaz = a.sačuvanUlaz;
           staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
         } 
@@ -696,14 +698,14 @@ export default function ObracunPage() {
           naziv: a.naziv,
           cijena: a.cijena,
           pocetnoStanje: a.pocetnoStanje,
-          ulaz: ulazZaPrikaz, // Sačuvaj ulaz za prikaz u arhivi (može biti 0 ako nema ulaza)
+          ulaz: ulazZaPrikaz, // Sačuvaj ulaz za prikaz u arhivi - OBAVEZNO postavi ulaz ako postoji
           ukupno: a.ukupno,
           utroseno: a.utroseno,
           krajnjeStanje: a.krajnjeStanje,
           vrijednostKM: a.vrijednostKM,
           zestokoKolicina: a.zestokoKolicina,
           proizvodnaCijena: a.proizvodnaCijena,
-          staroPocetnoStanje: staroPocetnoStanjeZaPrikaz, // Sačuvaj staro stanje ako postoji
+          staroPocetnoStanje: staroPocetnoStanjeZaPrikaz, // Sačuvaj staro stanje za prikaz u zagradi
           sačuvanUlaz: ulazZaPrikaz !== 0 ? ulazZaPrikaz : undefined, // Sačuvaj ulaz samo ako nije 0
         };
       }),

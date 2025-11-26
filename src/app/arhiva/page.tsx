@@ -781,9 +781,17 @@ export default function ArhivaPage() {
         <div>
           {arhiva.map((item, index) => {
             // Provjeri da li stvarno ima ulaz u artiklima (ne samo flag)
+            // Provjeri ulaz polje direktno - ako je različit od 0, ima ulaz
             const stvarnoImaUlaz = item.artikli.some((a) => {
-              const ulaz = a.ulaz ?? a.sačuvanUlaz ?? 0;
-              return ulaz !== 0;
+              // Provjeri ulaz polje - ako postoji i nije 0, ima ulaz
+              if (a.ulaz !== undefined && a.ulaz !== null && a.ulaz !== 0) {
+                return true;
+              }
+              // Ako ulaz nije postavljen ili je 0, provjeri sačuvanUlaz
+              if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== null && a.sačuvanUlaz !== 0) {
+                return true;
+              }
+              return false;
             });
             
             // Odredi stil na osnovu flagova - koristi stvarni ulaz, ne samo flag
