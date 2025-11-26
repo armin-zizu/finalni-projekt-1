@@ -1212,7 +1212,7 @@ export default function Profile() {
               </div>
 
               {/* Dugme "Plaćeno" */}
-              <div style={{ marginTop: "16px", display: "flex", justifyContent: "center" }}>
+              <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
                 <button
                   onClick={async () => {
                     const user = auth.currentUser;
@@ -1272,7 +1272,7 @@ export default function Profile() {
                     : "✓ Plaćeno - Prijavi uplatu"}
                 </button>
                 {(paymentRequested || subscription?.paymentPendingVerification) && (
-                  <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px", textAlign: "center" }}>
+                  <p style={{ fontSize: "12px", color: "#6b7280", textAlign: "center", margin: 0 }}>
                     Vaša uplata je prijavljena i čeka provjeru od strane administratora.
                   </p>
                 )}
