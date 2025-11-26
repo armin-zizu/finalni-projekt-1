@@ -1177,7 +1177,6 @@ export default function Profile() {
                         <th style={thStyle}>Datum uplate</th>
                         <th style={thStyle}>Iznos</th>
                         <th style={thStyle}>Napomena</th>
-                        <th style={thStyle}>Važi do</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1188,11 +1187,6 @@ export default function Profile() {
                           <td style={tdStyle}>{payment.date.toLocaleDateString("bs-BA")} {payment.date.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })}</td>
                           <td style={tdStyle}>{payment.amount.toFixed(2)} KM</td>
                           <td style={tdStyle}>{payment.note || "-"}</td>
-                          <td style={tdStyle}>
-                            {payment.validUntil 
-                              ? payment.validUntil.toLocaleDateString("bs-BA")
-                              : "-"}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
