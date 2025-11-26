@@ -949,7 +949,13 @@ export default function ArhivaPage() {
                       <td style={tdStyle}>
                         {(() => {
                           // Prioritet: 1. ulaz, 2. sačuvanUlaz
-                          const ulazZaPrikaz = a.ulaz ?? a.sačuvanUlaz ?? 0;
+                          // Provjeri da li postoji ulaz (može biti 0, negativan ili pozitivan)
+                          const ulazZaPrikaz = a.ulaz !== undefined && a.ulaz !== null 
+                            ? a.ulaz 
+                            : (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== null 
+                                ? a.sačuvanUlaz 
+                                : 0);
+                          // Prikaži ulaz ako postoji (može biti i negativan)
                           return ulazZaPrikaz !== 0 ? ulazZaPrikaz : "-";
                         })()}
                       </td>

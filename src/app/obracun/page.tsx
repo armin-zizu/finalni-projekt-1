@@ -669,11 +669,19 @@ export default function ObracunPage() {
         let ulazZaPrikaz = a.ulaz;
         let staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
 
-        if (a.ulaz === 0) {
+        // Ako trenutni ulaz nije 0, koristi ga
+        if (a.ulaz !== 0) {
+          ulazZaPrikaz = a.ulaz;
+          // Ako nema staroPocetnoStanje, postavi ga na trenutno početno stanje
+          if (a.staroPocetnoStanje === undefined) {
+            staroPocetnoStanjeZaPrikaz = a.pocetnoStanje;
+          }
+        } else {
+          // Ako trenutni ulaz je 0, provjeri sačuvan ulaz ili cache
           if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
             ulazZaPrikaz = a.sačuvanUlaz;
             staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
-          } else if (ulazCache[a.naziv]) {
+          } else if (ulazCache[a.naziv] && ulazCache[a.naziv].ulaz !== 0) {
             ulazZaPrikaz = ulazCache[a.naziv].ulaz;
             staroPocetnoStanjeZaPrikaz = ulazCache[a.naziv].staroPocetnoStanje;
           }
@@ -683,7 +691,7 @@ export default function ObracunPage() {
           naziv: a.naziv,
           cijena: a.cijena,
           pocetnoStanje: a.pocetnoStanje,
-          ulaz: ulazZaPrikaz, // Sačuvaj ulaz za prikaz u arhivi
+          ulaz: ulazZaPrikaz, // Sačuvaj ulaz za prikaz u arhivi (može biti 0 ako nema ulaza)
           ukupno: a.ukupno,
           utroseno: a.utroseno,
           krajnjeStanje: a.krajnjeStanje,
@@ -691,7 +699,7 @@ export default function ObracunPage() {
           zestokoKolicina: a.zestokoKolicina,
           proizvodnaCijena: a.proizvodnaCijena,
           staroPocetnoStanje: staroPocetnoStanjeZaPrikaz, // Sačuvaj staro stanje ako postoji
-          sačuvanUlaz: ulazZaPrikaz, // Sačuvaj ulaz
+          sačuvanUlaz: ulazZaPrikaz !== 0 ? ulazZaPrikaz : undefined, // Sačuvaj ulaz samo ako nije 0
         };
       }),
       rashodi,
