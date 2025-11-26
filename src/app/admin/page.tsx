@@ -888,7 +888,7 @@ export default function AdminPage() {
                     <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
                       Status Pretplate
                     </h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
                       <div>
                         <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Status:</p>
                         <span
@@ -899,6 +899,8 @@ export default function AdminPage() {
                             fontWeight: 600,
                             backgroundColor: isTrial
                               ? "#dbeafe"
+                              : subscription?.isPremium
+                              ? "#dcfce7"
                               : isActive
                               ? "#dcfce7"
                               : isGracePeriod
@@ -906,6 +908,8 @@ export default function AdminPage() {
                               : "#fee2e2",
                             color: isTrial
                               ? "#2563eb"
+                              : subscription?.isPremium
+                              ? "#16a34a"
                               : isActive
                               ? "#16a34a"
                               : isGracePeriod
@@ -925,14 +929,36 @@ export default function AdminPage() {
                         </span>
                       </div>
                       <div>
+                        <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Preostalo dana:</p>
+                        <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                          {isTrial
+                            ? `${subscription?.daysRemaining || 0} dana (Probni period)`
+                            : subscription?.isPremium
+                            ? `${subscription?.daysUntilExpiry || 0} dana (Premium)`
+                            : isActive
+                            ? `${subscription?.daysUntilExpiry || 0} dana`
+                            : isGracePeriod
+                            ? `${subscription?.daysInGrace || 0} dana (Grace)`
+                            : "0 dana"}
+                        </p>
+                      </div>
+                      <div>
                         <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Mjesečna Cijena:</p>
                         <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
                           {subscription?.monthlyPrice || 12} KM
                         </p>
                       </div>
+                      {subscription?.paymentHistory && subscription.paymentHistory.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Ukupno uplata:</p>
+                          <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                            {subscription.paymentHistory.length} {subscription.paymentHistory.length === 1 ? "uplata" : "uplata"}
+                          </p>
+                        </div>
+                      )}
                       {subscription?.trialEndDate && (
                         <div>
-                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Trial Ističe:</p>
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Probni period ističe:</p>
                           <p style={{ fontSize: "14px", color: "#1f2937" }}>
                             {subscription.trialEndDate.toLocaleDateString("bs-BA")}
                           </p>
@@ -940,20 +966,47 @@ export default function AdminPage() {
                       )}
                       {subscription?.expiryDate && (
                         <div>
-                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Pretplata Ističe:</p>
-                          <p style={{ fontSize: "14px", color: "#1f2937" }}>
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Pretplata ističe:</p>
+                          <p style={{ fontSize: "14px", color: subscription.expiryDate < new Date() ? "#dc2626" : "#1f2937" }}>
                             {subscription.expiryDate.toLocaleDateString("bs-BA")}
                           </p>
                         </div>
                       )}
                       {subscription?.lastPaymentDate && (
                         <div>
-                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Posljednja Uplata:</p>
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Posljednja uplata:</p>
                           <p style={{ fontSize: "14px", color: "#1f2937" }}>
                             {subscription.lastPaymentDate.toLocaleDateString("bs-BA")}
                           </p>
                         </div>
                       )}
+                      {subscription?.paymentHistory && subscription.paymentHistory.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Ukupan iznos uplata:</p>
+                          <p style={{ fontSize: "14px", fontWeight: 500, color: "#16a34a" }}>
+                            {subscription.paymentHistory.reduce((sum, p) => sum + (p.amount || 0), 0).toFixed(2)} KM
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                      <button
+                        onClick={() => toggleSubscription(selectedUserDetails.id, isActive)}
+                        disabled={saving}
+                        style={{
+                          padding: "8px 16px",
+                          background: isActive ? "#dc2626" : "#16a34a",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: saving ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                          opacity: saving ? 0.6 : 1,
+                        }}
+                      >
+                        {saving ? "Spremanje..." : isActive ? "Deaktiviraj Pretplatu" : "Aktiviraj Pretplatu"}
+                      </button>
                     </div>
                   </div>
 
