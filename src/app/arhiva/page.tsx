@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
@@ -145,12 +145,25 @@ const obracunContainerUlazStyle: React.CSSProperties = {
   background: "#fefce8", // Svijetlo žuta pozadina
 };
 
+// ---- Tip za dugove ----
+type DugInfo = {
+  imeDuznika: string;
+  iznos: number;
+  kolicina?: number;
+  placeno: boolean;
+  datum: string;
+  obracunDatum: string;
+  rashodIndex: number;
+};
+
 // ---- Glavna komponenta ----
 export default function ArhivaPage() {
   const [arhiva, setArhiva] = useState<ArhiviraniObracun[]>([]);
   const [editingObracunDatum, setEditingObracunDatum] = useState<string | null>(null);
   const [editedRashodi, setEditedRashodi] = useState<Rashod[]>([]);
   const [editedPrihodi, setEditedPrihodi] = useState<Prihod[]>([]);
+  const [showDugoviModal, setShowDugoviModal] = useState(false);
+  const [dugoviFilter, setDugoviFilter] = useState<"svi" | "neplaceni" | "placeni">("svi");
   const obracunRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement | null> }>({});
 
   // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
@@ -405,6 +418,114 @@ export default function ArhivaPage() {
     setEditedPrihodi([]);
   };
 
+  // Funkcija za izvlačenje informacija o dugu iz naziva rashoda
+  const extractDugInfo = (naziv: string): { isDug: boolean; imeDuznika: string; kolicina?: number } => {
+    const lowerNaziv = naziv.toLowerCase().trim();
+    if (!lowerNaziv.includes("dug")) {
+      return { isDug: false, imeDuznika: "" };
+    }
+
+    // Ukloni "dug" iz naziva i izvuci ime dužnika
+    const parts = naziv.split(/\s+/);
+    const dugIndex = parts.findIndex(p => p.toLowerCase() === "dug");
+    
+    if (dugIndex === -1) {
+      return { isDug: false, imeDuznika: "" };
+    }
+
+    // Ime dužnika je sve prije "dug"
+    const imeDuznika = parts.slice(0, dugIndex).join(" ").trim();
+    
+    // Provjeri da li postoji broj nakon "dug" (količina)
+    let kolicina: number | undefined;
+    if (dugIndex + 1 < parts.length) {
+      const kolicinaStr = parts[dugIndex + 1];
+      const parsedKolicina = parseFloat(kolicinaStr);
+      if (!isNaN(parsedKolicina)) {
+        kolicina = parsedKolicina;
+      }
+    }
+
+    return { isDug: true, imeDuznika, kolicina };
+  };
+
+  // Funkcija za prikupljanje svih dugova iz arhive
+  const getAllDugovi = (): DugInfo[] => {
+    const dugovi: DugInfo[] = [];
+    
+    arhiva.forEach((obracun) => {
+      obracun.rashodi.forEach((rashod, index) => {
+        const dugInfo = extractDugInfo(rashod.naziv);
+        if (dugInfo.isDug) {
+          dugovi.push({
+            imeDuznika: dugInfo.imeDuznika,
+            iznos: rashod.cijena,
+            kolicina: dugInfo.kolicina,
+            placeno: rashod.placeno ?? false,
+            datum: obracun.datum,
+            obracunDatum: obracun.datum,
+            rashodIndex: index,
+          });
+        }
+      });
+    });
+
+    return dugovi;
+  };
+
+  // Funkcija za filtriranje dugova
+  const getFilteredDugovi = (): DugInfo[] => {
+    const sviDugovi = getAllDugovi();
+    
+    if (dugoviFilter === "svi") {
+      return sviDugovi;
+    } else if (dugoviFilter === "neplaceni") {
+      return sviDugovi.filter(d => !d.placeno);
+    } else {
+      return sviDugovi.filter(d => d.placeno);
+    }
+  };
+
+  // Funkcija za izračun sume neplaćenih dugova
+  const getNeplaceniDugoviSum = (): number => {
+    return getAllDugovi()
+      .filter(d => !d.placeno)
+      .reduce((sum, d) => sum + d.iznos, 0);
+  };
+
+  // Funkcija za označavanje duga kao plaćenog
+  const markDugAsPlacen = async (obracunDatum: string, rashodIndex: number) => {
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    
+    const updatedArhiva = arhiva.map((obracun) => {
+      if (obracun.datum === obracunDatum) {
+        const updatedRashodi = obracun.rashodi.map((rashod, index) => {
+          if (index === rashodIndex) {
+            return { ...rashod, placeno: true };
+          }
+          return rashod;
+        });
+        return { ...obracun, rashodi: updatedRashodi };
+      }
+      return obracun;
+    });
+    setArhiva(updatedArhiva);
+    
+    // Spremi u Firestore
+    if (user && userId) {
+      try {
+        const obracunToUpdate = updatedArhiva.find(o => o.datum === obracunDatum);
+        if (obracunToUpdate) {
+          const docRef = doc(db, "users", userId, "obracuni", obracunDatum);
+          await setDoc(docRef, obracunToUpdate, { merge: true });
+        }
+      } catch (error: any) {
+        console.warn("Greška pri spremanju u Firestore:", error);
+      }
+    }
+  };
+
   return (
     <div style={containerStyle}>
       <style jsx>{`
@@ -462,9 +583,195 @@ export default function ArhivaPage() {
         }
       `}</style>
 
-      <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", marginBottom: "24px" }}>
-        Arhiva
-      </h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
+          Arhiva
+        </h1>
+        {getAllDugovi().length > 0 && (
+          <button
+            style={{
+              ...buttonStyle,
+              background: "#f59e0b",
+              padding: "10px 20px",
+              fontSize: "14px",
+              fontWeight: 600,
+            }}
+            onClick={() => setShowDugoviModal(true)}
+          >
+            💰 Pregled duga ({getAllDugovi().filter(d => !d.placeno).length} neplaćenih)
+          </button>
+        )}
+      </div>
+
+      {/* Modal za pregled duga */}
+      {showDugoviModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+          onClick={() => setShowDugoviModal(false)}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "900px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 10px 40px rgba(0, 0, 0, 0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
+                💰 Pregled duga
+              </h2>
+              <button
+                style={{
+                  background: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 16px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+                onClick={() => setShowDugoviModal(false)}
+              >
+                ✕ Zatvori
+              </button>
+            </div>
+
+            {/* Suma neplaćenih dugova */}
+            <div
+              style={{
+                padding: "16px",
+                background: "#fee2e2",
+                borderRadius: "8px",
+                marginBottom: "20px",
+                border: "1px solid #fca5a5",
+              }}
+            >
+              <div style={{ fontSize: "16px", fontWeight: 600, color: "#991b1b" }}>
+                Ukupno neplaćenih dugova: {getNeplaceniDugoviSum().toFixed(2)} KM
+              </div>
+            </div>
+
+            {/* Filter dugova */}
+            <div style={{ display: "flex", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
+              <button
+                style={{
+                  ...buttonStyle,
+                  background: dugoviFilter === "svi" ? "#3b82f6" : "#9ca3af",
+                  padding: "8px 16px",
+                }}
+                onClick={() => setDugoviFilter("svi")}
+              >
+                Svi ({getAllDugovi().length})
+              </button>
+              <button
+                style={{
+                  ...buttonStyle,
+                  background: dugoviFilter === "neplaceni" ? "#dc2626" : "#9ca3af",
+                  padding: "8px 16px",
+                }}
+                onClick={() => setDugoviFilter("neplaceni")}
+              >
+                Neplaćeni ({getAllDugovi().filter(d => !d.placeno).length})
+              </button>
+              <button
+                style={{
+                  ...buttonStyle,
+                  background: dugoviFilter === "placeni" ? "#16a34a" : "#9ca3af",
+                  padding: "8px 16px",
+                }}
+                onClick={() => setDugoviFilter("placeni")}
+              >
+                Plaćeni ({getAllDugovi().filter(d => d.placeno).length})
+              </button>
+            </div>
+
+            {/* Tabela dugova */}
+            <div style={{ overflowX: "auto" }}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Ime dužnika</th>
+                    <th style={thStyle}>Iznos (KM)</th>
+                    <th style={thStyle}>Količina</th>
+                    <th style={thStyle}>Datum</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Akcija</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getFilteredDugovi().length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#6b7280" }}>
+                        Nema dugova za prikaz
+                      </td>
+                    </tr>
+                  ) : (
+                    getFilteredDugovi().map((dug, index) => (
+                      <tr key={index}>
+                        <td style={tdStyle}>
+                          <strong>{dug.imeDuznika || "Nepoznato"}</strong>
+                        </td>
+                        <td style={tdStyle}>{dug.iznos.toFixed(2)}</td>
+                        <td style={tdStyle}>{dug.kolicina ? dug.kolicina.toString() : "-"}</td>
+                        <td style={tdStyle}>{dug.datum}</td>
+                        <td style={tdStyle}>
+                          <span
+                            style={{
+                              padding: "4px 12px",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              background: dug.placeno ? "#dcfce7" : "#fee2e2",
+                              color: dug.placeno ? "#166534" : "#991b1b",
+                            }}
+                          >
+                            {dug.placeno ? "✓ Plaćeno" : "✗ Neplaćeno"}
+                          </span>
+                        </td>
+                        <td style={tdStyle}>
+                          {!dug.placeno && (
+                            <button
+                              style={{
+                                ...buttonStyle,
+                                background: "#16a34a",
+                                padding: "6px 12px",
+                                fontSize: "12px",
+                              }}
+                              onClick={() => {
+                                markDugAsPlacen(dug.obracunDatum, dug.rashodIndex);
+                              }}
+                            >
+                              Označi kao plaćeno
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {arhiva.length === 0 ? (
         <p style={{ fontSize: "14px", color: "#6b7280", textAlign: "center", padding: "16px" }}>

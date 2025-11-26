@@ -98,7 +98,6 @@ export default function Profile() {
   const [cjenovnikPasswordInput, setCjenovnikPasswordInput] = useState("");
   const [profitOldPassword, setProfitOldPassword] = useState("");
   const [cjenovnikOldPassword, setCjenovnikOldPassword] = useState("");
-  const [newEmail, setNewEmail] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const { subscription, loading: subscriptionLoading, addPayment } = useSubscription();
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
@@ -311,23 +310,10 @@ export default function Profile() {
       return;
     }
 
-    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-      setEmailMessage("Unesite valjanu e-mail adresu!");
-      setTimeout(() => setEmailMessage(""), 5000);
-      return;
-    }
-
-    if (newEmail === user.email) {
-      setEmailMessage("Nova e-mail adresa mora biti različita od trenutne!");
-      setTimeout(() => setEmailMessage(""), 5000);
-      return;
-    }
-
     try {
       // Pošalji verifikacijski link na trenutni email
       await sendEmailVerification(user);
-      setEmailMessage(`Verifikacijski link je poslan na vaš trenutni e-mail (${user.email}). Molimo provjerite inbox i kliknite na link prije promjene e-mail adrese.`);
-      setNewEmail("");
+      setEmailMessage(`Verifikacijski link je poslan na vaš trenutni e-mail (${user.email}). Molimo provjerite inbox i kliknite na link za promjenu e-mail adrese.`);
       setTimeout(() => setEmailMessage(""), 10000);
     } catch (err: any) {
       setEmailMessage("Greška: " + err.message);
@@ -511,7 +497,34 @@ export default function Profile() {
             </tr>
           </thead>
           <tbody>
-            {sessions.map((session) => (
+            {(() => {
+              // Filtriraj sesije - prikaži samo jednu sesiju po IP adresi (najnoviju)
+              const user = auth.currentUser;
+              const userSessions = sessions.filter(s => s.userEmail === user?.email);
+              const uniqueIPSessions: any[] = [];
+              const seenIPs = new Set<string>();
+              
+              // Sortiraj po ID-u (koji je timestamp, veći ID = noviji) - najnovije prvo
+              const sortedSessions = [...userSessions].sort((a, b) => {
+                const idA = parseInt(a.id) || 0;
+                const idB = parseInt(b.id) || 0;
+                return idB - idA; // Najnovije prvo
+              });
+              
+              for (const session of sortedSessions) {
+                if (session.ip && session.ip !== "N/A") {
+                  if (!seenIPs.has(session.ip)) {
+                    seenIPs.add(session.ip);
+                    uniqueIPSessions.push(session);
+                  }
+                } else {
+                  // Ako nema IP adresu, dodaj je
+                  uniqueIPSessions.push(session);
+                }
+              }
+              
+              return uniqueIPSessions;
+            })().map((session) => (
               <tr key={session.id}>
                 <td style={tdStyle}>{session.id}</td>
                 <td style={tdStyle}>{session.date}</td>
@@ -600,51 +613,83 @@ export default function Profile() {
         </div>
       </div>
 
-      <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
-        <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
-          Backup i export
+      <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "24px", background: "#f9fafb" }}>
+        <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "20px", textAlign: "center" }}>
+          📥 Backup i export
         </h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <button
-            onClick={() => setShowBackupFilters(!showBackupFilters)}
-            style={{ ...buttonStyle, background: showBackupFilters ? "#6b7280" : "#3b82f6" }}
-          >
-            {showBackupFilters ? "Sakrij filtere" : "Odaberi period za backup"}
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+            <button
+              onClick={() => setShowBackupFilters(!showBackupFilters)}
+              style={{ 
+                ...buttonStyle, 
+                background: showBackupFilters ? "#6b7280" : "#3b82f6", 
+                width: "auto",
+                padding: "10px 20px",
+                fontSize: "14px",
+                fontWeight: 500,
+              }}
+            >
+              {showBackupFilters ? "✖️ Sakrij filtere" : "📅 Odaberi period za backup"}
+            </button>
+          </div>
           
           {showBackupFilters && (
-            <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <div style={{ 
+              padding: "20px", 
+              background: "#fff", 
+              borderRadius: "8px", 
+              border: "1px solid #e5e7eb", 
+              display: "flex", 
+              flexDirection: "column", 
+              gap: "16px",
+              width: "100%",
+              maxWidth: "500px"
+            }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <label style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Od datuma:</label>
-          <input
+                <input
                   type="date"
                   value={backupFromDate}
                   onChange={(e) => setBackupFromDate(e.target.value)}
-                  style={{ ...inputStyle, width: "auto" }}
+                  style={{ 
+                    ...inputStyle, 
+                    width: "100%",
+                    padding: "10px",
+                    fontSize: "14px"
+                  }}
                 />
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <label style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Do datuma:</label>
                 <input
                   type="date"
                   value={backupToDate}
                   onChange={(e) => setBackupToDate(e.target.value)}
-                  style={{ ...inputStyle, width: "auto" }}
+                  style={{ 
+                    ...inputStyle, 
+                    width: "100%",
+                    padding: "10px",
+                    fontSize: "14px"
+                  }}
                 />
               </div>
-              <button
-                onClick={() => {
-                  setBackupFromDate("");
-                  setBackupToDate("");
-                }}
-                style={{ ...buttonStyle, background: "#6b7280", width: "auto" }}
-              >
-                Resetuj filtere
-            </button>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <button
+                  onClick={() => {
+                    setBackupFromDate("");
+                    setBackupToDate("");
+                  }}
+                  style={{ ...buttonStyle, background: "#6b7280", width: "auto", padding: "10px 20px" }}
+                >
+                  🔄 Resetuj filtere
+                </button>
+              </div>
             </div>
           )}
 
-          <button
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center", width: "100%" }}>
+            <button
             onClick={() => {
               const user = auth.currentUser;
               const userId = user?.uid;
@@ -929,20 +974,45 @@ export default function Profile() {
               setBackupMessage(`Backup uspješno preuzet! (${arhiva.length} obračuna, ${cjenovnik.length} artikala)`);
               setTimeout(() => setBackupMessage(""), 5000);
             }}
-            style={buttonStyle}
+            style={{ 
+              ...buttonStyle, 
+              width: "auto", 
+              padding: "12px 24px",
+              fontSize: "15px",
+              fontWeight: 600,
+              background: "#16a34a",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+            }}
           >
-            Preuzmi backup podataka (PDF)
+            📄 Preuzmi backup podataka (PDF)
           </button>
           {backupMessage && (
-            <p style={{ fontSize: "14px", color: "#16a34a", marginTop: "8px", fontWeight: 500 }}>
-              {backupMessage}
+            <p style={{ 
+              fontSize: "14px", 
+              color: "#16a34a", 
+              marginTop: "8px", 
+              fontWeight: 500,
+              textAlign: "center",
+              padding: "8px 16px",
+              background: "#dcfce7",
+              borderRadius: "6px",
+              border: "1px solid #86efac"
+            }}>
+              ✓ {backupMessage}
             </p>
           )}
-          <p style={{ fontSize: "12px", color: "#6b7280" }}>
+          <p style={{ 
+            fontSize: "13px", 
+            color: "#6b7280",
+            textAlign: "center",
+            marginTop: "8px",
+            maxWidth: "600px"
+          }}>
             {backupFromDate || backupToDate 
-              ? `Preuzmite podatke za period: ${backupFromDate || "početak"} - ${backupToDate || "kraj"}`
-              : "Preuzmite sve podatke (arhiva i cjenovnik) kao PDF fajl"}
+              ? `📊 Preuzmite podatke za period: ${backupFromDate || "početak"} - ${backupToDate || "kraj"}`
+              : "💾 Preuzmite sve podatke (arhiva i cjenovnik) kao PDF fajl"}
           </p>
+          </div>
         </div>
       </div>
 
@@ -1142,7 +1212,7 @@ export default function Profile() {
               </div>
 
               {/* Dugme "Plaćeno" */}
-              <div style={{ marginTop: "16px" }}>
+              <div style={{ marginTop: "16px", display: "flex", justifyContent: "center" }}>
                 <button
                   onClick={async () => {
                     const user = auth.currentUser;
@@ -1191,7 +1261,7 @@ export default function Profile() {
                     cursor: requestingPayment || paymentRequested || subscription?.paymentPendingVerification ? "not-allowed" : "pointer",
                     fontSize: "14px",
                     fontWeight: 600,
-                    width: "100%",
+                    width: "auto",
                     opacity: requestingPayment || paymentRequested || subscription?.paymentPendingVerification ? 0.6 : 1,
                   }}
                 >
@@ -1459,70 +1529,116 @@ export default function Profile() {
         {/* Promjena email-a */}
         <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
           <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
-            Promijeni e-mail adresu
+            📧 Promijeni e-mail adresu
           </h3>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
-            <input
-              type="email"
-              value={newEmail}
-              onChange={(e) => {
-                setNewEmail(e.target.value);
-                setEmailMessage("");
-              }}
-              style={inputStyle}
-              placeholder="Unesite novu e-mail adresu"
-            />
-            <button style={buttonStyle} onClick={handleChangeEmail}>
-              Pošalji verifikacijski link
-        </button>
-          </div>
-          {emailMessage && (
-            <p style={{ 
-              color: emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "#dc2626" : "#15803d", 
-              marginTop: "8px",
-              fontSize: "14px"
-            }}>
-              {emailMessage}
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
+            <button 
+              style={{ 
+                ...buttonStyle, 
+                width: "auto",
+                padding: "10px 20px",
+                fontSize: "14px",
+                fontWeight: 500,
+              }} 
+              onClick={handleChangeEmail}
+            >
+              ✉️ Pošalji verifikacijski link
+            </button>
+            {emailMessage && (
+              <p style={{ 
+                color: emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "#dc2626" : "#15803d", 
+                marginTop: "8px",
+                fontSize: "14px",
+                textAlign: "center",
+                padding: "8px 16px",
+                background: emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "#fee2e2" : "#dcfce7",
+                borderRadius: "6px",
+                border: `1px solid ${emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "#fca5a5" : "#86efac"}`,
+                maxWidth: "500px"
+              }}>
+                {emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "⚠️ " : "✓ "}
+                {emailMessage}
+              </p>
+            )}
+            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", textAlign: "center" }}>
+              Verifikacijski link će biti poslan na vaš trenutni e-mail ({email || "N/A"})
             </p>
-          )}
-          <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px" }}>
-            Verifikacijski link će biti poslan na vaš trenutni e-mail ({email || "N/A"})
-          </p>
+          </div>
         </div>
 
         {/* Promjena šifre */}
         <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
-            Promijeni lozinku
+          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px", textAlign: "center" }}>
+            🔒 Promijeni lozinku
           </h3>
-          <button style={buttonStyle} onClick={handleChangePassword}>
-            Pošalji link za promjenu lozinke
-          </button>
-          {message && message.includes("lozinke") && (
-            <p style={{ 
-              color: message.includes("Greška") ? "#dc2626" : "#15803d", 
-              marginTop: "8px",
-              fontSize: "14px"
-            }}>
-              {message}
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
+            <button 
+              style={{ 
+                ...buttonStyle, 
+                width: "auto",
+                padding: "10px 20px",
+                fontSize: "14px",
+                fontWeight: 500,
+              }} 
+              onClick={handleChangePassword}
+            >
+              ✉️ Pošalji link za promjenu lozinke
+            </button>
+            {message && message.includes("lozinke") && (
+              <p style={{ 
+                color: message.includes("Greška") ? "#dc2626" : "#15803d", 
+                marginTop: "8px",
+                fontSize: "14px",
+                textAlign: "center",
+                padding: "8px 16px",
+                background: message.includes("Greška") ? "#fee2e2" : "#dcfce7",
+                borderRadius: "6px",
+                border: `1px solid ${message.includes("Greška") ? "#fca5a5" : "#86efac"}`,
+                maxWidth: "500px"
+              }}>
+                {message.includes("Greška") ? "⚠️ " : "✓ "}
+                {message}
+              </p>
+            )}
+            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", textAlign: "center" }}>
+              Link za promjenu lozinke će biti poslan na vaš e-mail ({email || "N/A"})
             </p>
-          )}
-          <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px" }}>
-            Link za promjenu lozinke će biti poslan na vaš e-mail ({email || "N/A"})
-          </p>
+          </div>
         </div>
 
-        <button
-          onClick={handleLogout}
-          style={{
-            ...buttonStyle,
-            background: "#dc2626",
-            marginTop: "24px",
-            width: "100%",
-          }}
-        >
-          Odjava
-        </button>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "center", 
+          marginTop: "32px",
+          paddingTop: "24px",
+          borderTop: "2px solid #e5e7eb"
+        }}>
+          <button
+            onClick={handleLogout}
+            style={{
+              ...buttonStyle,
+              background: "#dc2626",
+              width: "auto",
+              padding: "12px 28px",
+              fontSize: "15px",
+              fontWeight: 600,
+              boxShadow: "0 2px 4px rgba(220, 38, 38, 0.2)",
+              transition: "all 0.2s ease-in-out",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#b91c1c";
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "0 4px 8px rgba(220, 38, 38, 0.3)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#dc2626";
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 2px 4px rgba(220, 38, 38, 0.2)";
+            }}
+          >
+            🚪 Odjava
+          </button>
+        </div>
       </div>
     </div>
   );
