@@ -254,25 +254,59 @@ export default function ArhivaPage() {
       return dateB - dateA;
     });
     
+    // 3.5. TRANSFORMIRAJ PODATKE: Ako postoji staroPocetnoStanje u zagradi, to znači da je bio ulaz
+    // U tom slučaju: pocetnoStanje = staroPocetnoStanje, ulaz = pocetnoStanje - staroPocetnoStanje
+    const transformedArhiva = sortedArhiva.map((obracun) => {
+      let imaUlaz = obracun.imaUlaz ?? false;
+      const transformedArtikli = obracun.artikli.map((artikal) => {
+        // Ako postoji staroPocetnoStanje i razlikuje se od pocetnoStanje, to znači da je bio ulaz
+        if (
+          artikal.staroPocetnoStanje !== undefined &&
+          artikal.pocetnoStanje !== undefined &&
+          artikal.staroPocetnoStanje !== artikal.pocetnoStanje
+        ) {
+          const staroStanje = artikal.staroPocetnoStanje;
+          const novoStanje = artikal.pocetnoStanje;
+          const ulaz = novoStanje - staroStanje;
+          
+          imaUlaz = true; // Postavi flag da obračun ima ulaz
+          
+          return {
+            ...artikal,
+            pocetnoStanje: staroStanje, // Postavi staro stanje kao početno
+            ulaz: ulaz, // Postavi ulaz kao razliku
+            staroPocetnoStanje: undefined, // Ukloni staroPocetnoStanje jer je sada u pocetnoStanje
+          };
+        }
+        return artikal;
+      });
+      
+      return {
+        ...obracun,
+        artikli: transformedArtikli,
+        imaUlaz: imaUlaz, // Ažuriraj flag
+      };
+    });
+    
     // 4. SPREMI U LOCALSTORAGE KAO CACHE (ako je Firestore imao podatke)
     if (firestoreArhiva.length > 0 && userId) {
       const storageKey = `arhivaObracuna_${userId}`;
-      localStorage.setItem(storageKey, JSON.stringify(sortedArhiva));
+      localStorage.setItem(storageKey, JSON.stringify(transformedArhiva));
       console.log("Arhiva spremljena u localStorage kao cache");
     }
     
     // 5. POSTAVI STANJE
     setArhiva((prevArhiva) => {
       const prevString = JSON.stringify(prevArhiva);
-      const newString = JSON.stringify(sortedArhiva);
+      const newString = JSON.stringify(transformedArhiva);
       if (prevString === newString) {
         return prevArhiva; // Ne mijenjaj ako je ista
       }
-      return sortedArhiva;
+      return transformedArhiva;
     });
     
     // Kreiraj refs za obračune
-    sortedArhiva.forEach((item) => {
+    transformedArhiva.forEach((item) => {
       if (!obracunRefs.current[item.datum]) {
         obracunRefs.current[item.datum] = React.createRef<HTMLDivElement>();
       }
@@ -780,21 +814,14 @@ export default function ArhivaPage() {
       ) : (
         <div>
           {arhiva.map((item, index) => {
-            // Provjeri da li stvarno ima ulaz u artiklima (ne samo flag)
-            // Provjeri ulaz polje direktno - ako je različit od 0, ima ulaz
-            const stvarnoImaUlaz = item.artikli.some((a) => {
+            // Provjeri da li obračun ima ulaz - koristi flag imaUlaz (koji je sada pravilno postavljen)
+            // ili provjeri direktno ulaz polje u artiklima
+            const stvarnoImaUlaz = item.imaUlaz || item.artikli.some((a) => {
               // Provjeri ulaz polje - ako postoji i nije 0, ima ulaz
-              if (a.ulaz !== undefined && a.ulaz !== null && a.ulaz !== 0) {
-                return true;
-              }
-              // Ako ulaz nije postavljen ili je 0, provjeri sačuvanUlaz
-              if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== null && a.sačuvanUlaz !== 0) {
-                return true;
-              }
-              return false;
+              return (a.ulaz !== undefined && a.ulaz !== null && a.ulaz !== 0);
             });
             
-            // Odredi stil na osnovu flagova - koristi stvarni ulaz, ne samo flag
+            // Odredi stil na osnovu flagova - koristi flag imaUlaz ili stvarni ulaz
             let containerStyle = obracunContainerStyle;
             if (stvarnoImaUlaz) {
               containerStyle = obracunContainerUlazStyle; // Žuta za ulaz
