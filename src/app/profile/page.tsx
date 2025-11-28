@@ -118,6 +118,8 @@ export default function Profile() {
   const [loadingApprovals, setLoadingApprovals] = useState(false);
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
+  const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
+  const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
   const router = useRouter();
 
   // Sinhronizuj localAppName sa appName iz contexta
@@ -841,6 +843,7 @@ export default function Profile() {
                     <th style={thStyle}>Posljednja prijava</th>
                     <th style={thStyle}>Akcije</th>
                     <th style={thStyle}>Blokiraj</th>
+                    <th style={thStyle}>Detalji</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -917,46 +920,18 @@ export default function Profile() {
                           )}
                         </td>
                         <td style={tdStyle}>
-                          {isEditing ? (
-                            <select
-                              value={device.role || ""}
-                              onChange={(e) => {
-                                const newRole = e.target.value as UserRole || null;
-                                if (newRole === "konobar") {
-                                  // Ako postavlja konobara, otvori modal za dozvole
-                                  handleEditPermissions(device);
-                                } else {
-                                  handleAssignRole(device.id, newRole);
-                                }
-                              }}
-                              style={{
-                                padding: "6px 12px",
-                                border: "1px solid #e5e7eb",
-                                borderRadius: "6px",
-                                fontSize: "14px",
-                                backgroundColor: "#fff",
-                                color: "#1f2937",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <option value="">Nedodijeljena</option>
-                              <option value="vlasnik">Vlasnik</option>
-                              <option value="konobar">Konobar</option>
-                            </select>
-                          ) : (
-                            <span
-                              style={{
-                                padding: "4px 12px",
-                                borderRadius: "12px",
-                                fontSize: "12px",
-                                fontWeight: 600,
-                                backgroundColor: roleColor.bg,
-                                color: roleColor.color,
-                              }}
-                            >
-                              {device.role || "Nedodijeljena"}
-                            </span>
-                          )}
+                          <span
+                            style={{
+                              padding: "4px 12px",
+                              borderRadius: "12px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              backgroundColor: roleColor.bg,
+                              color: roleColor.color,
+                            }}
+                          >
+                            {device.role || "Nedodijeljena"}
+                          </span>
                         </td>
                         <td style={tdStyle}>
                           {device.lastLogin
@@ -971,79 +946,20 @@ export default function Profile() {
                             >
                               Odobri
                             </button>
-                          ) : isEditing && device.role === "konobar" ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
-                                {["dashboard", "obracun", "arhiva", "cjenovnik", "profit", "profile"].map((page) => (
-                                  <label key={page} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px" }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={editingPermissions[page as keyof PagePermission] || false}
-                                      onChange={(e) => {
-                                        setEditingPermissions({
-                                          ...editingPermissions,
-                                          [page]: e.target.checked,
-                                        });
-                                      }}
-                                    />
-                                    {page === "dashboard" ? "Radna površina" :
-                                     page === "obracun" ? "Obračun" :
-                                     page === "arhiva" ? "Arhiva" :
-                                     page === "cjenovnik" ? "Cjenovnik" :
-                                     page === "profit" ? "Profit" :
-                                     "Profil"}
-                                  </label>
-                                ))}
-                              </div>
-                              <div style={{ display: "flex", gap: "4px" }}>
-                                <button
-                                  onClick={() => handleSavePermissions(item.deviceId, item.role as UserRole)}
-                                  style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "4px 8px" }}
-                                >
-                                  Spremi
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setEditingDeviceId(null);
-                                    setEditingPermissions({});
-                                  }}
-                                  style={{ ...buttonStyle, background: "#6b7280", fontSize: "12px", padding: "4px 8px" }}
-                                >
-                                  Odustani
-                                </button>
-                              </div>
-                            </div>
                           ) : (
-                            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                              <button
-                                onClick={() => {
-                                  if (device.role === "konobar") {
-                                    handleEditPermissions(device);
-                                  } else {
-                                    setEditingDeviceId(device.id);
-                                  }
-                                }}
-                                style={{ ...buttonStyle, fontSize: "12px", padding: "4px 8px" }}
-                              >
-                                {device.role === "konobar" ? "Dozvole" : device.role === "vlasnik" ? "Vlasnik" : "Uredi"}
-                              </button>
-                              {!device.role && (
-                                <>
-                                  <button
-                                    onClick={() => handleAssignRole(device.id, "vlasnik")}
-                                    style={{ ...buttonStyle, background: "#2563eb", fontSize: "12px", padding: "4px 8px" }}
-                                  >
-                                    Vlasnik
-                                  </button>
-                                  <button
-                                    onClick={() => handleEditPermissions(device)}
-                                    style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "4px 8px" }}
-                                  >
-                                    Konobar
-                                  </button>
-                                </>
-                              )}
-                            </div>
+                            <button
+                              onClick={() => {
+                                setExpandedDeviceId(expandedDeviceId === device.id ? null : device.id);
+                                if (expandedDeviceId !== device.id) {
+                                  setEditingDeviceId(device.id);
+                                  setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
+                                  setEditingPermissions(device.permissions || {});
+                                }
+                              }}
+                              style={{ ...buttonStyle, fontSize: "12px", padding: "4px 8px" }}
+                            >
+                              Uredi
+                            </button>
                           )}
                         </td>
                         <td style={tdStyle}>
@@ -1062,7 +978,191 @@ export default function Profile() {
                             {isBlocked ? "Odblokiraj" : "Blokiraj"}
                           </button>
                         </td>
+                        <td style={tdStyle}>
+                          <button
+                            onClick={() => setExpandedDeviceId(expandedDeviceId === device.id ? null : device.id)}
+                            style={{
+                              ...buttonStyle,
+                              background: expandedDeviceId === device.id ? "#3b82f6" : "#6b7280",
+                              fontSize: "12px",
+                              padding: "4px 8px",
+                            }}
+                          >
+                            {expandedDeviceId === device.id ? "Sakrij" : "Detalji"}
+                          </button>
+                        </td>
                       </tr>
+                      {expandedDeviceId === device.id && (
+                        <tr>
+                          <td colSpan={8} style={{ ...tdStyle, padding: "16px", background: "#f9fafb" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                              <div>
+                                <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "#1f2937" }}>
+                                  Uredi Ulogu i Dozvole
+                                </h4>
+                                {isEditing ? (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "12px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                                    <div>
+                                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px", color: "#374151" }}>
+                                        Uloga:
+                                      </label>
+                                      <select
+                                        value={selectedRole[device.id] || device.role || ""}
+                                        onChange={(e) => {
+                                          const newRole = e.target.value as UserRole || null;
+                                          setSelectedRole({ ...selectedRole, [device.id]: newRole });
+                                          if (newRole === "konobar" && !device.permissions) {
+                                            setEditingPermissions({
+                                              dashboard: true,
+                                              obracun: true,
+                                              arhiva: true,
+                                              cjenovnik: true,
+                                              profit: true,
+                                              profile: true,
+                                              admin: false,
+                                            });
+                                          }
+                                        }}
+                                        style={{
+                                          padding: "8px 12px",
+                                          border: "1px solid #e5e7eb",
+                                          borderRadius: "6px",
+                                          fontSize: "14px",
+                                          backgroundColor: "#fff",
+                                          color: "#1f2937",
+                                          cursor: "pointer",
+                                          width: "100%",
+                                          maxWidth: "300px",
+                                        }}
+                                      >
+                                        <option value="">Nedodijeljena</option>
+                                        <option value="vlasnik">Vlasnik</option>
+                                        <option value="konobar">Konobar</option>
+                                      </select>
+                                    </div>
+                                    {(selectedRole[device.id] || device.role) === "konobar" && (
+                                      <div>
+                                        <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "8px", color: "#374151" }}>
+                                          Dozvole za stranice:
+                                        </label>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", padding: "12px", background: "#f9fafb", borderRadius: "6px", border: "1px solid #e5e7eb" }}>
+                                          {["dashboard", "obracun", "arhiva", "cjenovnik", "profit", "profile"].map((page) => (
+                                            <label key={page} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" }}>
+                                              <input
+                                                type="checkbox"
+                                                checked={editingPermissions[page as keyof PagePermission] || false}
+                                                onChange={(e) => {
+                                                  setEditingPermissions({
+                                                    ...editingPermissions,
+                                                    [page]: e.target.checked,
+                                                  });
+                                                }}
+                                                style={{ cursor: "pointer" }}
+                                              />
+                                              {page === "dashboard" ? "Radna površina" :
+                                               page === "obracun" ? "Obračun" :
+                                               page === "arhiva" ? "Arhiva" :
+                                               page === "cjenovnik" ? "Cjenovnik" :
+                                               page === "profit" ? "Profit" :
+                                               "Profil"}
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div style={{ display: "flex", gap: "8px" }}>
+                                      <button
+                                        onClick={() => {
+                                          const roleToSave = selectedRole[device.id] || device.role;
+                                          if (roleToSave === "konobar") {
+                                            handleSavePermissions(device.id, roleToSave);
+                                          } else {
+                                            handleAssignRole(device.id, roleToSave);
+                                          }
+                                          setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
+                                          setExpandedDeviceId(null);
+                                        }}
+                                        style={{ ...buttonStyle, background: "#16a34a", fontSize: "13px", padding: "8px 16px" }}
+                                      >
+                                        Spremi
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setEditingDeviceId(null);
+                                          setEditingPermissions({});
+                                          setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
+                                        }}
+                                        style={{ ...buttonStyle, background: "#6b7280", fontSize: "13px", padding: "8px 16px" }}
+                                      >
+                                        Odustani
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    <div style={{ padding: "12px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                                      <p style={{ fontSize: "12px", color: "#6b7280", margin: "0 0 8px 0" }}>
+                                        <strong>Uloga:</strong> {device.role || "Nedodijeljena"}
+                                      </p>
+                                      {device.role === "konobar" && device.permissions && (
+                                        <div>
+                                          <p style={{ fontSize: "12px", fontWeight: 600, margin: "0 0 8px 0", color: "#374151" }}>
+                                            Dozvole:
+                                          </p>
+                                          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                                            {Object.entries(device.permissions).filter(([key]) => key !== "admin").map(([page, allowed]) => (
+                                              <span
+                                                key={page}
+                                                style={{
+                                                  padding: "4px 8px",
+                                                  borderRadius: "4px",
+                                                  fontSize: "11px",
+                                                  backgroundColor: allowed ? "#dcfce7" : "#fee2e2",
+                                                  color: allowed ? "#16a34a" : "#dc2626",
+                                                }}
+                                              >
+                                                {page === "dashboard" ? "Radna površina" :
+                                                 page === "obracun" ? "Obračun" :
+                                                 page === "arhiva" ? "Arhiva" :
+                                                 page === "cjenovnik" ? "Cjenovnik" :
+                                                 page === "profit" ? "Profit" :
+                                                 "Profil"}: {allowed ? "Dozvoljeno" : "Blokirano"}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        setEditingDeviceId(device.id);
+                                        setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
+                                        setEditingPermissions(device.permissions || {});
+                                      }}
+                                      style={{ ...buttonStyle, background: "#3b82f6", fontSize: "13px", padding: "8px 16px", alignSelf: "flex-start" }}
+                                    >
+                                      Uredi
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ paddingTop: "12px", borderTop: "1px solid #e5e7eb" }}>
+                                <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "#1f2937" }}>
+                                  Informacije o uređaju
+                                </h4>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "8px", fontSize: "12px", color: "#6b7280" }}>
+                                  <div><strong>Device ID:</strong> {device.id}</div>
+                                  <div><strong>Email:</strong> {device.userEmail || "N/A"}</div>
+                                  <div><strong>Browser:</strong> {device.deviceInfo?.browser || "N/A"}</div>
+                                  <div><strong>OS:</strong> {device.deviceInfo?.os || "N/A"}</div>
+                                  <div><strong>Ekran:</strong> {device.deviceInfo?.screenSize || "N/A"}</div>
+                                  <div><strong>Prvi put viđen:</strong> {device.deviceInfo?.firstSeen ? device.deviceInfo.firstSeen.toLocaleDateString("bs-BA") : "N/A"}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     );
                   })}
                 </tbody>

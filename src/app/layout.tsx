@@ -31,13 +31,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
 
           if (!isOwner) {
-            const approvalRef = doc(db, "loginApprovals", user.uid);
-            const approvalDoc = await getDoc(approvalRef);
-            
-            if (approvalDoc.exists()) {
-              const approvalData = approvalDoc.data();
-              if (approvalData.status !== "approved") {
-                // Korisnik nema odobrenje, preusmjeri na login
+            try {
+              const approvalRef = doc(db, "loginApprovals", user.uid);
+              const approvalDoc = await getDoc(approvalRef);
+              
+              if (approvalDoc.exists()) {
+                const approvalData = approvalDoc.data();
+                if (approvalData.status !== "approved") {
+                  // Korisnik nema odobrenje, preusmjeri na login
+                  setIsAuthenticated(false);
+                  setIsLoading(false);
+                  if (pathname !== "/login") {
+                    router.push("/login");
+                  }
+                  return;
+                }
+              } else {
+                // Nema dokumenta za odobrenje, preusmjeri na login
                 setIsAuthenticated(false);
                 setIsLoading(false);
                 if (pathname !== "/login") {
@@ -45,14 +55,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 }
                 return;
               }
-            } else {
-              // Nema dokumenta za odobrenje, preusmjeri na login
-              setIsAuthenticated(false);
-              setIsLoading(false);
-              if (pathname !== "/login") {
-                router.push("/login");
+            } catch (approvalError: any) {
+              // Ako je greška permisija, dozvoli pristup (možda je vlasnik)
+              if (approvalError.code === 'permission-denied') {
+                console.warn("Nemam permisije za provjeru odobrenja, dozvoljavam pristup");
+              } else {
+                throw approvalError;
               }
-              return;
             }
           }
 
