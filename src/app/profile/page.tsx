@@ -649,6 +649,20 @@ export default function Profile() {
     }
   }, [role]);
 
+  // Filtriraj uređaje
+  const filteredDevices = devices.filter((device) => {
+    const search = deviceSearchTerm.toLowerCase();
+    const status = device.status || (device.role === null ? "verifikacija" : null);
+    return (
+      device.id?.toLowerCase().includes(search) ||
+      device.userEmail?.toLowerCase().includes(search) ||
+      device.deviceInfo?.browser?.toLowerCase().includes(search) ||
+      device.deviceInfo?.os?.toLowerCase().includes(search) ||
+      device.role?.toLowerCase().includes(search) ||
+      status?.toLowerCase().includes(search) ||
+      (device.isBlocked ? "blokiran" : "aktivan").includes(search)
+    );
+  });
 
   const handleDeleteSession = (id: string) => {
     if (window.confirm("Jeste li sigurni da želite obrisati ovu sesiju?")) {

@@ -61,7 +61,14 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         (resource != null && resource.data.userId == request.auth.uid) ||
         isAdmin() ||
-        // Provjeri da li je korisnik vlasnik (prvi korisnik)
+        // Provjeri da li je korisnik vlasnik (prvi korisnik) - dozvoli čitanje svih zahtjeva
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isOwner == true)
+      );
+      
+      // Vlasnik može čitati sve zahtjeve (za listu)
+      allow list: if request.auth != null && (
+        isAdmin() ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isOwner == true)
       );
