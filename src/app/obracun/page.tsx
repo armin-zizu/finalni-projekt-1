@@ -209,7 +209,7 @@ const rashodInputStyle: React.CSSProperties = {
 export default function ObracunPage() {
   const { cjenovnik, setCjenovnik } = useCjenovnik();
   const { subscription } = useSubscription();
-  const { role } = useRole();
+  const { role, permissions } = useRole();
   const [artikli, setArtikli] = useState<Artikal[]>([]);
   const [rashodi, setRashodi] = useState<Rashod[]>([]);
   const [prihodi, setPrihodi] = useState<Prihod[]>([]);
@@ -227,10 +227,10 @@ export default function ObracunPage() {
   const canEditSubscription = subscription && (subscription.isActive || subscription.isTrial || subscription.isGracePeriod);
   
   // Provjeri da li korisnik može editovati na osnovu uloge
-  const canEdit = canEditSubscription && (role === "vlasnik" || role === "konobar1");
+  const canEdit = canEditSubscription && (role === "vlasnik" || (role === "konobar" && permissions?.obracun === true));
   
   // Konobar2 može samo pregledati
-  const isReadOnly = role === "konobar2";
+  const isReadOnly = role === "konobar" && permissions?.obracun !== true;
 
   // Inicijalizacija artikala na osnovu cjenovnika
   useEffect(() => {

@@ -6,7 +6,16 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, Timestamp, onSnapshot, collection, getDocs, query, where } from "firebase/firestore";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
-export type UserRole = "vlasnik" | "konobar1" | "konobar2" | "profil" | null;
+export type UserRole = "vlasnik" | "konobar" | null;
+
+export type PagePermission = {
+  dashboard?: boolean;
+  obracun?: boolean;
+  arhiva?: boolean;
+  cjenovnik?: boolean;
+  profit?: boolean;
+  profile?: boolean;
+};
 
 export interface DeviceInfo {
   deviceId: string;
@@ -24,15 +33,17 @@ export interface RoleData {
   deviceInfo: DeviceInfo;
   assignedBy: string | null;
   assignedAt: Date | null;
+  permissions?: PagePermission; // Dozvole po stranicama za konobare
 }
 
 interface RoleContextType {
   role: UserRole;
   deviceId: string | null;
   deviceInfo: DeviceInfo | null;
+  permissions: PagePermission | null;
   loading: boolean;
   error: string | null;
-  assignRole: (deviceId: string, role: UserRole) => Promise<void>;
+  assignRole: (deviceId: string, role: UserRole, permissions?: PagePermission) => Promise<void>;
   refreshRole: () => Promise<void>;
 }
 
@@ -43,6 +54,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+  const [permissions, setPermissions] = useState<PagePermission | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,13 +148,14 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   // Učitaj ulogu za uređaj
   const loadRole = async () => {
-    if (!user) {
-      setRole(null);
-      setDeviceId(null);
-      setDeviceInfo(null);
-      setLoading(false);
-      return;
-    }
+      if (!user) {
+        setRole(null);
+        setDeviceId(null);
+        setDeviceInfo(null);
+        setPermissions(null);
+        setLoading(false);
+        return;
+      }
 
     try {
       setLoading(true);
@@ -164,7 +177,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         const data = deviceDoc.data();
         const deviceRole = data.role || null;
         setRole(deviceRole);
-        console.log("RoleContext - Uređaj postoji, uloga:", deviceRole);
+        setPermissions(data.permissions || null);
+        console.log("RoleContext - Uređaj postoji, uloga:", deviceRole, "dozvole:", data.permissions);
 
         // Ažuriraj informacije o uređaju
         await setDoc(
@@ -230,8 +244,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           if (snapshot.exists()) {
             const data = snapshot.data();
             setRole(data.role || null);
+            setPermissions(data.permissions || null);
           } else {
             setRole(null);
+            setPermissions(null);
           }
         },
         (error) => {
@@ -254,23 +270,29 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   };
 
   // Dodijeli ulogu uređaju
-  const assignRole = async (targetDeviceId: string, newRole: UserRole) => {
+  const assignRole = async (targetDeviceId: string, newRole: UserRole, permissions?: PagePermission) => {
     if (!user) {
       throw new Error("Korisnik nije prijavljen");
     }
 
     try {
       const deviceRef = doc(db, "devices", targetDeviceId);
-      await setDoc(
-        deviceRef,
-        {
-          role: newRole,
-          assignedBy: user.uid,
-          assignedAt: Timestamp.fromDate(new Date()),
-          updatedAt: Timestamp.fromDate(new Date()),
-        },
-        { merge: true }
-      );
+      const updateData: any = {
+        role: newRole,
+        assignedBy: user.uid,
+        assignedAt: Timestamp.fromDate(new Date()),
+        updatedAt: Timestamp.fromDate(new Date()),
+      };
+      
+      // Ako je konobar, dodaj dozvole
+      if (newRole === "konobar" && permissions) {
+        updateData.permissions = permissions;
+      } else if (newRole === "vlasnik") {
+        // Vlasnik ima pristup svemu, ne trebaju mu dozvole
+        updateData.permissions = null;
+      }
+      
+      await setDoc(deviceRef, updateData, { merge: true });
     } catch (err: any) {
       console.error("Greška pri dodjeljivanju uloge:", err);
       throw err;
@@ -307,6 +329,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         role,
         deviceId,
         deviceInfo,
+        permissions,
         loading,
         error,
         assignRole,

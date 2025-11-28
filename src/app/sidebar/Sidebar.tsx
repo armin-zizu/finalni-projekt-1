@@ -12,7 +12,7 @@ const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { appName } = useAppName();
-  const { role } = useRole();
+  const { role, permissions } = useRole();
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -36,18 +36,23 @@ const Sidebar = () => {
     // Vlasnik ima pristup svemu
     if (role === "vlasnik") return true;
     
-    // Profil ima pristup samo profilu
-    if (role === "profil") return path === "/profile";
-    
-    // Konobar 1: obracun (pregled i unos), arhiva (pregled), profil
-    if (role === "konobar1") {
-      return ["/dashboard", "/obracun", "/arhiva", "/profile"].includes(path);
+    // Konobar koristi dozvole iz permissions
+    if (role === "konobar" && permissions) {
+      const pathMap: Record<string, keyof typeof permissions> = {
+        "/dashboard": "dashboard",
+        "/obracun": "obracun",
+        "/arhiva": "arhiva",
+        "/cjenovnik": "cjenovnik",
+        "/profit": "profit",
+        "/profile": "profile",
+      };
+      
+      const permissionKey = pathMap[path];
+      return permissionKey ? (permissions[permissionKey] === true) : false;
     }
     
-    // Konobar 2: obracun (pregled), arhiva (pregled), profil
-    if (role === "konobar2") {
-      return ["/dashboard", "/obracun", "/arhiva", "/profile"].includes(path);
-    }
+    // Ako je konobar ali nema dozvole, ne dozvoli pristup
+    if (role === "konobar") return false;
     
     return false;
   };

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { auth, sendPasswordResetEmail, signOut, sendEmailVerification } from "../../lib/firebase";
 import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
-import { useRole, UserRole } from "../context/RoleContext";
+import { useRole, UserRole, PagePermission } from "../context/RoleContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import { db } from "../../lib/firestore";
@@ -108,7 +108,7 @@ export default function Profile() {
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [paymentRequested, setPaymentRequested] = useState(false);
   const [requestingPayment, setRequestingPayment] = useState(false);
-  const { role } = useRole();
+  const { role, assignRole: assignRoleFromContext } = useRole();
   const [devices, setDevices] = useState<any[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [deviceSearchTerm, setDeviceSearchTerm] = useState("");
@@ -116,6 +116,8 @@ export default function Profile() {
   const [isOwner, setIsOwner] = useState(false);
   const [loginApprovals, setLoginApprovals] = useState<any[]>([]);
   const [loadingApprovals, setLoadingApprovals] = useState(false);
+  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
+  const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
   const router = useRouter();
 
   // Sinhronizuj localAppName sa appName iz contexta
@@ -417,24 +419,16 @@ export default function Profile() {
   };
 
   // Dodijeli ulogu uređaju
-  const handleAssignRole = async (deviceId: string, newRole: UserRole) => {
+  const handleAssignRole = async (deviceId: string, newRole: UserRole, permissions?: PagePermission) => {
     const user = auth.currentUser;
     if (!user) return;
 
     try {
       setSavingRole(true);
-      const deviceRef = doc(db, "devices", deviceId);
-      await setDoc(
-        deviceRef,
-        {
-          role: newRole,
-          assignedBy: user.uid,
-          assignedAt: Timestamp.fromDate(new Date()),
-          updatedAt: Timestamp.fromDate(new Date()),
-        },
-        { merge: true }
-      );
+      await assignRoleFromContext(deviceId, newRole, permissions);
       await loadDevices();
+      setEditingDeviceId(null);
+      setEditingPermissions({});
       setMessage("Uloga uspješno dodijeljena uređaju");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
@@ -444,6 +438,17 @@ export default function Profile() {
     } finally {
       setSavingRole(false);
     }
+  };
+
+  // Otvori modal za uređivanje dozvola
+  const handleEditPermissions = (device: any) => {
+    setEditingDeviceId(device.id);
+    setEditingPermissions(device.permissions || {});
+  };
+
+  // Spremi dozvole
+  const handleSavePermissions = async (deviceId: string, deviceRole: UserRole) => {
+    await handleAssignRole(deviceId, deviceRole, editingPermissions);
   };
 
   // Provjeri da li je korisnik vlasnik
@@ -708,6 +713,217 @@ export default function Profile() {
       </div>
 
 
+      {/* Spojena sekcija: Sesije i Uređaji - samo za vlasnika */}
+      {role === "vlasnik" && (
+        <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
+          <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
+            📱 Sesije i Upravljanje Uređajima
+          </h2>
+          <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "20px" }}>
+            Pregledajte sesije i upravljajte uređajima i ulogama. Dodijelite uloge i dozvole po stranicama za konobare.
+          </p>
+
+          {/* Pretraga */}
+          <div style={{ marginBottom: "20px", position: "relative" }}>
+            <FaSearch
+              style={{
+                position: "absolute",
+                left: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#9ca3af",
+                fontSize: "16px",
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Pretraži uređaje po browseru, OS-u, ulozi..."
+              value={deviceSearchTerm}
+              onChange={(e) => setDeviceSearchTerm(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px 10px 40px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                fontSize: "14px",
+                maxWidth: "100%",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {/* Tabela sa sesijama i uređajima */}
+          {loadingDevices ? (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
+              <FaSpinner style={{ fontSize: "32px", color: "#3b82f6", animation: "spin 1s linear infinite" }} />
+            </div>
+          ) : (
+            <div style={tableWrapperStyle} className={tableWrapperClassName}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Uređaj / Sesija</th>
+                    <th style={thStyle}>Browser / OS</th>
+                    <th style={thStyle}>Lokacija / IP</th>
+                    <th style={thStyle}>Uloga</th>
+                    <th style={thStyle}>Posljednja prijava</th>
+                    <th style={thStyle}>Akcije</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Prikaži uređaje */}
+                  {filteredDevices.map((device) => {
+                    const roleColors: Record<string, { bg: string; color: string }> = {
+                      vlasnik: { bg: "#dbeafe", color: "#2563eb" },
+                      konobar: { bg: "#dcfce7", color: "#16a34a" },
+                    };
+
+                    const roleColor = device.role ? roleColors[device.role] || { bg: "#f3f4f6", color: "#6b7280" } : { bg: "#f3f4f6", color: "#6b7280" };
+                    const isEditing = editingDeviceId === device.id;
+
+                    return (
+                      <tr key={device.id}>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {device.deviceInfo?.os === "Android" || device.deviceInfo?.os === "iOS" ? (
+                              <FaMobile style={{ fontSize: "16px", color: "#6b7280" }} />
+                            ) : (
+                              <FaDesktop style={{ fontSize: "16px", color: "#6b7280" }} />
+                            )}
+                            <span>{device.deviceInfo?.screenSize || "N/A"}</span>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          {device.deviceInfo?.browser || "N/A"} / {device.deviceInfo?.os || "N/A"}
+                        </td>
+                        <td style={tdStyle}>
+                          {device.deviceInfo?.userAgent ? device.deviceInfo.userAgent.substring(0, 30) + "..." : "N/A"}
+                        </td>
+                        <td style={tdStyle}>
+                          {isEditing ? (
+                            <select
+                              value={device.role || ""}
+                              onChange={(e) => {
+                                const newRole = e.target.value as UserRole || null;
+                                if (newRole === "konobar") {
+                                  // Ako postavlja konobara, otvori modal za dozvole
+                                  handleEditPermissions(device);
+                                } else {
+                                  handleAssignRole(device.id, newRole);
+                                }
+                              }}
+                              style={{
+                                padding: "6px 12px",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: "6px",
+                                fontSize: "14px",
+                                backgroundColor: "#fff",
+                                color: "#1f2937",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <option value="">Nedodijeljena</option>
+                              <option value="vlasnik">Vlasnik</option>
+                              <option value="konobar">Konobar</option>
+                            </select>
+                          ) : (
+                            <span
+                              style={{
+                                padding: "4px 12px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                backgroundColor: roleColor.bg,
+                                color: roleColor.color,
+                              }}
+                            >
+                              {device.role || "Nedodijeljena"}
+                            </span>
+                          )}
+                        </td>
+                        <td style={tdStyle}>
+                          {device.lastLogin
+                            ? device.lastLogin.toLocaleDateString("bs-BA") + " " + device.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
+                            : "N/A"}
+                        </td>
+                        <td style={tdStyle}>
+                          {isEditing && device.role === "konobar" ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
+                                {["dashboard", "obracun", "arhiva", "cjenovnik", "profit", "profile"].map((page) => (
+                                  <label key={page} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={editingPermissions[page as keyof PagePermission] || false}
+                                      onChange={(e) => {
+                                        setEditingPermissions({
+                                          ...editingPermissions,
+                                          [page]: e.target.checked,
+                                        });
+                                      }}
+                                    />
+                                    {page === "dashboard" ? "Radna površina" :
+                                     page === "obracun" ? "Obračun" :
+                                     page === "arhiva" ? "Arhiva" :
+                                     page === "cjenovnik" ? "Cjenovnik" :
+                                     page === "profit" ? "Profit" :
+                                     "Profil"}
+                                  </label>
+                                ))}
+                              </div>
+                              <div style={{ display: "flex", gap: "4px" }}>
+                                <button
+                                  onClick={() => handleSavePermissions(device.id, device.role as UserRole)}
+                                  style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "4px 8px" }}
+                                >
+                                  Spremi
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingDeviceId(null);
+                                    setEditingPermissions({});
+                                  }}
+                                  style={{ ...buttonStyle, background: "#6b7280", fontSize: "12px", padding: "4px 8px" }}
+                                >
+                                  Odustani
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <button
+                                onClick={() => {
+                                  if (device.role === "konobar") {
+                                    handleEditPermissions(device);
+                                  } else {
+                                    setEditingDeviceId(device.id);
+                                  }
+                                }}
+                                style={{ ...buttonStyle, fontSize: "12px", padding: "4px 8px" }}
+                              >
+                                {device.role === "konobar" ? "Dozvole" : "Uredi"}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div style={{ marginTop: "16px", padding: "12px", background: "#e0f2fe", borderRadius: "8px", border: "1px solid #0ea5e9" }}>
+            <p style={{ fontSize: "12px", color: "#0c4a6e", margin: 0 }}>
+              <strong>💡 Napomena:</strong> Vlasnik ima pristup svemu. Konobar može pristupiti samo stranicama koje su mu dozvoljene. Odaberite dozvole za konobara klikom na "Dozvole".
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Stara sekcija za sesije - sakrivena jer je spojena gore */}
+      {false && (
       <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
         <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
           Pregled sesija
@@ -1646,8 +1862,8 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Upravljanje uređajima - samo za vlasnika */}
-      {role === "vlasnik" && (
+      {/* Stara sekcija - obrisana, spojena gore */}
+      {false && role === "vlasnik" && (
         <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
           <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
             📱 Upravljanje Uređajima i Ulogama
@@ -1711,9 +1927,7 @@ export default function Profile() {
                   {filteredDevices.map((device) => {
                     const roleColors: Record<string, { bg: string; color: string }> = {
                       vlasnik: { bg: "#dbeafe", color: "#2563eb" },
-                      konobar1: { bg: "#dcfce7", color: "#16a34a" },
-                      konobar2: { bg: "#fef3c7", color: "#f59e0b" },
-                      profil: { bg: "#f3f4f6", color: "#6b7280" },
+                      konobar: { bg: "#dcfce7", color: "#16a34a" },
                     };
 
                     const roleColor = device.role ? roleColors[device.role] || { bg: "#fee2e2", color: "#dc2626" } : { bg: "#f3f4f6", color: "#6b7280" };
@@ -1769,9 +1983,7 @@ export default function Profile() {
                           >
                             <option value="">Nedodijeljena</option>
                             <option value="vlasnik">Vlasnik</option>
-                            <option value="konobar1">Konobar 1</option>
-                            <option value="konobar2">Konobar 2</option>
-                            <option value="profil">Profil</option>
+                            <option value="konobar">Konobar</option>
                           </select>
                         </td>
                       </tr>
@@ -1784,7 +1996,7 @@ export default function Profile() {
 
           <div style={{ marginTop: "16px", padding: "12px", background: "#e0f2fe", borderRadius: "8px", border: "1px solid #0ea5e9" }}>
             <p style={{ fontSize: "12px", color: "#0c4a6e", margin: 0 }}>
-              <strong>💡 Napomena:</strong> Vlasnik ima pristup svemu. Konobar 1 može unositi podatke u obračun. Konobar 2 može samo pregledati podatke. Profil ima pristup samo profilu.
+              <strong>💡 Napomena:</strong> Vlasnik ima pristup svemu. Konobar može pristupiti samo stranicama koje su mu dozvoljene.
             </p>
           </div>
         </div>
