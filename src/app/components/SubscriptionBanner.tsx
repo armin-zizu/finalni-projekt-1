@@ -68,8 +68,8 @@ export default function SubscriptionBanner() {
     return (
       <div
         style={{
-          background: "#fee2e2",
-          borderBottom: "2px solid #dc2626",
+          background: "#fef3c7",
+          borderBottom: "2px solid #f59e0b",
           padding: "12px 20px",
           display: "flex",
           alignItems: "center",
@@ -93,7 +93,7 @@ export default function SubscriptionBanner() {
           onClick={() => router.push("/profile")}
           style={{
             padding: "8px 16px",
-            background: "#dc2626",
+            background: "#f59e0b",
             color: "white",
             border: "none",
             borderRadius: "6px",

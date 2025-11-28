@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { AppNameProvider } from "./context/AppNameContext";
 import { CjenovnikProvider } from "./context/CjenovnikContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
+import { RoleProvider } from "./context/RoleContext";
 import SubscriptionBanner from "./components/SubscriptionBanner";
 import SubscriptionGuard from "./components/SubscriptionGuard";
 import Sidebar from "./sidebar/Sidebar";
@@ -76,7 +77,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AppNameProvider>
             <CjenovnikProvider>
               <SubscriptionProvider>
-                {children}
+                <RoleProvider>
+                  {children}
+                </RoleProvider>
               </SubscriptionProvider>
             </CjenovnikProvider>
           </AppNameProvider>
@@ -96,22 +99,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AppNameProvider>
           <CjenovnikProvider>
             <SubscriptionProvider>
-              <SubscriptionBanner />
-              <Sidebar />
-              <main
-                style={{
-                  flex: 1,
-                  padding: "0",
-                  backgroundColor: "#f4f5f7",
-                  minHeight: "100vh",
-                  paddingBottom: "60px", // Prostor za bottom bar
-                  width: "100%",
-                }}
-              >
-                <SubscriptionGuard>
-                  <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
-                </SubscriptionGuard>
-              </main>
+              <RoleProvider>
+                <SubscriptionBanner />
+                <Sidebar />
+                <main
+                  style={{
+                    flex: 1,
+                    padding: "0",
+                    backgroundColor: "#f4f5f7",
+                    minHeight: "100vh",
+                    paddingBottom: "60px", // Prostor za bottom bar
+                    width: "100%",
+                  }}
+                >
+                  <SubscriptionGuard>
+                    <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
+                  </SubscriptionGuard>
+                </main>
+              </RoleProvider>
             <style jsx>{`
               .sidebar-link:hover {
                 background-color: #3b82f6;

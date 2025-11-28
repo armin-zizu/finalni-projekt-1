@@ -148,7 +148,9 @@ export default function AdminPage() {
               
               // Check trial period (samo ako nema uplate)
               const hasPayment = subData.lastPaymentDate != null;
-              if (trialEndDate && now < trialEndDate && !hasPayment) {
+              const explicitIsActive = subData.isActive !== undefined ? subData.isActive : null;
+              
+              if (trialEndDate && now < trialEndDate && !hasPayment && explicitIsActive !== false) {
                 isTrial = true;
                 daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
               } else if (expiryDate) {
@@ -157,11 +159,26 @@ export default function AdminPage() {
                   daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                 } else {
                   // Expired, check grace period
-                  const calculatedGraceEnd = graceEndDate || (expiryDate ? new Date(expiryDate.getTime() + 5 * 24 * 60 * 60 * 1000) : null);
+                  let calculatedGraceEnd: Date | null = null;
+                  if (graceEndDate) {
+                    calculatedGraceEnd = graceEndDate;
+                  } else if (expiryDate) {
+                    // Kreiraj grace period (5 dana od isteka pretplate) samo ako nije eksplicitno postavljen
+                    calculatedGraceEnd = new Date(expiryDate);
+                    calculatedGraceEnd.setDate(calculatedGraceEnd.getDate() + 5);
+                  }
+                  
                   if (calculatedGraceEnd && now < calculatedGraceEnd) {
+                    // Prikaži grace period čak i ako je isActive = false, ali samo ako postoji graceEndDate u budućnosti
                     isGracePeriod = true;
                     daysInGrace = Math.ceil((calculatedGraceEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                   }
+                }
+              } else if (graceEndDate) {
+                // Ako nema expiryDate ali postoji graceEndDate, provjeri grace period
+                if (graceEndDate && now < graceEndDate) {
+                  isGracePeriod = true;
+                  daysInGrace = Math.ceil((graceEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                 }
               }
               
@@ -395,30 +412,71 @@ export default function AdminPage() {
       };
 
       if (status === "trial") {
+        // Postavi trial period - korisnik nema uplatu, aktivna je pretplata
         const trialEndDate = new Date(now);
         trialEndDate.setDate(trialEndDate.getDate() + 15);
         updateData.trialEndDate = Timestamp.fromDate(trialEndDate);
         updateData.isActive = true;
         updateData.expiryDate = null;
         updateData.graceEndDate = null;
+        updateData.lastPaymentDate = null; // Resetuj uplatu da bi se smatralo da je u trial periodu
       } else if (status === "premium") {
+        // Postavi premium - korisnik ima aktivnu pretplatu
         const expiryDate = new Date(now);
         expiryDate.setMonth(expiryDate.getMonth() + 1);
         updateData.expiryDate = Timestamp.fromDate(expiryDate);
         updateData.isActive = true;
         updateData.trialEndDate = null;
         updateData.graceEndDate = null;
+        // Ako nema lastPaymentDate, postavi ga na sada
+        if (!subscriptionDoc.exists() || !subscriptionDoc.data().lastPaymentDate) {
+          updateData.lastPaymentDate = Timestamp.fromDate(now);
+        }
       } else if (status === "grace") {
+        // Postavi grace period - pretplata je istekla, ali ima grace period
         const graceEndDate = new Date(now);
         graceEndDate.setDate(graceEndDate.getDate() + 5);
         updateData.graceEndDate = Timestamp.fromDate(graceEndDate);
-        updateData.isActive = false;
+        updateData.isActive = false; // Neaktivna, ali ima pristup kroz grace period
+        // Postavi expiryDate na prošlost (ili sada) da bi se aktivirao grace period
         updateData.expiryDate = Timestamp.fromDate(now);
+        updateData.trialEndDate = null;
       } else {
-        // inactive
+        // inactive - potpuno blokiran
+        // Ako je bio grace period, postavi expiryDate na dan kada je grace period istekao
+        if (subscriptionDoc.exists()) {
+          const subData = subscriptionDoc.data();
+          if (subData.graceEndDate) {
+            const graceEnd = subData.graceEndDate.toDate ? subData.graceEndDate.toDate() : new Date(subData.graceEndDate);
+            updateData.expiryDate = Timestamp.fromDate(graceEnd);
+            // Sačuvaj graceEndDate da bi se mogao prikazati datum isteka grace perioda
+            // Ne postavljaj ga na null, već ostavi da se prikaže kada je neaktivna
+          } else if (subData.expiryDate) {
+            // Ako nema graceEndDate ali ima expiryDate, koristi expiryDate
+            const expiry = subData.expiryDate.toDate ? subData.expiryDate.toDate() : new Date(subData.expiryDate);
+            // Provjeri da li je datum validan (nije 1970/1969)
+            if (expiry.getFullYear() > 1970) {
+              updateData.expiryDate = Timestamp.fromDate(expiry);
+            } else {
+              updateData.expiryDate = Timestamp.fromDate(new Date(0));
+            }
+          } else {
+            updateData.expiryDate = Timestamp.fromDate(new Date(0));
+          }
+        } else {
+          updateData.expiryDate = Timestamp.fromDate(new Date(0));
+        }
         updateData.isActive = false;
-        updateData.expiryDate = Timestamp.fromDate(new Date(0));
-        updateData.graceEndDate = null;
+        // Postavi trialEndDate na null da se korisnik ne smatra da je u trial periodu
+        updateData.trialEndDate = null;
+        // Postavi lastPaymentDate na nešto (ili ostavi kako jeste) da se korisnik ne smatra da je u trial periodu
+        // Ako nema lastPaymentDate, postavi ga na prošlost da se ne smatra da je u trial periodu
+        if (!subscriptionDoc.exists() || !subscriptionDoc.data().lastPaymentDate) {
+          // Postavi lastPaymentDate na prošlost da se ne smatra da je u trial periodu
+          const pastDate = new Date(now);
+          pastDate.setDate(pastDate.getDate() - 100); // 100 dana u prošlosti
+          updateData.lastPaymentDate = Timestamp.fromDate(pastDate);
+        }
       }
 
       await setDoc(subscriptionRef, updateData, { merge: true });
@@ -1208,23 +1266,6 @@ export default function AdminPage() {
                     <td style={{ padding: "12px" }}>
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         <button
-                          onClick={() => toggleSubscription(user.id, isActive)}
-                          disabled={saving}
-                          style={{
-                            padding: "6px 12px",
-                            borderRadius: "6px",
-                            border: "none",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            cursor: saving ? "not-allowed" : "pointer",
-                            backgroundColor: isActive ? "#fee2e2" : "#dcfce7",
-                            color: isActive ? "#dc2626" : "#16a34a",
-                            transition: "all 0.2s",
-                          }}
-                        >
-                          {isActive ? <FaTimes /> : <FaCheck />} {isActive ? "Deaktiviraj" : "Aktiviraj"}
-                        </button>
-                        <button
                           onClick={() => {
                             setSelectedUserDetails(user);
                             const sub = subscriptions[user.id];
@@ -1557,19 +1598,19 @@ export default function AdminPage() {
                               ? "#dbeafe"
                               : subscription?.isPremium
                               ? "#dcfce7"
-                              : isActive
-                              ? "#dcfce7"
                               : isGracePeriod
                               ? "#fef3c7"
+                              : isActive
+                              ? "#dcfce7"
                               : "#fee2e2",
                             color: isTrial
                               ? "#2563eb"
                               : subscription?.isPremium
                               ? "#16a34a"
-                              : isActive
-                              ? "#16a34a"
                               : isGracePeriod
                               ? "#f59e0b"
+                              : isActive
+                              ? "#16a34a"
                               : "#dc2626",
                           }}
                         >
@@ -1577,10 +1618,10 @@ export default function AdminPage() {
                             ? `Probni period (${subscription?.daysRemaining || 0} dana)`
                             : subscription?.isPremium
                             ? `Premium (${subscription?.daysUntilExpiry || 0} dana)`
-                            : isActive
-                            ? `Aktivna (${subscription?.daysUntilExpiry || 0} dana)`
                             : isGracePeriod
                             ? `Grace Period (${subscription?.daysInGrace || 0} dana)`
+                            : isActive
+                            ? `Aktivna (${subscription?.daysUntilExpiry || 0} dana)`
                             : "Neaktivna"}
                         </span>
                       </div>
@@ -1591,10 +1632,10 @@ export default function AdminPage() {
                             ? `${subscription?.daysRemaining || 0} dana (Probni period)`
                             : subscription?.isPremium
                             ? `${subscription?.daysUntilExpiry || 0} dana (Premium)`
-                            : isActive
-                            ? `${subscription?.daysUntilExpiry || 0} dana`
                             : isGracePeriod
                             ? `${subscription?.daysInGrace || 0} dana (Grace)`
+                            : isActive
+                            ? `${subscription?.daysUntilExpiry || 0} dana`
                             : "0 dana"}
                         </p>
                       </div>
@@ -1620,11 +1661,33 @@ export default function AdminPage() {
                           </p>
                         </div>
                       )}
-                      {subscription?.expiryDate && (
+                      {(subscription?.expiryDate || subscription?.graceEndDate) && (
                         <div>
-                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Pretplata ističe:</p>
-                          <p style={{ fontSize: "14px", color: subscription.expiryDate < new Date() ? "#dc2626" : "#1f2937" }}>
-                            {subscription.expiryDate.toLocaleDateString("bs-BA")}
+                          <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>
+                            {subscription?.graceEndDate && !subscription?.isActive && !subscription?.isTrial && !subscription?.isGracePeriod
+                              ? "Grace period istekao:"
+                              : "Pretplata ističe:"}
+                          </p>
+                          <p style={{ fontSize: "14px", color: (subscription?.expiryDate && subscription.expiryDate < new Date()) || (subscription?.graceEndDate && subscription.graceEndDate < new Date()) ? "#dc2626" : "#1f2937" }}>
+                            {(() => {
+                              // Ako je neaktivna i postoji graceEndDate, prikaži graceEndDate
+                              if (subscription?.graceEndDate && !subscription?.isActive && !subscription?.isTrial && !subscription?.isGracePeriod) {
+                                return subscription.graceEndDate.toLocaleDateString("bs-BA");
+                              }
+                              // Inače prikaži expiryDate (ako nije new Date(0))
+                              if (subscription?.expiryDate) {
+                                const expiryDate = subscription.expiryDate;
+                                // Provjeri da li je datum validan (nije 1970/1969)
+                                if (expiryDate.getFullYear() > 1970) {
+                                  return expiryDate.toLocaleDateString("bs-BA");
+                                }
+                                // Ako je expiryDate invalidan, provjeri graceEndDate
+                                if (subscription?.graceEndDate) {
+                                  return subscription.graceEndDate.toLocaleDateString("bs-BA");
+                                }
+                              }
+                              return "N/A";
+                            })()}
                           </p>
                         </div>
                       )}
@@ -1803,10 +1866,10 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      {/* Ažuriraj Trial dane */}
+                      {/* Ažuriraj Probne dane */}
                       <div style={{ marginBottom: "16px" }}>
                         <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "#374151", marginBottom: "6px" }}>
-                          Ažuriraj Trial Dane:
+                          Ažuriraj Probne Dane:
                         </label>
                         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                           <button

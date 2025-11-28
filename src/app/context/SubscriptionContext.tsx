@@ -57,20 +57,26 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
   let daysUntilExpiry = 0;
   let daysInGrace = 0;
 
+  // Ako postoji eksplicitno postavljen isActive u Firestore, koristi ga
+  const explicitIsActive = data.isActive !== undefined ? data.isActive : null;
+  
   // Ako postoji trialEndDate u podacima, koristi ga
   if (data.trialEndDate) {
     trialEndDate = data.trialEndDate.toDate ? data.trialEndDate.toDate() : new Date(data.trialEndDate);
-  } else if (userCreatedAt) {
-    // Ako nema trialEndDate, kreiraj ga na osnovu datuma registracije (15 dana)
+  } else if (userCreatedAt && explicitIsActive !== false) {
+    // Ako nema trialEndDate i korisnik nije eksplicitno deaktiviran, kreiraj ga na osnovu datuma registracije (15 dana)
     trialEndDate = new Date(userCreatedAt);
     trialEndDate.setDate(trialEndDate.getDate() + 15);
   }
 
   // Provjeri da li je u trial periodu (samo ako nema uplate)
   const hasPayment = data.lastPaymentDate != null;
-  if (trialEndDate && now < trialEndDate && !hasPayment) {
+  
+  // Provjeri da li je u trial periodu (samo ako nema uplate)
+  if (trialEndDate && now < trialEndDate && !hasPayment && explicitIsActive !== false) {
+    // U trial periodu
     isTrial = true;
-    isActive = true;
+    isActive = explicitIsActive !== null ? explicitIsActive : true;
     daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   } else {
     // Nije u trial periodu, provjeri pretplatu
@@ -78,29 +84,51 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
       expiryDate = data.expiryDate.toDate ? data.expiryDate.toDate() : new Date(data.expiryDate);
       
       if (expiryDate && now < expiryDate) {
-        // Pretplata je aktivna
-        isActive = true;
+        // Pretplata je aktivna (po datumu)
+        isActive = explicitIsActive !== null ? explicitIsActive : true;
         daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       } else if (expiryDate) {
         // Pretplata je istekla, provjeri grace period
         if (data.graceEndDate) {
           graceEndDate = data.graceEndDate.toDate ? data.graceEndDate.toDate() : new Date(data.graceEndDate);
         } else {
-          // Kreiraj grace period (5 dana od isteka pretplate)
+          // Kreiraj grace period (5 dana od isteka pretplate) samo ako nije eksplicitno postavljen
           graceEndDate = new Date(expiryDate);
           graceEndDate.setDate(graceEndDate.getDate() + 5);
         }
 
+        // Provjeri da li je u grace periodu - ako postoji graceEndDate u budućnosti, prikaži grace period
         if (graceEndDate && now < graceEndDate) {
-          // U grace periodu
+          // U grace periodu - prikaži grace period čak i ako je isActive = false
           isGracePeriod = true;
-          isActive = false; // Neaktivna, ali ima pristup
+          isActive = false; // Neaktivna, ali ima pristup kroz grace period
           daysInGrace = Math.ceil((graceEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         } else {
           // Grace period je istekao - potpuno blokiran
-          isActive = false;
+          isActive = explicitIsActive !== null ? explicitIsActive : false;
           isGracePeriod = false;
         }
+      } else if (data.graceEndDate) {
+        // Ako nema expiryDate ali postoji graceEndDate, provjeri grace period
+        graceEndDate = data.graceEndDate.toDate ? data.graceEndDate.toDate() : new Date(data.graceEndDate);
+        if (graceEndDate && now < graceEndDate) {
+          // U grace periodu
+          isGracePeriod = true;
+          isActive = false; // Neaktivna, ali ima pristup kroz grace period
+          daysInGrace = Math.ceil((graceEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        } else {
+          // Grace period je istekao
+          isActive = explicitIsActive !== null ? explicitIsActive : false;
+          isGracePeriod = false;
+        }
+      }
+    } else if (explicitIsActive !== null) {
+      // Ako nema expiryDate ali postoji eksplicitno postavljen isActive, koristi ga
+      isActive = explicitIsActive;
+      // Ako je eksplicitno deaktiviran, ne smatraj ga u grace periodu
+      if (explicitIsActive === false) {
+        isGracePeriod = false;
+        isTrial = false;
       }
     }
   }

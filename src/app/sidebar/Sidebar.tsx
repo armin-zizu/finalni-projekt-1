@@ -6,11 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
 import { FaTachometerAlt, FaCalculator, FaArchive, FaTags, FaDollarSign, FaUser, FaBars, FaShieldAlt } from "react-icons/fa";
 import { useAppName } from "../context/AppNameContext";
+import { useRole } from "../context/RoleContext";
 
 const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { appName } = useAppName();
+  const { role } = useRole();
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -26,7 +28,31 @@ const Sidebar = () => {
     return () => unsubscribe();
   }, []);
 
-  const navLinks = [
+  // Definiši dozvole za svaku ulogu
+  const canAccess = (path: string): boolean => {
+    // Ako nema uloge, dozvoli pristup (za kompatibilnost)
+    if (!role) return true;
+    
+    // Vlasnik ima pristup svemu
+    if (role === "vlasnik") return true;
+    
+    // Profil ima pristup samo profilu
+    if (role === "profil") return path === "/profile";
+    
+    // Konobar 1: obracun (pregled i unos), arhiva (pregled), profil
+    if (role === "konobar1") {
+      return ["/dashboard", "/obracun", "/arhiva", "/profile"].includes(path);
+    }
+    
+    // Konobar 2: obracun (pregled), arhiva (pregled), profil
+    if (role === "konobar2") {
+      return ["/dashboard", "/obracun", "/arhiva", "/profile"].includes(path);
+    }
+    
+    return false;
+  };
+
+  const allNavLinks = [
     { href: "/dashboard", label: "Radna površina", icon: <FaTachometerAlt /> },
     { href: "/obracun", label: "Obračun", icon: <FaCalculator /> },
     { href: "/arhiva", label: "Arhiva", icon: <FaArchive /> },
@@ -35,6 +61,9 @@ const Sidebar = () => {
     { href: "/profile", label: "Profil", icon: <FaUser /> },
     ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: <FaShieldAlt /> }] : []),
   ];
+
+  // Filtriraj linkove na osnovu uloge
+  const navLinks = allNavLinks.filter(link => canAccess(link.href));
 
   return (
     <>

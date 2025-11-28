@@ -26,5 +26,33 @@ service cloud.firestore {
         allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
     }
+    
+    // Devices collection - korisnik može pristupiti samo svojim uređajima, admin može sve
+    match /devices/{deviceId} {
+      // Korisnik može čitati svoje uređaje (ako postoji) ili ako je admin
+      allow read: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid) || 
+        isAdmin()
+      );
+      
+      // Korisnik može kreirati novi uređaj sa svojim userId
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid || 
+        isAdmin()
+      );
+      
+      // Korisnik može ažurirati svoje uređaje (mora ostati isti userId)
+      allow update: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid && 
+         request.resource.data.userId == request.auth.uid) || 
+        isAdmin()
+      );
+      
+      // Korisnik može brisati svoje uređaje
+      allow delete: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid) || 
+        isAdmin()
+      );
+    }
   }
 }

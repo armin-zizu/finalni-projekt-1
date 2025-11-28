@@ -4,10 +4,12 @@ import React, { useState, useEffect } from "react";
 import { auth, sendPasswordResetEmail, signOut, sendEmailVerification } from "../../lib/firebase";
 import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
+import { useRole, UserRole } from "../context/RoleContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import { db } from "../../lib/firestore";
-import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc, Timestamp, collection, getDocs, query, where } from "firebase/firestore";
+import { FaSearch, FaSpinner, FaMobile, FaDesktop } from "react-icons/fa";
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",
@@ -106,6 +108,11 @@ export default function Profile() {
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [paymentRequested, setPaymentRequested] = useState(false);
   const [requestingPayment, setRequestingPayment] = useState(false);
+  const { role } = useRole();
+  const [devices, setDevices] = useState<any[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [deviceSearchTerm, setDeviceSearchTerm] = useState("");
+  const [savingRole, setSavingRole] = useState(false);
   const router = useRouter();
 
   // Sinhronizuj localAppName sa appName iz contexta
@@ -362,6 +369,98 @@ export default function Profile() {
       setMessage("Unesite ime aplikacije!");
     }
   };
+
+  // Učitaj uređaje za trenutnog korisnika
+  const loadDevices = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      setLoadingDevices(true);
+      // Učitaj sve uređaje koji pripadaju ovom korisniku
+      const devicesCollection = collection(db, "devices");
+      const q = query(devicesCollection, where("userId", "==", user.uid));
+      const devicesSnapshot = await getDocs(q);
+      
+      const devicesList: any[] = [];
+      devicesSnapshot.forEach((doc) => {
+        const data = doc.data();
+        devicesList.push({
+          id: doc.id,
+          ...data,
+          deviceInfo: {
+            ...data.deviceInfo,
+            firstSeen: data.deviceInfo?.firstSeen?.toDate?.() || null,
+            lastLogin: data.deviceInfo?.lastLogin?.toDate?.() || null,
+          },
+          lastLogin: data.lastLogin?.toDate?.() || null,
+          assignedAt: data.assignedAt?.toDate?.() || null,
+        });
+      });
+      
+      // Sortiraj po posljednjoj prijavi (najnoviji prvo)
+      devicesList.sort((a, b) => {
+        const aDate = a.lastLogin || a.deviceInfo?.firstSeen || new Date(0);
+        const bDate = b.lastLogin || b.deviceInfo?.firstSeen || new Date(0);
+        return bDate.getTime() - aDate.getTime();
+      });
+      
+      setDevices(devicesList);
+    } catch (error) {
+      console.error("Greška pri učitavanju uređaja:", error);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
+  // Dodijeli ulogu uređaju
+  const handleAssignRole = async (deviceId: string, newRole: UserRole) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      setSavingRole(true);
+      const deviceRef = doc(db, "devices", deviceId);
+      await setDoc(
+        deviceRef,
+        {
+          role: newRole,
+          assignedBy: user.uid,
+          assignedAt: Timestamp.fromDate(new Date()),
+          updatedAt: Timestamp.fromDate(new Date()),
+        },
+        { merge: true }
+      );
+      await loadDevices();
+      setMessage("Uloga uspješno dodijeljena uređaju");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      console.error("Greška pri dodjeljivanju uloge:", error);
+      setMessage("Greška pri dodjeljivanju uloge");
+      setTimeout(() => setMessage(""), 5000);
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  // Učitaj uređaje kada je korisnik vlasnik
+  useEffect(() => {
+    if (role === "vlasnik") {
+      loadDevices();
+    }
+  }, [role]);
+
+  // Filtriraj uređaje
+  const filteredDevices = devices.filter((device) => {
+    const search = deviceSearchTerm.toLowerCase();
+    return (
+      device.deviceId?.toLowerCase().includes(search) ||
+      device.userEmail?.toLowerCase().includes(search) ||
+      device.deviceInfo?.browser?.toLowerCase().includes(search) ||
+      device.deviceInfo?.os?.toLowerCase().includes(search) ||
+      device.role?.toLowerCase().includes(search)
+    );
+  });
 
   const handleDeleteSession = (id: string) => {
     if (window.confirm("Jeste li sigurni da želite obrisati ovu sesiju?")) {
@@ -1325,6 +1424,150 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      {/* Upravljanje uređajima - samo za vlasnika */}
+      {role === "vlasnik" && (
+        <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
+          <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
+            📱 Upravljanje Uređajima i Ulogama
+          </h2>
+          <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "20px" }}>
+            Dodijelite uloge uređajima koji koriste vašu aplikaciju. Svaki uređaj automatski dobija jedinstveni ID pri prvoj prijavi.
+          </p>
+
+          {/* Pretraga uređaja */}
+          <div style={{ marginBottom: "20px", position: "relative" }}>
+            <FaSearch
+              style={{
+                position: "absolute",
+                left: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#9ca3af",
+                fontSize: "16px",
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Pretraži uređaje po browseru, OS-u, ulozi..."
+              value={deviceSearchTerm}
+              onChange={(e) => setDeviceSearchTerm(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px 10px 40px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                fontSize: "14px",
+                maxWidth: "100%",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {loadingDevices ? (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
+              <FaSpinner style={{ fontSize: "32px", color: "#3b82f6", animation: "spin 1s linear infinite" }} />
+            </div>
+          ) : filteredDevices.length === 0 ? (
+            <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+              <FaMobile style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.5 }} />
+              <p style={{ fontSize: "16px" }}>Nema uređaja u bazi podataka.</p>
+              <p style={{ fontSize: "14px", marginTop: "8px" }}>Uređaji će se automatski pojaviti kada se korisnici prijave.</p>
+            </div>
+          ) : (
+            <div style={tableWrapperStyle} className={tableWrapperClassName}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Uređaj</th>
+                    <th style={thStyle}>Browser / OS</th>
+                    <th style={thStyle}>Uloga</th>
+                    <th style={thStyle}>Posljednja prijava</th>
+                    <th style={thStyle}>Akcije</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDevices.map((device) => {
+                    const roleColors: Record<string, { bg: string; color: string }> = {
+                      vlasnik: { bg: "#dbeafe", color: "#2563eb" },
+                      konobar1: { bg: "#dcfce7", color: "#16a34a" },
+                      konobar2: { bg: "#fef3c7", color: "#f59e0b" },
+                      profil: { bg: "#f3f4f6", color: "#6b7280" },
+                    };
+
+                    const roleColor = device.role ? roleColors[device.role] || { bg: "#fee2e2", color: "#dc2626" } : { bg: "#f3f4f6", color: "#6b7280" };
+
+                    return (
+                      <tr key={device.id}>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {device.deviceInfo?.os === "Android" || device.deviceInfo?.os === "iOS" ? (
+                              <FaMobile style={{ fontSize: "16px", color: "#6b7280" }} />
+                            ) : (
+                              <FaDesktop style={{ fontSize: "16px", color: "#6b7280" }} />
+                            )}
+                            <span>{device.deviceInfo?.screenSize || "N/A"}</span>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          {device.deviceInfo?.browser || "N/A"} / {device.deviceInfo?.os || "N/A"}
+                        </td>
+                        <td style={tdStyle}>
+                          <span
+                            style={{
+                              padding: "4px 12px",
+                              borderRadius: "12px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              backgroundColor: roleColor.bg,
+                              color: roleColor.color,
+                            }}
+                          >
+                            {device.role || "Nedodijeljena"}
+                          </span>
+                        </td>
+                        <td style={tdStyle}>
+                          {device.lastLogin
+                            ? device.lastLogin.toLocaleDateString("bs-BA") + " " + device.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
+                            : "N/A"}
+                        </td>
+                        <td style={tdStyle}>
+                          <select
+                            value={device.role || ""}
+                            onChange={(e) => handleAssignRole(device.id, e.target.value as UserRole || null)}
+                            disabled={savingRole}
+                            style={{
+                              padding: "6px 12px",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "6px",
+                              fontSize: "14px",
+                              backgroundColor: "#fff",
+                              color: "#1f2937",
+                              cursor: savingRole ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            <option value="">Nedodijeljena</option>
+                            <option value="vlasnik">Vlasnik</option>
+                            <option value="konobar1">Konobar 1</option>
+                            <option value="konobar2">Konobar 2</option>
+                            <option value="profil">Profil</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div style={{ marginTop: "16px", padding: "12px", background: "#e0f2fe", borderRadius: "8px", border: "1px solid #0ea5e9" }}>
+            <p style={{ fontSize: "12px", color: "#0c4a6e", margin: 0 }}>
+              <strong>💡 Napomena:</strong> Vlasnik ima pristup svemu. Konobar 1 može unositi podatke u obračun. Konobar 2 može samo pregledati podatke. Profil ima pristup samo profilu.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
         <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>

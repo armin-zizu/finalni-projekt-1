@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
+import { useSubscription } from "../context/SubscriptionContext";
+import { useRole } from "../context/RoleContext";
 import { auth } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
 import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
@@ -206,6 +208,8 @@ const rashodInputStyle: React.CSSProperties = {
 // ---- Glavna komponenta ----
 export default function ObracunPage() {
   const { cjenovnik, setCjenovnik } = useCjenovnik();
+  const { subscription } = useSubscription();
+  const { role } = useRole();
   const [artikli, setArtikli] = useState<Artikal[]>([]);
   const [rashodi, setRashodi] = useState<Rashod[]>([]);
   const [prihodi, setPrihodi] = useState<Prihod[]>([]);
@@ -218,6 +222,15 @@ export default function ObracunPage() {
   const [trenutniDatum, setTrenutniDatum] = useState<Date>(new Date());
   const [isAzuriran, setIsAzuriran] = useState<boolean>(false); // Praćenje da li je obračun bio ažuriran
   const [resetKey, setResetKey] = useState<number>(0); // Key za reset input polja
+
+  // Provjeri da li korisnik može editovati (ne može ako grace period istekne)
+  const canEditSubscription = subscription && (subscription.isActive || subscription.isTrial || subscription.isGracePeriod);
+  
+  // Provjeri da li korisnik može editovati na osnovu uloge
+  const canEdit = canEditSubscription && (role === "vlasnik" || role === "konobar1");
+  
+  // Konobar2 može samo pregledati
+  const isReadOnly = role === "konobar2";
 
   // Inicijalizacija artikala na osnovu cjenovnika
   useEffect(() => {
@@ -875,6 +888,23 @@ export default function ObracunPage() {
 
   return (
     <div style={containerStyle}>
+      {!canEdit && subscription && !subscription.isActive && !subscription.isTrial && !subscription.isGracePeriod && (
+        <div style={{
+          padding: "16px",
+          background: "#fee2e2",
+          border: "2px solid #dc2626",
+          borderRadius: "8px",
+          marginBottom: "20px",
+          textAlign: "center"
+        }}>
+          <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#dc2626" }}>
+            ⚠️ Vaša pretplata je istekla. Možete samo pregledavati podatke, ali ne možete unositi nove obračune.
+          </p>
+          <p style={{ margin: "8px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
+            Aktivirajte pretplatu na stranici profila da biste nastavili koristiti aplikaciju.
+          </p>
+        </div>
+      )}
       <style jsx>{`
         input.no-spin::-webkit-inner-spin-button,
         input.no-spin::-webkit-outer-spin-button {
@@ -976,6 +1006,19 @@ export default function ObracunPage() {
         Obračun
       </h1>
 
+      {isReadOnly && (
+        <div style={{ 
+          marginBottom: "20px", 
+          padding: "12px 16px", 
+          background: "#fef3c7", 
+          borderRadius: "8px", 
+          border: "1px solid #f59e0b",
+          color: "#92400e"
+        }}>
+          <strong>Pregled mod:</strong> Vaša uloga (Konobar 2) omogućava samo pregled podataka. Niste u mogućnosti unositi ili mijenjati podatke.
+        </div>
+      )}
+
       <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
         <label style={{ fontSize: "14px", color: "#1f2937", marginRight: "8px" }}>
           Datum obračuna:
@@ -987,12 +1030,18 @@ export default function ObracunPage() {
           style={dateInputStyle}
         />
         <button 
-          style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px" }} 
+          style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed" }} 
           onClick={handleAzurirajObracun}
+          disabled={!canEdit}
         >
           Ažuriraj obračun
         </button>
-        <button style={saveButtonStyle} onClick={handleSaveObracun} className="save-button">
+        <button 
+          style={{ ...saveButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed" }} 
+          onClick={handleSaveObracun} 
+          className="save-button"
+          disabled={!canEdit}
+        >
           Sačuvaj obračun
         </button>
         {isAzuriran && (
@@ -1078,8 +1127,10 @@ export default function ObracunPage() {
                     value={a.ulaz === 0 ? "" : a.ulaz}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleUlazChange(index, Number(e.target.value) || 0)}
-                    style={inputStyle}
+                    style={{ ...inputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed" }}
                     className="no-spin"
+                    disabled={!canEdit}
+                    readOnly={!canEdit}
                   />
                 </td>
                 <td style={tdStyle} data-label="Ukupno">{a.ukupno}</td>
@@ -1090,8 +1141,10 @@ export default function ObracunPage() {
                     value={a.krajnjeStanje === 0 ? "" : a.krajnjeStanje}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleKrajnjeStanjeChange(index, e.target.value)}
-                    style={inputStyle}
+                    style={{ ...inputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed" }}
                     className="no-spin"
+                    disabled={!canEdit}
+                    readOnly={!canEdit}
                   />
                 </td>
                 <td style={tdStyle} data-label="Vrijednost KM">{a.vrijednostKM.toFixed(2)}</td>
@@ -1124,7 +1177,9 @@ export default function ObracunPage() {
                         type="text"
                         value={editRashod.naziv}
                         onChange={(e) => setEditRashod({ ...editRashod, naziv: e.target.value })}
-                        style={rashodInputStyle}
+                        style={{...rashodInputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+                        disabled={!canEdit}
+                        readOnly={!canEdit}
                       />
                     </td>
                     <td style={tdStyle}>
@@ -1133,15 +1188,26 @@ export default function ObracunPage() {
                         value={editRashod.cijena === 0 ? "" : editRashod.cijena}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setEditRashod({ ...editRashod, cijena: Number(e.target.value) || 0 })}
-                        style={rashodInputStyle}
+                        style={{...rashodInputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
                         className="no-spin"
+                        disabled={!canEdit}
+                        readOnly={!canEdit}
                       />
                     </td>
                     <td style={tdStyle}>
-                      <button style={buttonStyle} onClick={handleSaveEditRashod}>
+                      <button 
+                        style={{...buttonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+                        onClick={handleSaveEditRashod}
+                        disabled={!canEdit}
+                      >
                         Spremi
                       </button>
-                      <button style={cancelButtonStyle} onClick={handleCancelEditRashod} className="cancel-button">
+                      <button 
+                        style={{...cancelButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+                        onClick={handleCancelEditRashod} 
+                        className="cancel-button"
+                        disabled={!canEdit}
+                      >
                         Otkaži
                       </button>
                     </td>
@@ -1152,16 +1218,18 @@ export default function ObracunPage() {
                     <td style={tdStyle}>{r.cijena.toFixed(2)}</td>
                     <td style={tdStyle}>
                       <button
-                        style={editButtonStyle}
+                        style={{...editButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
                         onClick={() => handleEditRashod(index)}
                         className="edit-button"
+                        disabled={!canEdit}
                       >
                         Uredi
                       </button>
                       <button
-                        style={deleteButtonStyle}
+                        style={{...deleteButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
                         onClick={() => handleDeleteRashod(index)}
                         className="delete-button"
+                        disabled={!canEdit}
                       >
                         Izbriši
                       </button>
@@ -1180,7 +1248,9 @@ export default function ObracunPage() {
           placeholder="Naziv rashoda"
           value={newRashod.naziv}
           onChange={(e) => setNewRashod({ ...newRashod, naziv: e.target.value })}
-          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px"}}
+          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+          disabled={!canEdit}
+          readOnly={!canEdit}
         />
         <input
           type="number"
@@ -1188,10 +1258,16 @@ export default function ObracunPage() {
           value={newRashod.cijena === 0 ? "" : newRashod.cijena}
           onFocus={(e) => e.target.select()}
           onChange={(e) => setNewRashod({ ...newRashod, cijena: Number(e.target.value) || 0 })}
-          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px"}}
+          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
           className="no-spin"
+          disabled={!canEdit}
+          readOnly={!canEdit}
         />
-        <button style={{...buttonStyle, flex: "1 1 auto", minWidth: "140px"}} onClick={handleAddRashod}>
+        <button 
+          style={{...buttonStyle, flex: "1 1 auto", minWidth: "140px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+          onClick={handleAddRashod}
+          disabled={!canEdit}
+        >
           Dodaj rashod
         </button>
       </div>
@@ -1219,7 +1295,9 @@ export default function ObracunPage() {
                         type="text"
                         value={editPrihod.naziv}
                         onChange={(e) => setEditPrihod({ ...editPrihod, naziv: e.target.value })}
-                        style={rashodInputStyle}
+                        style={{...rashodInputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+                        disabled={!canEdit}
+                        readOnly={!canEdit}
                       />
                     </td>
                     <td style={tdStyle}>
@@ -1228,15 +1306,26 @@ export default function ObracunPage() {
                         value={editPrihod.cijena === 0 ? "" : editPrihod.cijena}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setEditPrihod({ ...editPrihod, cijena: Number(e.target.value) || 0 })}
-                        style={rashodInputStyle}
+                        style={{...rashodInputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
                         className="no-spin"
+                        disabled={!canEdit}
+                        readOnly={!canEdit}
                       />
                     </td>
                     <td style={tdStyle}>
-                      <button style={buttonStyle} onClick={handleSaveEditPrihod}>
+                      <button 
+                        style={{...buttonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+                        onClick={handleSaveEditPrihod}
+                        disabled={!canEdit}
+                      >
                         Spremi
                       </button>
-                      <button style={cancelButtonStyle} onClick={handleCancelEditPrihod} className="cancel-button">
+                      <button 
+                        style={{...cancelButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+                        onClick={handleCancelEditPrihod} 
+                        className="cancel-button"
+                        disabled={!canEdit}
+                      >
                         Otkaži
                       </button>
                     </td>
@@ -1247,16 +1336,18 @@ export default function ObracunPage() {
                     <td style={tdStyle}>{p.cijena.toFixed(2)}</td>
                     <td style={tdStyle}>
                       <button
-                        style={editButtonStyle}
+                        style={{...editButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
                         onClick={() => handleEditPrihod(index)}
                         className="edit-button"
+                        disabled={!canEdit}
                       >
                         Uredi
                       </button>
                       <button
-                        style={deleteButtonStyle}
+                        style={{...deleteButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
                         onClick={() => handleDeletePrihod(index)}
                         className="delete-button"
+                        disabled={!canEdit}
                       >
                         Izbriši
                       </button>
@@ -1275,7 +1366,9 @@ export default function ObracunPage() {
           placeholder="Naziv prihoda"
           value={newPrihod.naziv}
           onChange={(e) => setNewPrihod({ ...newPrihod, naziv: e.target.value })}
-          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px"}}
+          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+          disabled={!canEdit}
+          readOnly={!canEdit}
         />
         <input
           type="number"
@@ -1283,10 +1376,16 @@ export default function ObracunPage() {
           value={newPrihod.cijena === 0 ? "" : newPrihod.cijena}
           onFocus={(e) => e.target.select()}
           onChange={(e) => setNewPrihod({ ...newPrihod, cijena: Number(e.target.value) || 0 })}
-          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px"}}
+          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
           className="no-spin"
+          disabled={!canEdit}
+          readOnly={!canEdit}
         />
-        <button style={{...buttonStyle, flex: "1 1 auto", minWidth: "140px"}} onClick={handleAddPrihod}>
+        <button 
+          style={{...buttonStyle, flex: "1 1 auto", minWidth: "140px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+          onClick={handleAddPrihod}
+          disabled={!canEdit}
+        >
           Dodaj prihod
         </button>
       </div>
