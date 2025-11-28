@@ -90,3 +90,4 @@ Ako i dalje imate probleme:
 3. Provjerite Vercel build logs za greške
 4. Provjerite Firebase Console da li su pravila (Firestore Rules) ispravna
 
+

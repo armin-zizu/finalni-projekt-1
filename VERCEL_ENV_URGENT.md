@@ -124,3 +124,4 @@ Ako i dalje ne radi nakon redeploy-a:
 4. Provjeri da li je redeploy prošao uspješno
 5. Očisti browser cache i pokušaj ponovo
 
+

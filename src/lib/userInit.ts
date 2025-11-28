@@ -1,6 +1,6 @@
 // Utility funkcija za inicijalizaciju novog korisnika
 import { db } from "./firestore";
-import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc, Timestamp, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 
 // Default cjenovnik
 const defaultCjenovnik = [
@@ -41,6 +41,45 @@ const defaultCjenovnik = [
 ];
 
 /**
+ * Provjeri da li je korisnik prvi korisnik u sistemu
+ */
+async function isFirstUser(): Promise<boolean> {
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, orderBy("createdAt", "asc"), limit(1));
+    const snapshot = await getDocs(q);
+    return snapshot.empty; // Ako nema korisnika, ovo je prvi
+  } catch (error) {
+    console.error("Greška pri provjeri prvog korisnika:", error);
+    // Ako ne uspije provjera, pretpostavi da nije prvi (sigurnije)
+    return false;
+  }
+}
+
+/**
+ * Kreira zahtjev za odobrenje login-a
+ */
+async function createLoginApprovalRequest(userId: string, email: string | null) {
+  try {
+    const approvalRef = doc(db, "loginApprovals", userId);
+    await setDoc(approvalRef, {
+      userId,
+      email: email || null,
+      status: "pending", // pending, approved, rejected
+      requestedAt: Timestamp.fromDate(new Date()),
+      approvedAt: null,
+      approvedBy: null,
+      rejectedAt: null,
+      rejectedBy: null,
+    });
+    console.log("Zahtjev za odobrenje kreiran:", userId);
+  } catch (error) {
+    console.error("Greška pri kreiranju zahtjeva za odobrenje:", error);
+    throw error;
+  }
+}
+
+/**
  * Kreira početnu strukturu za novog korisnika u Firestore
  * @param userId - User ID iz Firebase Auth
  * @param email - Email adresa korisnika
@@ -60,6 +99,10 @@ export async function initializeUser(userId: string, email: string | null) {
       return;
     }
 
+    // Provjeri da li je prvi korisnik
+    const firstUser = await isFirstUser();
+    const isOwner = firstUser;
+
     // Kreiraj glavni user dokument sa osnovnim podacima
     await setDoc(userDocRef, {
       email: email || null,
@@ -67,6 +110,7 @@ export async function initializeUser(userId: string, email: string | null) {
       cjenovnik: defaultCjenovnik,
       createdAt: Timestamp.fromDate(now),
       lastSignIn: Timestamp.fromDate(now),
+      isOwner: isOwner, // Označi da li je vlasnik
     });
 
     // Kreiraj subscription dokument sa trial periodom
@@ -85,10 +129,16 @@ export async function initializeUser(userId: string, email: string | null) {
       createdAt: Timestamp.fromDate(now),
     });
 
-    console.log("Korisnik uspješno inicijalizovan u Firestore:", userId);
+    // Ako nije prvi korisnik, kreiraj zahtjev za odobrenje
+    if (!isOwner) {
+      await createLoginApprovalRequest(userId, email);
+    }
+
+    console.log("Korisnik uspješno inicijalizovan u Firestore:", userId, "isOwner:", isOwner);
   } catch (error) {
     console.error("Greška pri inicijalizaciji korisnika:", error);
     throw error;
   }
 }
+
 

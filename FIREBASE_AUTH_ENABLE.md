@@ -78,3 +78,4 @@ firebase auth:export users.json --project zadnji-projekt
 - **Users List**: https://console.firebase.google.com/project/zadnji-projekt/authentication/users
 - **Project Settings**: https://console.firebase.google.com/project/zadnji-projekt/settings/general
 
+

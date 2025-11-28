@@ -84,3 +84,4 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-6V3P7P2FK3
 
 U `firebase.ts` su dodani debug logovi koji će se prikazati u browser konzoli kada se učitava Firebase konfiguracija. Provjeri konzolu za detalje.
 
+

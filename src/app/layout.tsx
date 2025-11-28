@@ -8,8 +8,9 @@ import { RoleProvider } from "./context/RoleContext";
 import SubscriptionBanner from "./components/SubscriptionBanner";
 import SubscriptionGuard from "./components/SubscriptionGuard";
 import Sidebar from "./sidebar/Sidebar";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { usePathname, useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // null = loading
@@ -18,8 +19,47 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       const authenticated = !!user;
+      
+      if (authenticated && user) {
+        // Provjeri da li korisnik ima odobrenje (osim ako je vlasnik)
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userDocRef);
+          const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
+
+          if (!isOwner) {
+            const approvalRef = doc(db, "loginApprovals", user.uid);
+            const approvalDoc = await getDoc(approvalRef);
+            
+            if (approvalDoc.exists()) {
+              const approvalData = approvalDoc.data();
+              if (approvalData.status !== "approved") {
+                // Korisnik nema odobrenje, preusmjeri na login
+                setIsAuthenticated(false);
+                setIsLoading(false);
+                if (pathname !== "/login") {
+                  router.push("/login");
+                }
+                return;
+              }
+            } else {
+              // Nema dokumenta za odobrenje, preusmjeri na login
+              setIsAuthenticated(false);
+              setIsLoading(false);
+              if (pathname !== "/login") {
+                router.push("/login");
+              }
+              return;
+            }
+          }
+        } catch (error) {
+          console.error("Greška pri provjeri odobrenja:", error);
+          // U slučaju greške, dozvoli pristup (fallback)
+        }
+      }
+      
       setIsAuthenticated(authenticated);
       setIsLoading(false);
 

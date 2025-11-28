@@ -128,3 +128,4 @@ Ako korisnik ima ID `Qkql1GLaDmMvZyWBPtWXMzEj7j43` i odabere 3 mjeseca:
 - Provjeri da li je `NEXT_PUBLIC_BANK_ACCOUNT` postavljen u environment varijablama
 - Provjeri da li je projekat redeploy-ovan nakon dodavanja varijable
 
+

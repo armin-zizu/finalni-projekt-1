@@ -54,5 +54,34 @@ service cloud.firestore {
         isAdmin()
       );
     }
+    
+    // Login Approvals collection - zahtjevi za odobrenje login-a
+    match /loginApprovals/{approvalId} {
+      // Korisnik može čitati svoj zahtjev, vlasnik može čitati sve
+      allow read: if request.auth != null && (
+        (resource != null && resource.data.userId == request.auth.uid) ||
+        isAdmin() ||
+        // Provjeri da li je korisnik vlasnik (prvi korisnik)
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isOwner == true)
+      );
+      
+      // Korisnik može kreirati svoj zahtjev
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Samo vlasnik ili admin može ažurirati zahtjeve (odobriti/odbiti)
+      allow update: if request.auth != null && (
+        isAdmin() ||
+        // Provjeri da li je korisnik vlasnik
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isOwner == true)
+      );
+      
+      // Samo admin može brisati zahtjeve
+      allow delete: if request.auth != null && isAdmin();
+    }
   }
 }

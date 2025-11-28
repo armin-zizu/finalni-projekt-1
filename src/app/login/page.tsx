@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "../../lib/firebase";
 import { initializeUser } from "../../lib/userInit";
 import { useRouter } from "next/navigation";
+import { db } from "../../lib/firestore";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"email" | "register" | "forgot" | null>(null);
@@ -44,6 +46,39 @@ export default function LoginPage() {
       const idToken = await user.getIdToken();
       console.log("ID Token generisan:", idToken);
       console.log("Uspješan login:", user.email);
+
+      // Provjeri da li je korisnik vlasnik (prvi korisnik)
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
+
+      // Ako korisnik nije vlasnik, provjeri odobrenje
+      if (!isOwner) {
+        const approvalRef = doc(db, "loginApprovals", user.uid);
+        const approvalDoc = await getDoc(approvalRef);
+        
+        if (approvalDoc.exists()) {
+          const approvalData = approvalDoc.data();
+          if (approvalData.status === "pending") {
+            setError("Vaš zahtjev za pristup aplikaciji još nije odobren. Molimo sačekajte odobrenje od administratora.");
+            setLoading(false);
+            return;
+          } else if (approvalData.status === "rejected") {
+            setError("Vaš zahtjev za pristup aplikaciji je odbijen. Kontaktirajte administratora za više informacija.");
+            setLoading(false);
+            return;
+          } else if (approvalData.status !== "approved") {
+            setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
+            setLoading(false);
+            return;
+          }
+        } else {
+          // Ako nema dokumenta za odobrenje, blokiraj pristup
+          setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
+          setLoading(false);
+          return;
+        }
+      }
 
       // Dohvati IP adresu i lokaciju pri login-u
       try {

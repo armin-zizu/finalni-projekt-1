@@ -220,3 +220,4 @@ if (!userDoc.exists()) {
 - Stari korisnici se automatski migriraju pri sljedećoj prijavi
 - Svi podaci su zaštićeni Firestore Security Rules
 
+
