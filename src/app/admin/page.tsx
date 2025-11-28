@@ -59,6 +59,9 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni">("dnevni");
+  const [premiumDaysAdjustment, setPremiumDaysAdjustment] = useState(0);
+  const [trialDaysAdjustment, setTrialDaysAdjustment] = useState(0);
+  const [newSubscriptionStatus, setNewSubscriptionStatus] = useState<"trial" | "premium" | "grace" | "inactive">("premium");
 
   // Provjeri da li je korisnik admin
   useEffect(() => {
@@ -266,6 +269,169 @@ export default function AdminPage() {
         text: `Greška pri učitavanju korisnika: ${error.message || "Nepoznata greška"}` 
       });
       setLoading(false);
+    }
+  };
+
+  // Ažuriraj premium dane
+  const adjustPremiumDays = async (userId: string, days: number) => {
+    try {
+      setSaving(true);
+      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
+      const subscriptionDoc = await getDoc(subscriptionRef);
+
+      if (!subscriptionDoc.exists()) {
+        setMessage({ type: "error", text: "Pretplata ne postoji" });
+        return;
+      }
+
+      const subData = subscriptionDoc.data();
+      const now = new Date();
+      
+      // Pronađi postojeći expiry date ili kreiraj novi
+      let currentExpiryDate: Date;
+      if (subData.expiryDate) {
+        currentExpiryDate = subData.expiryDate.toDate ? subData.expiryDate.toDate() : new Date(subData.expiryDate);
+      } else {
+        // Ako nema expiry date, kreiraj od današnjeg datuma
+        currentExpiryDate = now;
+      }
+
+      // Dodaj ili oduzmi dane
+      const newExpiryDate = new Date(currentExpiryDate);
+      newExpiryDate.setDate(newExpiryDate.getDate() + days);
+
+      // Ako je novi datum u prošlosti, postavi na danas + dane
+      if (newExpiryDate < now && days > 0) {
+        newExpiryDate.setTime(now.getTime() + days * 24 * 60 * 60 * 1000);
+      }
+
+      await setDoc(
+        subscriptionRef,
+        {
+          expiryDate: Timestamp.fromDate(newExpiryDate),
+          isActive: newExpiryDate > now,
+          updatedAt: Timestamp.fromDate(now),
+        },
+        { merge: true }
+      );
+
+      await loadUsers();
+      setPremiumDaysAdjustment(0);
+      setMessage({ type: "success", text: `Premium dana ${days > 0 ? "dodano" : "oduzeto"}: ${Math.abs(days)} dana` });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Greška pri ažuriranju premium dana:", error);
+      setMessage({ type: "error", text: "Greška pri ažuriranju premium dana" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Ažuriraj trial dane
+  const adjustTrialDays = async (userId: string, days: number) => {
+    try {
+      setSaving(true);
+      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
+      const subscriptionDoc = await getDoc(subscriptionRef);
+
+      if (!subscriptionDoc.exists()) {
+        setMessage({ type: "error", text: "Pretplata ne postoji" });
+        return;
+      }
+
+      const subData = subscriptionDoc.data();
+      const now = new Date();
+      
+      // Pronađi postojeći trial end date ili kreiraj novi
+      let currentTrialEndDate: Date;
+      if (subData.trialEndDate) {
+        currentTrialEndDate = subData.trialEndDate.toDate ? subData.trialEndDate.toDate() : new Date(subData.trialEndDate);
+      } else {
+        // Ako nema trial end date, kreiraj od današnjeg datuma (default 15 dana)
+        currentTrialEndDate = new Date(now);
+        currentTrialEndDate.setDate(currentTrialEndDate.getDate() + 15);
+      }
+
+      // Dodaj ili oduzmi dane
+      const newTrialEndDate = new Date(currentTrialEndDate);
+      newTrialEndDate.setDate(newTrialEndDate.getDate() + days);
+
+      // Ako je novi datum u prošlosti, postavi na danas + dane
+      if (newTrialEndDate < now && days > 0) {
+        newTrialEndDate.setTime(now.getTime() + days * 24 * 60 * 60 * 1000);
+      }
+
+      await setDoc(
+        subscriptionRef,
+        {
+          trialEndDate: Timestamp.fromDate(newTrialEndDate),
+          updatedAt: Timestamp.fromDate(now),
+        },
+        { merge: true }
+      );
+
+      await loadUsers();
+      setTrialDaysAdjustment(0);
+      setMessage({ type: "success", text: `Trial dana ${days > 0 ? "dodano" : "oduzeto"}: ${Math.abs(days)} dana` });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Greška pri ažuriranju trial dana:", error);
+      setMessage({ type: "error", text: "Greška pri ažuriranju trial dana" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Promijeni status pretplate
+  const changeSubscriptionStatus = async (userId: string, status: "trial" | "premium" | "grace" | "inactive") => {
+    try {
+      setSaving(true);
+      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
+      const subscriptionDoc = await getDoc(subscriptionRef);
+
+      const now = new Date();
+      let updateData: any = {
+        updatedAt: Timestamp.fromDate(now),
+      };
+
+      if (status === "trial") {
+        const trialEndDate = new Date(now);
+        trialEndDate.setDate(trialEndDate.getDate() + 15);
+        updateData.trialEndDate = Timestamp.fromDate(trialEndDate);
+        updateData.isActive = true;
+        updateData.expiryDate = null;
+        updateData.graceEndDate = null;
+      } else if (status === "premium") {
+        const expiryDate = new Date(now);
+        expiryDate.setMonth(expiryDate.getMonth() + 1);
+        updateData.expiryDate = Timestamp.fromDate(expiryDate);
+        updateData.isActive = true;
+        updateData.trialEndDate = null;
+        updateData.graceEndDate = null;
+      } else if (status === "grace") {
+        const graceEndDate = new Date(now);
+        graceEndDate.setDate(graceEndDate.getDate() + 5);
+        updateData.graceEndDate = Timestamp.fromDate(graceEndDate);
+        updateData.isActive = false;
+        updateData.expiryDate = Timestamp.fromDate(now);
+      } else {
+        // inactive
+        updateData.isActive = false;
+        updateData.expiryDate = Timestamp.fromDate(new Date(0));
+        updateData.graceEndDate = null;
+      }
+
+      await setDoc(subscriptionRef, updateData, { merge: true });
+
+      await loadUsers();
+      setNewSubscriptionStatus("premium");
+      setMessage({ type: "success", text: `Status pretplate promijenjen na: ${status === "trial" ? "Probni period" : status === "premium" ? "Premium" : status === "grace" ? "Grace Period" : "Neaktivna"}` });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Greška pri promjeni statusa pretplate:", error);
+      setMessage({ type: "error", text: "Greška pri promjeni statusa pretplate" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -853,6 +1019,19 @@ export default function AdminPage() {
                       <button
                         onClick={() => {
                           setSelectedUserDetails(user);
+                          const sub = subscriptions[user.id];
+                          // Postavi početni status na osnovu trenutnog statusa
+                          if (sub?.isTrial) {
+                            setNewSubscriptionStatus("trial");
+                          } else if (sub?.isPremium || sub?.isActive) {
+                            setNewSubscriptionStatus("premium");
+                          } else if (sub?.isGracePeriod) {
+                            setNewSubscriptionStatus("grace");
+                          } else {
+                            setNewSubscriptionStatus("inactive");
+                          }
+                          setPremiumDaysAdjustment(0);
+                          setTrialDaysAdjustment(0);
                           setShowDetailsModal(true);
                         }}
                         style={{
@@ -1048,6 +1227,19 @@ export default function AdminPage() {
                         <button
                           onClick={() => {
                             setSelectedUserDetails(user);
+                            const sub = subscriptions[user.id];
+                            // Postavi početni status na osnovu trenutnog statusa
+                            if (sub?.isTrial) {
+                              setNewSubscriptionStatus("trial");
+                            } else if (sub?.isPremium || sub?.isActive) {
+                              setNewSubscriptionStatus("premium");
+                            } else if (sub?.isGracePeriod) {
+                              setNewSubscriptionStatus("grace");
+                            } else {
+                              setNewSubscriptionStatus("inactive");
+                            }
+                            setPremiumDaysAdjustment(0);
+                            setTrialDaysAdjustment(0);
                             setShowDetailsModal(true);
                           }}
                           style={{
@@ -1273,6 +1465,9 @@ export default function AdminPage() {
           onClick={() => {
             setShowDetailsModal(false);
             setSelectedUserDetails(null);
+            setPremiumDaysAdjustment(0);
+            setTrialDaysAdjustment(0);
+            setNewSubscriptionStatus("premium");
           }}
         >
           <div
@@ -1482,23 +1677,232 @@ export default function AdminPage() {
                     )}
                     
                     <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
-                      <button
-                        onClick={() => toggleSubscription(selectedUserDetails.id, isActive)}
-                        disabled={saving}
-                        style={{
-                          padding: "8px 16px",
-                          background: isActive ? "#dc2626" : "#16a34a",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          cursor: saving ? "not-allowed" : "pointer",
-                          fontSize: "14px",
-                          fontWeight: 500,
-                          opacity: saving ? 0.6 : 1,
-                        }}
-                      >
-                        {saving ? "Spremanje..." : isActive ? "Deaktiviraj Pretplatu" : "Aktiviraj Pretplatu"}
-                      </button>
+                      <h4 style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                        Upravljanje Pretplatom
+                      </h4>
+                      
+                      {/* Promijeni status pretplate */}
+                      <div style={{ marginBottom: "16px" }}>
+                        <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "#374151", marginBottom: "6px" }}>
+                          Promijeni Status Pretplate:
+                        </label>
+                        <select
+                          value={newSubscriptionStatus}
+                          onChange={(e) => setNewSubscriptionStatus(e.target.value as "trial" | "premium" | "grace" | "inactive")}
+                          style={{
+                            width: "100%",
+                            padding: "8px",
+                            borderRadius: "6px",
+                            border: "1px solid #e5e7eb",
+                            fontSize: "14px",
+                            outline: "none",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          <option value="trial">Probni period</option>
+                          <option value="premium">Premium</option>
+                          <option value="grace">Grace Period</option>
+                          <option value="inactive">Neaktivna</option>
+                        </select>
+                        <button
+                          onClick={() => changeSubscriptionStatus(selectedUserDetails.id, newSubscriptionStatus)}
+                          disabled={saving}
+                          style={{
+                            padding: "6px 12px",
+                            background: "#3b82f6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: saving ? "not-allowed" : "pointer",
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            opacity: saving ? 0.6 : 1,
+                            width: "100%",
+                          }}
+                        >
+                          {saving ? "Spremanje..." : "Promijeni Status"}
+                        </button>
+                      </div>
+
+                      {/* Ažuriraj Premium dane */}
+                      <div style={{ marginBottom: "16px" }}>
+                        <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "#374151", marginBottom: "6px" }}>
+                          Ažuriraj Premium Dane:
+                        </label>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <button
+                            onClick={() => setPremiumDaysAdjustment(Math.max(-30, premiumDaysAdjustment - 1))}
+                            disabled={saving}
+                            style={{
+                              padding: "8px 12px",
+                              background: "#dc2626",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: saving ? "not-allowed" : "pointer",
+                              fontSize: "16px",
+                              fontWeight: 600,
+                              opacity: saving ? 0.6 : 1,
+                            }}
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            value={premiumDaysAdjustment}
+                            onChange={(e) => setPremiumDaysAdjustment(parseInt(e.target.value) || 0)}
+                            style={{
+                              flex: 1,
+                              padding: "8px",
+                              borderRadius: "6px",
+                              border: "1px solid #e5e7eb",
+                              fontSize: "14px",
+                              textAlign: "center",
+                              outline: "none",
+                            }}
+                            placeholder="0"
+                          />
+                          <button
+                            onClick={() => setPremiumDaysAdjustment(Math.min(365, premiumDaysAdjustment + 1))}
+                            disabled={saving}
+                            style={{
+                              padding: "8px 12px",
+                              background: "#16a34a",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: saving ? "not-allowed" : "pointer",
+                              fontSize: "16px",
+                              fontWeight: 600,
+                              opacity: saving ? 0.6 : 1,
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        {premiumDaysAdjustment !== 0 && (
+                          <button
+                            onClick={() => adjustPremiumDays(selectedUserDetails.id, premiumDaysAdjustment)}
+                            disabled={saving}
+                            style={{
+                              marginTop: "8px",
+                              padding: "6px 12px",
+                              background: "#3b82f6",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: saving ? "not-allowed" : "pointer",
+                              fontSize: "12px",
+                              fontWeight: 500,
+                              opacity: saving ? 0.6 : 1,
+                              width: "100%",
+                            }}
+                          >
+                            {saving ? "Spremanje..." : `${premiumDaysAdjustment > 0 ? "Dodaj" : "Oduzmi"} ${Math.abs(premiumDaysAdjustment)} ${Math.abs(premiumDaysAdjustment) === 1 ? "dan" : "dana"}`}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Ažuriraj Trial dane */}
+                      <div style={{ marginBottom: "16px" }}>
+                        <label style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "#374151", marginBottom: "6px" }}>
+                          Ažuriraj Trial Dane:
+                        </label>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <button
+                            onClick={() => setTrialDaysAdjustment(Math.max(-15, trialDaysAdjustment - 1))}
+                            disabled={saving}
+                            style={{
+                              padding: "8px 12px",
+                              background: "#dc2626",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: saving ? "not-allowed" : "pointer",
+                              fontSize: "16px",
+                              fontWeight: 600,
+                              opacity: saving ? 0.6 : 1,
+                            }}
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            value={trialDaysAdjustment}
+                            onChange={(e) => setTrialDaysAdjustment(parseInt(e.target.value) || 0)}
+                            style={{
+                              flex: 1,
+                              padding: "8px",
+                              borderRadius: "6px",
+                              border: "1px solid #e5e7eb",
+                              fontSize: "14px",
+                              textAlign: "center",
+                              outline: "none",
+                            }}
+                            placeholder="0"
+                          />
+                          <button
+                            onClick={() => setTrialDaysAdjustment(Math.min(90, trialDaysAdjustment + 1))}
+                            disabled={saving}
+                            style={{
+                              padding: "8px 12px",
+                              background: "#16a34a",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: saving ? "not-allowed" : "pointer",
+                              fontSize: "16px",
+                              fontWeight: 600,
+                              opacity: saving ? 0.6 : 1,
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        {trialDaysAdjustment !== 0 && (
+                          <button
+                            onClick={() => adjustTrialDays(selectedUserDetails.id, trialDaysAdjustment)}
+                            disabled={saving}
+                            style={{
+                              marginTop: "8px",
+                              padding: "6px 12px",
+                              background: "#3b82f6",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              cursor: saving ? "not-allowed" : "pointer",
+                              fontSize: "12px",
+                              fontWeight: 500,
+                              opacity: saving ? 0.6 : 1,
+                              width: "100%",
+                            }}
+                          >
+                            {saving ? "Spremanje..." : `${trialDaysAdjustment > 0 ? "Dodaj" : "Oduzmi"} ${Math.abs(trialDaysAdjustment)} ${Math.abs(trialDaysAdjustment) === 1 ? "dan" : "dana"}`}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Aktiviraj/Deaktiviraj pretplatu */}
+                      <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                        <button
+                          onClick={() => toggleSubscription(selectedUserDetails.id, isActive)}
+                          disabled={saving}
+                          style={{
+                            padding: "8px 16px",
+                            background: isActive ? "#dc2626" : "#16a34a",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: saving ? "not-allowed" : "pointer",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            opacity: saving ? 0.6 : 1,
+                            width: "100%",
+                          }}
+                        >
+                          {saving ? "Spremanje..." : isActive ? "Deaktiviraj Pretplatu" : "Aktiviraj Pretplatu"}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -1550,6 +1954,9 @@ export default function AdminPage() {
                       onClick={() => {
                         setShowDetailsModal(false);
                         setSelectedUserDetails(null);
+                        setPremiumDaysAdjustment(0);
+                        setTrialDaysAdjustment(0);
+                        setNewSubscriptionStatus("premium");
                       }}
                       style={{
                         padding: "10px 20px",
