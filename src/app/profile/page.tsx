@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { auth, sendPasswordResetEmail, signOut, sendEmailVerification } from "../../lib/firebase";
 import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
@@ -586,15 +586,90 @@ export default function Profile() {
     }
   }, [role]);
 
-  // Filtriraj uređaje
-  const filteredDevices = devices.filter((device) => {
+  // Kombinuj sesije i uređaje u jednu listu
+  const combinedDevicesAndSessions = useMemo(() => {
+    const user = auth.currentUser;
+    if (!user) return [];
+
+    // Filtriraj sesije za trenutnog korisnika
+    const userSessions = sessions.filter(s => s.userEmail === user.email);
+    
+    // Kreiraj mapu uređaja po deviceId
+    const devicesMap = new Map();
+    devices.forEach(device => {
+      devicesMap.set(device.id, device);
+    });
+
+    // Kombinuj sesije sa uređajima
+    const combined: any[] = [];
+    
+    // Prvo dodaj uređaje sa sesijama
+    devices.forEach(device => {
+      // Pokušaj pronaći odgovarajuću sesiju po IP ili deviceId
+      const matchingSession = userSessions.find(s => 
+        s.ip && device.deviceInfo?.userAgent && s.ip !== "N/A"
+      );
+      
+      combined.push({
+        id: device.id,
+        type: "device",
+        deviceId: device.id,
+        deviceInfo: device.deviceInfo,
+        role: device.role,
+        permissions: device.permissions,
+        lastLogin: device.lastLogin,
+        session: matchingSession || null,
+        // Podaci iz sesije ako postoji
+        ip: matchingSession?.ip || "N/A",
+        location: matchingSession?.location || "N/A",
+        date: matchingSession?.date || (device.lastLogin ? device.lastLogin.toLocaleString("bs-BA") : "N/A"),
+        status: matchingSession?.status || "N/A",
+      });
+    });
+
+    // Dodaj sesije koje nemaju odgovarajući uređaj
+    userSessions.forEach(session => {
+      const hasDevice = devices.some(device => {
+        // Provjeri da li postoji uređaj sa istom IP ili deviceId
+        return session.ip && session.ip !== "N/A" && device.deviceInfo?.userAgent;
+      });
+      
+      if (!hasDevice) {
+        combined.push({
+          id: `session-${session.id}`,
+          type: "session",
+          deviceId: null,
+          deviceInfo: {
+            browser: "N/A",
+            os: session.device || "N/A",
+            screenSize: "N/A",
+            userAgent: "N/A",
+          },
+          role: null,
+          permissions: null,
+          lastLogin: null,
+          session: session,
+          ip: session.ip || "N/A",
+          location: session.location || "N/A",
+          date: session.date || "N/A",
+          status: session.status || "N/A",
+        });
+      }
+    });
+
+    return combined;
+  }, [devices, sessions]);
+
+  // Filtriraj kombinovane podatke
+  const filteredCombined = combinedDevicesAndSessions.filter((item) => {
     const search = deviceSearchTerm.toLowerCase();
     return (
-      device.deviceId?.toLowerCase().includes(search) ||
-      device.userEmail?.toLowerCase().includes(search) ||
-      device.deviceInfo?.browser?.toLowerCase().includes(search) ||
-      device.deviceInfo?.os?.toLowerCase().includes(search) ||
-      device.role?.toLowerCase().includes(search)
+      item.deviceId?.toLowerCase().includes(search) ||
+      item.deviceInfo?.browser?.toLowerCase().includes(search) ||
+      item.deviceInfo?.os?.toLowerCase().includes(search) ||
+      item.role?.toLowerCase().includes(search) ||
+      item.ip?.toLowerCase().includes(search) ||
+      item.location?.toLowerCase().includes(search)
     );
   });
 
@@ -757,6 +832,12 @@ export default function Profile() {
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
               <FaSpinner style={{ fontSize: "32px", color: "#3b82f6", animation: "spin 1s linear infinite" }} />
             </div>
+          ) : filteredCombined.length === 0 ? (
+            <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+              <FaMobile style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.5 }} />
+              <p style={{ fontSize: "16px" }}>Nema sesija ili uređaja.</p>
+              <p style={{ fontSize: "14px", marginTop: "8px" }}>Sesije i uređaji će se automatski pojaviti kada se korisnici prijave.</p>
+            </div>
           ) : (
             <div style={tableWrapperStyle} className={tableWrapperClassName}>
               <table style={tableStyle}>
@@ -771,45 +852,48 @@ export default function Profile() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Prikaži uređaje */}
-                  {filteredDevices.map((device) => {
+                  {/* Prikaži kombinovane sesije i uređaje */}
+                  {filteredCombined.map((item) => {
+                    const device = devices.find(d => d.id === item.deviceId) || item;
                     const roleColors: Record<string, { bg: string; color: string }> = {
                       vlasnik: { bg: "#dbeafe", color: "#2563eb" },
                       konobar: { bg: "#dcfce7", color: "#16a34a" },
                     };
 
-                    const roleColor = device.role ? roleColors[device.role] || { bg: "#f3f4f6", color: "#6b7280" } : { bg: "#f3f4f6", color: "#6b7280" };
-                    const isEditing = editingDeviceId === device.id;
+                    const roleColor = item.role ? roleColors[item.role] || { bg: "#f3f4f6", color: "#6b7280" } : { bg: "#f3f4f6", color: "#6b7280" };
+                    const isEditing = editingDeviceId === item.deviceId;
+                    const canEdit = item.type === "device" && item.deviceId;
 
                     return (
-                      <tr key={device.id}>
+                      <tr key={item.id}>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            {device.deviceInfo?.os === "Android" || device.deviceInfo?.os === "iOS" ? (
+                            {item.deviceInfo?.os === "Android" || item.deviceInfo?.os === "iOS" || item.session?.device === "Mobilni" ? (
                               <FaMobile style={{ fontSize: "16px", color: "#6b7280" }} />
                             ) : (
                               <FaDesktop style={{ fontSize: "16px", color: "#6b7280" }} />
                             )}
-                            <span>{device.deviceInfo?.screenSize || "N/A"}</span>
+                            <span>{item.deviceInfo?.screenSize || item.session?.device || "N/A"}</span>
                           </div>
                         </td>
                         <td style={tdStyle}>
-                          {device.deviceInfo?.browser || "N/A"} / {device.deviceInfo?.os || "N/A"}
+                          {item.deviceInfo?.browser || "N/A"} / {item.deviceInfo?.os || item.session?.device || "N/A"}
                         </td>
                         <td style={tdStyle}>
-                          {device.deviceInfo?.userAgent ? device.deviceInfo.userAgent.substring(0, 30) + "..." : "N/A"}
+                          {item.location !== "N/A" ? item.location : "N/A"}
+                          {item.ip !== "N/A" && <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>IP: {item.ip}</div>}
                         </td>
                         <td style={tdStyle}>
-                          {isEditing ? (
+                          {isEditing && canEdit ? (
                             <select
-                              value={device.role || ""}
+                              value={item.role || ""}
                               onChange={(e) => {
                                 const newRole = e.target.value as UserRole || null;
                                 if (newRole === "konobar") {
                                   // Ako postavlja konobara, otvori modal za dozvole
-                                  handleEditPermissions(device);
+                                  handleEditPermissions(item);
                                 } else {
-                                  handleAssignRole(device.id, newRole);
+                                  handleAssignRole(item.deviceId, newRole);
                                 }
                               }}
                               style={{
@@ -837,17 +921,17 @@ export default function Profile() {
                                 color: roleColor.color,
                               }}
                             >
-                              {device.role || "Nedodijeljena"}
+                              {item.role || "Nedodijeljena"}
                             </span>
                           )}
                         </td>
                         <td style={tdStyle}>
-                          {device.lastLogin
-                            ? device.lastLogin.toLocaleDateString("bs-BA") + " " + device.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
-                            : "N/A"}
+                          {item.lastLogin
+                            ? item.lastLogin.toLocaleDateString("bs-BA") + " " + item.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
+                            : item.date !== "N/A" ? item.date : "N/A"}
                         </td>
                         <td style={tdStyle}>
-                          {isEditing && device.role === "konobar" ? (
+                          {isEditing && item.role === "konobar" && canEdit ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
                                 {["dashboard", "obracun", "arhiva", "cjenovnik", "profit", "profile"].map((page) => (
@@ -873,7 +957,7 @@ export default function Profile() {
                               </div>
                               <div style={{ display: "flex", gap: "4px" }}>
                                 <button
-                                  onClick={() => handleSavePermissions(device.id, device.role as UserRole)}
+                                  onClick={() => handleSavePermissions(item.deviceId, item.role as UserRole)}
                                   style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "4px 8px" }}
                                 >
                                   Spremi
@@ -889,21 +973,23 @@ export default function Profile() {
                                 </button>
                               </div>
                             </div>
-                          ) : (
+                          ) : canEdit ? (
                             <div style={{ display: "flex", gap: "4px" }}>
                               <button
                                 onClick={() => {
-                                  if (device.role === "konobar") {
-                                    handleEditPermissions(device);
+                                  if (item.role === "konobar") {
+                                    handleEditPermissions(item);
                                   } else {
-                                    setEditingDeviceId(device.id);
+                                    setEditingDeviceId(item.deviceId);
                                   }
                                 }}
                                 style={{ ...buttonStyle, fontSize: "12px", padding: "4px 8px" }}
                               >
-                                {device.role === "konobar" ? "Dozvole" : "Uredi"}
+                                {item.role === "konobar" ? "Dozvole" : "Uredi"}
                               </button>
                             </div>
+                          ) : (
+                            <span style={{ fontSize: "12px", color: "#6b7280" }}>Samo sesija</span>
                           )}
                         </td>
                       </tr>
@@ -923,7 +1009,7 @@ export default function Profile() {
       )}
 
       {/* Stara sekcija za sesije - sakrivena jer je spojena gore */}
-      {false && (
+      {false && role === "vlasnik" && (
       <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
         <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
           Pregled sesija
