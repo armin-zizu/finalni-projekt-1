@@ -11,6 +11,7 @@ import Sidebar from "./sidebar/Sidebar";
 import { auth, db } from "../lib/firebase";
 import { usePathname, useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
+import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // null = loading
@@ -53,6 +54,35 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               }
               return;
             }
+          }
+
+          // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
+          try {
+            const deviceId = localStorage.getItem("deviceId");
+            if (deviceId) {
+              const deviceRef = doc(db, "devices", deviceId);
+              const deviceDoc = await getDoc(deviceRef);
+              
+              if (deviceDoc.exists()) {
+                const deviceData = deviceDoc.data();
+                const isBlocked = deviceData.isBlocked === true;
+                const status = deviceData.status || (deviceData.role === null ? "verifikacija" : "approved");
+                const needsVerification = status === "verifikacija";
+                
+                if (isBlocked || needsVerification) {
+                  // Uređaj je blokiran ili zahtijeva verifikaciju, preusmjeri na login
+                  setIsAuthenticated(false);
+                  setIsLoading(false);
+                  if (pathname !== "/login") {
+                    router.push("/login");
+                  }
+                  return;
+                }
+              }
+            }
+          } catch (deviceError) {
+            console.error("Greška pri provjeri uređaja:", deviceError);
+            // U slučaju greške, dozvoli pristup (fallback)
           }
         } catch (error) {
           console.error("Greška pri provjeri odobrenja:", error);

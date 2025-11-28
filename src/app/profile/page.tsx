@@ -393,6 +393,9 @@ export default function Profile() {
         devicesList.push({
           id: doc.id,
           ...data,
+          deviceId: doc.id,
+          status: data.status || (data.role === null ? "verifikacija" : "approved"),
+          isBlocked: data.isBlocked === true,
           deviceInfo: {
             ...data.deviceInfo,
             firstSeen: data.deviceInfo?.firstSeen?.toDate?.() || null,
@@ -449,6 +452,66 @@ export default function Profile() {
   // Spremi dozvole
   const handleSavePermissions = async (deviceId: string, deviceRole: UserRole) => {
     await handleAssignRole(deviceId, deviceRole, editingPermissions);
+  };
+
+  // Odobri novi uređaj
+  const handleApproveDevice = async (deviceId: string) => {
+    const user = auth.currentUser;
+    if (!user || role !== "vlasnik") return;
+
+    try {
+      setSavingRole(true);
+      const deviceRef = doc(db, "devices", deviceId);
+      await setDoc(
+        deviceRef,
+        {
+          status: "approved",
+          approvedAt: Timestamp.fromDate(new Date()),
+          approvedBy: user.uid,
+          updatedAt: Timestamp.fromDate(new Date()),
+        },
+        { merge: true }
+      );
+      await loadDevices();
+      setMessage("Uređaj uspješno odobren");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      console.error("Greška pri odobravanju uređaja:", error);
+      setMessage("Greška pri odobravanju uređaja");
+      setTimeout(() => setMessage(""), 5000);
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  // Blokiraj/odblokiraj uređaj
+  const handleToggleBlockDevice = async (deviceId: string, currentBlocked: boolean) => {
+    const user = auth.currentUser;
+    if (!user || role !== "vlasnik") return;
+
+    try {
+      setSavingRole(true);
+      const deviceRef = doc(db, "devices", deviceId);
+      await setDoc(
+        deviceRef,
+        {
+          isBlocked: !currentBlocked,
+          blockedAt: !currentBlocked ? Timestamp.fromDate(new Date()) : null,
+          blockedBy: !currentBlocked ? user.uid : null,
+          updatedAt: Timestamp.fromDate(new Date()),
+        },
+        { merge: true }
+      );
+      await loadDevices();
+      setMessage(`Uređaj ${!currentBlocked ? "blokiran" : "odblokiran"}`);
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      console.error("Greška pri blokiranju/odblokiranju uređaja:", error);
+      setMessage("Greška pri blokiranju/odblokiranju uređaja");
+      setTimeout(() => setMessage(""), 5000);
+    } finally {
+      setSavingRole(false);
+    }
   };
 
   // Provjeri da li je korisnik vlasnik
@@ -586,92 +649,6 @@ export default function Profile() {
     }
   }, [role]);
 
-  // Kombinuj sesije i uređaje u jednu listu
-  const combinedDevicesAndSessions = useMemo(() => {
-    const user = auth.currentUser;
-    if (!user) return [];
-
-    // Filtriraj sesije za trenutnog korisnika
-    const userSessions = sessions.filter(s => s.userEmail === user.email);
-    
-    // Kreiraj mapu uređaja po deviceId
-    const devicesMap = new Map();
-    devices.forEach(device => {
-      devicesMap.set(device.id, device);
-    });
-
-    // Kombinuj sesije sa uređajima
-    const combined: any[] = [];
-    
-    // Prvo dodaj uređaje sa sesijama
-    devices.forEach(device => {
-      // Pokušaj pronaći odgovarajuću sesiju po IP ili deviceId
-      const matchingSession = userSessions.find(s => 
-        s.ip && device.deviceInfo?.userAgent && s.ip !== "N/A"
-      );
-      
-      combined.push({
-        id: device.id,
-        type: "device",
-        deviceId: device.id,
-        deviceInfo: device.deviceInfo,
-        role: device.role,
-        permissions: device.permissions,
-        lastLogin: device.lastLogin,
-        session: matchingSession || null,
-        // Podaci iz sesije ako postoji
-        ip: matchingSession?.ip || "N/A",
-        location: matchingSession?.location || "N/A",
-        date: matchingSession?.date || (device.lastLogin ? device.lastLogin.toLocaleString("bs-BA") : "N/A"),
-        status: matchingSession?.status || "N/A",
-      });
-    });
-
-    // Dodaj sesije koje nemaju odgovarajući uređaj
-    userSessions.forEach(session => {
-      const hasDevice = devices.some(device => {
-        // Provjeri da li postoji uređaj sa istom IP ili deviceId
-        return session.ip && session.ip !== "N/A" && device.deviceInfo?.userAgent;
-      });
-      
-      if (!hasDevice) {
-        combined.push({
-          id: `session-${session.id}`,
-          type: "session",
-          deviceId: null,
-          deviceInfo: {
-            browser: "N/A",
-            os: session.device || "N/A",
-            screenSize: "N/A",
-            userAgent: "N/A",
-          },
-          role: null,
-          permissions: null,
-          lastLogin: null,
-          session: session,
-          ip: session.ip || "N/A",
-          location: session.location || "N/A",
-          date: session.date || "N/A",
-          status: session.status || "N/A",
-        });
-      }
-    });
-
-    return combined;
-  }, [devices, sessions]);
-
-  // Filtriraj kombinovane podatke
-  const filteredCombined = combinedDevicesAndSessions.filter((item) => {
-    const search = deviceSearchTerm.toLowerCase();
-    return (
-      item.deviceId?.toLowerCase().includes(search) ||
-      item.deviceInfo?.browser?.toLowerCase().includes(search) ||
-      item.deviceInfo?.os?.toLowerCase().includes(search) ||
-      item.role?.toLowerCase().includes(search) ||
-      item.ip?.toLowerCase().includes(search) ||
-      item.location?.toLowerCase().includes(search)
-    );
-  });
 
   const handleDeleteSession = (id: string) => {
     if (window.confirm("Jeste li sigurni da želite obrisati ovu sesiju?")) {
@@ -788,14 +765,14 @@ export default function Profile() {
       </div>
 
 
-      {/* Spojena sekcija: Sesije i Uređaji - samo za vlasnika */}
+      {/* Upravljanje uređajima - samo za vlasnika */}
       {role === "vlasnik" && (
         <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
           <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
-            📱 Sesije i Upravljanje Uređajima
+            📱 Upravljanje Uređajima
           </h2>
           <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "20px" }}>
-            Pregledajte sesije i upravljajte uređajima i ulogama. Dodijelite uloge i dozvole po stranicama za konobare.
+            Upravljajte uređajima, dodijelite uloge i dozvole. Novi uređaji zahtijevaju odobrenje prije pristupa.
           </p>
 
           {/* Pretraga */}
@@ -827,73 +804,115 @@ export default function Profile() {
             />
           </div>
 
-          {/* Tabela sa sesijama i uređajima */}
+          {/* Tabela sa uređajima */}
           {loadingDevices ? (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
               <FaSpinner style={{ fontSize: "32px", color: "#3b82f6", animation: "spin 1s linear infinite" }} />
             </div>
-          ) : filteredCombined.length === 0 ? (
+          ) : filteredDevices.length === 0 ? (
             <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
               <FaMobile style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.5 }} />
-              <p style={{ fontSize: "16px" }}>Nema sesija ili uređaja.</p>
-              <p style={{ fontSize: "14px", marginTop: "8px" }}>Sesije i uređaji će se automatski pojaviti kada se korisnici prijave.</p>
+              <p style={{ fontSize: "16px" }}>Nema uređaja.</p>
+              <p style={{ fontSize: "14px", marginTop: "8px" }}>Uređaji će se automatski pojaviti kada se korisnici prijave.</p>
             </div>
           ) : (
             <div style={tableWrapperStyle} className={tableWrapperClassName}>
               <table style={tableStyle}>
                 <thead>
                   <tr>
-                    <th style={thStyle}>Uređaj / Sesija</th>
+                    <th style={thStyle}>Uređaj</th>
                     <th style={thStyle}>Browser / OS</th>
-                    <th style={thStyle}>Lokacija / IP</th>
+                    <th style={thStyle}>Status</th>
                     <th style={thStyle}>Uloga</th>
                     <th style={thStyle}>Posljednja prijava</th>
                     <th style={thStyle}>Akcije</th>
+                    <th style={thStyle}>Blokiraj</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Prikaži kombinovane sesije i uređaje */}
-                  {filteredCombined.map((item) => {
-                    const device = devices.find(d => d.id === item.deviceId) || item;
+                  {/* Prikaži uređaje */}
+                  {filteredDevices.map((device) => {
                     const roleColors: Record<string, { bg: string; color: string }> = {
                       vlasnik: { bg: "#dbeafe", color: "#2563eb" },
                       konobar: { bg: "#dcfce7", color: "#16a34a" },
+                      verifikacija: { bg: "#fef3c7", color: "#f59e0b" },
                     };
 
-                    const roleColor = item.role ? roleColors[item.role] || { bg: "#f3f4f6", color: "#6b7280" } : { bg: "#f3f4f6", color: "#6b7280" };
-                    const isEditing = editingDeviceId === item.deviceId;
-                    const canEdit = item.type === "device" && item.deviceId;
+                    const deviceStatus = device.status || (device.role === null ? "verifikacija" : null);
+                    const isBlocked = device.isBlocked === true;
+                    const needsVerification = deviceStatus === "verifikacija";
+                    const roleColor = device.role ? roleColors[device.role] || { bg: "#f3f4f6", color: "#6b7280" } : 
+                                      needsVerification ? roleColors.verifikacija : { bg: "#f3f4f6", color: "#6b7280" };
+                    const isEditing = editingDeviceId === device.id;
 
                     return (
-                      <tr key={item.id}>
+                      <tr key={device.id}>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            {item.deviceInfo?.os === "Android" || item.deviceInfo?.os === "iOS" || item.session?.device === "Mobilni" ? (
+                            {device.deviceInfo?.os === "Android" || device.deviceInfo?.os === "iOS" ? (
                               <FaMobile style={{ fontSize: "16px", color: "#6b7280" }} />
                             ) : (
                               <FaDesktop style={{ fontSize: "16px", color: "#6b7280" }} />
                             )}
-                            <span>{item.deviceInfo?.screenSize || item.session?.device || "N/A"}</span>
+                            <span>{device.deviceInfo?.screenSize || "N/A"}</span>
                           </div>
                         </td>
                         <td style={tdStyle}>
-                          {item.deviceInfo?.browser || "N/A"} / {item.deviceInfo?.os || item.session?.device || "N/A"}
+                          {device.deviceInfo?.browser || "N/A"} / {device.deviceInfo?.os || "N/A"}
                         </td>
                         <td style={tdStyle}>
-                          {item.location !== "N/A" ? item.location : "N/A"}
-                          {item.ip !== "N/A" && <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px" }}>IP: {item.ip}</div>}
+                          {needsVerification ? (
+                            <span
+                              style={{
+                                padding: "4px 12px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                backgroundColor: "#fef3c7",
+                                color: "#f59e0b",
+                              }}
+                            >
+                              Verifikacija
+                            </span>
+                          ) : isBlocked ? (
+                            <span
+                              style={{
+                                padding: "4px 12px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                backgroundColor: "#fee2e2",
+                                color: "#dc2626",
+                              }}
+                            >
+                              Blokiran
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                padding: "4px 12px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                backgroundColor: "#dcfce7",
+                                color: "#16a34a",
+                              }}
+                            >
+                              Aktivan
+                            </span>
+                          )}
                         </td>
                         <td style={tdStyle}>
-                          {isEditing && canEdit ? (
+                          {isEditing ? (
                             <select
-                              value={item.role || ""}
+                              value={device.role || ""}
                               onChange={(e) => {
                                 const newRole = e.target.value as UserRole || null;
                                 if (newRole === "konobar") {
                                   // Ako postavlja konobara, otvori modal za dozvole
-                                  handleEditPermissions(item);
+                                  handleEditPermissions(device);
                                 } else {
-                                  handleAssignRole(item.deviceId, newRole);
+                                  handleAssignRole(device.id, newRole);
                                 }
                               }}
                               style={{
@@ -921,17 +940,24 @@ export default function Profile() {
                                 color: roleColor.color,
                               }}
                             >
-                              {item.role || "Nedodijeljena"}
+                              {device.role || "Nedodijeljena"}
                             </span>
                           )}
                         </td>
                         <td style={tdStyle}>
-                          {item.lastLogin
-                            ? item.lastLogin.toLocaleDateString("bs-BA") + " " + item.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
-                            : item.date !== "N/A" ? item.date : "N/A"}
+                          {device.lastLogin
+                            ? device.lastLogin.toLocaleDateString("bs-BA") + " " + device.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
+                            : "N/A"}
                         </td>
                         <td style={tdStyle}>
-                          {isEditing && item.role === "konobar" && canEdit ? (
+                          {needsVerification ? (
+                            <button
+                              onClick={() => handleApproveDevice(device.id)}
+                              style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "4px 8px" }}
+                            >
+                              Odobri
+                            </button>
+                          ) : isEditing && device.role === "konobar" ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
                                 {["dashboard", "obracun", "arhiva", "cjenovnik", "profit", "profile"].map((page) => (
@@ -973,24 +999,54 @@ export default function Profile() {
                                 </button>
                               </div>
                             </div>
-                          ) : canEdit ? (
-                            <div style={{ display: "flex", gap: "4px" }}>
+                          ) : (
+                            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                               <button
                                 onClick={() => {
-                                  if (item.role === "konobar") {
-                                    handleEditPermissions(item);
+                                  if (device.role === "konobar") {
+                                    handleEditPermissions(device);
                                   } else {
-                                    setEditingDeviceId(item.deviceId);
+                                    setEditingDeviceId(device.id);
                                   }
                                 }}
                                 style={{ ...buttonStyle, fontSize: "12px", padding: "4px 8px" }}
                               >
-                                {item.role === "konobar" ? "Dozvole" : "Uredi"}
+                                {device.role === "konobar" ? "Dozvole" : device.role === "vlasnik" ? "Vlasnik" : "Uredi"}
                               </button>
+                              {!device.role && (
+                                <>
+                                  <button
+                                    onClick={() => handleAssignRole(device.id, "vlasnik")}
+                                    style={{ ...buttonStyle, background: "#2563eb", fontSize: "12px", padding: "4px 8px" }}
+                                  >
+                                    Vlasnik
+                                  </button>
+                                  <button
+                                    onClick={() => handleEditPermissions(device)}
+                                    style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "4px 8px" }}
+                                  >
+                                    Konobar
+                                  </button>
+                                </>
+                              )}
                             </div>
-                          ) : (
-                            <span style={{ fontSize: "12px", color: "#6b7280" }}>Samo sesija</span>
                           )}
+                        </td>
+                        <td style={tdStyle}>
+                          <button
+                            onClick={() => handleToggleBlockDevice(device.id, isBlocked)}
+                            disabled={savingRole || needsVerification}
+                            style={{
+                              ...buttonStyle,
+                              background: isBlocked ? "#16a34a" : "#dc2626",
+                              fontSize: "12px",
+                              padding: "4px 8px",
+                              opacity: (savingRole || needsVerification) ? 0.5 : 1,
+                              cursor: (savingRole || needsVerification) ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {isBlocked ? "Odblokiraj" : "Blokiraj"}
+                          </button>
                         </td>
                       </tr>
                     );
@@ -1002,7 +1058,7 @@ export default function Profile() {
 
           <div style={{ marginTop: "16px", padding: "12px", background: "#e0f2fe", borderRadius: "8px", border: "1px solid #0ea5e9" }}>
             <p style={{ fontSize: "12px", color: "#0c4a6e", margin: 0 }}>
-              <strong>💡 Napomena:</strong> Vlasnik ima pristup svemu. Konobar može pristupiti samo stranicama koje su mu dozvoljene. Odaberite dozvole za konobara klikom na "Dozvole".
+              <strong>💡 Napomena:</strong> Vlasnik ima pristup svemu. Konobar može pristupiti samo stranicama koje su mu dozvoljene. Novi uređaji zahtijevaju odobrenje prije pristupa. Blokirani uređaji ne mogu se prijaviti dok se ne odblokiraju.
             </p>
           </div>
         </div>

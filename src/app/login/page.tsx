@@ -6,6 +6,7 @@ import { initializeUser } from "../../lib/userInit";
 import { useRouter } from "next/navigation";
 import { db } from "../../lib/firestore";
 import { doc, getDoc } from "firebase/firestore";
+import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"email" | "register" | "forgot" | null>(null);
@@ -78,6 +79,43 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
+      }
+
+      // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
+      try {
+        let deviceId = localStorage.getItem("deviceId");
+        if (!deviceId) {
+          // Generiši deviceId ako ne postoji
+          const fp = await FingerprintJS.load();
+          const result = await fp.get();
+          deviceId = result.visitorId;
+          localStorage.setItem("deviceId", deviceId);
+        }
+
+        if (deviceId) {
+          const deviceRef = doc(db, "devices", deviceId);
+          const deviceDoc = await getDoc(deviceRef);
+          
+          if (deviceDoc.exists()) {
+            const deviceData = deviceDoc.data();
+            const isBlocked = deviceData.isBlocked === true;
+            const status = deviceData.status || (deviceData.role === null ? "verifikacija" : "approved");
+            const needsVerification = status === "verifikacija";
+            
+            if (isBlocked) {
+              setError("Ovaj uređaj je blokiran. Kontaktirajte administratora za više informacija.");
+              setLoading(false);
+              return;
+            } else if (needsVerification) {
+              setError("Ovaj uređaj zahtijeva odobrenje od administratora prije pristupa aplikaciji. Molimo sačekajte odobrenje.");
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (deviceError) {
+        console.error("Greška pri provjeri uređaja:", deviceError);
+        // U slučaju greške, dozvoli pristup (fallback)
       }
 
       // Dohvati IP adresu i lokaciju pri login-u

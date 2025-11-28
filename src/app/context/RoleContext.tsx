@@ -176,9 +176,21 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       if (deviceDoc.exists()) {
         const data = deviceDoc.data();
         const deviceRole = data.role || null;
-        setRole(deviceRole);
-        setPermissions(data.permissions || null);
-        console.log("RoleContext - Uređaj postoji, uloga:", deviceRole, "dozvole:", data.permissions);
+        const isBlocked = data.isBlocked === true;
+        const status = data.status || (deviceRole === null ? "verifikacija" : "approved");
+        const needsVerification = status === "verifikacija";
+        
+        // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
+        if (isBlocked || needsVerification) {
+          // Blokiraj pristup ako je uređaj blokiran ili zahtijeva verifikaciju
+          setRole(null);
+          setPermissions(null);
+          console.log("RoleContext - Uređaj blokiran ili zahtijeva verifikaciju:", { isBlocked, needsVerification });
+        } else {
+          setRole(deviceRole);
+          setPermissions(data.permissions || null);
+          console.log("RoleContext - Uređaj postoji, uloga:", deviceRole, "dozvole:", data.permissions);
+        }
 
         // Ažuriraj informacije o uređaju
         await setDoc(
@@ -200,21 +212,23 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         // Novi uređaj - provjeri da li je ovo prvi uređaj za ovog korisnika
         // Ako je prvi uređaj, automatski postavi kao vlasnik
         let defaultRole: UserRole = "vlasnik"; // Po defaultu postavi kao vlasnik
+        let status = "approved"; // Prvi uređaj je automatski odobren
         
         try {
           // Pokušaj provjeriti da li korisnik već ima druge uređaje
           const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
           const devicesSnapshot = await getDocs(devicesQuery);
           
-          // Ako korisnik već ima druge uređaje, postavi ulogu na null (vlasnik će morati dodijeliti)
+          // Ako korisnik već ima druge uređaje, postavi ulogu na null i status na "verifikacija"
           if (!devicesSnapshot.empty) {
             defaultRole = null;
+            status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju
           }
         } catch (queryError: any) {
           // Ako query ne uspije zbog permisija ili indexa, ostavi kao vlasnik (fallback)
           // Ovo će se desiti ako korisnik nema dozvolu za query ili index još nije kreiran
           console.warn("Greška pri provjeri drugih uređaja, postavljam kao vlasnik:", queryError);
-          // defaultRole ostaje "vlasnik"
+          // defaultRole ostaje "vlasnik", status ostaje "approved"
         }
         
         // Kreiraj dokument sa ulogom
@@ -222,6 +236,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           userId: user.uid,
           userEmail: user.email,
           role: defaultRole,
+          status: status,
+          isBlocked: false,
           deviceInfo: {
             ...info,
             firstSeen: Timestamp.fromDate(new Date()),
@@ -234,7 +250,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         
         await setDoc(deviceRef, deviceData);
         setRole(defaultRole);
-        console.log("RoleContext - Novi uređaj kreiran, uloga:", defaultRole);
+        console.log("RoleContext - Novi uređaj kreiran, uloga:", defaultRole, "status:", status);
       }
 
       // Slušaj promjene u realnom vremenu (samo ako dokument postoji)
@@ -243,8 +259,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.data();
-            setRole(data.role || null);
-            setPermissions(data.permissions || null);
+            const isBlocked = data.isBlocked === true;
+            const status = data.status || (data.role === null ? "verifikacija" : "approved");
+            const needsVerification = status === "verifikacija";
+            
+            // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
+            if (isBlocked || needsVerification) {
+              setRole(null);
+              setPermissions(null);
+            } else {
+              setRole(data.role || null);
+              setPermissions(data.permissions || null);
+            }
           } else {
             setRole(null);
             setPermissions(null);
