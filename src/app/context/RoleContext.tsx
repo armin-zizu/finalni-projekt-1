@@ -175,39 +175,99 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
       if (deviceDoc.exists()) {
         const data = deviceDoc.data();
-        const deviceRole = data.role || null;
+        let deviceRole = data.role || null;
         const isBlocked = data.isBlocked === true;
-        const status = data.status || (deviceRole === null ? "verifikacija" : "approved");
-        const needsVerification = status === "verifikacija";
+        let status = data.status || (deviceRole === null ? "verifikacija" : "approved");
+        let needsVerification = status === "verifikacija";
+        
+        // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski postavi kao vlasnik
+        const os = info.os || (navigator.userAgent.includes("Windows")
+          ? "Windows"
+          : navigator.userAgent.includes("Mac")
+          ? "macOS"
+          : navigator.userAgent.includes("Linux")
+          ? "Linux"
+          : navigator.userAgent.includes("Android")
+          ? "Android"
+          : navigator.userAgent.includes("iOS")
+          ? "iOS"
+          : "Unknown");
+        
+        const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+        
+        if (isOwnerDevice) {
+          // Automatski postavi kao vlasnik
+          deviceRole = "vlasnik";
+          status = "approved";
+          needsVerification = false;
+          console.log("RoleContext - Automatski postavljam uređaj kao vlasnik (email + OS)");
+          
+          // Ažuriraj uređaj sa vlasnik ulogom
+          await setDoc(
+            deviceRef,
+            {
+              userId: user.uid,
+              userEmail: user.email,
+              role: "vlasnik",
+              status: "approved",
+              isBlocked: false,
+              permissions: {
+                dashboard: true,
+                obracun: true,
+                arhiva: true,
+                cjenovnik: true,
+                profit: true,
+                profile: true,
+                admin: false,
+              },
+              deviceInfo: {
+                ...info,
+                firstSeen: data.deviceInfo?.firstSeen || Timestamp.fromDate(new Date()),
+                lastLogin: Timestamp.fromDate(new Date()),
+              },
+              lastLogin: Timestamp.fromDate(new Date()),
+              updatedAt: Timestamp.fromDate(new Date()),
+            },
+            { merge: true }
+          );
+        } else {
+          // Ažuriraj informacije o uređaju
+          await setDoc(
+            deviceRef,
+            {
+              userId: user.uid,
+              userEmail: user.email,
+              deviceInfo: {
+                ...info,
+                firstSeen: data.deviceInfo?.firstSeen || Timestamp.fromDate(new Date()),
+                lastLogin: Timestamp.fromDate(new Date()),
+              },
+              lastLogin: Timestamp.fromDate(new Date()),
+              updatedAt: Timestamp.fromDate(new Date()),
+            },
+            { merge: true }
+          );
+        }
         
         // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
-        if (isBlocked || needsVerification) {
-          // Blokiraj pristup ako je uređaj blokiran ili zahtijeva verifikaciju
+        if (isBlocked || (needsVerification && !isOwnerDevice)) {
+          // Blokiraj pristup ako je uređaj blokiran ili zahtijeva verifikaciju (osim ako je vlasnik)
           setRole(null);
           setPermissions(null);
           console.log("RoleContext - Uređaj blokiran ili zahtijeva verifikaciju:", { isBlocked, needsVerification });
         } else {
           setRole(deviceRole);
-          setPermissions(data.permissions || null);
+          setPermissions(data.permissions || (deviceRole === "vlasnik" ? {
+            dashboard: true,
+            obracun: true,
+            arhiva: true,
+            cjenovnik: true,
+            profit: true,
+            profile: true,
+            admin: false,
+          } : null));
           console.log("RoleContext - Uređaj postoji, uloga:", deviceRole, "dozvole:", data.permissions);
         }
-
-        // Ažuriraj informacije o uređaju
-        await setDoc(
-          deviceRef,
-          {
-            userId: user.uid,
-            userEmail: user.email,
-            deviceInfo: {
-              ...info,
-              firstSeen: data.deviceInfo?.firstSeen || Timestamp.fromDate(new Date()),
-              lastLogin: Timestamp.fromDate(new Date()),
-            },
-            lastLogin: Timestamp.fromDate(new Date()),
-            updatedAt: Timestamp.fromDate(new Date()),
-          },
-          { merge: true }
-        );
       } else {
         // Novi uređaj - provjeri da li je ovo prvi uređaj za ovog korisnika
         // Ako je prvi uređaj, automatski postavi kao vlasnik
