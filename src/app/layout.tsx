@@ -78,8 +78,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 const status = deviceData.status || (deviceData.role === null ? "verifikacija" : "approved");
                 const needsVerification = status === "verifikacija";
                 
-                if (isBlocked || needsVerification) {
-                  // Uređaj je blokiran ili zahtijeva verifikaciju, preusmjeri na login
+                // Provjeri da li je vlasnik sa specifičnim emailom i OS-om
+                const os = deviceData.deviceInfo?.os || (typeof navigator !== "undefined" && navigator.userAgent.includes("Windows") ? "Windows" : "Unknown");
+                const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+                
+                if (isBlocked || (needsVerification && !isOwnerDevice)) {
+                  // Uređaj je blokiran ili zahtijeva verifikaciju (osim ako je vlasnik), preusmjeri na login
                   setIsAuthenticated(false);
                   setIsLoading(false);
                   if (pathname !== "/login") {

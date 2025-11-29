@@ -102,11 +102,15 @@ export default function LoginPage() {
             const status = deviceData.status || (deviceData.role === null ? "verifikacija" : "approved");
             const needsVerification = status === "verifikacija";
             
+            // Provjeri da li je vlasnik sa specifičnim emailom i OS-om
+            const os = deviceData.deviceInfo?.os || (navigator.userAgent.includes("Windows") ? "Windows" : "Unknown");
+            const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+            
             if (isBlocked) {
               setError("Ovaj uređaj je blokiran. Kontaktirajte administratora za više informacija.");
               setLoading(false);
               return;
-            } else if (needsVerification) {
+            } else if (needsVerification && !isOwnerDevice) {
               setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
               setLoading(false);
               return;
