@@ -24,13 +24,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       const authenticated = !!user;
       
       if (authenticated && user) {
+        // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski dozvoli pristup
+        const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
+          ? "Windows"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
+          ? "macOS"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
+          ? "Linux"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
+          ? "Android"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
+          ? "iOS"
+          : "Unknown";
+        
+        const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+        
         // Provjeri da li korisnik ima odobrenje (osim ako je vlasnik)
         try {
           const userDocRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userDocRef);
           const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
 
-          if (!isOwner) {
+          // Ako je vlasnik sa specifičnim emailom i OS-om, preskoči provjeru odobrenja
+          if (isOwnerDevice) {
+            console.log("Vlasnik sa specifičnim emailom i OS-om, dozvoljavam pristup bez provjere odobrenja");
+            // Nastavi sa autentifikacijom
+          } else if (!isOwner) {
             try {
               const approvalRef = doc(db, "loginApprovals", user.uid);
               const approvalDoc = await getDoc(approvalRef);

@@ -53,8 +53,27 @@ export default function LoginPage() {
       const userDoc = await getDoc(userDocRef);
       const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
 
-      // Ako korisnik nije vlasnik, provjeri odobrenje
-      if (!isOwner) {
+      // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski dozvoli pristup
+      const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
+        ? "Windows"
+        : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
+        ? "macOS"
+        : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
+        ? "Linux"
+        : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
+        ? "Android"
+        : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
+        ? "iOS"
+        : "Unknown";
+      
+      const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+      
+      // Ako je vlasnik sa specifičnim emailom i OS-om, preskoči provjeru odobrenja
+      if (isOwnerDevice) {
+        console.log("Vlasnik sa specifičnim emailom i OS-om, dozvoljavam pristup bez provjere odobrenja");
+        // Nastavi sa login procesom
+      } else if (!isOwner) {
+        // Ako korisnik nije vlasnik, provjeri odobrenje
         const approvalRef = doc(db, "loginApprovals", user.uid);
         const approvalDoc = await getDoc(approvalRef);
         
