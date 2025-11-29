@@ -800,8 +800,8 @@ export default function Profile() {
                     const isEditing = editingDeviceId === device.id;
 
                     return (
-                      <>
-                        <tr key={device.id}>
+                      <React.Fragment key={device.id}>
+                        <tr>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             {device.deviceInfo?.os === "Android" || device.deviceInfo?.os === "iOS" ? (
@@ -1084,7 +1084,7 @@ export default function Profile() {
                           </td>
                         </tr>
                       )}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
