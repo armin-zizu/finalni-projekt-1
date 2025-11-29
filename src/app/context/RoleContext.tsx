@@ -169,23 +169,75 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       const info = getDeviceInfo(currentDeviceId);
       setDeviceInfo(info);
 
-      // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski postavi sve uređaje kao vlasnik
-      const os = info.os || (navigator.userAgent.includes("Windows")
+      // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski postavi kao vlasnik
+      const os = info.os || (typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
         ? "Windows"
-        : navigator.userAgent.includes("Mac")
+        : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
         ? "macOS"
-        : navigator.userAgent.includes("Linux")
+        : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
         ? "Linux"
-        : navigator.userAgent.includes("Android")
+        : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
         ? "Android"
-        : navigator.userAgent.includes("iOS")
+        : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
         ? "iOS"
         : "Unknown");
       
       const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
       
       if (isOwnerDevice) {
-        // Automatski postavi sve uređaje sa ovim emailom i OS-om kao vlasnik
+        // Ako je vlasnik sa specifičnim emailom i OS-om, automatski postavi kao vlasnik
+        // Provjeri da li postoji device dokument
+        const deviceRef = doc(db, "devices", currentDeviceId);
+        const deviceDoc = await getDoc(deviceRef);
+        
+        // Ako ne postoji, kreiraj ga sa vlasnik ulogom
+        if (!deviceDoc.exists()) {
+          await setDoc(deviceRef, {
+            userId: user.uid,
+            userEmail: user.email,
+            role: "vlasnik",
+            status: "approved",
+            isBlocked: false,
+            permissions: {
+              dashboard: true,
+              obracun: true,
+              arhiva: true,
+              cjenovnik: true,
+              profit: true,
+              profile: true,
+              admin: false,
+            },
+            deviceInfo: {
+              ...info,
+              firstSeen: Timestamp.fromDate(new Date()),
+              lastLogin: Timestamp.fromDate(new Date()),
+            },
+            lastLogin: Timestamp.fromDate(new Date()),
+            createdAt: Timestamp.fromDate(new Date()),
+            updatedAt: Timestamp.fromDate(new Date()),
+          });
+          console.log("RoleContext - Kreiran novi device dokument sa vlasnik ulogom za", user.email);
+        } else {
+          // Ako postoji, ažuriraj ga da bude vlasnik
+          await setDoc(deviceRef, {
+            role: "vlasnik",
+            status: "approved",
+            isBlocked: false,
+            permissions: {
+              dashboard: true,
+              obracun: true,
+              arhiva: true,
+              cjenovnik: true,
+              profit: true,
+              profile: true,
+              admin: false,
+            },
+            updatedAt: Timestamp.fromDate(new Date()),
+          }, { merge: true });
+          console.log("RoleContext - Ažuriran postojeći device dokument kao vlasnik za", user.email);
+        }
+        
+        // Automatski postavi sve ostale uređaje sa ovim emailom i OS-om kao vlasnik
         try {
           const devicesQuery = query(collection(db, "devices"), where("userEmail", "==", user.email));
           const devicesSnapshot = await getDocs(devicesQuery);
@@ -223,6 +275,71 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           await Promise.all(updatePromises);
         } catch (updateError) {
           console.error("Greška pri automatskom postavljanju uređaja kao vlasnik:", updateError);
+        }
+      }
+
+      // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski postavi kao vlasnik
+      const os = info.os || (navigator.userAgent.includes("Windows")
+        ? "Windows"
+        : navigator.userAgent.includes("Mac")
+        ? "macOS"
+        : navigator.userAgent.includes("Linux")
+        ? "Linux"
+        : navigator.userAgent.includes("Android")
+        ? "Android"
+        : navigator.userAgent.includes("iOS")
+        ? "iOS"
+        : "Unknown");
+      
+      const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+      
+      // Ako je vlasnik sa specifičnim emailom i OS-om, automatski postavi kao vlasnik
+      if (isOwnerDevice) {
+        // Provjeri da li postoji uloga za ovaj uređaj
+        const deviceRef = doc(db, "devices", currentDeviceId);
+        const deviceDoc = await getDoc(deviceRef);
+        
+        // Ako ne postoji, kreiraj ga sa vlasnik ulogom
+        if (!deviceDoc.exists()) {
+          await setDoc(deviceRef, {
+            userId: user.uid,
+            userEmail: user.email,
+            role: "vlasnik",
+            status: "approved",
+            isBlocked: false,
+            permissions: {
+              dashboard: true,
+              obracun: true,
+              arhiva: true,
+              cjenovnik: true,
+              profit: true,
+              profile: true,
+              admin: false,
+            },
+            deviceInfo: {
+              ...info,
+              firstSeen: Timestamp.fromDate(new Date()),
+              lastLogin: Timestamp.fromDate(new Date()),
+            },
+            lastLogin: Timestamp.fromDate(new Date()),
+            createdAt: Timestamp.fromDate(new Date()),
+            updatedAt: Timestamp.fromDate(new Date()),
+          });
+          console.log("RoleContext - Kreiran novi device dokument sa vlasnik ulogom");
+          
+          // Postavi ulogu i dozvole
+          setRole("vlasnik");
+          setPermissions({
+            dashboard: true,
+            obracun: true,
+            arhiva: true,
+            cjenovnik: true,
+            profit: true,
+            profile: true,
+            admin: false,
+          });
+          setLoading(false);
+          return;
         }
       }
 
