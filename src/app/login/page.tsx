@@ -268,6 +268,7 @@ export default function LoginPage() {
         console.error("Greška pri provjeri uređaja:", deviceError);
         // U slučaju greške, dozvoli pristup (fallback)
       }
+      */
 
       // Dohvati IP adresu i lokaciju pri login-u
       try {
