@@ -779,7 +779,7 @@ export default function Profile() {
 
 
       {/* Upravljanje uređajima - samo za vlasnika */}
-      {true && (role === "vlasnik" || isOwner || auth.currentUser?.email === "gitara.zizu@gmail.com") && (
+      {(role === "vlasnik" || isOwner || auth.currentUser?.email === "gitara.zizu@gmail.com") && (
         <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
           <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
             📱 Upravljanje Uređajima
