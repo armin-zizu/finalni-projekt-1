@@ -31,6 +31,12 @@ interface Subscription {
     amount: number;
     note: string;
   }>;
+  // Payment request fields
+  paymentPendingVerification?: boolean;
+  paymentRequestedAmount?: number;
+  paymentRequestedMonths?: number;
+  paymentReferenceNumber?: string;
+  paymentRequestedAt?: Date | null;
   // Calculated fields
   isTrial?: boolean;
   isPremium?: boolean;
