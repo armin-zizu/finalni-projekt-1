@@ -599,9 +599,18 @@ export default function Profile() {
         approvedAt: Timestamp.fromDate(new Date()),
         approvedBy: user.uid,
       });
+      console.log("Zahtjev odobren za korisnika:", approvalId);
+      
+      // Provjeri da li je status stvarno ažuriran
+      const updatedDoc = await getDoc(approvalRef);
+      if (updatedDoc.exists()) {
+        const updatedData = updatedDoc.data();
+        console.log("Status nakon odobrenja:", updatedData.status);
+      }
+      
       await loadLoginApprovals();
-      setMessage("Zahtjev uspješno odobren");
-      setTimeout(() => setMessage(""), 3000);
+      setMessage("Zahtjev uspješno odobren. Korisnik se sada može prijaviti.");
+      setTimeout(() => setMessage(""), 5000);
     } catch (error) {
       console.error("Greška pri odobravanju zahtjeva:", error);
       setMessage("Greška pri odobravanju zahtjeva");
