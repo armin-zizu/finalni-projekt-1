@@ -5,7 +5,7 @@ import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendP
 import { initializeUser } from "../../lib/userInit";
 import { useRouter } from "next/navigation";
 import { db } from "../../lib/firestore";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 export default function LoginPage() {
@@ -107,9 +107,69 @@ export default function LoginPage() {
               setLoading(false);
               return;
             } else if (needsVerification) {
-              setError("Ovaj uređaj zahtijeva odobrenje od administratora prije pristupa aplikaciji. Molimo sačekajte odobrenje.");
+              setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
               setLoading(false);
               return;
+            }
+          } else {
+            // Novi uređaj - provjeri da li korisnik već ima druge uređaje
+            try {
+              const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
+              const devicesSnapshot = await getDocs(devicesQuery);
+              
+              // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
+              if (!devicesSnapshot.empty) {
+                // Kreiraj novi uređaj sa statusom "verifikacija"
+                const browser = navigator.userAgent.includes("Chrome")
+                  ? "Chrome"
+                  : navigator.userAgent.includes("Firefox")
+                  ? "Firefox"
+                  : navigator.userAgent.includes("Safari")
+                  ? "Safari"
+                  : navigator.userAgent.includes("Edge")
+                  ? "Edge"
+                  : "Unknown";
+
+                const os = navigator.userAgent.includes("Windows")
+                  ? "Windows"
+                  : navigator.userAgent.includes("Mac")
+                  ? "macOS"
+                  : navigator.userAgent.includes("Linux")
+                  ? "Linux"
+                  : navigator.userAgent.includes("Android")
+                  ? "Android"
+                  : navigator.userAgent.includes("iOS")
+                  ? "iOS"
+                  : "Unknown";
+
+                await setDoc(deviceRef, {
+                  userId: user.uid,
+                  userEmail: user.email,
+                  role: null,
+                  status: "verifikacija",
+                  isBlocked: false,
+                  deviceInfo: {
+                    deviceId: deviceId,
+                    browser,
+                    os,
+                    screenSize: `${screen.width}x${screen.height}`,
+                    userAgent: navigator.userAgent,
+                    firstSeen: Timestamp.fromDate(new Date()),
+                    lastLogin: Timestamp.fromDate(new Date()),
+                  },
+                  lastLogin: Timestamp.fromDate(new Date()),
+                  createdAt: Timestamp.fromDate(new Date()),
+                  updatedAt: Timestamp.fromDate(new Date()),
+                });
+
+                setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
+                setLoading(false);
+                return;
+              }
+              // Ako je prvi uređaj, dozvoli pristup (uređaj će se kreirati u RoleContext)
+            } catch (queryError) {
+              console.error("Greška pri provjeri drugih uređaja:", queryError);
+              // U slučaju greške, dozvoli pristup (fallback)
             }
           }
         }
