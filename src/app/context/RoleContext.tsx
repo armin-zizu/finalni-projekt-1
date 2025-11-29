@@ -184,98 +184,56 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       
       const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
       
+      // Ako je vlasnik sa specifičnim emailom i OS-om, automatski postavi kao vlasnik i preskoči sve provjere
       if (isOwnerDevice) {
-        // Ako je vlasnik sa specifičnim emailom i OS-om, automatski postavi kao vlasnik
+        console.log("RoleContext - Detektovan vlasnik sa specifičnim emailom i OS-om, automatski postavljam kao vlasnik");
+        
         // Provjeri da li postoji device dokument
         const deviceRef = doc(db, "devices", currentDeviceId);
         const deviceDoc = await getDoc(deviceRef);
         
-        // Ako ne postoji, kreiraj ga sa vlasnik ulogom
-        if (!deviceDoc.exists()) {
-          await setDoc(deviceRef, {
-            userId: user.uid,
-            userEmail: user.email,
-            role: "vlasnik",
-            status: "approved",
-            isBlocked: false,
-            permissions: {
-              dashboard: true,
-              obracun: true,
-              arhiva: true,
-              cjenovnik: true,
-              profit: true,
-              profile: true,
-              admin: false,
-            },
-            deviceInfo: {
-              ...info,
-              firstSeen: Timestamp.fromDate(new Date()),
-              lastLogin: Timestamp.fromDate(new Date()),
-            },
+        // Kreiraj ili ažuriraj device dokument sa vlasnik ulogom
+        await setDoc(deviceRef, {
+          userId: user.uid,
+          userEmail: user.email,
+          role: "vlasnik",
+          status: "approved",
+          isBlocked: false,
+          permissions: {
+            dashboard: true,
+            obracun: true,
+            arhiva: true,
+            cjenovnik: true,
+            profit: true,
+            profile: true,
+            admin: false,
+          },
+          deviceInfo: {
+            ...info,
+            firstSeen: deviceDoc.exists() ? (deviceDoc.data().deviceInfo?.firstSeen || Timestamp.fromDate(new Date())) : Timestamp.fromDate(new Date()),
             lastLogin: Timestamp.fromDate(new Date()),
-            createdAt: Timestamp.fromDate(new Date()),
-            updatedAt: Timestamp.fromDate(new Date()),
-          });
-          console.log("RoleContext - Kreiran novi device dokument sa vlasnik ulogom za", user.email);
-        } else {
-          // Ako postoji, ažuriraj ga da bude vlasnik
-          await setDoc(deviceRef, {
-            role: "vlasnik",
-            status: "approved",
-            isBlocked: false,
-            permissions: {
-              dashboard: true,
-              obracun: true,
-              arhiva: true,
-              cjenovnik: true,
-              profit: true,
-              profile: true,
-              admin: false,
-            },
-            updatedAt: Timestamp.fromDate(new Date()),
-          }, { merge: true });
-          console.log("RoleContext - Ažuriran postojeći device dokument kao vlasnik za", user.email);
-        }
+          },
+          lastLogin: Timestamp.fromDate(new Date()),
+          createdAt: deviceDoc.exists() ? (deviceDoc.data().createdAt || Timestamp.fromDate(new Date())) : Timestamp.fromDate(new Date()),
+          updatedAt: Timestamp.fromDate(new Date()),
+        }, { merge: true });
         
-        // Automatski postavi sve ostale uređaje sa ovim emailom i OS-om kao vlasnik
-        try {
-          const devicesQuery = query(collection(db, "devices"), where("userEmail", "==", user.email));
-          const devicesSnapshot = await getDocs(devicesQuery);
-          
-          const updatePromises: Promise<void>[] = [];
-          devicesSnapshot.forEach((deviceDoc) => {
-            const deviceData = deviceDoc.data();
-            if (deviceData.deviceInfo?.os === "Windows") {
-              updatePromises.push(
-                setDoc(
-                  doc(db, "devices", deviceDoc.id),
-                  {
-                    role: "vlasnik",
-                    status: "approved",
-                    isBlocked: false,
-                    permissions: {
-                      dashboard: true,
-                      obracun: true,
-                      arhiva: true,
-                      cjenovnik: true,
-                      profit: true,
-                      profile: true,
-                      admin: false,
-                    },
-                    updatedAt: Timestamp.fromDate(new Date()),
-                  },
-                  { merge: true }
-                ).then(() => {
-                  console.log(`Uređaj ${deviceDoc.id} automatski postavljen kao vlasnik`);
-                })
-              );
-            }
-          });
-          
-          await Promise.all(updatePromises);
-        } catch (updateError) {
-          console.error("Greška pri automatskom postavljanju uređaja kao vlasnik:", updateError);
-        }
+        console.log("RoleContext - Device dokument kreiran/ažuriran kao vlasnik za", user.email);
+        
+        // Automatski postavi ulogu i dozvole - PRESKOČI SVE OSTALE PROVJERE
+        setRole("vlasnik");
+        setPermissions({
+          dashboard: true,
+          obracun: true,
+          arhiva: true,
+          cjenovnik: true,
+          profit: true,
+          profile: true,
+          admin: false,
+        });
+        setLoading(false);
+        setError(null);
+        return; // Preskoči sve ostale provjere
       }
 
       // Provjeri da li postoji uloga za ovaj uređaj
