@@ -82,6 +82,8 @@ export default function LoginPage() {
       }
 
       // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
+      // KOMENTIRANO ZA TESTIRANJE - omogućava pristup bez provjere uređaja
+      /*
       try {
         let deviceId = localStorage.getItem("deviceId");
         if (!deviceId) {

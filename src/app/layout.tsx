@@ -66,6 +66,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }
 
           // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
+          // KOMENTIRANO ZA TESTIRANJE - omogućava pristup bez provjere uređaja
+          /*
           try {
             const deviceId = localStorage.getItem("deviceId");
             if (deviceId) {
@@ -97,6 +99,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             console.error("Greška pri provjeri uređaja:", deviceError);
             // U slučaju greške, dozvoli pristup (fallback)
           }
+          */
         } catch (error) {
           console.error("Greška pri provjeri odobrenja:", error);
           // U slučaju greške, dozvoli pristup (fallback)
