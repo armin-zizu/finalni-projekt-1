@@ -117,9 +117,71 @@ export default function LoginPage() {
               const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
               const devicesSnapshot = await getDocs(devicesQuery);
               
+              console.log("Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size);
+              
               // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
               if (!devicesSnapshot.empty) {
+                console.log("Korisnik već ima druge uređaje, kreiram novi sa statusom 'verifikacija'");
+                
                 // Kreiraj novi uređaj sa statusom "verifikacija"
+                const browser = navigator.userAgent.includes("Chrome")
+                  ? "Chrome"
+                  : navigator.userAgent.includes("Firefox")
+                  ? "Firefox"
+                  : navigator.userAgent.includes("Safari")
+                  ? "Safari"
+                  : navigator.userAgent.includes("Edge")
+                  ? "Edge"
+                  : "Unknown";
+
+                const os = navigator.userAgent.includes("Windows")
+                  ? "Windows"
+                  : navigator.userAgent.includes("Mac")
+                  ? "macOS"
+                  : navigator.userAgent.includes("Linux")
+                  ? "Linux"
+                  : navigator.userAgent.includes("Android")
+                  ? "Android"
+                  : navigator.userAgent.includes("iOS")
+                  ? "iOS"
+                  : "Unknown";
+
+                await setDoc(deviceRef, {
+                  userId: user.uid,
+                  userEmail: user.email,
+                  role: null,
+                  status: "verifikacija",
+                  isBlocked: false,
+                  deviceInfo: {
+                    deviceId: deviceId,
+                    browser,
+                    os,
+                    screenSize: `${screen.width}x${screen.height}`,
+                    userAgent: navigator.userAgent,
+                    firstSeen: Timestamp.fromDate(new Date()),
+                    lastLogin: Timestamp.fromDate(new Date()),
+                  },
+                  lastLogin: Timestamp.fromDate(new Date()),
+                  createdAt: Timestamp.fromDate(new Date()),
+                  updatedAt: Timestamp.fromDate(new Date()),
+                });
+
+                console.log("Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
+                setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
+                setLoading(false);
+                // Odjavi korisnika da ne može pristupiti aplikaciji
+                await auth.signOut();
+                return;
+              } else {
+                console.log("Prvi uređaj za korisnika, dozvoljavam pristup");
+              }
+              // Ako je prvi uređaj, dozvoli pristup (uređaj će se kreirati u RoleContext)
+            } catch (queryError: any) {
+              console.error("Greška pri provjeri drugih uređaja:", queryError);
+              // Ako je greška zbog permisija, možda korisnik nema dozvolu za query
+              // U tom slučaju, pokušaj kreirati uređaj sa verifikacijom ako nije vlasnik
+              if (queryError.code === 'permission-denied' && !isOwner) {
+                console.log("Nemam permisije za query, ali nije vlasnik - kreiram sa verifikacijom");
                 const browser = navigator.userAgent.includes("Chrome")
                   ? "Chrome"
                   : navigator.userAgent.includes("Firefox")
@@ -164,12 +226,10 @@ export default function LoginPage() {
 
                 setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
                 setLoading(false);
+                await auth.signOut();
                 return;
               }
-              // Ako je prvi uređaj, dozvoli pristup (uređaj će se kreirati u RoleContext)
-            } catch (queryError) {
-              console.error("Greška pri provjeri drugih uređaja:", queryError);
-              // U slučaju greške, dozvoli pristup (fallback)
+              // U slučaju druge greške, dozvoli pristup (fallback)
             }
           }
         }
