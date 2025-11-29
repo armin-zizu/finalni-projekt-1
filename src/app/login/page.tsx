@@ -48,11 +48,38 @@ export default function LoginPage() {
       console.log("ID Token generisan:", idToken);
       console.log("Uspješan login:", user.email);
 
-      // Provjeri da li je korisnik vlasnik (za informacije, ali ne blokiraj pristup)
+      // Provjeri da li je korisnik vlasnik
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
       const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
-      // Ne blokiraj pristup na osnovu isOwner statusa - svi korisnici mogu pristupiti
+
+      // Ako korisnik nije vlasnik, provjeri odobrenje
+      if (!isOwner) {
+        const approvalRef = doc(db, "loginApprovals", user.uid);
+        const approvalDoc = await getDoc(approvalRef);
+        
+        if (approvalDoc.exists()) {
+          const approvalData = approvalDoc.data();
+          if (approvalData.status === "pending") {
+            setError("Vaš zahtjev za pristup aplikaciji još nije odobren. Molimo sačekajte odobrenje od administratora.");
+            setLoading(false);
+            return;
+          } else if (approvalData.status === "rejected") {
+            setError("Vaš zahtjev za pristup aplikaciji je odbijen. Kontaktirajte administratora za više informacija.");
+            setLoading(false);
+            return;
+          } else if (approvalData.status !== "approved") {
+            setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
+            setLoading(false);
+            return;
+          }
+        } else {
+          // Ako nema dokumenta za odobrenje, blokiraj pristup
+          setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
+          setLoading(false);
+          return;
+        }
+      }
 
       // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
       // KOMENTIRANO ZA TESTIRANJE - omogućava pristup bez provjere uređaja

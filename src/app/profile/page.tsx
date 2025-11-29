@@ -107,6 +107,8 @@ export default function Profile() {
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [loginApprovals, setLoginApprovals] = useState<any[]>([]);
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
   const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
@@ -545,6 +547,119 @@ export default function Profile() {
   }, []);
 
   // Učitaj zahtjeve za odobrenje (samo za vlasnika)
+  const loadLoginApprovals = async () => {
+    const user = auth.currentUser;
+    if (!isOwner && user?.email !== "gitara.zizu@gmail.com") return;
+    
+    try {
+      setLoadingApprovals(true);
+      const approvalsRef = collection(db, "loginApprovals");
+      const q = query(approvalsRef, where("status", "==", "pending"));
+      const snapshot = await getDocs(q);
+      
+      const approvalsList: any[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        approvalsList.push({
+          id: doc.id,
+          ...data,
+          requestedAt: data.requestedAt?.toDate?.() || null,
+        });
+      });
+      
+      // Sortiraj po datumu (najnoviji prvo)
+      approvalsList.sort((a, b) => {
+        const aDate = a.requestedAt || new Date(0);
+        const bDate = b.requestedAt || new Date(0);
+        return bDate.getTime() - aDate.getTime();
+      });
+      
+      setLoginApprovals(approvalsList);
+    } catch (error: any) {
+      // Ignoriraj greške permisija ako nije vlasnik
+      if (error.code === 'permission-denied') {
+        console.warn("Nemam permisije za učitavanje zahtjeva za odobrenje");
+      } else {
+        console.error("Greška pri učitavanju zahtjeva za odobrenje:", error);
+      }
+    } finally {
+      setLoadingApprovals(false);
+    }
+  };
+
+  // Odobri zahtjev
+  const approveLoginRequest = async (approvalId: string) => {
+    const user = auth.currentUser;
+    if (!user || (!isOwner && user.email !== "gitara.zizu@gmail.com")) return;
+
+    try {
+      const approvalRef = doc(db, "loginApprovals", approvalId);
+      await updateDoc(approvalRef, {
+        status: "approved",
+        approvedAt: Timestamp.fromDate(new Date()),
+        approvedBy: user.uid,
+      });
+      await loadLoginApprovals();
+      setMessage("Zahtjev uspješno odobren");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      console.error("Greška pri odobravanju zahtjeva:", error);
+      setMessage("Greška pri odobravanju zahtjeva");
+      setTimeout(() => setMessage(""), 5000);
+    }
+  };
+
+  // Odbij zahtjev
+  const rejectLoginRequest = async (approvalId: string) => {
+    const user = auth.currentUser;
+    if (!user || (!isOwner && user.email !== "gitara.zizu@gmail.com")) return;
+
+    try {
+      const approvalRef = doc(db, "loginApprovals", approvalId);
+      await updateDoc(approvalRef, {
+        status: "rejected",
+        rejectedAt: Timestamp.fromDate(new Date()),
+        rejectedBy: user.uid,
+      });
+      await loadLoginApprovals();
+      setMessage("Zahtjev uspješno odbijen");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      console.error("Greška pri odbijanju zahtjeva:", error);
+      setMessage("Greška pri odbijanju zahtjeva");
+      setTimeout(() => setMessage(""), 5000);
+    }
+  };
+
+  // Učitaj zahtjeve kada je korisnik vlasnik
+  useEffect(() => {
+    if (isOwner) {
+      loadLoginApprovals();
+      
+      // Postavi real-time listener
+      const approvalsRef = collection(db, "loginApprovals");
+      const q = query(approvalsRef, where("status", "==", "pending"));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const approvalsList: any[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          approvalsList.push({
+            id: doc.id,
+            ...data,
+            requestedAt: data.requestedAt?.toDate?.() || null,
+          });
+        });
+        approvalsList.sort((a, b) => {
+          const aDate = a.requestedAt || new Date(0);
+          const bDate = b.requestedAt || new Date(0);
+          return bDate.getTime() - aDate.getTime();
+        });
+        setLoginApprovals(approvalsList);
+      });
+      
+      return () => unsubscribe();
+    }
+  }, [isOwner]);
 
   // Učitaj uređaje kada je korisnik vlasnik
   useEffect(() => {
@@ -1879,6 +1994,95 @@ export default function Profile() {
         )}
       </div>
 
+      {/* Zahtjevi za odobrenje login-a - samo za vlasnika */}
+      {isOwner && (
+        <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
+          <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
+            🔐 Zahtjevi za Odobrenje Login-a
+          </h2>
+          <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "20px" }}>
+            Novi korisnici koji se registruju trebaju vaše odobrenje za pristup aplikaciji. Prvi korisnik automatski postaje vlasnik.
+          </p>
+
+          {loadingApprovals ? (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
+              <FaSpinner style={{ fontSize: "32px", color: "#3b82f6", animation: "spin 1s linear infinite" }} />
+            </div>
+          ) : loginApprovals.length === 0 ? (
+            <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+              <p style={{ fontSize: "16px" }}>Nema zahtjeva za odobrenje.</p>
+              <p style={{ fontSize: "14px", marginTop: "8px" }}>Novi zahtjevi će se automatski pojaviti kada se korisnici registruju.</p>
+            </div>
+          ) : (
+            <div style={tableWrapperStyle} className={tableWrapperClassName}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>E-mail</th>
+                    <th style={thStyle}>Datum zahtjeva</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Akcije</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loginApprovals.map((approval) => (
+                    <tr key={approval.id}>
+                      <td style={tdStyle}>{approval.email || "N/A"}</td>
+                      <td style={tdStyle}>
+                        {approval.requestedAt
+                          ? approval.requestedAt.toLocaleDateString("bs-BA") + " " + approval.requestedAt.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
+                          : "N/A"}
+                      </td>
+                      <td style={tdStyle}>
+                        <span
+                          style={{
+                            padding: "4px 12px",
+                            borderRadius: "12px",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            backgroundColor: "#fef3c7",
+                            color: "#f59e0b",
+                          }}
+                        >
+                          Čeka odobrenje
+                        </span>
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                          <button
+                            onClick={() => approveLoginRequest(approval.id)}
+                            style={{
+                              ...buttonStyle,
+                              background: "#16a34a",
+                              marginRight: "0",
+                            }}
+                          >
+                            ✓ Odobri
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm("Jeste li sigurni da želite odbiti ovaj zahtjev?")) {
+                                rejectLoginRequest(approval.id);
+                              }
+                            }}
+                            style={{
+                              ...buttonStyle,
+                              background: "#dc2626",
+                              marginRight: "0",
+                            }}
+                          >
+                            ✗ Odbij
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stara sekcija - obrisana, spojena gore */}
       {false && role === "vlasnik" && (
