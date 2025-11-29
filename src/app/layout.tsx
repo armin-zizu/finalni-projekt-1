@@ -54,10 +54,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               const approvalRef = doc(db, "loginApprovals", user.uid);
               const approvalDoc = await getDoc(approvalRef);
               
+              console.log("Layout - Provjera odobrenja za korisnika:", user.uid);
+              console.log("Layout - Dokument postoji:", approvalDoc.exists());
+              
               if (approvalDoc.exists()) {
                 const approvalData = approvalDoc.data();
-                if (approvalData.status !== "approved") {
+                console.log("Layout - Status odobrenja:", approvalData.status);
+                
+                if (approvalData.status === "approved") {
+                  console.log("Layout - Odobrenje je potvrđeno, dozvoljavam pristup");
+                  // Nastavi sa autentifikacijom
+                } else {
                   // Korisnik nema odobrenje, preusmjeri na login
+                  console.log("Layout - Korisnik nema odobrenje, preusmjeravam na login");
                   setIsAuthenticated(false);
                   setIsLoading(false);
                   if (pathname !== "/login") {
@@ -67,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 }
               } else {
                 // Nema dokumenta za odobrenje, preusmjeri na login
+                console.log("Layout - Nema dokumenta za odobrenje, preusmjeravam na login");
                 setIsAuthenticated(false);
                 setIsLoading(false);
                 if (pathname !== "/login") {

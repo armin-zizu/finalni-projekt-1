@@ -58,8 +58,13 @@ export default function LoginPage() {
         const approvalRef = doc(db, "loginApprovals", user.uid);
         const approvalDoc = await getDoc(approvalRef);
         
+        console.log("Login - Provjera odobrenja za korisnika:", user.uid);
+        console.log("Login - Dokument postoji:", approvalDoc.exists());
+        
         if (approvalDoc.exists()) {
           const approvalData = approvalDoc.data();
+          console.log("Login - Status odobrenja:", approvalData.status);
+          
           if (approvalData.status === "pending") {
             setError("Vaš zahtjev za pristup aplikaciji još nije odobren. Molimo sačekajte odobrenje od administratora.");
             setLoading(false);
@@ -68,13 +73,18 @@ export default function LoginPage() {
             setError("Vaš zahtjev za pristup aplikaciji je odbijen. Kontaktirajte administratora za više informacija.");
             setLoading(false);
             return;
-          } else if (approvalData.status !== "approved") {
+          } else if (approvalData.status === "approved") {
+            console.log("Login - Odobrenje je potvrđeno, dozvoljavam pristup");
+            // Nastavi sa login procesom
+          } else {
+            console.log("Login - Nepoznat status:", approvalData.status);
             setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
             setLoading(false);
             return;
           }
         } else {
           // Ako nema dokumenta za odobrenje, blokiraj pristup
+          console.log("Login - Nema dokumenta za odobrenje, blokiram pristup");
           setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
           setLoading(false);
           return;
@@ -269,6 +279,9 @@ export default function LoginPage() {
         // U slučaju greške, dozvoli pristup (fallback)
       }
       */
+
+      // Ako je sve prošlo, nastavi sa login procesom
+      console.log("Login - Svi uslovi su ispunjeni, nastavljam sa login procesom");
 
       // Dohvati IP adresu i lokaciju pri login-u
       try {
