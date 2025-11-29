@@ -114,13 +114,33 @@ export default function LoginPage() {
           } else {
             // Novi uređaj - provjeri da li korisnik već ima druge uređaje
             try {
-              const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
-              const devicesSnapshot = await getDocs(devicesQuery);
+              // Provjeri da li je vlasnik sa specifičnim emailom i OS-om
+              const os = navigator.userAgent.includes("Windows")
+                ? "Windows"
+                : navigator.userAgent.includes("Mac")
+                ? "macOS"
+                : navigator.userAgent.includes("Linux")
+                ? "Linux"
+                : navigator.userAgent.includes("Android")
+                ? "Android"
+                : navigator.userAgent.includes("iOS")
+                ? "iOS"
+                : "Unknown";
               
-              console.log("Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size);
+              const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
               
-              // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
-              if (!devicesSnapshot.empty) {
+              if (isOwnerDevice) {
+                console.log("Vlasnik sa specifičnim emailom i OS-om, dozvoljavam pristup");
+                // Ako je vlasnik sa specifičnim emailom i OS-om, dozvoli pristup
+                // Uređaj će se kreirati u RoleContext sa statusom "approved"
+              } else {
+                const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
+                const devicesSnapshot = await getDocs(devicesQuery);
+                
+                console.log("Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size);
+                
+                // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
+                if (!devicesSnapshot.empty) {
                 console.log("Korisnik već ima druge uređaje, kreiram novi sa statusom 'verifikacija'");
                 
                 // Kreiraj novi uređaj sa statusom "verifikacija"
@@ -166,12 +186,13 @@ export default function LoginPage() {
                   updatedAt: Timestamp.fromDate(new Date()),
                 });
 
-                console.log("Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
-                setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
-                setLoading(false);
-                return;
-              } else {
-                console.log("Prvi uređaj za korisnika, dozvoljavam pristup");
+                  console.log("Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
+                  setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
+                  setLoading(false);
+                  return;
+                } else {
+                  console.log("Prvi uređaj za korisnika, dozvoljavam pristup");
+                }
               }
               // Ako je prvi uređaj, dozvoli pristup (uređaj će se kreirati u RoleContext)
             } catch (queryError: any) {
