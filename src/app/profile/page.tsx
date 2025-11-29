@@ -105,7 +105,6 @@ export default function Profile() {
   const { role, assignRole: assignRoleFromContext } = useRole();
   const [devices, setDevices] = useState<any[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
-  const [deviceSearchTerm, setDeviceSearchTerm] = useState("");
   const [savingRole, setSavingRole] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [loginApprovals, setLoginApprovals] = useState<any[]>([]);
@@ -113,7 +112,6 @@ export default function Profile() {
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
   const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
-  const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
   const router = useRouter();
 
   // Sinhronizuj localAppName sa appName iz contexta
@@ -633,20 +631,6 @@ export default function Profile() {
     }
   }, [role]);
 
-  // Filtriraj uređaje
-  const filteredDevices = devices.filter((device) => {
-    const search = deviceSearchTerm.toLowerCase();
-    const status = device.status || (device.role === null ? "verifikacija" : null);
-    return (
-      device.id?.toLowerCase().includes(search) ||
-      device.userEmail?.toLowerCase().includes(search) ||
-      device.deviceInfo?.browser?.toLowerCase().includes(search) ||
-      device.deviceInfo?.os?.toLowerCase().includes(search) ||
-      device.role?.toLowerCase().includes(search) ||
-      status?.toLowerCase().includes(search) ||
-      (device.isBlocked ? "blokiran" : "aktivan").includes(search)
-    );
-  });
 
   const handleDeleteSession = (id: string) => {
     if (window.confirm("Jeste li sigurni da želite obrisati ovu sesiju?")) {
@@ -773,41 +757,13 @@ export default function Profile() {
             Upravljajte uređajima, dodijelite uloge i dozvole. Novi uređaji zahtijevaju odobrenje prije pristupa.
           </p>
 
-          {/* Pretraga */}
-          <div style={{ marginBottom: "20px", position: "relative" }}>
-            <FaSearch
-              style={{
-                position: "absolute",
-                left: "12px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#9ca3af",
-                fontSize: "16px",
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Pretraži uređaje po browseru, OS-u, ulozi..."
-              value={deviceSearchTerm}
-              onChange={(e) => setDeviceSearchTerm(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px 10px 40px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                fontSize: "14px",
-                maxWidth: "100%",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
 
           {/* Tabela sa uređajima */}
           {loadingDevices ? (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
               <FaSpinner style={{ fontSize: "32px", color: "#3b82f6", animation: "spin 1s linear infinite" }} />
             </div>
-          ) : filteredDevices.length === 0 ? (
+          ) : devices.length === 0 ? (
             <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
               <FaMobile style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.5 }} />
               <p style={{ fontSize: "16px" }}>Nema uređaja.</p>
@@ -825,12 +781,11 @@ export default function Profile() {
                     <th style={thStyle}>Posljednja prijava</th>
                     <th style={thStyle}>Akcije</th>
                     <th style={thStyle}>Blokiraj</th>
-                    <th style={thStyle}>Detalji</th>
                   </tr>
                 </thead>
                 <tbody>
                   {/* Prikaži uređaje */}
-                  {filteredDevices.map((device) => {
+                  {devices.map((device) => {
                     const roleColors: Record<string, { bg: string; color: string }> = {
                       vlasnik: { bg: "#dbeafe", color: "#2563eb" },
                       konobar: { bg: "#dcfce7", color: "#16a34a" },
@@ -932,12 +887,9 @@ export default function Profile() {
                           ) : (
                             <button
                               onClick={() => {
-                                setExpandedDeviceId(expandedDeviceId === device.id ? null : device.id);
-                                if (expandedDeviceId !== device.id) {
-                                  setEditingDeviceId(device.id);
-                                  setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
-                                  setEditingPermissions(device.permissions || {});
-                                }
+                                setEditingDeviceId(device.id);
+                                setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
+                                setEditingPermissions(device.permissions || {});
                               }}
                               style={{ ...buttonStyle, fontSize: "12px", padding: "4px 8px" }}
                             >
@@ -961,23 +913,10 @@ export default function Profile() {
                             {isBlocked ? "Odblokiraj" : "Blokiraj"}
                           </button>
                         </td>
-                        <td style={tdStyle}>
-                          <button
-                            onClick={() => setExpandedDeviceId(expandedDeviceId === device.id ? null : device.id)}
-                            style={{
-                              ...buttonStyle,
-                              background: expandedDeviceId === device.id ? "#3b82f6" : "#6b7280",
-                              fontSize: "12px",
-                              padding: "4px 8px",
-                            }}
-                          >
-                            {expandedDeviceId === device.id ? "Sakrij" : "Detalji"}
-                          </button>
-                        </td>
                       </tr>
-                      {expandedDeviceId === device.id && (
+                      {isEditing && (
                         <tr>
-                          <td colSpan={8} style={{ ...tdStyle, padding: "16px", background: "#f9fafb" }}>
+                          <td colSpan={7} style={{ ...tdStyle, padding: "16px", background: "#f9fafb" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                               <div>
                                 <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "#1f2937" }}>
@@ -1056,14 +995,13 @@ export default function Profile() {
                                     <div style={{ display: "flex", gap: "8px" }}>
                                       <button
                                         onClick={() => {
-                                          const roleToSave = selectedRole[device.id] || device.role;
-                                          if (roleToSave === "konobar") {
-                                            handleSavePermissions(device.id, roleToSave);
-                                          } else {
-                                            handleAssignRole(device.id, roleToSave);
-                                          }
-                                          setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
-                                          setExpandedDeviceId(null);
+                                        const roleToSave = selectedRole[device.id] || device.role;
+                                        if (roleToSave === "konobar") {
+                                          handleSavePermissions(device.id, roleToSave);
+                                        } else {
+                                          handleAssignRole(device.id, roleToSave);
+                                        }
+                                        setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
                                         }}
                                         style={{ ...buttonStyle, background: "#16a34a", fontSize: "13px", padding: "8px 16px" }}
                                       >
@@ -2113,40 +2051,12 @@ export default function Profile() {
             Dodijelite uloge uređajima koji koriste vašu aplikaciju. Svaki uređaj automatski dobija jedinstveni ID pri prvoj prijavi.
           </p>
 
-          {/* Pretraga uređaja */}
-          <div style={{ marginBottom: "20px", position: "relative" }}>
-            <FaSearch
-              style={{
-                position: "absolute",
-                left: "12px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#9ca3af",
-                fontSize: "16px",
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Pretraži uređaje po browseru, OS-u, ulozi..."
-              value={deviceSearchTerm}
-              onChange={(e) => setDeviceSearchTerm(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px 10px 40px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                fontSize: "14px",
-                maxWidth: "100%",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
 
           {loadingDevices ? (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
               <FaSpinner style={{ fontSize: "32px", color: "#3b82f6", animation: "spin 1s linear infinite" }} />
             </div>
-          ) : filteredDevices.length === 0 ? (
+          ) : devices.length === 0 ? (
             <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
               <FaMobile style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.5 }} />
               <p style={{ fontSize: "16px" }}>Nema uređaja u bazi podataka.</p>
@@ -2165,7 +2075,7 @@ export default function Profile() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDevices.map((device) => {
+                  {devices.map((device) => {
                     const roleColors: Record<string, { bg: string; color: string }> = {
                       vlasnik: { bg: "#dbeafe", color: "#2563eb" },
                       konobar: { bg: "#dcfce7", color: "#16a34a" },
