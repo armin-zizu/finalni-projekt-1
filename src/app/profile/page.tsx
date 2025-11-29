@@ -548,7 +548,8 @@ export default function Profile() {
 
   // Učitaj zahtjeve za odobrenje (samo za vlasnika)
   const loadLoginApprovals = async () => {
-    if (!isOwner) return;
+    const user = auth.currentUser;
+    if (!isOwner && user?.email !== "gitara.zizu@gmail.com") return;
     
     try {
       setLoadingApprovals(true);
@@ -574,8 +575,13 @@ export default function Profile() {
       });
       
       setLoginApprovals(approvalsList);
-    } catch (error) {
-      console.error("Greška pri učitavanju zahtjeva za odobrenje:", error);
+    } catch (error: any) {
+      // Ignoriraj greške permisija ako nije vlasnik
+      if (error.code === 'permission-denied') {
+        console.warn("Nemam permisije za učitavanje zahtjeva za odobrenje");
+      } else {
+        console.error("Greška pri učitavanju zahtjeva za odobrenje:", error);
+      }
     } finally {
       setLoadingApprovals(false);
     }
