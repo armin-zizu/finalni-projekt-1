@@ -48,57 +48,11 @@ export default function LoginPage() {
       console.log("ID Token generisan:", idToken);
       console.log("Uspješan login:", user.email);
 
-      // Provjeri da li je korisnik vlasnik (prvi korisnik)
+      // Provjeri da li je korisnik vlasnik (za informacije, ali ne blokiraj pristup)
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
       const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
-
-      // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski dozvoli pristup
-      const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
-        ? "Windows"
-        : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
-        ? "macOS"
-        : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
-        ? "Linux"
-        : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
-        ? "Android"
-        : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
-        ? "iOS"
-        : "Unknown";
-      
-      const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
-      
-      // Ako je vlasnik sa specifičnim emailom i OS-om, preskoči provjeru odobrenja
-      if (isOwnerDevice) {
-        console.log("Vlasnik sa specifičnim emailom i OS-om, dozvoljavam pristup bez provjere odobrenja");
-        // Nastavi sa login procesom
-      } else if (!isOwner) {
-        // Ako korisnik nije vlasnik, provjeri odobrenje
-        const approvalRef = doc(db, "loginApprovals", user.uid);
-        const approvalDoc = await getDoc(approvalRef);
-        
-        if (approvalDoc.exists()) {
-          const approvalData = approvalDoc.data();
-          if (approvalData.status === "pending") {
-            setError("Vaš zahtjev za pristup aplikaciji još nije odobren. Molimo sačekajte odobrenje od administratora.");
-            setLoading(false);
-            return;
-          } else if (approvalData.status === "rejected") {
-            setError("Vaš zahtjev za pristup aplikaciji je odbijen. Kontaktirajte administratora za više informacija.");
-            setLoading(false);
-            return;
-          } else if (approvalData.status !== "approved") {
-            setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
-            setLoading(false);
-            return;
-          }
-        } else {
-          // Ako nema dokumenta za odobrenje, blokiraj pristup
-          setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
-          setLoading(false);
-          return;
-        }
-      }
+      // Ne blokiraj pristup na osnovu isOwner statusa - svi korisnici mogu pristupiti
 
       // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
       // KOMENTIRANO ZA TESTIRANJE - omogućava pristup bez provjere uređaja

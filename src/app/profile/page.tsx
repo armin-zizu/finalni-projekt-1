@@ -107,8 +107,6 @@ export default function Profile() {
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
-  const [loginApprovals, setLoginApprovals] = useState<any[]>([]);
-  const [loadingApprovals, setLoadingApprovals] = useState(false);
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
   const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
@@ -1994,95 +1992,6 @@ export default function Profile() {
         )}
       </div>
 
-      {/* Zahtjevi za odobrenje login-a - samo za vlasnika */}
-      {isOwner && (
-        <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
-          <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
-            🔐 Zahtjevi za Odobrenje Login-a
-          </h2>
-          <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "20px" }}>
-            Novi korisnici koji se registruju trebaju vaše odobrenje za pristup aplikaciji. Prvi korisnik automatski postaje vlasnik.
-          </p>
-
-          {loadingApprovals ? (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px" }}>
-              <FaSpinner style={{ fontSize: "32px", color: "#3b82f6", animation: "spin 1s linear infinite" }} />
-            </div>
-          ) : loginApprovals.length === 0 ? (
-            <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
-              <p style={{ fontSize: "16px" }}>Nema zahtjeva za odobrenje.</p>
-              <p style={{ fontSize: "14px", marginTop: "8px" }}>Novi zahtjevi će se automatski pojaviti kada se korisnici registruju.</p>
-            </div>
-          ) : (
-            <div style={tableWrapperStyle} className={tableWrapperClassName}>
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>E-mail</th>
-                    <th style={thStyle}>Datum zahtjeva</th>
-                    <th style={thStyle}>Status</th>
-                    <th style={thStyle}>Akcije</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loginApprovals.map((approval) => (
-                    <tr key={approval.id}>
-                      <td style={tdStyle}>{approval.email || "N/A"}</td>
-                      <td style={tdStyle}>
-                        {approval.requestedAt
-                          ? approval.requestedAt.toLocaleDateString("bs-BA") + " " + approval.requestedAt.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
-                          : "N/A"}
-                      </td>
-                      <td style={tdStyle}>
-                        <span
-                          style={{
-                            padding: "4px 12px",
-                            borderRadius: "12px",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            backgroundColor: "#fef3c7",
-                            color: "#f59e0b",
-                          }}
-                        >
-                          Čeka odobrenje
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <button
-                            onClick={() => approveLoginRequest(approval.id)}
-                            style={{
-                              ...buttonStyle,
-                              background: "#16a34a",
-                              marginRight: "0",
-                            }}
-                          >
-                            ✓ Odobri
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (window.confirm("Jeste li sigurni da želite odbiti ovaj zahtjev?")) {
-                                rejectLoginRequest(approval.id);
-                              }
-                            }}
-                            style={{
-                              ...buttonStyle,
-                              background: "#dc2626",
-                              marginRight: "0",
-                            }}
-                          >
-                            ✗ Odbij
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Stara sekcija - obrisana, spojena gore */}
       {false && role === "vlasnik" && (
