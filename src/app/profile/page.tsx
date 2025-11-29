@@ -8,7 +8,7 @@ import { useRole, UserRole, PagePermission } from "../context/RoleContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import { db } from "../../lib/firestore";
-import { doc, setDoc, Timestamp, collection, getDocs, query, where, getDoc, updateDoc, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, Timestamp, collection, getDocs, query, where, getDoc, updateDoc, onSnapshot, deleteDoc } from "firebase/firestore";
 import { FaSearch, FaSpinner, FaMobile, FaDesktop } from "react-icons/fa";
 
 const containerStyle: React.CSSProperties = {
@@ -490,6 +490,31 @@ export default function Profile() {
     } catch (error) {
       console.error("Greška pri blokiranju/odblokiranju uređaja:", error);
       setMessage("Greška pri blokiranju/odblokiranju uređaja");
+      setTimeout(() => setMessage(""), 5000);
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  // Izbriši uređaj (login)
+  const handleDeleteDevice = async (deviceId: string) => {
+    const user = auth.currentUser;
+    if (!user || role !== "vlasnik") return;
+
+    if (!window.confirm("Jeste li sigurni da želite izbrisati ovaj login? Korisnik će morati ponovo zatražiti pristup.")) {
+      return;
+    }
+
+    try {
+      setSavingRole(true);
+      const deviceRef = doc(db, "devices", deviceId);
+      await deleteDoc(deviceRef);
+      await loadDevices();
+      setMessage("Login uspješno izbrisan");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      console.error("Greška pri brisanju login-a:", error);
+      setMessage("Greška pri brisanju login-a");
       setTimeout(() => setMessage(""), 5000);
     } finally {
       setSavingRole(false);
@@ -992,16 +1017,16 @@ export default function Profile() {
                                         </div>
                                       </div>
                                     )}
-                                    <div style={{ display: "flex", gap: "8px" }}>
+                                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                                       <button
                                         onClick={() => {
-                                        const roleToSave = selectedRole[device.id] || device.role;
-                                        if (roleToSave === "konobar") {
-                                          handleSavePermissions(device.id, roleToSave);
-                                        } else {
-                                          handleAssignRole(device.id, roleToSave);
-                                        }
-                                        setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
+                                          const roleToSave = selectedRole[device.id] || device.role;
+                                          if (roleToSave === "konobar") {
+                                            handleSavePermissions(device.id, roleToSave);
+                                          } else {
+                                            handleAssignRole(device.id, roleToSave);
+                                          }
+                                          setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
                                         }}
                                         style={{ ...buttonStyle, background: "#16a34a", fontSize: "13px", padding: "8px 16px" }}
                                       >
@@ -1016,6 +1041,12 @@ export default function Profile() {
                                         style={{ ...buttonStyle, background: "#6b7280", fontSize: "13px", padding: "8px 16px" }}
                                       >
                                         Odustani
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteDevice(device.id)}
+                                        style={{ ...buttonStyle, background: "#dc2626", fontSize: "13px", padding: "8px 16px" }}
+                                      >
+                                        Izbriši login
                                       </button>
                                     </div>
                                   </div>

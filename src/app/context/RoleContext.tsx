@@ -238,6 +238,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           role: defaultRole,
           status: status,
           isBlocked: false,
+          permissions: defaultRole === "vlasnik" ? {
+            dashboard: true,
+            obracun: true,
+            arhiva: true,
+            cjenovnik: true,
+            profit: true,
+            profile: true,
+            admin: false,
+          } : null,
           deviceInfo: {
             ...info,
             firstSeen: Timestamp.fromDate(new Date()),
