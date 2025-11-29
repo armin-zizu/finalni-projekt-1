@@ -169,8 +169,6 @@ export default function LoginPage() {
                 console.log("Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
                 setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
                 setLoading(false);
-                // Odjavi korisnika da ne može pristupiti aplikaciji
-                await auth.signOut();
                 return;
               } else {
                 console.log("Prvi uređaj za korisnika, dozvoljavam pristup");
@@ -180,7 +178,14 @@ export default function LoginPage() {
               console.error("Greška pri provjeri drugih uređaja:", queryError);
               // Ako je greška zbog permisija, možda korisnik nema dozvolu za query
               // U tom slučaju, pokušaj kreirati uređaj sa verifikacijom ako nije vlasnik
-              if (queryError.code === 'permission-denied' && !isOwner) {
+              // Ali samo ako je provjereno da nije vlasnik
+              if (queryError.code === 'permission-denied') {
+                // Provjeri ponovo da li je vlasnik prije nego što kreiramo sa verifikacijom
+                const userDocRef = doc(db, "users", user.uid);
+                const userDocCheck = await getDoc(userDocRef);
+                const isOwnerCheck = userDocCheck.exists() && userDocCheck.data().isOwner === true;
+                
+                if (!isOwnerCheck) {
                 console.log("Nemam permisije za query, ali nije vlasnik - kreiram sa verifikacijom");
                 const browser = navigator.userAgent.includes("Chrome")
                   ? "Chrome"
@@ -226,7 +231,6 @@ export default function LoginPage() {
 
                 setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
                 setLoading(false);
-                await auth.signOut();
                 return;
               }
               // U slučaju druge greške, dozvoli pristup (fallback)
