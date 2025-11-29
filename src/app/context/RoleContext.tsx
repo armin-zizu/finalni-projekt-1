@@ -169,6 +169,63 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       const info = getDeviceInfo(currentDeviceId);
       setDeviceInfo(info);
 
+      // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski postavi sve uređaje kao vlasnik
+      const os = info.os || (navigator.userAgent.includes("Windows")
+        ? "Windows"
+        : navigator.userAgent.includes("Mac")
+        ? "macOS"
+        : navigator.userAgent.includes("Linux")
+        ? "Linux"
+        : navigator.userAgent.includes("Android")
+        ? "Android"
+        : navigator.userAgent.includes("iOS")
+        ? "iOS"
+        : "Unknown");
+      
+      const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+      
+      if (isOwnerDevice) {
+        // Automatski postavi sve uređaje sa ovim emailom i OS-om kao vlasnik
+        try {
+          const devicesQuery = query(collection(db, "devices"), where("userEmail", "==", user.email));
+          const devicesSnapshot = await getDocs(devicesQuery);
+          
+          const updatePromises: Promise<void>[] = [];
+          devicesSnapshot.forEach((deviceDoc) => {
+            const deviceData = deviceDoc.data();
+            if (deviceData.deviceInfo?.os === "Windows") {
+              updatePromises.push(
+                setDoc(
+                  doc(db, "devices", deviceDoc.id),
+                  {
+                    role: "vlasnik",
+                    status: "approved",
+                    isBlocked: false,
+                    permissions: {
+                      dashboard: true,
+                      obracun: true,
+                      arhiva: true,
+                      cjenovnik: true,
+                      profit: true,
+                      profile: true,
+                      admin: false,
+                    },
+                    updatedAt: Timestamp.fromDate(new Date()),
+                  },
+                  { merge: true }
+                ).then(() => {
+                  console.log(`Uređaj ${deviceDoc.id} automatski postavljen kao vlasnik`);
+                })
+              );
+            }
+          });
+          
+          await Promise.all(updatePromises);
+        } catch (updateError) {
+          console.error("Greška pri automatskom postavljanju uređaja kao vlasnik:", updateError);
+        }
+      }
+
       // Provjeri da li postoji uloga za ovaj uređaj
       const deviceRef = doc(db, "devices", currentDeviceId);
       const deviceDoc = await getDoc(deviceRef);
