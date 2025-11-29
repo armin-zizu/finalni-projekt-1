@@ -56,28 +56,6 @@ async function isFirstUser(): Promise<boolean> {
   }
 }
 
-/**
- * Kreira zahtjev za odobrenje login-a
- */
-async function createLoginApprovalRequest(userId: string, email: string | null) {
-  try {
-    const approvalRef = doc(db, "loginApprovals", userId);
-    await setDoc(approvalRef, {
-      userId,
-      email: email || null,
-      status: "pending", // pending, approved, rejected
-      requestedAt: Timestamp.fromDate(new Date()),
-      approvedAt: null,
-      approvedBy: null,
-      rejectedAt: null,
-      rejectedBy: null,
-    });
-    console.log("Zahtjev za odobrenje kreiran:", userId);
-  } catch (error) {
-    console.error("Greška pri kreiranju zahtjeva za odobrenje:", error);
-    throw error;
-  }
-}
 
 /**
  * Kreira početnu strukturu za novog korisnika u Firestore
@@ -129,10 +107,6 @@ export async function initializeUser(userId: string, email: string | null) {
       createdAt: Timestamp.fromDate(now),
     });
 
-    // Ako nije prvi korisnik, kreiraj zahtjev za odobrenje
-    if (!isOwner) {
-      await createLoginApprovalRequest(userId, email);
-    }
 
     console.log("Korisnik uspješno inicijalizovan u Firestore:", userId, "isOwner:", isOwner);
   } catch (error) {
