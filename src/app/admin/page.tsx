@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { auth, db } from "../../lib/firebase";
-import { collection, getDocs, doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, Timestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
@@ -1778,40 +1778,65 @@ export default function AdminPage() {
                             if (!selectedUserDetails) return;
                             setSavingUserInfo(true);
                             try {
-                              await setDoc(
-                                doc(db, "users", selectedUserDetails.id),
-                                {
-                                  imeKorisnika: imeKorisnika || null,
-                                  brojTelefona: brojTelefona || null,
-                                  lokacija: lokacija || null,
-                                },
-                                { merge: true }
-                              );
+                              const userRef = doc(db, "users", selectedUserDetails.id);
                               
-                              // Ažuriraj lokalni state korisnika
-                              setUsers((prevUsers) =>
-                                prevUsers.map((user) =>
-                                  user.id === selectedUserDetails.id
-                                    ? { ...user, imeKorisnika: imeKorisnika || undefined, brojTelefona: brojTelefona || undefined, lokacija: lokacija || undefined }
-                                    : user
-                                )
-                              );
+                              // Pripremi podatke za spremanje
+                              const updateData: any = {};
+                              if (imeKorisnika.trim()) {
+                                updateData.imeKorisnika = imeKorisnika.trim();
+                              } else {
+                                updateData.imeKorisnika = null;
+                              }
+                              if (brojTelefona.trim()) {
+                                updateData.brojTelefona = brojTelefona.trim();
+                              } else {
+                                updateData.brojTelefona = null;
+                              }
+                              if (lokacija.trim()) {
+                                updateData.lokacija = lokacija.trim();
+                              } else {
+                                updateData.lokacija = null;
+                              }
                               
-                              // Ažuriraj selectedUserDetails
-                              setSelectedUserDetails({
-                                ...selectedUserDetails,
-                                imeKorisnika: imeKorisnika || undefined,
-                                brojTelefona: brojTelefona || undefined,
-                                lokacija: lokacija || undefined,
-                              });
+                              // Spremi u Firestore
+                              await updateDoc(userRef, updateData);
+                              
+                              // Provjeri da li su podaci stvarno spremljeni
+                              const savedDoc = await getDoc(userRef);
+                              if (savedDoc.exists()) {
+                                const savedData = savedDoc.data();
+                                console.log("Podaci spremljeni u Firestore:", savedData);
+                                
+                                // Ažuriraj lokalni state korisnika sa stvarnim podacima iz Firestore
+                                const updatedUser = {
+                                  ...selectedUserDetails,
+                                  imeKorisnika: savedData.imeKorisnika || undefined,
+                                  brojTelefona: savedData.brojTelefona || undefined,
+                                  lokacija: savedData.lokacija || undefined,
+                                };
+                                
+                                setUsers((prevUsers) =>
+                                  prevUsers.map((user) =>
+                                    user.id === selectedUserDetails.id ? updatedUser : user
+                                  )
+                                );
+                                
+                                // Ažuriraj selectedUserDetails
+                                setSelectedUserDetails(updatedUser);
+                                
+                                // Ažuriraj lokalne state varijable
+                                setImeKorisnika(savedData.imeKorisnika || "");
+                                setBrojTelefona(savedData.brojTelefona || "");
+                                setLokacija(savedData.lokacija || "");
+                              }
                               
                               setEditingUserInfo(false);
                               setMessage({ type: "success", text: "Podaci uspješno sačuvani" });
                               setTimeout(() => setMessage(null), 3000);
                             } catch (error) {
                               console.error("Greška pri spremanju podataka:", error);
-                              setMessage({ type: "error", text: "Greška pri spremanju podataka" });
-                              setTimeout(() => setMessage(null), 3000);
+                              setMessage({ type: "error", text: "Greška pri spremanju podataka: " + (error as Error).message });
+                              setTimeout(() => setMessage(null), 5000);
                             } finally {
                               setSavingUserInfo(false);
                             }
