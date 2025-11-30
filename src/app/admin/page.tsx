@@ -734,7 +734,7 @@ export default function AdminPage() {
       let sortKey: string; // Za sortiranje
       const date = new Date(payment.date);
       
-      if (revenueFilter === "dnevni") {
+      if (revenueFilter === "dnevni" || revenueFilter === "prilagođeno") {
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
