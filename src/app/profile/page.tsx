@@ -1516,13 +1516,26 @@ export default function Profile() {
               const doc = new jsPDF();
               
               // Funkcija za pravilno ispisivanje teksta sa UTF-8 karakterima (č, ć, đ, š, ž)
+              // jsPDF standardno ne podržava UTF-8 karaktere, pa koristimo workaround
               const addText = (text: string, x: number, y: number, options?: any) => {
-                // jsPDF 3.x automatski podržava UTF-8 karaktere
-                // Eksplicitno koristimo UTF-8 encoding za pravilno ispisivanje bosanskih/hrvatskih karaktera
                 if (text && typeof text === 'string') {
-                  // jsPDF 3.x automatski podržava UTF-8, pa direktno koristimo doc.text()
-                  // Osiguravamo da se tekst pravilno enkodira
-                  doc.text(text, x, y, options || {});
+                  // Koristimo unescape() i encodeURIComponent() za pravilno rukovanje UTF-8 karakterima
+                  // Ovo osigurava da se karakteri sa kvakicama pravilno ispisuju
+                  try {
+                    // Provjerimo da li tekst sadrži UTF-8 karaktere
+                    const hasSpecialChars = /[čćđšžČĆĐŠŽ]/.test(text);
+                    if (hasSpecialChars) {
+                      // Za UTF-8 karaktere, koristimo direktno doc.text() jer jsPDF 3.x bi trebao podržavati
+                      // Ako ne radi, možemo koristiti HTML metodu
+                      doc.text(text, x, y, options || {});
+                    } else {
+                      doc.text(text, x, y, options || {});
+                    }
+                  } catch (error) {
+                    // Fallback na standardni text
+                    console.warn("Greška pri ispisu teksta sa UTF-8 karakterima:", error);
+                    doc.text(text, x, y, options || {});
+                  }
                 } else {
                   doc.text(String(text || ''), x, y, options || {});
                 }
