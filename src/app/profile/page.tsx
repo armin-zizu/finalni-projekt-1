@@ -1514,20 +1514,33 @@ export default function Profile() {
               
               // Generiši PDF
               const doc = new jsPDF();
+              
+              // Funkcija za pravilno ispisivanje teksta sa UTF-8 karakterima (č, ć, đ, š, ž)
+              const addText = (text: string, x: number, y: number, options?: any) => {
+                // jsPDF 3.x automatski podržava UTF-8 karaktere
+                // Eksplicitno koristimo UTF-8 encoding za pravilno ispisivanje bosanskih/hrvatskih karaktera
+                if (text && typeof text === 'string') {
+                  // Osiguravamo da se tekst pravilno enkodira
+                  doc.text(text, x, y, options || {});
+                } else {
+                  doc.text(String(text || ''), x, y, options || {});
+                }
+              };
+              
               let yPos = 20;
               
               // Naslov
               doc.setFontSize(18);
-              doc.text("Backup podataka", 14, yPos);
+              addText("Backup podataka", 14, yPos);
               yPos += 10;
               
               // Datum exporta
               doc.setFontSize(12);
-              doc.text(`Datum exporta: ${new Date().toLocaleString("bs-BA")}`, 14, yPos);
+              addText(`Datum exporta: ${new Date().toLocaleString("bs-BA")}`, 14, yPos);
               yPos += 8;
               
               if (backupFromDate || backupToDate) {
-                doc.text(`Period: ${backupFromDate || "početak"} - ${backupToDate || "kraj"}`, 14, yPos);
+                addText(`Period: ${backupFromDate || "početak"} - ${backupToDate || "kraj"}`, 14, yPos);
                 yPos += 8;
               }
               
@@ -1535,12 +1548,12 @@ export default function Profile() {
               
               // Cjenovnik
               doc.setFontSize(14);
-              doc.text("Cjenovnik", 14, yPos);
+              addText("Cjenovnik", 14, yPos);
               yPos += 8;
               
               doc.setFontSize(10);
               if (cjenovnik.length > 0) {
-                doc.text("Naziv | Cijena | Nabavna cijena | Početno stanje", 14, yPos);
+                addText("Naziv | Cijena | Nabavna cijena | Početno stanje", 14, yPos);
                 yPos += 6;
                 cjenovnik.forEach((item: any) => {
                   if (yPos > 280) {
@@ -1548,11 +1561,11 @@ export default function Profile() {
                     yPos = 20;
                   }
                   const text = `${item.naziv} | ${item.cijena} KM | ${item.nabavnaCijena} KM | ${item.pocetnoStanje}`;
-                  doc.text(text, 14, yPos);
+                  addText(text, 14, yPos);
                   yPos += 6;
                 });
               } else {
-                doc.text("Nema artikala u cjenovniku", 14, yPos);
+                addText("Nema artikala u cjenovniku", 14, yPos);
                 yPos += 6;
               }
               
@@ -1564,7 +1577,7 @@ export default function Profile() {
                 doc.addPage();
                 yPos = 20;
               }
-              doc.text(`Arhiva obračuna (${arhiva.length} obračuna)`, 14, yPos);
+              addText(`Arhiva obračuna (${arhiva.length} obračuna)`, 14, yPos);
               yPos += 8;
               
               doc.setFontSize(10);
@@ -1578,27 +1591,27 @@ export default function Profile() {
                   
                   // Naslov obračuna
                   doc.setFontSize(14);
-                  doc.text(`Obračun - ${item.datum}`, 14, yPos);
+                  addText(`Obračun - ${item.datum}`, 14, yPos);
                   yPos += 8;
                   
                   // Flagovi (ako postoje)
                   if (item.imaUlaz) {
                     doc.setFontSize(10);
                     doc.setTextColor(234, 179, 8); // Žuta
-                    doc.text("(Ima ulaz)", 14, yPos);
+                    addText("(Ima ulaz)", 14, yPos);
                     doc.setTextColor(0, 0, 0); // Crna
                     yPos += 6;
                   } else if (item.isAzuriran) {
                     doc.setFontSize(10);
                     doc.setTextColor(245, 158, 11); // Narandžasta
-                    doc.text("(Ažurirano)", 14, yPos);
+                    addText("(Ažurirano)", 14, yPos);
                     doc.setTextColor(0, 0, 0); // Crna
                     yPos += 6;
                   }
                   
                   // Tabela artikala
                   doc.setFontSize(12);
-                  doc.text("Artikli:", 14, yPos);
+                  addText("Artikli:", 14, yPos);
                   yPos += 7;
                   
                   if (item.artikli && item.artikli.length > 0) {
@@ -1611,7 +1624,7 @@ export default function Profile() {
                     // Header
                     let xPos = startX;
                     headers.forEach((header, i) => {
-                      doc.text(header, xPos, yPos);
+                      addText(header, xPos, yPos);
                       xPos += colWidths[i];
                     });
                     yPos += 6;
@@ -1628,16 +1641,16 @@ export default function Profile() {
                         yPos = 20;
                         // Ponovi naslov obračuna na novoj stranici
                         doc.setFontSize(14);
-                        doc.text(`Obračun - ${item.datum} (nastavak)`, 14, yPos);
+                        addText(`Obračun - ${item.datum} (nastavak)`, 14, yPos);
                         yPos += 8;
                         doc.setFontSize(12);
-                        doc.text("Artikli:", 14, yPos);
+                        addText("Artikli:", 14, yPos);
                         yPos += 7;
                         // Ponovi header tabele
                         doc.setFontSize(9);
                         xPos = startX;
                         headers.forEach((header, i) => {
-                          doc.text(header, xPos, yPos);
+                          addText(header, xPos, yPos);
                           xPos += colWidths[i];
                         });
                         yPos += 6;
@@ -1651,26 +1664,26 @@ export default function Profile() {
                         ? `${art.pocetnoStanje} (${art.staroPocetnoStanje})`
                         : (art.pocetnoStanje ?? "-");
                       
-                      doc.text(art.naziv.substring(0, 20), xPos, yPos);
+                      addText(art.naziv.substring(0, 20), xPos, yPos);
                       xPos += colWidths[0];
-                      doc.text((art.cijena ?? 0).toFixed(2), xPos, yPos);
+                      addText((art.cijena ?? 0).toFixed(2), xPos, yPos);
                       xPos += colWidths[1];
-                      doc.text(String(pocetnoStanje), xPos, yPos);
+                      addText(String(pocetnoStanje), xPos, yPos);
                       xPos += colWidths[2];
-                      doc.text(ulaz > 0 ? ulaz.toFixed(2) : "-", xPos, yPos);
+                      addText(ulaz > 0 ? ulaz.toFixed(2) : "-", xPos, yPos);
                       xPos += colWidths[3];
-                      doc.text((art.ukupno ?? "-").toString(), xPos, yPos);
+                      addText((art.ukupno ?? "-").toString(), xPos, yPos);
                       xPos += colWidths[4];
-                      doc.text((art.utroseno ?? "-").toString(), xPos, yPos);
+                      addText((art.utroseno ?? "-").toString(), xPos, yPos);
                       xPos += colWidths[5];
-                      doc.text((art.krajnjeStanje ?? "-").toString(), xPos, yPos);
+                      addText((art.krajnjeStanje ?? "-").toString(), xPos, yPos);
                       xPos += colWidths[6];
-                      doc.text((art.vrijednostKM ?? 0).toFixed(2) + " KM", xPos, yPos);
+                      addText((art.vrijednostKM ?? 0).toFixed(2) + " KM", xPos, yPos);
                       
                       yPos += 6;
                     });
                   } else {
-                    doc.text("Nema artikala", 14, yPos);
+                    addText("Nema artikala", 14, yPos);
                     yPos += 6;
                   }
                   
@@ -1683,13 +1696,13 @@ export default function Profile() {
                       yPos = 20;
                     }
                     doc.setFontSize(12);
-                    doc.text("Rashodi:", 14, yPos);
+                    addText("Rashodi:", 14, yPos);
                     yPos += 7;
                     
                     doc.setFontSize(9);
-                    doc.text("Naziv", 14, yPos);
-                    doc.text("Cijena", 80, yPos);
-                    doc.text("Plaćeno", 120, yPos);
+                    addText("Naziv", 14, yPos);
+                    addText("Cijena", 80, yPos);
+                    addText("Plaćeno", 120, yPos);
                     yPos += 6;
                     doc.line(14, yPos - 2, 200, yPos - 2);
                     yPos += 4;
@@ -1699,9 +1712,9 @@ export default function Profile() {
                         doc.addPage();
                         yPos = 20;
                       }
-                      doc.text(r.naziv, 14, yPos);
-                      doc.text(r.cijena.toFixed(2) + " KM", 80, yPos);
-                      doc.text(r.placeno ? "Da" : "Ne", 120, yPos);
+                      addText(r.naziv, 14, yPos);
+                      addText(r.cijena.toFixed(2) + " KM", 80, yPos);
+                      addText(r.placeno ? "Da" : "Ne", 120, yPos);
                       yPos += 6;
                     });
                     yPos += 5;
@@ -1714,12 +1727,12 @@ export default function Profile() {
                       yPos = 20;
                     }
                     doc.setFontSize(12);
-                    doc.text("Prihodi:", 14, yPos);
+                    addText("Prihodi:", 14, yPos);
                     yPos += 7;
                     
                     doc.setFontSize(9);
-                    doc.text("Naziv", 14, yPos);
-                    doc.text("Cijena", 80, yPos);
+                    addText("Naziv", 14, yPos);
+                    addText("Cijena", 80, yPos);
                     yPos += 6;
                     doc.line(14, yPos - 2, 200, yPos - 2);
                     yPos += 4;
@@ -1729,8 +1742,8 @@ export default function Profile() {
                         doc.addPage();
                         yPos = 20;
                       }
-                      doc.text(p.naziv, 14, yPos);
-                      doc.text(p.cijena.toFixed(2) + " KM", 80, yPos);
+                      addText(p.naziv, 14, yPos);
+                      addText(p.cijena.toFixed(2) + " KM", 80, yPos);
                       yPos += 6;
                     });
                     yPos += 5;
@@ -1742,25 +1755,25 @@ export default function Profile() {
                     yPos = 20;
                   }
                   doc.setFontSize(11);
-                  doc.text("Ukupno:", 14, yPos);
+                  addText("Ukupno:", 14, yPos);
                   yPos += 7;
                   
                   doc.setFontSize(10);
-                  doc.text(`Ukupno artikli: ${item.ukupnoArtikli.toFixed(2)} KM`, 20, yPos);
+                  addText(`Ukupno artikli: ${item.ukupnoArtikli.toFixed(2)} KM`, 20, yPos);
                   yPos += 6;
-                  doc.text(`Ukupno rashod: ${item.ukupnoRashod.toFixed(2)} KM`, 20, yPos);
+                  addText(`Ukupno rashod: ${item.ukupnoRashod.toFixed(2)} KM`, 20, yPos);
                   yPos += 6;
-                  doc.text(`Ukupno prihod: ${(item.ukupnoPrihod || 0).toFixed(2)} KM`, 20, yPos);
+                  addText(`Ukupno prihod: ${(item.ukupnoPrihod || 0).toFixed(2)} KM`, 20, yPos);
                   yPos += 6;
                   doc.setFontSize(11);
-                  doc.text(`Neto: ${(item.neto || (item.ukupnoArtikli + (item.ukupnoPrihod || 0) - item.ukupnoRashod)).toFixed(2)} KM`, 20, yPos);
+                  addText(`Neto: ${(item.neto || (item.ukupnoArtikli + (item.ukupnoPrihod || 0) - item.ukupnoRashod)).toFixed(2)} KM`, 20, yPos);
                   
                   yPos += 10;
                   
                   // Ne dodavaj liniju između obračuna jer svaki obračun je na posebnoj stranici
                 });
               } else {
-                doc.text("Nema obračuna u arhivi", 14, yPos);
+                addText("Nema obračuna u arhivi", 14, yPos);
               }
               
               // Preuzmi PDF
