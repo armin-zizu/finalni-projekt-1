@@ -451,10 +451,14 @@ export default function DashboardPage() {
           h1 { font-size: 18px; margin-bottom: 16px !important; }
           div[style*='fontSize: 36'] { font-size: 24px !important; }
           div[style*='fontSize: 28'] { font-size: 20px !important; }
-          div[style*='display: flex'][style*='flexWrap'] { 
+          div[style*='display: flex'][style*='flexWrap'][style*='marginBottom: 30'] { 
             flex-direction: column; 
             gap: 10px; 
             align-items: stretch;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
           }
           div[style*='min-width: 160px'] { min-width: 100%; max-width: 100% !important; }
           button { width: 100%; margin: 5px 0; padding: 10px; font-size: 14px; min-height: 44px; }
@@ -466,14 +470,20 @@ export default function DashboardPage() {
             max-width: 100% !important;
             flex: 1 1 100% !important;
             width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
           }
           div[style*='background: linear-gradient'][style*='#667eea'] {
             width: 100% !important;
             box-sizing: border-box !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
           }
           div[style*='backgroundColor: #fff'][style*='borderRadius: 12'] {
             width: 100% !important;
             box-sizing: border-box !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
           }
           .recharts-wrapper { width: 100% !important; }
           .recharts-surface { width: 100% !important; }
