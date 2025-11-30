@@ -6,7 +6,6 @@ import { CjenovnikProvider } from "./context/CjenovnikContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
 import { RoleProvider } from "./context/RoleContext";
 import SubscriptionBanner from "./components/SubscriptionBanner";
-import SubscriptionGuard from "./components/SubscriptionGuard";
 import Sidebar from "./sidebar/Sidebar";
 import { auth, db } from "../lib/firebase";
 import { usePathname, useRouter } from "next/navigation";
@@ -210,9 +209,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     width: "100%",
                   }}
                 >
-                  <SubscriptionGuard>
-                    <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
-                  </SubscriptionGuard>
+                  <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
                 </main>
               </RoleProvider>
             <style jsx>{`
