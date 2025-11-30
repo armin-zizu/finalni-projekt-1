@@ -671,22 +671,39 @@ export default function LoginPage() {
       alignItems: "center", 
       padding: "20px",
       boxSizing: "border-box",
-      position: "relative"
+      position: "relative",
+      overflow: "hidden"
     }}>
-      {/* Pozadinska slika sa opacity */}
-      <div style={{
+      {/* Animirana gradient pozadina */}
+      <div className="animated-background" style={{
         position: "absolute",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundImage: "url('/background.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        opacity: 0.7,
+        background: "linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #4facfe, #00f2fe)",
+        backgroundSize: "400% 400%",
+        animation: "gradientShift 15s ease infinite",
         zIndex: 0
       }} />
+      
+      {/* Floating orbs/čestice */}
+      <div className="floating-orbs">
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className={`floating-orb orb-${i + 1}`}
+            style={{
+              position: "absolute",
+              borderRadius: "50%",
+              background: `rgba(255, 255, 255, ${0.1 + i * 0.05})`,
+              filter: "blur(40px)",
+              animation: `float${i + 1} ${15 + i * 2}s ease-in-out infinite`,
+              zIndex: 1
+            }}
+          />
+        ))}
+      </div>
       
       {/* Fade overlay - tamni overlay za kontrast */}
       <div style={{
@@ -695,8 +712,8 @@ export default function LoginPage() {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.6)",
-        zIndex: 1
+        backgroundColor: "rgba(0, 0, 0, 0.4)",
+        zIndex: 2
       }} />
       
       <div style={{ 
