@@ -1621,11 +1621,20 @@ export default function Profile() {
                     yPos += 4;
                     
                     // Artikli
-                    item.artikli.forEach((art: any) => {
+                    item.artikli.forEach((art: any, artIndex: number) => {
+                      // Ako ne staje na trenutnu stranicu, pređi na novu i ponovi header
                       if (yPos > 270) {
                         doc.addPage();
                         yPos = 20;
-                        // Ponovi header
+                        // Ponovi naslov obračuna na novoj stranici
+                        doc.setFontSize(14);
+                        doc.text(`Obračun - ${item.datum} (nastavak)`, 14, yPos);
+                        yPos += 8;
+                        doc.setFontSize(12);
+                        doc.text("Artikli:", 14, yPos);
+                        yPos += 7;
+                        // Ponovi header tabele
+                        doc.setFontSize(9);
                         xPos = startX;
                         headers.forEach((header, i) => {
                           doc.text(header, xPos, yPos);
