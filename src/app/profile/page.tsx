@@ -1984,9 +1984,9 @@ export default function Profile() {
                 <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
                   Historija uplata
                 </h3>
-                <div style={tableWrapperStyle} className={tableWrapperClassName}>
+                <div style={{ ...tableWrapperStyle, maxHeight: "400px", overflowY: "auto" }} className={tableWrapperClassName}>
                   <table style={tableStyle}>
-                    <thead>
+                    <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
                       <tr>
                         <th style={thStyle}>Datum uplate</th>
                         <th style={thStyle}>Iznos</th>
