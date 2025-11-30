@@ -76,12 +76,18 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
               if (docSnapshot.exists()) {
                 const data = docSnapshot.data();
                 const newAppName = data.appName;
-                if (newAppName && newAppName !== appName) {
-                  console.log("AppName ažurirano preko real-time listenera:", newAppName);
-                  setAppName(newAppName);
-                  // Spremi u localStorage kao cache (per-user)
-                  const storageKeyForSnapshot = `appName_${userId}`;
-                  localStorage.setItem(storageKeyForSnapshot, newAppName);
+                if (newAppName) {
+                  // Uvijek ažuriraj, jer možda je promijenjeno na drugom uređaju
+                  setAppName((currentAppName) => {
+                    if (currentAppName !== newAppName) {
+                      console.log("AppName ažurirano preko real-time listenera:", newAppName);
+                      // Spremi u localStorage kao cache (per-user)
+                      const storageKeyForSnapshot = `appName_${userId}`;
+                      localStorage.setItem(storageKeyForSnapshot, newAppName);
+                      return newAppName;
+                    }
+                    return currentAppName;
+                  });
                 }
               }
             },
