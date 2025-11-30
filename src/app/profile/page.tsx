@@ -1520,20 +1520,9 @@ export default function Profile() {
                 // jsPDF 3.x automatski podržava UTF-8 karaktere
                 // Eksplicitno koristimo UTF-8 encoding za pravilno ispisivanje bosanskih/hrvatskih karaktera
                 if (text && typeof text === 'string') {
-                  // Osiguravamo da se tekst pravilno enkodira sa UTF-8
-                  // jsPDF 3.x automatski podržava UTF-8, ali eksplicitno postavljamo encoding
-                  try {
-                    // Koristimo splitTextToSize za pravilno rukovanje sa UTF-8 karakterima
-                    const lines = doc.splitTextToSize(text, options?.maxWidth || 200);
-                    if (lines.length > 0) {
-                      doc.text(lines, x, y, options || {});
-                    } else {
-                      doc.text(text, x, y, options || {});
-                    }
-                  } catch (error) {
-                    // Fallback na standardni text ako splitTextToSize ne radi
-                    doc.text(text, x, y, options || {});
-                  }
+                  // jsPDF 3.x automatski podržava UTF-8, pa direktno koristimo doc.text()
+                  // Osiguravamo da se tekst pravilno enkodira
+                  doc.text(text, x, y, options || {});
                 } else {
                   doc.text(String(text || ''), x, y, options || {});
                 }
