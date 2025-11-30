@@ -1570,8 +1570,8 @@ export default function Profile() {
               doc.setFontSize(10);
               if (arhiva.length > 0) {
                 arhiva.forEach((item: any, index: number) => {
-                  // Dodaj novu stranicu ako je potrebno
-                  if (yPos > 250) {
+                  // Svaki obračun počinje na novoj stranici
+                  if (index > 0 || yPos > 250) {
                     doc.addPage();
                     yPos = 20;
                   }
@@ -1748,11 +1748,7 @@ export default function Profile() {
                   
                   yPos += 10;
                   
-                  // Linija između obračuna
-                  if (index < arhiva.length - 1) {
-                    doc.line(14, yPos, 200, yPos);
-                    yPos += 5;
-                  }
+                  // Ne dodavaj liniju između obračuna jer svaki obračun je na posebnoj stranici
                 });
               } else {
                 doc.text("Nema obračuna u arhivi", 14, yPos);
