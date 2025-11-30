@@ -463,24 +463,63 @@ export default function DashboardPage() {
         }
       `}</style>
 
-      {/* Ime aplikacije na sredini */}
+      {/* Ime aplikacije - poboljšan dizajn */}
       <div style={{ 
         textAlign: "center", 
-        marginBottom: 30,
-        paddingBottom: 20,
-        borderBottom: "2px solid #e5e7eb"
+        marginBottom: 40,
+        padding: "24px 32px",
+        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        borderRadius: "16px",
+        boxShadow: "0 8px 24px rgba(102, 126, 234, 0.25)",
+        position: "relative",
+        overflow: "hidden"
       }}>
+        {/* Dekorativni elementi */}
+        <div style={{
+          position: "absolute",
+          top: -50,
+          right: -50,
+          width: 200,
+          height: 200,
+          borderRadius: "50%",
+          background: "rgba(255, 255, 255, 0.1)",
+          pointerEvents: "none"
+        }} />
+        <div style={{
+          position: "absolute",
+          bottom: -30,
+          left: -30,
+          width: 150,
+          height: 150,
+          borderRadius: "50%",
+          background: "rgba(255, 255, 255, 0.08)",
+          pointerEvents: "none"
+        }} />
+        
         <h1 style={{ 
-          fontSize: 32, 
+          fontSize: "clamp(24px, 4vw, 36px)", 
           fontWeight: 700, 
-          color: "#111827",
-          margin: 0
+          color: "#ffffff",
+          margin: 0,
+          textShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+          letterSpacing: "-0.5px",
+          position: "relative",
+          zIndex: 1
         }}>
           {appName}
         </h1>
+        <div style={{
+          marginTop: "8px",
+          fontSize: "14px",
+          color: "rgba(255, 255, 255, 0.9)",
+          fontWeight: 500,
+          position: "relative",
+          zIndex: 1
+        }}>
+          Radna Površina
+        </div>
       </div>
 
-      <h1 style={{ marginBottom: 30, fontSize: 28, fontWeight: 700, color: "#111827" }}>Radna Površina</h1>
 
       {/* Range za prvi grafikon */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 30, alignItems: "center" }}>
