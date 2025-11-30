@@ -64,7 +64,9 @@ export default function AdminPage() {
   const [activateOnPayment, setActivateOnPayment] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni">("dnevni");
+  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni" | "prilagođeno">("dnevni");
+  const [customFromDate, setCustomFromDate] = useState<string>("");
+  const [customToDate, setCustomToDate] = useState<string>("");
   const [premiumDaysAdjustment, setPremiumDaysAdjustment] = useState(0);
   const [trialDaysAdjustment, setTrialDaysAdjustment] = useState(0);
   const [newSubscriptionStatus, setNewSubscriptionStatus] = useState<"trial" | "premium" | "grace" | "inactive">("premium");
@@ -761,7 +763,7 @@ export default function AdminPage() {
       }))
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
       .map(({ period, zarada }) => ({ period, zarada }));
-  }, [allPayments, revenueFilter]);
+  }, [allPayments, revenueFilter, customFromDate, customToDate]);
 
   // Ukupna zarada za odabrani period
   const totalRevenue = useMemo(() => {
@@ -839,55 +841,107 @@ export default function AdminPage() {
               Ukupna zarada od pretplata korisnika
             </p>
           </div>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button
-              onClick={() => setRevenueFilter("dnevni")}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: "none",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: "pointer",
-                backgroundColor: revenueFilter === "dnevni" ? "#3b82f6" : "#f3f4f6",
-                color: revenueFilter === "dnevni" ? "#fff" : "#374151",
-                transition: "all 0.2s",
-              }}
-            >
-              Dnevni
-            </button>
-            <button
-              onClick={() => setRevenueFilter("tjedni")}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: "none",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: "pointer",
-                backgroundColor: revenueFilter === "tjedni" ? "#3b82f6" : "#f3f4f6",
-                color: revenueFilter === "tjedni" ? "#fff" : "#374151",
-                transition: "all 0.2s",
-              }}
-            >
-              Tjedni
-            </button>
-            <button
-              onClick={() => setRevenueFilter("mjesečni")}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "6px",
-                border: "none",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: "pointer",
-                backgroundColor: revenueFilter === "mjesečni" ? "#3b82f6" : "#f3f4f6",
-                color: revenueFilter === "mjesečni" ? "#fff" : "#374151",
-                transition: "all 0.2s",
-              }}
-            >
-              Mjesečni
-            </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button
+                onClick={() => setRevenueFilter("dnevni")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: revenueFilter === "dnevni" ? "#3b82f6" : "#f3f4f6",
+                  color: revenueFilter === "dnevni" ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                }}
+              >
+                Dnevni
+              </button>
+              <button
+                onClick={() => setRevenueFilter("tjedni")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: revenueFilter === "tjedni" ? "#3b82f6" : "#f3f4f6",
+                  color: revenueFilter === "tjedni" ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                }}
+              >
+                Tjedni
+              </button>
+              <button
+                onClick={() => setRevenueFilter("mjesečni")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: revenueFilter === "mjesečni" ? "#3b82f6" : "#f3f4f6",
+                  color: revenueFilter === "mjesečni" ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                }}
+              >
+                Mjesečni
+              </button>
+              <button
+                onClick={() => setRevenueFilter("prilagođeno")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: revenueFilter === "prilagođeno" ? "#3b82f6" : "#f3f4f6",
+                  color: revenueFilter === "prilagođeno" ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                }}
+              >
+                Prilagođeno
+              </button>
+            </div>
+            {revenueFilter === "prilagođeno" && (
+              <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Od datuma:</label>
+                  <input
+                    type="date"
+                    value={customFromDate}
+                    onChange={(e) => setCustomFromDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      minWidth: "150px",
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Do datuma:</label>
+                  <input
+                    type="date"
+                    value={customToDate}
+                    onChange={(e) => setCustomToDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      minWidth: "150px",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
