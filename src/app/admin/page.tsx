@@ -106,6 +106,42 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, [router]);
 
+  // Ažuriraj state varijable kada se promijeni selectedUserDetails
+  useEffect(() => {
+    if (selectedUserDetails) {
+      // Učitaj podatke iz selectedUserDetails ili iz Firestore
+      const loadUserInfo = async () => {
+        try {
+          const userDoc = await getDoc(doc(db, "users", selectedUserDetails.id));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setImeKorisnika(userData.imeKorisnika || "");
+            setBrojTelefona(userData.brojTelefona || "");
+            setLokacija(userData.lokacija || "");
+          } else {
+            // Ako dokument ne postoji, koristi podatke iz selectedUserDetails
+            setImeKorisnika(selectedUserDetails.imeKorisnika || "");
+            setBrojTelefona(selectedUserDetails.brojTelefona || "");
+            setLokacija(selectedUserDetails.lokacija || "");
+          }
+        } catch (error) {
+          console.error("Greška pri učitavanju podataka korisnika:", error);
+          // Fallback na podatke iz selectedUserDetails
+          setImeKorisnika(selectedUserDetails.imeKorisnika || "");
+          setBrojTelefona(selectedUserDetails.brojTelefona || "");
+          setLokacija(selectedUserDetails.lokacija || "");
+        }
+      };
+      
+      loadUserInfo();
+    } else {
+      // Resetuj state varijable ako nema selectedUserDetails
+      setImeKorisnika("");
+      setBrojTelefona("");
+      setLokacija("");
+    }
+  }, [selectedUserDetails?.id]); // Osiguraj da se pokrene kada se promijeni ID korisnika
+
   // Učitaj sve korisnike
   const loadUsers = async () => {
     try {
@@ -1929,10 +1965,16 @@ export default function AdminPage() {
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => {
-                          setEditingUserInfo(true);
-                        }}
+                        <button
+                          onClick={() => {
+                            // Osiguraj da su state varijable ažurirane sa podacima trenutnog korisnika prije nego što uđemo u edit mode
+                            if (selectedUserDetails) {
+                              setImeKorisnika(selectedUserDetails.imeKorisnika || "");
+                              setBrojTelefona(selectedUserDetails.brojTelefona || "");
+                              setLokacija(selectedUserDetails.lokacija || "");
+                            }
+                            setEditingUserInfo(true);
+                          }}
                         style={{
                           padding: "8px 16px",
                           background: "#3b82f6",
