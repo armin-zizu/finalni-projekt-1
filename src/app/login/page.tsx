@@ -730,6 +730,157 @@ export default function LoginPage() {
         backdropFilter: "blur(10px)"
       }}>
         <style jsx>{`
+          @keyframes gradientShift {
+            0% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
+            100% {
+              background-position: 0% 50%;
+            }
+          }
+          
+          @keyframes float1 {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+              opacity: 0.3;
+            }
+            33% {
+              transform: translate(30px, -30px) scale(1.1);
+              opacity: 0.5;
+            }
+            66% {
+              transform: translate(-20px, 20px) scale(0.9);
+              opacity: 0.4;
+            }
+          }
+          
+          @keyframes float2 {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+              opacity: 0.25;
+            }
+            33% {
+              transform: translate(-40px, 40px) scale(1.2);
+              opacity: 0.45;
+            }
+            66% {
+              transform: translate(30px, -20px) scale(0.8);
+              opacity: 0.35;
+            }
+          }
+          
+          @keyframes float3 {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+              opacity: 0.2;
+            }
+            50% {
+              transform: translate(50px, 50px) scale(1.3);
+              opacity: 0.4;
+            }
+          }
+          
+          @keyframes float4 {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+              opacity: 0.3;
+            }
+            25% {
+              transform: translate(-30px, -50px) scale(1.1);
+              opacity: 0.5;
+            }
+            75% {
+              transform: translate(40px, 30px) scale(0.9);
+              opacity: 0.35;
+            }
+          }
+          
+          @keyframes float5 {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+              opacity: 0.25;
+            }
+            40% {
+              transform: translate(60px, -40px) scale(1.2);
+              opacity: 0.45;
+            }
+            80% {
+              transform: translate(-50px, 60px) scale(0.85);
+              opacity: 0.3;
+            }
+          }
+          
+          @keyframes float6 {
+            0%, 100% {
+              transform: translate(0, 0) scale(1);
+              opacity: 0.2;
+            }
+            30% {
+              transform: translate(-60px, 30px) scale(1.15);
+              opacity: 0.4;
+            }
+            70% {
+              transform: translate(50px, -50px) scale(0.95);
+              opacity: 0.3;
+            }
+          }
+          
+          .floating-orb.orb-1 {
+            width: 300px;
+            height: 300px;
+            top: 10%;
+            left: 10%;
+          }
+          
+          .floating-orb.orb-2 {
+            width: 250px;
+            height: 250px;
+            top: 60%;
+            right: 15%;
+          }
+          
+          .floating-orb.orb-3 {
+            width: 200px;
+            height: 200px;
+            bottom: 20%;
+            left: 20%;
+          }
+          
+          .floating-orb.orb-4 {
+            width: 350px;
+            height: 350px;
+            top: 30%;
+            right: 30%;
+          }
+          
+          .floating-orb.orb-5 {
+            width: 180px;
+            height: 180px;
+            bottom: 40%;
+            right: 10%;
+          }
+          
+          .floating-orb.orb-6 {
+            width: 280px;
+            height: 280px;
+            top: 70%;
+            left: 50%;
+          }
+          
+          @media (max-width: 768px) {
+            .floating-orb {
+              width: 150px !important;
+              height: 150px !important;
+            }
+            .floating-orb.orb-4 {
+              width: 200px !important;
+              height: 200px !important;
+            }
+          }
+          
           @media (max-width: 768px) {
             h1 {
               font-size: 24px;
