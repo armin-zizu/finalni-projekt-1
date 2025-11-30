@@ -649,6 +649,83 @@ export default function CjenovnikPage() {
         </button>
       </div>
 
+      {/* Postavke za malu zalihu */}
+      <div style={{ 
+        marginTop: "32px", 
+        marginBottom: "32px", 
+        padding: "20px", 
+        background: "#f9fafb", 
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb"
+      }}>
+        <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
+          Postavke za malu zalihu
+        </h2>
+        
+        <div style={{ marginBottom: "16px" }}>
+          <label style={{ display: "flex", alignItems: "center", cursor: "pointer", marginBottom: "16px" }}>
+            <input
+              type="checkbox"
+              checked={lowStockEnabled}
+              onChange={(e) => setLowStockEnabled(e.target.checked)}
+              style={{ ...checkboxStyle, cursor: "pointer" }}
+            />
+            <span style={{ fontSize: "14px", color: "#374151" }}>Uključi upozorenje za malu zalihu</span>
+          </label>
+        </div>
+
+        {lowStockEnabled && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "12px", color: "#6b7280", marginBottom: "8px" }}>
+                Prag za žestoka pića (L):
+              </label>
+              <input
+                type="number"
+                value={lowStockThresholdZestoka}
+                onChange={(e) => setLowStockThresholdZestoka(e.target.value)}
+                placeholder="100"
+                min="0"
+                step="0.01"
+                style={formInputStyle}
+              />
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                Upozorenje će se prikazati kada zaliha padne ispod ove vrijednosti
+              </p>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: "12px", color: "#6b7280", marginBottom: "8px" }}>
+                Prag za ostala pića (kom):
+              </label>
+              <input
+                type="number"
+                value={lowStockThresholdOstala}
+                onChange={(e) => setLowStockThresholdOstala(e.target.value)}
+                placeholder="10"
+                min="0"
+                step="1"
+                style={formInputStyle}
+              />
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                Upozorenje će se prikazati kada zaliha padne ispod ove vrijednosti
+              </p>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={saveLowStockSettings}
+          disabled={savingLowStockSettings}
+          style={{
+            ...updateButtonStyle,
+            background: savingLowStockSettings ? "#9ca3af" : "#3b82f6",
+            marginTop: "0",
+          }}
+        >
+          {savingLowStockSettings ? "Spremanje..." : "Sačuvaj postavke"}
+        </button>
+      </div>
+
       {/* Lista artikala */}
       <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px" }}>
         Lista artikala
