@@ -1777,8 +1777,14 @@ export default function AdminPage() {
                           onClick={async () => {
                             if (!selectedUserDetails) return;
                             setSavingUserInfo(true);
+                            
                             try {
                               const userRef = doc(db, "users", selectedUserDetails.id);
+                              
+                              // Provjeri da li dokument postoji
+                              const existingDoc = await getDoc(userRef);
+                              console.log("Dokument postoji:", existingDoc.exists());
+                              console.log("Trenutni podaci:", existingDoc.data());
                               
                               // Pripremi podatke za spremanje
                               const updateData: any = {};
@@ -1798,14 +1804,34 @@ export default function AdminPage() {
                                 updateData.lokacija = null;
                               }
                               
-                              // Spremi u Firestore
-                              await updateDoc(userRef, updateData);
+                              console.log("Podaci za spremanje:", updateData);
+                              
+                              // Koristi setDoc sa merge: true umjesto updateDoc (sigurniji pristup)
+                              await setDoc(userRef, updateData, { merge: true });
+                              console.log("setDoc uspješno izvršen");
+                              
+                              // Sačekaj malo da se podaci propagiraju
+                              await new Promise(resolve => setTimeout(resolve, 500));
                               
                               // Provjeri da li su podaci stvarno spremljeni
                               const savedDoc = await getDoc(userRef);
                               if (savedDoc.exists()) {
                                 const savedData = savedDoc.data();
-                                console.log("Podaci spremljeni u Firestore:", savedData);
+                                console.log("Podaci nakon spremanja:", savedData);
+                                
+                                // Provjeri da li su podaci stvarno spremljeni
+                                const imeSaved = savedData.imeKorisnika === (imeKorisnika.trim() || null);
+                                const telefonSaved = savedData.brojTelefona === (brojTelefona.trim() || null);
+                                const lokacijaSaved = savedData.lokacija === (lokacija.trim() || null);
+                                
+                                console.log("Provjera spremanja:", {
+                                  imeSaved,
+                                  telefonSaved,
+                                  lokacijaSaved,
+                                  imeKorisnika: savedData.imeKorisnika,
+                                  brojTelefona: savedData.brojTelefona,
+                                  lokacija: savedData.lokacija
+                                });
                                 
                                 // Ažuriraj lokalni state korisnika sa stvarnim podacima iz Firestore
                                 const updatedUser = {
@@ -1828,14 +1854,21 @@ export default function AdminPage() {
                                 setImeKorisnika(savedData.imeKorisnika || "");
                                 setBrojTelefona(savedData.brojTelefona || "");
                                 setLokacija(savedData.lokacija || "");
+                                
+                                setEditingUserInfo(false);
+                                setMessage({ type: "success", text: "Podaci uspješno sačuvani" });
+                                setTimeout(() => setMessage(null), 3000);
+                              } else {
+                                throw new Error("Dokument ne postoji nakon spremanja");
                               }
-                              
-                              setEditingUserInfo(false);
-                              setMessage({ type: "success", text: "Podaci uspješno sačuvani" });
-                              setTimeout(() => setMessage(null), 3000);
-                            } catch (error) {
+                            } catch (error: any) {
                               console.error("Greška pri spremanju podataka:", error);
-                              setMessage({ type: "error", text: "Greška pri spremanju podataka: " + (error as Error).message });
+                              console.error("Error code:", error?.code);
+                              console.error("Error message:", error?.message);
+                              setMessage({ 
+                                type: "error", 
+                                text: `Greška pri spremanju podataka: ${error?.message || error?.code || "Nepoznata greška"}` 
+                              });
                               setTimeout(() => setMessage(null), 5000);
                             } finally {
                               setSavingUserInfo(false);
