@@ -998,6 +998,7 @@ export default function Profile() {
                                 setEditingDeviceId(device.id);
                                 setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
                                 setEditingPermissions(device.permissions || {});
+                                setDeviceNames({ ...deviceNames, [device.id]: device.deviceName || "" });
                               }}
                               style={{ ...buttonStyle, fontSize: "12px", padding: "4px 8px" }}
                             >
