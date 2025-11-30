@@ -449,7 +449,7 @@ export default function DashboardPage() {
         @media (max-width: 768px) {
           div[style*='padding: 30px'] { padding: 10px; }
           h1 { font-size: 18px; margin-bottom: 16px !important; }
-          div[style*='fontSize: 32'] { font-size: 24px !important; }
+          div[style*='fontSize: 36'] { font-size: 24px !important; }
           div[style*='fontSize: 28'] { font-size: 20px !important; }
           div[style*='display: flex'] { flex-direction: column; gap: 10px; }
           div[style*='min-width: 160px'] { min-width: 100%; }
@@ -497,7 +497,7 @@ export default function DashboardPage() {
         }} />
         
         <h1 style={{ 
-          fontSize: "clamp(24px, 4vw, 36px)", 
+          fontSize: 36,
           fontWeight: 700, 
           color: "#ffffff",
           margin: 0,
@@ -508,16 +508,6 @@ export default function DashboardPage() {
         }}>
           {appName}
         </h1>
-        <div style={{
-          marginTop: "8px",
-          fontSize: "14px",
-          color: "rgba(255, 255, 255, 0.9)",
-          fontWeight: 500,
-          position: "relative",
-          zIndex: 1
-        }}>
-          Radna Površina
-        </div>
       </div>
 
 
