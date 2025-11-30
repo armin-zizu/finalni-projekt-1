@@ -406,7 +406,7 @@ export default function Profile() {
   // Dodijeli ulogu uređaju
   const handleAssignRole = async (deviceId: string, newRole: UserRole, permissions?: PagePermission) => {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user || !isOwner) return;
 
     try {
       setSavingRole(true);
@@ -439,7 +439,7 @@ export default function Profile() {
   // Odobri novi uređaj
   const handleApproveDevice = async (deviceId: string) => {
     const user = auth.currentUser;
-    if (!user || role !== "vlasnik") return;
+    if (!user || !isOwner) return;
 
     try {
       setSavingRole(true);
@@ -469,7 +469,7 @@ export default function Profile() {
   // Blokiraj/odblokiraj uređaj
   const handleToggleBlockDevice = async (deviceId: string, currentBlocked: boolean) => {
     const user = auth.currentUser;
-    if (!user || role !== "vlasnik") return;
+    if (!user || !isOwner) return;
 
     try {
       setSavingRole(true);
@@ -499,7 +499,7 @@ export default function Profile() {
   // Izbriši uređaj (login)
   const handleDeleteDevice = async (deviceId: string) => {
     const user = auth.currentUser;
-    if (!user || role !== "vlasnik") return;
+    if (!user || !isOwner) return;
 
     if (!window.confirm("Jeste li sigurni da želite izbrisati ovaj login? Korisnik će morati ponovo zatražiti pristup.")) {
       return;
