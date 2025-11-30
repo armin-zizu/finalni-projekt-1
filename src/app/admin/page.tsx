@@ -1667,9 +1667,21 @@ export default function AdminPage() {
                     </div>
                     
                     {/* Dodatna polja za editovanje */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
-                      <div>
-                        <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px", display: "block" }}>
+                    <div style={{ 
+                      display: "grid", 
+                      gridTemplateColumns: "1fr 1fr", 
+                      gap: editingUserInfo ? "20px" : "12px", 
+                      marginBottom: "16px",
+                      padding: editingUserInfo ? "12px" : "0",
+                      background: editingUserInfo ? "#ffffff" : "transparent",
+                      borderRadius: editingUserInfo ? "8px" : "0",
+                      border: editingUserInfo ? "1px solid #e5e7eb" : "none",
+                    }}>
+                      <div style={{ 
+                        padding: editingUserInfo ? "8px" : "0",
+                        marginBottom: editingUserInfo ? "8px" : "0",
+                      }}>
+                        <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "8px", display: "block" }}>
                           Ime korisnika:
                         </label>
                         {editingUserInfo ? (
@@ -1680,11 +1692,12 @@ export default function AdminPage() {
                             placeholder="Unesite ime korisnika"
                             style={{
                               width: "100%",
-                              padding: "8px 12px",
+                              padding: "10px 14px",
                               border: "1px solid #d1d5db",
                               borderRadius: "6px",
                               fontSize: "14px",
                               color: "#1f2937",
+                              boxSizing: "border-box",
                             }}
                           />
                         ) : (
@@ -1693,8 +1706,11 @@ export default function AdminPage() {
                           </p>
                         )}
                       </div>
-                      <div>
-                        <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px", display: "block" }}>
+                      <div style={{ 
+                        padding: editingUserInfo ? "8px" : "0",
+                        marginBottom: editingUserInfo ? "8px" : "0",
+                      }}>
+                        <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "8px", display: "block" }}>
                           Broj telefona:
                         </label>
                         {editingUserInfo ? (
@@ -1705,11 +1721,12 @@ export default function AdminPage() {
                             placeholder="Unesite broj telefona"
                             style={{
                               width: "100%",
-                              padding: "8px 12px",
+                              padding: "10px 14px",
                               border: "1px solid #d1d5db",
                               borderRadius: "6px",
                               fontSize: "14px",
                               color: "#1f2937",
+                              boxSizing: "border-box",
                             }}
                           />
                         ) : (
