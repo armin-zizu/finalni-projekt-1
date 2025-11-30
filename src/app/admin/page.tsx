@@ -19,6 +19,7 @@ interface User {
   lastSignIn: Date | null;
   imeKorisnika?: string;
   brojTelefona?: string;
+  lokacija?: string;
 }
 
 interface Subscription {
@@ -74,6 +75,7 @@ export default function AdminPage() {
   const [newSubscriptionStatus, setNewSubscriptionStatus] = useState<"trial" | "premium" | "grace" | "inactive">("premium");
   const [imeKorisnika, setImeKorisnika] = useState("");
   const [brojTelefona, setBrojTelefona] = useState("");
+  const [lokacija, setLokacija] = useState("");
   const [savingUserInfo, setSavingUserInfo] = useState(false);
   const [editingUserInfo, setEditingUserInfo] = useState(false);
 
@@ -278,6 +280,7 @@ export default function AdminPage() {
             lastSignIn: userData.lastSignIn?.toDate?.() || (userData.lastSignIn ? new Date(userData.lastSignIn) : null),
             imeKorisnika: userData.imeKorisnika || undefined,
             brojTelefona: userData.brojTelefona || undefined,
+            lokacija: userData.lokacija || undefined,
           });
 
           subscriptionsMap[userId] = subscription;
@@ -1173,9 +1176,10 @@ export default function AdminPage() {
                           setPremiumDaysAdjustment(0);
                           setTrialDaysAdjustment(0);
                           
-                          // Učitaj dodatne podatke korisnika (ime i telefon)
+                          // Učitaj dodatne podatke korisnika (ime, telefon i lokacija)
                           setImeKorisnika(user.imeKorisnika || "");
                           setBrojTelefona(user.brojTelefona || "");
+                          setLokacija(user.lokacija || "");
                           setEditingUserInfo(false);
                           setShowDetailsModal(true);
                         }}
@@ -1669,7 +1673,7 @@ export default function AdminPage() {
                     {/* Dodatna polja za editovanje */}
                     <div style={{ 
                       display: "grid", 
-                      gridTemplateColumns: "1fr 1fr", 
+                      gridTemplateColumns: "1fr 1fr 1fr", 
                       gap: editingUserInfo ? "20px" : "12px", 
                       marginBottom: "16px",
                       padding: editingUserInfo ? "12px" : "0",
@@ -1735,6 +1739,35 @@ export default function AdminPage() {
                           </p>
                         )}
                       </div>
+                      <div style={{ 
+                        padding: editingUserInfo ? "8px" : "0",
+                        marginBottom: editingUserInfo ? "8px" : "0",
+                      }}>
+                        <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "8px", display: "block" }}>
+                          Lokacija:
+                        </label>
+                        {editingUserInfo ? (
+                          <input
+                            type="text"
+                            value={lokacija}
+                            onChange={(e) => setLokacija(e.target.value)}
+                            placeholder="Unesite lokaciju"
+                            style={{
+                              width: "100%",
+                              padding: "10px 14px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "6px",
+                              fontSize: "14px",
+                              color: "#1f2937",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                        ) : (
+                          <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", margin: 0, padding: "8px 0" }}>
+                            {lokacija || "Nije uneseno"}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Dugme za editovanje/spremanje */}
@@ -1750,6 +1783,7 @@ export default function AdminPage() {
                                 {
                                   imeKorisnika: imeKorisnika || null,
                                   brojTelefona: brojTelefona || null,
+                                  lokacija: lokacija || null,
                                 },
                                 { merge: true }
                               );
@@ -1758,7 +1792,7 @@ export default function AdminPage() {
                               setUsers((prevUsers) =>
                                 prevUsers.map((user) =>
                                   user.id === selectedUserDetails.id
-                                    ? { ...user, imeKorisnika: imeKorisnika || undefined, brojTelefona: brojTelefona || undefined }
+                                    ? { ...user, imeKorisnika: imeKorisnika || undefined, brojTelefona: brojTelefona || undefined, lokacija: lokacija || undefined }
                                     : user
                                 )
                               );
@@ -1768,6 +1802,7 @@ export default function AdminPage() {
                                 ...selectedUserDetails,
                                 imeKorisnika: imeKorisnika || undefined,
                                 brojTelefona: brojTelefona || undefined,
+                                lokacija: lokacija || undefined,
                               });
                               
                               setEditingUserInfo(false);
@@ -1800,6 +1835,7 @@ export default function AdminPage() {
                             // Vrati na originalne vrijednosti
                             setImeKorisnika(selectedUserDetails?.imeKorisnika || "");
                             setBrojTelefona(selectedUserDetails?.brojTelefona || "");
+                            setLokacija(selectedUserDetails?.lokacija || "");
                             setEditingUserInfo(false);
                           }}
                           disabled={savingUserInfo}
