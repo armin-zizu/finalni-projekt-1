@@ -17,6 +17,8 @@ interface User {
   appName: string;
   createdAt: Date | null;
   lastSignIn: Date | null;
+  imeKorisnika?: string;
+  brojTelefona?: string;
 }
 
 interface Subscription {
@@ -70,6 +72,9 @@ export default function AdminPage() {
   const [premiumDaysAdjustment, setPremiumDaysAdjustment] = useState(0);
   const [trialDaysAdjustment, setTrialDaysAdjustment] = useState(0);
   const [newSubscriptionStatus, setNewSubscriptionStatus] = useState<"trial" | "premium" | "grace" | "inactive">("premium");
+  const [imeKorisnika, setImeKorisnika] = useState("");
+  const [brojTelefona, setBrojTelefona] = useState("");
+  const [savingUserInfo, setSavingUserInfo] = useState(false);
 
   // Provjeri da li je korisnik admin
   useEffect(() => {
@@ -1149,7 +1154,7 @@ export default function AdminPage() {
                         {saving ? "Odbijanje..." : "Odbij uplatu"}
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           setSelectedUserDetails(user);
                           const sub = subscriptions[user.id];
                           // Postavi početni status na osnovu trenutnog statusa
@@ -1164,6 +1169,24 @@ export default function AdminPage() {
                           }
                           setPremiumDaysAdjustment(0);
                           setTrialDaysAdjustment(0);
+                          
+                          // Učitaj dodatne podatke korisnika (ime i telefon)
+                          try {
+                            const userDoc = await getDoc(doc(db, "users", user.id));
+                            if (userDoc.exists()) {
+                              const userData = userDoc.data();
+                              setImeKorisnika(userData.imeKorisnika || "");
+                              setBrojTelefona(userData.brojTelefona || "");
+                            } else {
+                              setImeKorisnika("");
+                              setBrojTelefona("");
+                            }
+                          } catch (error) {
+                            console.error("Greška pri učitavanju podataka korisnika:", error);
+                            setImeKorisnika("");
+                            setBrojTelefona("");
+                          }
+                          
                           setShowDetailsModal(true);
                         }}
                         style={{
@@ -1619,7 +1642,7 @@ export default function AdminPage() {
                     <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
                       Osnovne Informacije
                     </h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
                       <div>
                         <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Email:</p>
                         <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
@@ -1652,6 +1675,87 @@ export default function AdminPage() {
                         </p>
                       </div>
                     </div>
+                    
+                    {/* Dodatna polja za editovanje */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                      <div>
+                        <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px", display: "block" }}>
+                          Ime korisnika:
+                        </label>
+                        <input
+                          type="text"
+                          value={imeKorisnika}
+                          onChange={(e) => setImeKorisnika(e.target.value)}
+                          placeholder="Unesite ime korisnika"
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            color: "#1f2937",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px", display: "block" }}>
+                          Broj telefona:
+                        </label>
+                        <input
+                          type="tel"
+                          value={brojTelefona}
+                          onChange={(e) => setBrojTelefona(e.target.value)}
+                          placeholder="Unesite broj telefona"
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            color: "#1f2937",
+                          }}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Dugme za spremanje */}
+                    <button
+                      onClick={async () => {
+                        if (!selectedUserDetails) return;
+                        setSavingUserInfo(true);
+                        try {
+                          await setDoc(
+                            doc(db, "users", selectedUserDetails.id),
+                            {
+                              imeKorisnika: imeKorisnika || null,
+                              brojTelefona: brojTelefona || null,
+                            },
+                            { merge: true }
+                          );
+                          setMessage({ type: "success", text: "Podaci uspješno sačuvani" });
+                          setTimeout(() => setMessage(null), 3000);
+                        } catch (error) {
+                          console.error("Greška pri spremanju podataka:", error);
+                          setMessage({ type: "error", text: "Greška pri spremanju podataka" });
+                          setTimeout(() => setMessage(null), 3000);
+                        } finally {
+                          setSavingUserInfo(false);
+                        }
+                      }}
+                      disabled={savingUserInfo}
+                      style={{
+                        padding: "8px 16px",
+                        background: savingUserInfo ? "#9ca3af" : "#10b981",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: savingUserInfo ? "not-allowed" : "pointer",
+                        fontSize: "14px",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {savingUserInfo ? "Spremanje..." : "Sačuvaj podatke"}
+                    </button>
                   </div>
 
                   {/* Status pretplate */}
