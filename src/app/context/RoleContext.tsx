@@ -247,16 +247,24 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         let status = data.status || (deviceRole === null ? "verifikacija" : "approved");
         let needsVerification = status === "verifikacija";
         
+        console.log("RoleContext - Device dokument postoji:", {
+          deviceId: currentDeviceId,
+          status: status,
+          isBlocked: isBlocked,
+          needsVerification: needsVerification,
+          role: deviceRole
+        });
+        
         // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski postavi kao vlasnik
-        const os = info.os || (navigator.userAgent.includes("Windows")
+        const os = info.os || (typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
           ? "Windows"
-          : navigator.userAgent.includes("Mac")
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
           ? "macOS"
-          : navigator.userAgent.includes("Linux")
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
           ? "Linux"
-          : navigator.userAgent.includes("Android")
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
           ? "Android"
-          : navigator.userAgent.includes("iOS")
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
           ? "iOS"
           : "Unknown");
         
@@ -298,7 +306,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             { merge: true }
           );
         } else {
-          // Ažuriraj informacije o uređaju
+          // Ažuriraj informacije o uređaju (ali ne mijenjaj status ako je već postavljen)
           await setDoc(
             deviceRef,
             {
@@ -314,6 +322,20 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             },
             { merge: true }
           );
+          
+          // Ponovo pročitaj status nakon ažuriranja (možda je vlasnik odobrio uređaj)
+          const updatedDeviceDoc = await getDoc(deviceRef);
+          if (updatedDeviceDoc.exists()) {
+            const updatedData = updatedDeviceDoc.data();
+            status = updatedData.status || status;
+            needsVerification = status === "verifikacija";
+            deviceRole = updatedData.role || deviceRole;
+            console.log("RoleContext - Status nakon osvježavanja:", {
+              status: status,
+              needsVerification: needsVerification,
+              role: deviceRole
+            });
+          }
         }
         
         // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
@@ -321,7 +343,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           // Blokiraj pristup ako je uređaj blokiran ili zahtijeva verifikaciju (osim ako je vlasnik)
           setRole(null);
           setPermissions(null);
-          console.log("RoleContext - Uređaj blokiran ili zahtijeva verifikaciju:", { isBlocked, needsVerification });
+          console.log("RoleContext - Uređaj blokiran ili zahtijeva verifikaciju:", { isBlocked, needsVerification, status });
         } else {
           setRole(deviceRole);
           setPermissions(data.permissions || (deviceRole === "vlasnik" ? {
@@ -333,7 +355,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             profile: true,
             admin: false,
           } : null));
-          console.log("RoleContext - Uređaj postoji, uloga:", deviceRole, "dozvole:", data.permissions);
+          console.log("RoleContext - Uređaj odobren, uloga:", deviceRole, "status:", status);
         }
       } else {
         // Novi uređaj - provjeri da li je ovo prvi uređaj za ovog korisnika
