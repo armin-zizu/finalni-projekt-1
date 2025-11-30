@@ -525,7 +525,10 @@ export default function Profile() {
   useEffect(() => {
     const checkOwner = async () => {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        setIsOwner(false);
+        return;
+      }
       
       try {
         // Provjeri email direktno
@@ -537,14 +540,20 @@ export default function Profile() {
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
-          setIsOwner(userDoc.data().isOwner === true);
+          const userData = userDoc.data();
+          const isOwnerValue = userData.isOwner === true;
+          setIsOwner(isOwnerValue);
+          console.log("Profile - Provjera vlasnika:", { email: user.email, isOwner: isOwnerValue, role: role });
+        } else {
+          setIsOwner(false);
         }
       } catch (error) {
         console.error("Greška pri provjeri vlasnika:", error);
+        setIsOwner(false);
       }
     };
     checkOwner();
-  }, []);
+  }, [role]);
 
   // Učitaj zahtjeve za odobrenje (samo za vlasnika)
   const loadLoginApprovals = async () => {
