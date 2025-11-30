@@ -672,10 +672,10 @@ export default function Profile() {
 
   // Učitaj uređaje kada je korisnik vlasnik
   useEffect(() => {
-    if (role === "vlasnik" || isOwner) {
+    if (isOwner) {
       loadDevices();
     }
-  }, [role, isOwner]);
+  }, [isOwner]);
 
 
   const handleDeleteSession = (id: string) => {
