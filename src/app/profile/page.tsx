@@ -132,46 +132,45 @@ export default function Profile() {
   // Dohvati IP adresu, lokaciju i trenutnog korisnika
   useEffect(() => {
     const fetchIPAndLocation = async () => {
+      let ipInfo = {
+        ip: "N/A",
+        location: "Nepoznata lokacija",
+        isp: "N/A"
+      };
+      
       try {
         // Pokušaj dobiti IP i lokaciju iz ip-api.com (besplatno, bez API ključa)
         const response = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
-        const data = await response.json();
-        
-        if (data.status === "success") {
-          return {
-            ip: data.query,
-            location: `${data.city || ""}, ${data.regionName || ""}, ${data.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim() || "Nepoznata lokacija",
-            isp: data.isp || "N/A"
-          };
-        } else {
-          // Fallback na ipify ako ip-api ne radi
-          const ipResponse = await fetch("https://api.ipify.org?format=json");
-          const ipData = await ipResponse.json();
-          return {
-            ip: ipData.ip,
-            location: "Nepoznata lokacija",
-            isp: "N/A"
-          };
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === "success") {
+            return {
+              ip: data.query,
+              location: `${data.city || ""}, ${data.regionName || ""}, ${data.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim() || "Nepoznata lokacija",
+              isp: data.isp || "N/A"
+            };
+          }
         }
       } catch (error) {
-        console.error("Greška pri dohvaćanju IP adrese i lokacije:", error);
-        // Fallback na ipify
-        try {
-          const ipResponse = await fetch("https://api.ipify.org?format=json");
+        // Ignoriraj grešku sa ip-api.com
+      }
+      
+      // Fallback na ipify ako ip-api ne radi
+      try {
+        const ipResponse = await fetch("https://api.ipify.org?format=json");
+        if (ipResponse.ok) {
           const ipData = await ipResponse.json();
           return {
-            ip: ipData.ip,
-            location: "Nepoznata lokacija",
-            isp: "N/A"
-          };
-        } catch (fallbackError) {
-          return {
-            ip: "N/A",
+            ip: ipData.ip || "N/A",
             location: "Nepoznata lokacija",
             isp: "N/A"
           };
         }
+      } catch (fallbackError) {
+        // Ignoriraj grešku sa ipify
       }
+      
+      return ipInfo;
     };
 
     const user = auth.currentUser;

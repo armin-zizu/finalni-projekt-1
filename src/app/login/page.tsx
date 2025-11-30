@@ -461,26 +461,39 @@ export default function LoginPage() {
 
       // Dohvati IP adresu i lokaciju pri login-u
       try {
-        const ipResponse = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
-        const ipData = await ipResponse.json();
-        
         let ipInfo = {
           ip: "N/A",
           location: "Nepoznata lokacija",
           isp: "N/A"
         };
         
-        if (ipData.status === "success") {
-          ipInfo = {
-            ip: ipData.query,
-            location: `${ipData.city || ""}, ${ipData.regionName || ""}, ${ipData.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim() || "Nepoznata lokacija",
-            isp: ipData.isp || "N/A"
-          };
-        } else {
-          // Fallback na ipify
-          const fallbackResponse = await fetch("https://api.ipify.org?format=json");
-          const fallbackData = await fallbackResponse.json();
-          ipInfo.ip = fallbackData.ip;
+        try {
+          const ipResponse = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
+          if (ipResponse.ok) {
+            const ipData = await ipResponse.json();
+            if (ipData.status === "success") {
+              ipInfo = {
+                ip: ipData.query,
+                location: `${ipData.city || ""}, ${ipData.regionName || ""}, ${ipData.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim() || "Nepoznata lokacija",
+                isp: ipData.isp || "N/A"
+              };
+            }
+          }
+        } catch (ipApiError) {
+          // Ignoriraj grešku sa ip-api.com
+        }
+        
+        // Fallback na ipify ako ip-api ne radi ili nije uspio
+        if (ipInfo.ip === "N/A") {
+          try {
+            const fallbackResponse = await fetch("https://api.ipify.org?format=json");
+            if (fallbackResponse.ok) {
+              const fallbackData = await fallbackResponse.json();
+              ipInfo.ip = fallbackData.ip || "N/A";
+            }
+          } catch (fallbackError) {
+            // Ignoriraj grešku sa ipify
+          }
         }
         
         // Spremi IP info u localStorage za kasnije korištenje
@@ -582,26 +595,39 @@ export default function LoginPage() {
 
       // Dohvati IP adresu i lokaciju pri registraciji
       try {
-        const ipResponse = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
-        const ipData = await ipResponse.json();
-        
         let ipInfo = {
           ip: "N/A",
           location: "Nepoznata lokacija",
           isp: "N/A"
         };
         
-        if (ipData.status === "success") {
-          ipInfo = {
-            ip: ipData.query,
-            location: `${ipData.city || ""}, ${ipData.regionName || ""}, ${ipData.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim() || "Nepoznata lokacija",
-            isp: ipData.isp || "N/A"
-          };
-        } else {
-          // Fallback na ipify
-          const fallbackResponse = await fetch("https://api.ipify.org?format=json");
-          const fallbackData = await fallbackResponse.json();
-          ipInfo.ip = fallbackData.ip;
+        try {
+          const ipResponse = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
+          if (ipResponse.ok) {
+            const ipData = await ipResponse.json();
+            if (ipData.status === "success") {
+              ipInfo = {
+                ip: ipData.query,
+                location: `${ipData.city || ""}, ${ipData.regionName || ""}, ${ipData.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim() || "Nepoznata lokacija",
+                isp: ipData.isp || "N/A"
+              };
+            }
+          }
+        } catch (ipApiError) {
+          // Ignoriraj grešku sa ip-api.com
+        }
+        
+        // Fallback na ipify ako ip-api ne radi ili nije uspio
+        if (ipInfo.ip === "N/A") {
+          try {
+            const fallbackResponse = await fetch("https://api.ipify.org?format=json");
+            if (fallbackResponse.ok) {
+              const fallbackData = await fallbackResponse.json();
+              ipInfo.ip = fallbackData.ip || "N/A";
+            }
+          } catch (fallbackError) {
+            // Ignoriraj grešku sa ipify
+          }
         }
         
         // Spremi IP info u localStorage za kasnije korištenje
@@ -919,12 +945,9 @@ export default function LoginPage() {
             }
           }
         `}</style>
-        <h1 style={{ marginBottom: "8px", fontSize: "32px", fontWeight: 700, color: "#1f2937", letterSpacing: "-0.5px" }}>
-          Knjiga Obračuna
-        </h1>
-        <p style={{ marginBottom: "32px", fontSize: "16px", color: "#6b7280", fontWeight: 400 }}>
+        <h1 style={{ marginBottom: "32px", fontSize: "28px", fontWeight: 600, color: "#1f2937" }}>
           {loginMethod === "register" ? "Registracija" : loginMethod === "forgot" ? "Reset lozinke" : "Prijava"}
-        </p>
+        </h1>
         {error && (
           <div style={{ 
             color: "#dc2626", 
