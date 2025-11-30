@@ -1176,10 +1176,27 @@ export default function AdminPage() {
                           setPremiumDaysAdjustment(0);
                           setTrialDaysAdjustment(0);
                           
-                          // Učitaj dodatne podatke korisnika (ime, telefon i lokacija)
-                          setImeKorisnika(user.imeKorisnika || "");
-                          setBrojTelefona(user.brojTelefona || "");
-                          setLokacija(user.lokacija || "");
+                          // Učitaj dodatne podatke korisnika (ime, telefon i lokacija) direktno iz Firestore
+                          try {
+                            const userDoc = await getDoc(doc(db, "users", user.id));
+                            if (userDoc.exists()) {
+                              const userData = userDoc.data();
+                              setImeKorisnika(userData.imeKorisnika || "");
+                              setBrojTelefona(userData.brojTelefona || "");
+                              setLokacija(userData.lokacija || "");
+                            } else {
+                              // Ako dokument ne postoji, koristi podatke iz user objekta
+                              setImeKorisnika(user.imeKorisnika || "");
+                              setBrojTelefona(user.brojTelefona || "");
+                              setLokacija(user.lokacija || "");
+                            }
+                          } catch (error) {
+                            console.error("Greška pri učitavanju podataka korisnika:", error);
+                            // Fallback na podatke iz user objekta
+                            setImeKorisnika(user.imeKorisnika || "");
+                            setBrojTelefona(user.brojTelefona || "");
+                            setLokacija(user.lokacija || "");
+                          }
                           setEditingUserInfo(false);
                           setShowDetailsModal(true);
                         }}
@@ -1706,7 +1723,7 @@ export default function AdminPage() {
                           />
                         ) : (
                           <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", margin: 0, padding: "8px 0" }}>
-                            {imeKorisnika || "Nije uneseno"}
+                            {selectedUserDetails?.imeKorisnika || imeKorisnika || "Nije uneseno"}
                           </p>
                         )}
                       </div>
@@ -1735,7 +1752,7 @@ export default function AdminPage() {
                           />
                         ) : (
                           <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", margin: 0, padding: "8px 0" }}>
-                            {brojTelefona || "Nije uneseno"}
+                            {selectedUserDetails?.brojTelefona || brojTelefona || "Nije uneseno"}
                           </p>
                         )}
                       </div>
@@ -1764,7 +1781,7 @@ export default function AdminPage() {
                           />
                         ) : (
                           <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", margin: 0, padding: "8px 0" }}>
-                            {lokacija || "Nije uneseno"}
+                            {selectedUserDetails?.lokacija || lokacija || "Nije uneseno"}
                           </p>
                         )}
                       </div>
