@@ -75,6 +75,7 @@ export default function AdminPage() {
   const [imeKorisnika, setImeKorisnika] = useState("");
   const [brojTelefona, setBrojTelefona] = useState("");
   const [savingUserInfo, setSavingUserInfo] = useState(false);
+  const [editingUserInfo, setEditingUserInfo] = useState(false);
 
   // Provjeri da li je korisnik admin
   useEffect(() => {
@@ -275,6 +276,8 @@ export default function AdminPage() {
             appName: userData.appName || "N/A",
             createdAt: userData.createdAt?.toDate?.() || (userData.createdAt ? new Date(userData.createdAt) : null),
             lastSignIn: userData.lastSignIn?.toDate?.() || (userData.lastSignIn ? new Date(userData.lastSignIn) : null),
+            imeKorisnika: userData.imeKorisnika || undefined,
+            brojTelefona: userData.brojTelefona || undefined,
           });
 
           subscriptionsMap[userId] = subscription;
@@ -1171,22 +1174,9 @@ export default function AdminPage() {
                           setTrialDaysAdjustment(0);
                           
                           // Učitaj dodatne podatke korisnika (ime i telefon)
-                          try {
-                            const userDoc = await getDoc(doc(db, "users", user.id));
-                            if (userDoc.exists()) {
-                              const userData = userDoc.data();
-                              setImeKorisnika(userData.imeKorisnika || "");
-                              setBrojTelefona(userData.brojTelefona || "");
-                            } else {
-                              setImeKorisnika("");
-                              setBrojTelefona("");
-                            }
-                          } catch (error) {
-                            console.error("Greška pri učitavanju podataka korisnika:", error);
-                            setImeKorisnika("");
-                            setBrojTelefona("");
-                          }
-                          
+                          setImeKorisnika(user.imeKorisnika || "");
+                          setBrojTelefona(user.brojTelefona || "");
+                          setEditingUserInfo(false);
                           setShowDetailsModal(true);
                         }}
                         style={{
@@ -1682,80 +1672,153 @@ export default function AdminPage() {
                         <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px", display: "block" }}>
                           Ime korisnika:
                         </label>
-                        <input
-                          type="text"
-                          value={imeKorisnika}
-                          onChange={(e) => setImeKorisnika(e.target.value)}
-                          placeholder="Unesite ime korisnika"
-                          style={{
-                            width: "100%",
-                            padding: "8px 12px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "6px",
-                            fontSize: "14px",
-                            color: "#1f2937",
-                          }}
-                        />
+                        {editingUserInfo ? (
+                          <input
+                            type="text"
+                            value={imeKorisnika}
+                            onChange={(e) => setImeKorisnika(e.target.value)}
+                            placeholder="Unesite ime korisnika"
+                            style={{
+                              width: "100%",
+                              padding: "8px 12px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "6px",
+                              fontSize: "14px",
+                              color: "#1f2937",
+                            }}
+                          />
+                        ) : (
+                          <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", margin: 0, padding: "8px 0" }}>
+                            {imeKorisnika || "Nije uneseno"}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px", display: "block" }}>
                           Broj telefona:
                         </label>
-                        <input
-                          type="tel"
-                          value={brojTelefona}
-                          onChange={(e) => setBrojTelefona(e.target.value)}
-                          placeholder="Unesite broj telefona"
-                          style={{
-                            width: "100%",
-                            padding: "8px 12px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "6px",
-                            fontSize: "14px",
-                            color: "#1f2937",
-                          }}
-                        />
+                        {editingUserInfo ? (
+                          <input
+                            type="tel"
+                            value={brojTelefona}
+                            onChange={(e) => setBrojTelefona(e.target.value)}
+                            placeholder="Unesite broj telefona"
+                            style={{
+                              width: "100%",
+                              padding: "8px 12px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "6px",
+                              fontSize: "14px",
+                              color: "#1f2937",
+                            }}
+                          />
+                        ) : (
+                          <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937", margin: 0, padding: "8px 0" }}>
+                            {brojTelefona || "Nije uneseno"}
+                          </p>
+                        )}
                       </div>
                     </div>
                     
-                    {/* Dugme za spremanje */}
-                    <button
-                      onClick={async () => {
-                        if (!selectedUserDetails) return;
-                        setSavingUserInfo(true);
-                        try {
-                          await setDoc(
-                            doc(db, "users", selectedUserDetails.id),
-                            {
-                              imeKorisnika: imeKorisnika || null,
-                              brojTelefona: brojTelefona || null,
-                            },
-                            { merge: true }
-                          );
-                          setMessage({ type: "success", text: "Podaci uspješno sačuvani" });
-                          setTimeout(() => setMessage(null), 3000);
-                        } catch (error) {
-                          console.error("Greška pri spremanju podataka:", error);
-                          setMessage({ type: "error", text: "Greška pri spremanju podataka" });
-                          setTimeout(() => setMessage(null), 3000);
-                        } finally {
-                          setSavingUserInfo(false);
-                        }
-                      }}
-                      disabled={savingUserInfo}
-                      style={{
-                        padding: "8px 16px",
-                        background: savingUserInfo ? "#9ca3af" : "#10b981",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: savingUserInfo ? "not-allowed" : "pointer",
-                        fontSize: "14px",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {savingUserInfo ? "Spremanje..." : "Sačuvaj podatke"}
-                    </button>
+                    {/* Dugme za editovanje/spremanje */}
+                    {editingUserInfo ? (
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          onClick={async () => {
+                            if (!selectedUserDetails) return;
+                            setSavingUserInfo(true);
+                            try {
+                              await setDoc(
+                                doc(db, "users", selectedUserDetails.id),
+                                {
+                                  imeKorisnika: imeKorisnika || null,
+                                  brojTelefona: brojTelefona || null,
+                                },
+                                { merge: true }
+                              );
+                              
+                              // Ažuriraj lokalni state korisnika
+                              setUsers((prevUsers) =>
+                                prevUsers.map((user) =>
+                                  user.id === selectedUserDetails.id
+                                    ? { ...user, imeKorisnika: imeKorisnika || undefined, brojTelefona: brojTelefona || undefined }
+                                    : user
+                                )
+                              );
+                              
+                              // Ažuriraj selectedUserDetails
+                              setSelectedUserDetails({
+                                ...selectedUserDetails,
+                                imeKorisnika: imeKorisnika || undefined,
+                                brojTelefona: brojTelefona || undefined,
+                              });
+                              
+                              setEditingUserInfo(false);
+                              setMessage({ type: "success", text: "Podaci uspješno sačuvani" });
+                              setTimeout(() => setMessage(null), 3000);
+                            } catch (error) {
+                              console.error("Greška pri spremanju podataka:", error);
+                              setMessage({ type: "error", text: "Greška pri spremanju podataka" });
+                              setTimeout(() => setMessage(null), 3000);
+                            } finally {
+                              setSavingUserInfo(false);
+                            }
+                          }}
+                          disabled={savingUserInfo}
+                          style={{
+                            padding: "8px 16px",
+                            background: savingUserInfo ? "#9ca3af" : "#10b981",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: savingUserInfo ? "not-allowed" : "pointer",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {savingUserInfo ? "Spremanje..." : "Sačuvaj"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Vrati na originalne vrijednosti
+                            setImeKorisnika(selectedUserDetails?.imeKorisnika || "");
+                            setBrojTelefona(selectedUserDetails?.brojTelefona || "");
+                            setEditingUserInfo(false);
+                          }}
+                          disabled={savingUserInfo}
+                          style={{
+                            padding: "8px 16px",
+                            background: "#6b7280",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: savingUserInfo ? "not-allowed" : "pointer",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          Otkaži
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setEditingUserInfo(true);
+                        }}
+                        style={{
+                          padding: "8px 16px",
+                          background: "#3b82f6",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Uredi
+                      </button>
+                    )}
                   </div>
 
                   {/* Status pretplate */}
