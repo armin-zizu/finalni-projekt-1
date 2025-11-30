@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { auth, db } from "../../lib/firebase"; // Ispravljena putanja do lib/firebase.ts (ako je u src/app/lib)
-import { doc, setDoc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, getDoc, onSnapshot, Timestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
 interface AppNameContextType {
@@ -32,16 +32,23 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
         
         // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
         let firestoreAppName: string | null = null;
+        let firestoreUpdatedAt: number | null = null;
         try {
           const userDocRef = doc(db, "users", userId);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             const data = userDoc.data();
             firestoreAppName = data.appName || null;
+            if (data.appNameUpdatedAt) {
+              firestoreUpdatedAt = data.appNameUpdatedAt.toMillis ? data.appNameUpdatedAt.toMillis() : null;
+            }
             if (firestoreAppName) {
               setAppName(firestoreAppName);
               // Spremi u localStorage kao cache
               localStorage.setItem(storageKey, firestoreAppName);
+              if (firestoreUpdatedAt) {
+                localStorage.setItem(`${storageKey}_updatedAt`, firestoreUpdatedAt.toString());
+              }
               console.log("AppName učitano iz Firestore:", firestoreAppName);
             }
           }
@@ -52,17 +59,38 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
-        // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup) - samo ako Firestore nema
+        // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup) - samo ako Firestore nema ili je stariji
         if (!firestoreAppName) {
-          const localAppName = localStorage.getItem(storageKey) || localStorage.getItem("appName"); // Fallback na stari ključ
+          const localAppName = localStorage.getItem(storageKey) || localStorage.getItem("appName");
+          const localUpdatedAt = localStorage.getItem(`${storageKey}_updatedAt`);
+          
           if (localAppName) {
-            setAppName(localAppName);
-            // Spremi u Firestore ako postoji u localStorage
-            try {
-              const userDocRef = doc(db, "users", userId);
-              await setDoc(userDocRef, { appName: localAppName }, { merge: true });
-            } catch (error: any) {
-              // Ignoriraj greške
+            // Ako Firestore nema ime, koristi localStorage i spremi u Firestore
+            if (!firestoreAppName) {
+              setAppName(localAppName);
+              try {
+                const userDocRef = doc(db, "users", userId);
+                await setDoc(
+                  userDocRef, 
+                  { 
+                    appName: localAppName,
+                    appNameUpdatedAt: localUpdatedAt ? Timestamp.fromMillis(parseInt(localUpdatedAt)) : Timestamp.fromDate(new Date())
+                  }, 
+                  { merge: true }
+                );
+              } catch (error: any) {
+                // Ignoriraj greške
+              }
+            }
+          }
+        } else {
+          // Ako Firestore ima ime, provjeri da li je localStorage stariji i ažuriraj ga
+          const localUpdatedAt = localStorage.getItem(`${storageKey}_updatedAt`);
+          if (!localUpdatedAt || (firestoreUpdatedAt && parseInt(localUpdatedAt) < firestoreUpdatedAt)) {
+            // Firestore ima novije ime, ažuriraj localStorage
+            localStorage.setItem(storageKey, firestoreAppName);
+            if (firestoreUpdatedAt) {
+              localStorage.setItem(`${storageKey}_updatedAt`, firestoreUpdatedAt.toString());
             }
           }
         }
@@ -76,6 +104,8 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
               if (docSnapshot.exists()) {
                 const data = docSnapshot.data();
                 const newAppName = data.appName;
+                const newUpdatedAt = data.appNameUpdatedAt ? (data.appNameUpdatedAt.toMillis ? data.appNameUpdatedAt.toMillis() : null) : null;
+                
                 if (newAppName) {
                   // Uvijek ažuriraj, jer možda je promijenjeno na drugom uređaju
                   setAppName((currentAppName) => {
@@ -84,6 +114,9 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
                       // Spremi u localStorage kao cache (per-user)
                       const storageKeyForSnapshot = `appName_${userId}`;
                       localStorage.setItem(storageKeyForSnapshot, newAppName);
+                      if (newUpdatedAt) {
+                        localStorage.setItem(`${storageKeyForSnapshot}_updatedAt`, newUpdatedAt.toString());
+                      }
                       return newAppName;
                     }
                     return currentAppName;
@@ -121,34 +154,9 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  useEffect(() => {
-    const user = auth.currentUser;
-    const userId = user?.uid;
-    
-    if (!userId || appName.trim() === "" || typeof window === "undefined") return;
-    
-    const storageKey = `appName_${userId}`;
-    
-    // 1. SPREMI U FIRESTORE (primarno)
-    const saveToFirestore = async () => {
-      try {
-        const userDocRef = doc(db, "users", userId);
-        await setDoc(userDocRef, { appName }, { merge: true });
-        console.log("AppName spremljen u Firestore");
-      } catch (error: any) {
-        const errorCode = error?.code || "";
-        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-          console.warn("Greška pri spremanju appName u Firestore:", error);
-        }
-      }
-    };
-    
-    // 2. SPREMI U LOCALSTORAGE (cache/offline backup)
-    localStorage.setItem(storageKey, appName);
-    
-    // Spremi u Firestore
-    saveToFirestore();
-  }, [appName]);
+  // Uklonjen automatski useEffect koji sprema appName u Firestore
+  // Ime se sada sprema samo eksplicitno kroz handleSaveAppName u profile/page.tsx
+  // Ovo sprječava nepotrebne update-e i race condition probleme
 
   return (
     <AppNameContext.Provider value={{ appName, setAppName }}>
