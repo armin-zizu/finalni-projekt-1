@@ -699,19 +699,9 @@ export default function CjenovnikPage() {
                     borderLeft: "4px solid #dc2626"
                   } : {}}
                 >
-                  <td style={tdStyle}>
-                    {artikl.naziv}
-                    {isLowStock && (
-                      <span style={{ 
-                        marginLeft: "8px", 
-                        color: "#dc2626", 
-                        fontSize: "12px",
-                        fontWeight: 600
-                      }}>
-                        ⚠️ Mala zaliha
-                      </span>
-                    )}
-                  </td>
+                <td style={tdStyle}>
+                  {artikl.naziv}
+                </td>
                   <td style={tdStyle}>{artikl.cijena.toFixed(2)}</td>
                   <td style={tdStyle}>{artikl.nabavnaCijena.toFixed(2)}</td>
                   <td style={{

@@ -1177,16 +1177,6 @@ export default function ObracunPage() {
               <tr key={index} style={rowStyle}>
                 <td style={{...tdStyle, color: "#1e40af", fontWeight: 600}} data-label="Artikal">
                   {a.naziv}
-                  {isLowStock && (
-                    <span style={{ 
-                      marginLeft: "8px", 
-                      color: "#dc2626", 
-                      fontSize: "12px",
-                      fontWeight: 600
-                    }}>
-                      ⚠️ Mala zaliha
-                    </span>
-                  )}
                 </td>
                 <td style={tdStyle} data-label="Cijena">{a.cijena.toFixed(2)}</td>
                 <td style={tdStyle} data-label="Zestoko Količina (ml)">{a.zestokoKolicina ? a.zestokoKolicina.toFixed(3) : "-"}</td>
