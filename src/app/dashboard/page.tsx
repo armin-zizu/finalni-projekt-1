@@ -454,7 +454,7 @@ export default function DashboardPage() {
           div[style*='display: flex'][style*='flexWrap'] { 
             flex-direction: column; 
             gap: 10px; 
-            align-items: center;
+            align-items: stretch;
           }
           div[style*='min-width: 160px'] { min-width: 100%; max-width: 100% !important; }
           button { width: 100%; margin: 5px 0; padding: 10px; font-size: 14px; min-height: 44px; }
@@ -465,6 +465,7 @@ export default function DashboardPage() {
             min-width: 100% !important; 
             max-width: 100% !important;
             flex: 1 1 100% !important;
+            width: 100% !important;
           }
           .recharts-wrapper { width: 100% !important; }
           .recharts-surface { width: 100% !important; }
@@ -480,7 +481,9 @@ export default function DashboardPage() {
         borderRadius: "16px",
         boxShadow: "0 8px 24px rgba(102, 126, 234, 0.25)",
         position: "relative",
-        overflow: "hidden"
+        overflow: "hidden",
+        width: "100%",
+        boxSizing: "border-box"
       }}>
         {/* Dekorativni elementi */}
         <div style={{
@@ -601,7 +604,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Kartice */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30, justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30, justifyContent: "center", width: "100%" }}>
         {[
           {
             label: "Bruto",
@@ -633,6 +636,8 @@ export default function DashboardPage() {
               boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
               transition: "transform 0.2s, box-shadow 0.2s",
               cursor: "default",
+              width: "100%",
+              boxSizing: "border-box"
             }}
             className="dashboard-card"
           >
