@@ -53,7 +53,183 @@ export default function LoginPage() {
       const userDoc = await getDoc(userDocRef);
       const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
 
-      // Ako korisnik nije vlasnik, provjeri odobrenje
+      // Provjeri status uređaja prije dozvoljavanja pristupa
+      try {
+        let deviceId = localStorage.getItem("deviceId");
+        if (!deviceId) {
+          // Generiši deviceId ako ne postoji
+          const fp = await FingerprintJS.load();
+          const result = await fp.get();
+          deviceId = result.visitorId;
+          localStorage.setItem("deviceId", deviceId);
+        }
+
+        if (deviceId) {
+          const deviceRef = doc(db, "devices", deviceId);
+          const deviceDoc = await getDoc(deviceRef);
+          
+          // Provjeri da li je vlasnik sa specifičnim emailom i OS-om
+          const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
+            ? "Windows"
+            : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
+            ? "macOS"
+            : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
+            ? "Linux"
+            : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
+            ? "Android"
+            : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
+            ? "iOS"
+            : "Unknown";
+          
+          const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+          
+          if (deviceDoc.exists()) {
+            const deviceData = deviceDoc.data();
+            const isBlocked = deviceData.isBlocked === true;
+            const status = deviceData.status || (deviceData.role === null ? "verifikacija" : "approved");
+            const needsVerification = status === "verifikacija";
+            
+            console.log("Login - Provjera statusa uređaja:", { deviceId, status, isBlocked, needsVerification, isOwnerDevice });
+            
+            if (isBlocked) {
+              setError("Ovaj uređaj je blokiran. Kontaktirajte administratora za više informacija.");
+              setLoading(false);
+              return;
+            } else if (needsVerification && !isOwnerDevice) {
+              setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
+              setLoading(false);
+              return;
+            }
+          } else {
+            // Novi uređaj - provjeri da li korisnik već ima druge uređaje
+            if (!isOwnerDevice) {
+              try {
+                const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
+                const devicesSnapshot = await getDocs(devicesQuery);
+                
+                console.log("Login - Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size);
+                
+                // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
+                if (!devicesSnapshot.empty) {
+                  console.log("Login - Korisnik već ima druge uređaje, kreiram novi sa statusom 'verifikacija'");
+                  
+                  // Kreiraj novi uređaj sa statusom "verifikacija"
+                  const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
+                    ? "Chrome"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
+                    ? "Firefox"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
+                    ? "Safari"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
+                    ? "Edge"
+                    : "Unknown";
+
+                  const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
+                    ? "Windows"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
+                    ? "macOS"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
+                    ? "Linux"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
+                    ? "Android"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
+                    ? "iOS"
+                    : "Unknown";
+
+                  await setDoc(deviceRef, {
+                    userId: user.uid,
+                    userEmail: user.email,
+                    role: null,
+                    status: "verifikacija",
+                    isBlocked: false,
+                    deviceInfo: {
+                      deviceId: deviceId,
+                      browser,
+                      os,
+                      screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                      firstSeen: Timestamp.fromDate(new Date()),
+                      lastLogin: Timestamp.fromDate(new Date()),
+                    },
+                    lastLogin: Timestamp.fromDate(new Date()),
+                    createdAt: Timestamp.fromDate(new Date()),
+                    updatedAt: Timestamp.fromDate(new Date()),
+                  });
+
+                  console.log("Login - Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
+                  setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
+                  setLoading(false);
+                  return;
+                }
+              } catch (queryError: any) {
+                console.error("Login - Greška pri provjeri drugih uređaja:", queryError);
+                // Ako je greška zbog permisija, možda korisnik nema dozvolu za query
+                // U tom slučaju, pokušaj kreirati uređaj sa verifikacijom ako nije vlasnik
+                if (queryError.code === 'permission-denied') {
+                  // Provjeri ponovo da li je vlasnik prije nego što kreiramo sa verifikacijom
+                  const userDocRefCheck = doc(db, "users", user.uid);
+                  const userDocCheck = await getDoc(userDocRefCheck);
+                  const isOwnerCheck = userDocCheck.exists() && userDocCheck.data().isOwner === true;
+                  
+                  if (!isOwnerCheck) {
+                    console.log("Login - Nemam permisije za query, ali nije vlasnik - kreiram sa verifikacijom");
+                    const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
+                      ? "Chrome"
+                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
+                      ? "Firefox"
+                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
+                      ? "Safari"
+                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
+                      ? "Edge"
+                      : "Unknown";
+
+                    const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
+                      ? "Windows"
+                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
+                      ? "macOS"
+                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
+                      ? "Linux"
+                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
+                      ? "Android"
+                      : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
+                      ? "iOS"
+                      : "Unknown";
+
+                    await setDoc(deviceRef, {
+                      userId: user.uid,
+                      userEmail: user.email,
+                      role: null,
+                      status: "verifikacija",
+                      isBlocked: false,
+                      deviceInfo: {
+                        deviceId: deviceId,
+                        browser,
+                        os,
+                        screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                        firstSeen: Timestamp.fromDate(new Date()),
+                        lastLogin: Timestamp.fromDate(new Date()),
+                      },
+                      lastLogin: Timestamp.fromDate(new Date()),
+                      createdAt: Timestamp.fromDate(new Date()),
+                      updatedAt: Timestamp.fromDate(new Date()),
+                    });
+
+                    setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
+                    setLoading(false);
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (deviceError) {
+        console.error("Login - Greška pri provjeri uređaja:", deviceError);
+        // U slučaju greške, dozvoli pristup (fallback) - možda je problem sa permisijama
+      }
+
+      // Ako korisnik nije vlasnik, provjeri odobrenje (loginApprovals)
       if (!isOwner) {
         const approvalRef = doc(db, "loginApprovals", user.uid);
         const approvalDoc = await getDoc(approvalRef);

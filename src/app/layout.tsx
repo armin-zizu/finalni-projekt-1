@@ -46,6 +46,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
 
           // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
+          try {
+            const deviceId = localStorage.getItem("deviceId");
+            if (deviceId) {
+              const deviceRef = doc(db, "devices", deviceId);
+              const deviceDoc = await getDoc(deviceRef);
+              
+              if (deviceDoc.exists()) {
+                const deviceData = deviceDoc.data();
+                const isBlocked = deviceData.isBlocked === true;
+                const status = deviceData.status || (deviceData.role === null ? "verifikacija" : "approved");
+                const needsVerification = status === "verifikacija";
+                
+                console.log("Layout - Provjera statusa uređaja:", { deviceId, status, isBlocked, needsVerification, isOwnerDevice });
+                
+                if (isBlocked || (needsVerification && !isOwnerDevice)) {
+                  // Uređaj je blokiran ili zahtijeva verifikaciju (osim ako je vlasnik), preusmjeri na login
+                  console.log("Layout - Uređaj blokiran ili zahtijeva verifikaciju, preusmjeravam na login");
+                  setIsAuthenticated(false);
+                  setIsLoading(false);
+                  if (pathname !== "/login") {
+                    router.push("/login");
+                  }
+                  return;
+                }
+              }
+            }
+          } catch (deviceError) {
+            console.error("Layout - Greška pri provjeri uređaja:", deviceError);
+            // U slučaju greške, dozvoli pristup (fallback)
+          }
+
+          // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
           // KOMENTIRANO ZA TESTIRANJE - omogućava pristup bez provjere uređaja
           /*
           try {
