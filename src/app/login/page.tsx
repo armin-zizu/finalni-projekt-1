@@ -919,9 +919,12 @@ export default function LoginPage() {
             }
           }
         `}</style>
-        <h1 style={{ marginBottom: "32px", fontSize: "28px", fontWeight: 600, color: "#1f2937" }}>
-          {loginMethod === "register" ? "Registracija" : loginMethod === "forgot" ? "Reset lozinke" : "Prijava"}
+        <h1 style={{ marginBottom: "8px", fontSize: "32px", fontWeight: 700, color: "#1f2937", letterSpacing: "-0.5px" }}>
+          Knjiga Obračuna
         </h1>
+        <p style={{ marginBottom: "32px", fontSize: "16px", color: "#6b7280", fontWeight: 400 }}>
+          {loginMethod === "register" ? "Registracija" : loginMethod === "forgot" ? "Reset lozinke" : "Prijava"}
+        </p>
         {error && (
           <div style={{ 
             color: "#dc2626", 
