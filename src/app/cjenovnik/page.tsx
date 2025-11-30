@@ -532,6 +532,16 @@ export default function CjenovnikPage() {
           div[style*='marginBottom: 20px'] {
             marginBottom: 15px; /* Smanjen margin za sekcije */
           }
+          .low-stock-settings-grid {
+            grid-template-columns: 1fr !important; /* Jedna kolona na mobilu */
+          }
+          .low-stock-settings-grid input {
+            width: 100% !important;
+            box-sizing: border-box;
+          }
+          div[style*='background: #f9fafb'] {
+            padding: 16px !important; /* Smanjen padding na mobilu */
+          }
         }
       `}</style>
 
@@ -795,7 +805,7 @@ export default function CjenovnikPage() {
         </div>
 
         {lowStockEnabled && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+          <div className="low-stock-settings-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
             <div>
               <label style={{ display: "block", fontSize: "12px", color: "#6b7280", marginBottom: "8px" }}>
                 Prag za žestoka pića (L):
