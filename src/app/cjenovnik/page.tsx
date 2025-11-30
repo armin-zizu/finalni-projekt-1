@@ -4,6 +4,9 @@ import React, { useState, useEffect } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { usePathname } from "next/navigation";
 import { FaTrash, FaPlus } from "react-icons/fa";
+import { auth } from "../../lib/firebase";
+import { db } from "../../lib/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 // ---- Tipovi ----
 type Artikl = {
@@ -169,6 +172,12 @@ export default function CjenovnikPage() {
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const pathname = usePathname();
+  
+  // Postavke za malu zalihu
+  const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
+  const [lowStockThresholdZestoka, setLowStockThresholdZestoka] = useState<string>("100");
+  const [lowStockThresholdOstala, setLowStockThresholdOstala] = useState<string>("10");
+  const [savingLowStockSettings, setSavingLowStockSettings] = useState<boolean>(false);
 
   // Provjera šifre pri učitavanju i pri navigaciji - traži šifru svaki put
   useEffect(() => {
@@ -182,6 +191,59 @@ export default function CjenovnikPage() {
       setIsPasswordProtected(false);
     }
   }, [pathname]); // Provjeri svaki put kada se pathname promijeni
+
+  // Učitaj postavke za malu zalihu iz Firestore
+  useEffect(() => {
+    const loadLowStockSettings = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          if (data.lowStockSettings) {
+            setLowStockEnabled(data.lowStockSettings.enabled || false);
+            setLowStockThresholdZestoka(String(data.lowStockSettings.thresholdZestoka || 100));
+            setLowStockThresholdOstala(String(data.lowStockSettings.thresholdOstala || 10));
+          }
+        }
+      } catch (error) {
+        console.error("Greška pri učitavanju postavki za malu zalihu:", error);
+      }
+    };
+
+    loadLowStockSettings();
+  }, []);
+
+  // Spremi postavke za malu zalihu u Firestore
+  const saveLowStockSettings = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setSavingLowStockSettings(true);
+    try {
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(
+        userDocRef,
+        {
+          lowStockSettings: {
+            enabled: lowStockEnabled,
+            thresholdZestoka: parseFloat(lowStockThresholdZestoka) || 100,
+            thresholdOstala: parseFloat(lowStockThresholdOstala) || 10,
+          },
+        },
+        { merge: true }
+      );
+      setError("");
+    } catch (error) {
+      console.error("Greška pri spremanju postavki za malu zalihu:", error);
+      setError("Greška pri spremanju postavki");
+    } finally {
+      setSavingLowStockSettings(false);
+    }
+  };
 
   const handlePasswordSubmit = () => {
     const savedPassword = localStorage.getItem("cjenovnikPassword");
@@ -610,28 +672,60 @@ export default function CjenovnikPage() {
             </tr>
           </thead>
           <tbody>
-            {cjenovnik.map((artikl) => (
-              <tr key={artikl.naziv}>
-                <td style={tdStyle}>{artikl.naziv}</td>
-                <td style={tdStyle}>{artikl.cijena.toFixed(2)}</td>
-                <td style={tdStyle}>{artikl.nabavnaCijena.toFixed(2)}</td>
-                <td style={tdStyle}>
-                  {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
-                  {artikl.jeZestoko ? " L" : " kom"}
-                </td>
-                <td style={tdStyle}>{artikl.jeZestoko ? (artikl.zestokoKolicina || 0).toFixed(2) : "-"}</td>
-                <td style={tdStyle}>{artikl.jeZestoko ? (artikl.proizvodnaCijena || 0).toFixed(2) : "-"}</td>
-                <td style={tdStyle}>
-                  <button
-                    style={deleteButtonStyle}
-                    onClick={() => deleteArtikl(artikl.naziv)}
-                    className="delete-button"
-                  >
-                    <FaTrash />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {cjenovnik.map((artikl) => {
+              // Provjeri da li je zaliha mala
+              const threshold = artikl.jeZestoko 
+                ? parseFloat(lowStockThresholdZestoka) || 100 
+                : parseFloat(lowStockThresholdOstala) || 10;
+              const isLowStock = lowStockEnabled && artikl.pocetnoStanje < threshold;
+              
+              return (
+                <tr 
+                  key={artikl.naziv}
+                  style={isLowStock ? { 
+                    backgroundColor: "#fef2f2",
+                    borderLeft: "4px solid #dc2626"
+                  } : {}}
+                >
+                  <td style={tdStyle}>
+                    {artikl.naziv}
+                    {isLowStock && (
+                      <span style={{ 
+                        marginLeft: "8px", 
+                        color: "#dc2626", 
+                        fontSize: "12px",
+                        fontWeight: 600
+                      }}>
+                        ⚠️ Mala zaliha
+                      </span>
+                    )}
+                  </td>
+                  <td style={tdStyle}>{artikl.cijena.toFixed(2)}</td>
+                  <td style={tdStyle}>{artikl.nabavnaCijena.toFixed(2)}</td>
+                  <td style={{
+                    ...tdStyle,
+                    ...(isLowStock ? { 
+                      color: "#dc2626", 
+                      fontWeight: 600 
+                    } : {})
+                  }}>
+                    {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
+                    {artikl.jeZestoko ? " L" : " kom"}
+                  </td>
+                  <td style={tdStyle}>{artikl.jeZestoko ? (artikl.zestokoKolicina || 0).toFixed(2) : "-"}</td>
+                  <td style={tdStyle}>{artikl.jeZestoko ? (artikl.proizvodnaCijena || 0).toFixed(2) : "-"}</td>
+                  <td style={tdStyle}>
+                    <button
+                      style={deleteButtonStyle}
+                      onClick={() => deleteArtikl(artikl.naziv)}
+                      className="delete-button"
+                    >
+                      <FaTrash />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         </div>
