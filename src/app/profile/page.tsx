@@ -334,25 +334,46 @@ export default function Profile() {
     }
   };
 
-  const handleSaveAppName = () => {
+  const handleSaveAppName = async () => {
     if (localAppName.trim() !== "") {
-      // Spremi direktno u localStorage
-      localStorage.setItem("appName", localAppName.trim());
-      // Ažuriraj context
-      setAppName(localAppName.trim());
-      setIsAppNameUpdated(true);
-      setLastUpdatedTime(new Date().toLocaleString("bs-BA", { 
-        day: "2-digit", 
-        month: "2-digit", 
-        year: "numeric", 
-        hour: "2-digit", 
-        minute: "2-digit" 
-      }));
-      setMessage("");
-      // Sakrij poruku nakon 3 sekunde
-      setTimeout(() => {
-        setIsAppNameUpdated(false);
-      }, 3000);
+      const user = auth.currentUser;
+      if (!user) {
+        setMessage("Morate biti prijavljeni!");
+        return;
+      }
+
+      try {
+        // Spremi direktno u Firestore (ovo će automatski triggerati onSnapshot na svim uređajima)
+        const userDocRef = doc(db, "users", user.uid);
+        await setDoc(userDocRef, { appName: localAppName.trim() }, { merge: true });
+        
+        // Ažuriraj context (ovo će također spremiti u localStorage preko useEffect u AppNameContext)
+        setAppName(localAppName.trim());
+        
+        // Spremi u localStorage kao backup
+        const storageKey = `appName_${user.uid}`;
+        localStorage.setItem(storageKey, localAppName.trim());
+        localStorage.setItem("appName", localAppName.trim()); // Fallback
+        
+        setIsAppNameUpdated(true);
+        setLastUpdatedTime(new Date().toLocaleString("bs-BA", { 
+          day: "2-digit", 
+          month: "2-digit", 
+          year: "numeric", 
+          hour: "2-digit", 
+          minute: "2-digit" 
+        }));
+        setMessage("Ime aplikacije uspješno spremljeno i sinkronizovano na svim uređajima!");
+        // Sakrij poruku nakon 3 sekunde
+        setTimeout(() => {
+          setIsAppNameUpdated(false);
+          setMessage("");
+        }, 3000);
+      } catch (error: any) {
+        console.error("Greška pri spremanju imena aplikacije:", error);
+        setMessage("Greška pri spremanju imena aplikacije: " + (error.message || "Nepoznata greška"));
+        setTimeout(() => setMessage(""), 5000);
+      }
     } else {
       setMessage("Unesite ime aplikacije!");
     }

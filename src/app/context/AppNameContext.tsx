@@ -17,7 +17,15 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
   const [appName, setAppName] = useState<string>("Moja Aplikacija");
 
   useEffect(() => {
+    let unsubscribeSnapshot: (() => void) | null = null;
+    
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      // Očisti prethodni snapshot listener ako postoji
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+
       if (user) {
         const userId = user.uid;
         const storageKey = `appName_${userId}`;
@@ -49,23 +57,31 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
           const localAppName = localStorage.getItem(storageKey) || localStorage.getItem("appName"); // Fallback na stari ključ
           if (localAppName) {
             setAppName(localAppName);
+            // Spremi u Firestore ako postoji u localStorage
+            try {
+              const userDocRef = doc(db, "users", userId);
+              await setDoc(userDocRef, { appName: localAppName }, { merge: true });
+            } catch (error: any) {
+              // Ignoriraj greške
+            }
           }
         }
 
-        // Pokušaj postaviti real-time listener (opcionalno)
+        // Postavi real-time listener za automatsku sinkronizaciju na svim uređajima
         try {
           const userDocRefForSnapshot = doc(db, "users", userId);
-          const unsubscribeSnapshot = onSnapshot(
+          unsubscribeSnapshot = onSnapshot(
             userDocRefForSnapshot, 
-            (doc) => {
-              if (doc.exists()) {
-                const data = doc.data();
-                const firestoreAppName = data.appName;
-                if (firestoreAppName) {
-                  setAppName(firestoreAppName);
+            (docSnapshot) => {
+              if (docSnapshot.exists()) {
+                const data = docSnapshot.data();
+                const newAppName = data.appName;
+                if (newAppName && newAppName !== appName) {
+                  console.log("AppName ažurirano preko real-time listenera:", newAppName);
+                  setAppName(newAppName);
                   // Spremi u localStorage kao cache (per-user)
                   const storageKeyForSnapshot = `appName_${userId}`;
-                  localStorage.setItem(storageKeyForSnapshot, firestoreAppName);
+                  localStorage.setItem(storageKeyForSnapshot, newAppName);
                 }
               }
             },
@@ -77,8 +93,6 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
               }
             }
           );
-
-          return () => unsubscribeSnapshot();
         } catch (error: any) {
           // Ignoriraj greške dozvola
           const errorCode = error?.code || "";
@@ -93,7 +107,12 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+    };
   }, []);
 
   useEffect(() => {
