@@ -696,21 +696,35 @@ export default function AdminPage() {
 
     const now = new Date();
     let startDate: Date;
+    let endDate: Date = new Date();
     
-    // Odredi početni datum na osnovu filtera
-    if (revenueFilter === "dnevni") {
+    // Odredi početni i krajnji datum na osnovu filtera
+    if (revenueFilter === "prilagođeno") {
+      if (!customFromDate || !customToDate) return [];
+      startDate = new Date(customFromDate);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(customToDate);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (revenueFilter === "dnevni") {
       startDate = new Date(now);
       startDate.setDate(startDate.getDate() - 30); // Zadnjih 30 dana
+      startDate.setHours(0, 0, 0, 0);
     } else if (revenueFilter === "tjedni") {
       startDate = new Date(now);
       startDate.setDate(startDate.getDate() - 84); // Zadnjih 12 tjedana
+      startDate.setHours(0, 0, 0, 0);
     } else {
       startDate = new Date(now);
       startDate.setMonth(startDate.getMonth() - 12); // Zadnjih 12 mjeseci
+      startDate.setHours(0, 0, 0, 0);
     }
 
     // Filtriraj uplate
-    const filteredPayments = allPayments.filter(p => p.date >= startDate);
+    const filteredPayments = allPayments.filter(p => {
+      const paymentDate = new Date(p.date);
+      paymentDate.setHours(0, 0, 0, 0);
+      return paymentDate >= startDate && paymentDate <= endDate;
+    });
 
     // Grupiši po periodu
     const grouped: Record<string, { amount: number; sortKey: string }> = {};
