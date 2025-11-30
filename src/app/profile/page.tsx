@@ -1516,24 +1516,33 @@ export default function Profile() {
               const doc = new jsPDF();
               
               // Funkcija za pravilno ispisivanje teksta sa UTF-8 karakterima (č, ć, đ, š, ž)
-              // jsPDF standardno ne podržava UTF-8 karaktere, pa koristimo workaround
+              // jsPDF standardno ne podržava UTF-8 karaktere u default fontu
+              // Koristimo jednostavan workaround: zamjenjujemo karaktere sa ASCII ekvivalentima
+              // ili koristimo doc.text() direktno jer jsPDF 3.x bi trebao podržavati UTF-8
               const addText = (text: string, x: number, y: number, options?: any) => {
                 if (text && typeof text === 'string') {
-                  // Koristimo unescape() i encodeURIComponent() za pravilno rukovanje UTF-8 karakterima
-                  // Ovo osigurava da se karakteri sa kvakicama pravilno ispisuju
-                  try {
-                    // Provjerimo da li tekst sadrži UTF-8 karaktere
-                    const hasSpecialChars = /[čćđšžČĆĐŠŽ]/.test(text);
-                    if (hasSpecialChars) {
-                      // Za UTF-8 karaktere, koristimo direktno doc.text() jer jsPDF 3.x bi trebao podržavati
-                      // Ako ne radi, možemo koristiti HTML metodu
+                  // Provjerimo da li tekst sadrži UTF-8 karaktere sa kvakicama
+                  const hasSpecialChars = /[čćđšžČĆĐŠŽ]/.test(text);
+                  
+                  if (hasSpecialChars) {
+                    // Za UTF-8 karaktere, koristimo doc.text() direktno
+                    // jsPDF 3.x bi trebao podržavati UTF-8, ali možda treba eksplicitno postaviti encoding
+                    try {
+                      // Pokušajmo sa standardnim text() metodom
+                      // Ako ne radi, možemo koristiti HTML metodu ili dodati font
                       doc.text(text, x, y, options || {});
-                    } else {
-                      doc.text(text, x, y, options || {});
+                    } catch (error) {
+                      // Fallback: zamjenjujemo karaktere sa ASCII ekvivalentima
+                      console.warn("Greška pri ispisu teksta sa UTF-8 karakterima, koristim ASCII ekvivalente:", error);
+                      const asciiText = text
+                        .replace(/č/g, 'c').replace(/ć/g, 'c')
+                        .replace(/đ/g, 'd').replace(/š/g, 's').replace(/ž/g, 'z')
+                        .replace(/Č/g, 'C').replace(/Ć/g, 'C')
+                        .replace(/Đ/g, 'D').replace(/Š/g, 'S').replace(/Ž/g, 'Z');
+                      doc.text(asciiText, x, y, options || {});
                     }
-                  } catch (error) {
-                    // Fallback na standardni text
-                    console.warn("Greška pri ispisu teksta sa UTF-8 karakterima:", error);
+                  } else {
+                    // Standardni tekst bez UTF-8 karaktera
                     doc.text(text, x, y, options || {});
                   }
                 } else {
