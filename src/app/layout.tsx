@@ -39,60 +39,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         
         const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
         
-        // Provjeri da li korisnik ima odobrenje (osim ako je vlasnik)
+        // Provjeri da li je korisnik vlasnik (za informacije)
         try {
           const userDocRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userDocRef);
           const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
-
-          // Ako je vlasnik sa specifičnim emailom i OS-om, preskoči provjeru odobrenja
-          if (isOwnerDevice) {
-            console.log("Vlasnik sa specifičnim emailom i OS-om, dozvoljavam pristup bez provjere odobrenja");
-            // Nastavi sa autentifikacijom
-          } else if (!isOwner) {
-            try {
-              const approvalRef = doc(db, "loginApprovals", user.uid);
-              const approvalDoc = await getDoc(approvalRef);
-              
-              console.log("Layout - Provjera odobrenja za korisnika:", user.uid);
-              console.log("Layout - Dokument postoji:", approvalDoc.exists());
-              
-              if (approvalDoc.exists()) {
-                const approvalData = approvalDoc.data();
-                console.log("Layout - Status odobrenja:", approvalData.status);
-                
-                if (approvalData.status === "approved") {
-                  console.log("Layout - Odobrenje je potvrđeno, dozvoljavam pristup");
-                  // Nastavi sa autentifikacijom
-                } else {
-                  // Korisnik nema odobrenje, preusmjeri na login
-                  console.log("Layout - Korisnik nema odobrenje, preusmjeravam na login");
-                  setIsAuthenticated(false);
-                  setIsLoading(false);
-                  if (pathname !== "/login") {
-                    router.push("/login");
-                  }
-                  return;
-                }
-              } else {
-                // Nema dokumenta za odobrenje, preusmjeri na login
-                console.log("Layout - Nema dokumenta za odobrenje, preusmjeravam na login");
-                setIsAuthenticated(false);
-                setIsLoading(false);
-                if (pathname !== "/login") {
-                  router.push("/login");
-                }
-                return;
-              }
-            } catch (approvalError: any) {
-              // Ako je greška permisija, dozvoli pristup (možda je vlasnik)
-              if (approvalError.code === 'permission-denied') {
-                console.warn("Nemam permisije za provjeru odobrenja, dozvoljavam pristup");
-              } else {
-                throw approvalError;
-              }
-            }
-          }
 
           // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
           // KOMENTIRANO ZA TESTIRANJE - omogućava pristup bez provjere uređaja

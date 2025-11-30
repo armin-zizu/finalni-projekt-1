@@ -107,26 +107,6 @@ export async function initializeUser(userId: string, email: string | null) {
       createdAt: Timestamp.fromDate(now),
     });
 
-    // Ako nije prvi korisnik, kreiraj zahtjev za odobrenje login-a
-    if (!isOwner) {
-      try {
-        const approvalRef = doc(db, "loginApprovals", userId);
-        await setDoc(approvalRef, {
-          userId,
-          email: email || null,
-          status: "pending", // pending, approved, rejected
-          requestedAt: Timestamp.fromDate(now),
-          approvedAt: null,
-          approvedBy: null,
-          rejectedAt: null,
-          rejectedBy: null,
-        });
-        console.log("Zahtjev za odobrenje kreiran za korisnika:", userId);
-      } catch (error) {
-        console.error("Greška pri kreiranju zahtjeva za odobrenje:", error);
-        // Ne baci grešku - korisnik je već kreiran
-      }
-    }
 
     console.log("Korisnik uspješno inicijalizovan u Firestore:", userId, "isOwner:", isOwner);
   } catch (error) {
