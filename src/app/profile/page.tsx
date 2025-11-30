@@ -112,6 +112,7 @@ export default function Profile() {
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
   const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
+  const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
   const router = useRouter();
 
   // Sinhronizuj localAppName sa appName iz contexta
@@ -378,6 +379,7 @@ export default function Profile() {
           deviceId: doc.id,
           status: data.status || (data.role === null ? "verifikacija" : "approved"),
           isBlocked: data.isBlocked === true,
+          deviceName: data.deviceName || "",
           deviceInfo: {
             ...data.deviceInfo,
             firstSeen: data.deviceInfo?.firstSeen?.toDate?.() || null,
@@ -515,6 +517,34 @@ export default function Profile() {
     } catch (error) {
       console.error("Greška pri brisanju login-a:", error);
       setMessage("Greška pri brisanju login-a");
+      setTimeout(() => setMessage(""), 5000);
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  // Spremi ime uređaja
+  const handleSaveDeviceName = async (deviceId: string, deviceName: string) => {
+    const user = auth.currentUser;
+    if (!user || !isOwner) return;
+
+    try {
+      setSavingRole(true);
+      const deviceRef = doc(db, "devices", deviceId);
+      await setDoc(
+        deviceRef,
+        {
+          deviceName: deviceName.trim() || "",
+          updatedAt: Timestamp.fromDate(new Date()),
+        },
+        { merge: true }
+      );
+      await loadDevices();
+      setMessage("Ime uređaja uspješno spremljeno");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      console.error("Greška pri spremanju imena uređaja:", error);
+      setMessage("Greška pri spremanju imena uređaja");
       setTimeout(() => setMessage(""), 5000);
     } finally {
       setSavingRole(false);
@@ -829,6 +859,7 @@ export default function Profile() {
               <table style={tableStyle}>
                 <thead>
                   <tr>
+                    <th style={thStyle}>Ime uređaja</th>
                     <th style={thStyle}>Uređaj</th>
                     <th style={thStyle}>Browser / OS</th>
                     <th style={thStyle}>Status</th>
@@ -857,6 +888,28 @@ export default function Profile() {
                     return (
                       <React.Fragment key={device.id}>
                         <tr>
+                        <td style={tdStyle}>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={deviceNames[device.id] !== undefined ? deviceNames[device.id] : (device.deviceName || "")}
+                              onChange={(e) => setDeviceNames({ ...deviceNames, [device.id]: e.target.value })}
+                              placeholder="Unesite ime uređaja"
+                              style={{
+                                padding: "6px 12px",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: "6px",
+                                fontSize: "14px",
+                                width: "100%",
+                                maxWidth: "200px",
+                              }}
+                            />
+                          ) : (
+                            <span style={{ fontWeight: device.deviceName ? 500 : 400, color: device.deviceName ? "#1f2937" : "#9ca3af" }}>
+                              {device.deviceName || "Nema imena"}
+                            </span>
+                          )}
+                        </td>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             {device.deviceInfo?.os === "Android" || device.deviceInfo?.os === "iOS" ? (
@@ -1049,14 +1102,19 @@ export default function Profile() {
                                     )}
                                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                                       <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                           const roleToSave = selectedRole[device.id] || device.role;
                                           if (roleToSave === "konobar") {
-                                            handleSavePermissions(device.id, roleToSave);
+                                            await handleSavePermissions(device.id, roleToSave);
                                           } else {
-                                            handleAssignRole(device.id, roleToSave);
+                                            await handleAssignRole(device.id, roleToSave);
+                                          }
+                                          // Spremi ime uređaja ako je promijenjeno
+                                          if (deviceNames[device.id] !== undefined && deviceNames[device.id] !== device.deviceName) {
+                                            await handleSaveDeviceName(device.id, deviceNames[device.id]);
                                           }
                                           setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
+                                          setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
                                         }}
                                         style={{ ...buttonStyle, background: "#16a34a", fontSize: "13px", padding: "8px 16px" }}
                                       >
@@ -1067,6 +1125,7 @@ export default function Profile() {
                                           setEditingDeviceId(null);
                                           setEditingPermissions({});
                                           setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
+                                          setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
                                         }}
                                         style={{ ...buttonStyle, background: "#6b7280", fontSize: "13px", padding: "8px 16px" }}
                                       >
@@ -1120,6 +1179,7 @@ export default function Profile() {
                                         setEditingDeviceId(device.id);
                                         setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
                                         setEditingPermissions(device.permissions || {});
+                                        setDeviceNames({ ...deviceNames, [device.id]: device.deviceName || "" });
                                       }}
                                       style={{ ...buttonStyle, background: "#3b82f6", fontSize: "13px", padding: "8px 16px", alignSelf: "flex-start" }}
                                     >
