@@ -6,7 +6,8 @@ import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
 import { auth } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
-import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp, onSnapshot } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 // ---- Tipovi ----
 type Artikal = {
@@ -222,6 +223,11 @@ export default function ObracunPage() {
   const [trenutniDatum, setTrenutniDatum] = useState<Date>(new Date());
   const [isAzuriran, setIsAzuriran] = useState<boolean>(false); // Praćenje da li je obračun bio ažuriran
   const [resetKey, setResetKey] = useState<number>(0); // Key za reset input polja
+  
+  // Postavke za malu zalihu
+  const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
+  const [lowStockThresholdZestoka, setLowStockThresholdZestoka] = useState<number>(100);
+  const [lowStockThresholdOstala, setLowStockThresholdOstala] = useState<number>(10);
 
   // Provjeri da li korisnik može editovati (ne može ako grace period istekne)
   const canEditSubscription = subscription && (subscription.isActive || subscription.isTrial || subscription.isGracePeriod);
@@ -231,6 +237,53 @@ export default function ObracunPage() {
   
   // Konobar2 može samo pregledati
   const isReadOnly = role === "konobar" && permissions?.obracun !== true;
+  
+  // Učitaj postavke za malu zalihu iz Firestore sa real-time osluškivanjem
+  useEffect(() => {
+    let unsubscribeSnapshot: (() => void) | null = null;
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // Očisti prethodni snapshot listener ako postoji
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+
+      if (user) {
+        const userDocRef = doc(db, "users", user.uid);
+        
+        // Postavi real-time listener za automatsku sinkronizaciju
+        unsubscribeSnapshot = onSnapshot(
+          userDocRef,
+          (docSnapshot) => {
+            if (docSnapshot.exists()) {
+              const data = docSnapshot.data();
+              if (data.lowStockSettings) {
+                setLowStockEnabled(data.lowStockSettings.enabled || false);
+                setLowStockThresholdZestoka(data.lowStockSettings.thresholdZestoka || 100);
+                setLowStockThresholdOstala(data.lowStockSettings.thresholdOstala || 10);
+              } else {
+                // Ako nema postavki, koristi default vrijednosti
+                setLowStockEnabled(false);
+                setLowStockThresholdZestoka(100);
+                setLowStockThresholdOstala(10);
+              }
+            }
+          },
+          (error) => {
+            console.error("Greška pri osluškivanju postavki za malu zalihu:", error);
+          }
+        );
+      }
+    });
+    
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+    };
+  }, []);
 
   // Inicijalizacija artikala na osnovu cjenovnika
   useEffect(() => {
@@ -1072,43 +1125,69 @@ export default function ObracunPage() {
         </thead>
         <tbody>
           {artikli.map((a, index) => {
-            // Funkcija za određivanje boje na osnovu početnog stanja
+            // Funkcija za određivanje boje na osnovu trenutne zalihe (krajnjeStanje ili ukupno)
             const getRowStyle = (): React.CSSProperties => {
+              // Ako funkcija nije uključena, ne primjenjuj boje
+              if (!lowStockEnabled) {
+                return {};
+              }
+              
               // Kafa je posebna - ne primjenjuj boje
               if (a.naziv.toLowerCase() === "kafa" || a.naziv.toLowerCase() === "kava") {
                 return {};
               }
               
+              // Koristimo krajnjeStanje ako je postavljeno, inače ukupno (pocetnoStanje + ulaz)
+              const trenutnaZaliha = a.isKrajnjeSet ? a.krajnjeStanje : a.ukupno;
+              
               // Za žestoka pića (ima zestokoKolicina)
               if (a.zestokoKolicina && a.zestokoKolicina > 0) {
-                // Za žestoka pića, pocetnoStanje je već u litrama (npr. 5 = 5 litara)
-                // Koristimo ukupno (pocetnoStanje + ulaz) jer uključuje i ulaz
-                const kolicinaULitrama = a.ukupno;
-                
-                // Ispod 1L = crvena, 1L do 2L (uključujući 2L) = žuta, preko 2L = normalna
-                if (kolicinaULitrama < 1) {
-                  return lowStockRedStyle;
-                } else if (kolicinaULitrama <= 2) {
-                  return lowStockYellowStyle;
+                // Provjeri da li je zaliha ispod praga za žestoka pića
+                if (trenutnaZaliha < lowStockThresholdZestoka) {
+                  return {
+                    backgroundColor: "#fef2f2",
+                    borderLeft: "4px solid #dc2626"
+                  };
                 }
               } else {
-                // Za obične artikle - provjeri početno stanje
-                // Prvo provjeri crvenu (nižu granicu), pa žutu (višu granicu)
-                if (a.pocetnoStanje < 15) {
-                  return lowStockRedStyle;
-                } else if (a.pocetnoStanje < 30) {
-                  return lowStockYellowStyle;
+                // Za obične artikle - provjeri da li je zaliha ispod praga za ostala pića
+                if (trenutnaZaliha < lowStockThresholdOstala) {
+                  return {
+                    backgroundColor: "#fef2f2",
+                    borderLeft: "4px solid #dc2626"
+                  };
                 }
               }
               
               return {};
             };
+            
+            // Provjeri da li je zaliha mala za prikaz upozorenja
+            const trenutnaZaliha = a.isKrajnjeSet ? a.krajnjeStanje : a.ukupno;
+            const threshold = (a.zestokoKolicina && a.zestokoKolicina > 0) 
+              ? lowStockThresholdZestoka 
+              : lowStockThresholdOstala;
+            const isLowStock = lowStockEnabled && 
+              !(a.naziv.toLowerCase() === "kafa" || a.naziv.toLowerCase() === "kava") &&
+              trenutnaZaliha < threshold;
 
             const rowStyle = getRowStyle();
             
             return (
               <tr key={index} style={rowStyle}>
-                <td style={{...tdStyle, color: "#1e40af", fontWeight: 600}} data-label="Artikal">{a.naziv}</td>
+                <td style={{...tdStyle, color: "#1e40af", fontWeight: 600}} data-label="Artikal">
+                  {a.naziv}
+                  {isLowStock && (
+                    <span style={{ 
+                      marginLeft: "8px", 
+                      color: "#dc2626", 
+                      fontSize: "12px",
+                      fontWeight: 600
+                    }}>
+                      ⚠️ Mala zaliha
+                    </span>
+                  )}
+                </td>
                 <td style={tdStyle} data-label="Cijena">{a.cijena.toFixed(2)}</td>
                 <td style={tdStyle} data-label="Zestoko Količina (ml)">{a.zestokoKolicina ? a.zestokoKolicina.toFixed(3) : "-"}</td>
                 <td style={tdStyle} data-label="Proizvodna Cijena">{a.proizvodnaCijena ? a.proizvodnaCijena.toFixed(2) : "-"}</td>
@@ -1135,7 +1214,13 @@ export default function ObracunPage() {
                 </td>
                 <td style={tdStyle} data-label="Ukupno">{a.ukupno}</td>
                 <td style={tdStyle} data-label="Utrošeno">{a.utroseno}</td>
-                <td style={tdStyle} data-label="Krajnje stanje">
+                <td style={{
+                  ...tdStyle,
+                  ...(isLowStock ? { 
+                    color: "#dc2626", 
+                    fontWeight: 600 
+                  } : {})
+                }} data-label="Krajnje stanje">
                   <input
                     type="number"
                     value={a.krajnjeStanje === 0 ? "" : a.krajnjeStanje}
