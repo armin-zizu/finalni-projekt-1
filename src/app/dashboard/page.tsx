@@ -467,6 +467,14 @@ export default function DashboardPage() {
             flex: 1 1 100% !important;
             width: 100% !important;
           }
+          div[style*='background: linear-gradient'][style*='#667eea'] {
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          div[style*='backgroundColor: #fff'][style*='borderRadius: 12'] {
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
           .recharts-wrapper { width: 100% !important; }
           .recharts-surface { width: 100% !important; }
         }
@@ -481,9 +489,7 @@ export default function DashboardPage() {
         borderRadius: "16px",
         boxShadow: "0 8px 24px rgba(102, 126, 234, 0.25)",
         position: "relative",
-        overflow: "hidden",
-        width: "100%",
-        boxSizing: "border-box"
+        overflow: "hidden"
       }}>
         {/* Dekorativni elementi */}
         <div style={{
@@ -604,7 +610,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Kartice */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30, justifyContent: "center", width: "100%" }}>
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30 }}>
         {[
           {
             label: "Bruto",
@@ -625,8 +631,8 @@ export default function DashboardPage() {
           <div
             key={item.label}
             style={{
-              flex: "1 1 160px",
-              maxWidth: "300px",
+              flex: 1,
+              minWidth: 160,
               backgroundColor: "#fff",
               borderRadius: 12,
               padding: 20,
@@ -636,8 +642,6 @@ export default function DashboardPage() {
               boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
               transition: "transform 0.2s, box-shadow 0.2s",
               cursor: "default",
-              width: "100%",
-              boxSizing: "border-box"
             }}
             className="dashboard-card"
           >
