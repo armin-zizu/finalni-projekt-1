@@ -451,13 +451,21 @@ export default function DashboardPage() {
           h1 { font-size: 18px; margin-bottom: 16px !important; }
           div[style*='fontSize: 36'] { font-size: 24px !important; }
           div[style*='fontSize: 28'] { font-size: 20px !important; }
-          div[style*='display: flex'] { flex-direction: column; gap: 10px; }
-          div[style*='min-width: 160px'] { min-width: 100%; }
+          div[style*='display: flex'][style*='flexWrap'] { 
+            flex-direction: column; 
+            gap: 10px; 
+            align-items: center;
+          }
+          div[style*='min-width: 160px'] { min-width: 100%; max-width: 100% !important; }
           button { width: 100%; margin: 5px 0; padding: 10px; font-size: 14px; min-height: 44px; }
           input[type="date"] { width: 100%; margin: 5px 0; padding: 8px; font-size: 14px; min-height: 44px; }
           div[style*='height: 400'] { height: 350px; padding: 10px !important; }
           div[style*='height: 300'] { height: 280px; padding: 10px !important; }
-          .dashboard-card { min-width: 100% !important; }
+          .dashboard-card { 
+            min-width: 100% !important; 
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
+          }
           .recharts-wrapper { width: 100% !important; }
           .recharts-surface { width: 100% !important; }
         }
@@ -593,7 +601,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Kartice */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30 }}>
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30, justifyContent: "center" }}>
         {[
           {
             label: "Bruto",
@@ -614,8 +622,8 @@ export default function DashboardPage() {
           <div
             key={item.label}
             style={{
-              flex: 1,
-              minWidth: 160,
+              flex: "1 1 160px",
+              maxWidth: "300px",
               backgroundColor: "#fff",
               borderRadius: 12,
               padding: 20,
