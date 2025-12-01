@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
@@ -238,12 +238,13 @@ export default function ArhivaPage() {
     }
     
     // 3. MERGE: Firestore ima prioritet, ali dodaj i iz localStorage ako nema u Firestore
-    // IZUZETAK: Ako je localStorage eksplicitno prazan array (savedArhiva === "[]"), koristi praznu arhivu
+    // IZUZETAK: Ako je localStorage eksplicitno prazan array (savedArhiva === "[]") I Firestore je također prazan,
+    // koristi praznu arhivu (korisnik je obrisao sve)
     let mergedArhiva: ArhiviraniObracun[] = [];
     
-    // Ako je localStorage eksplicitno prazan array (savedArhiva === "[]"), korisnik je obrisao sve
-    // U tom slučaju, koristi praznu arhivu bez obzira na Firestore
-    if (savedArhiva === "[]") {
+    // Ako je localStorage eksplicitno prazan array (savedArhiva === "[]") I Firestore je također prazan,
+    // korisnik je obrisao sve - koristi praznu arhivu
+    if (savedArhiva === "[]" && firestoreArhiva.length === 0) {
       mergedArhiva = [];
       console.log("Koristi se prazna arhiva iz localStorage (svi obračuni obrisani)");
     } else {
@@ -328,6 +329,34 @@ export default function ArhivaPage() {
   // Učitavanje arhive iz localStorage
   useEffect(() => {
     loadArhiva();
+  }, [loadArhiva]);
+
+  // Real-time listener za Firestore promjene
+  useEffect(() => {
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    
+    if (!userId) return;
+    
+    const obracuniRef = collection(db, "users", userId, "obracuni");
+    
+    const unsubscribe = onSnapshot(
+      obracuniRef,
+      (snapshot) => {
+        // Osvježi arhivu kada se promijeni Firestore
+        console.log("Firestore promjena detektovana, osvježavam arhivu...");
+        loadArhiva();
+      },
+      (error: any) => {
+        // Ignoriraj greške dozvola
+        const errorCode = error?.code || "";
+        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+          console.warn("Greška u real-time listeneru za arhivu:", error);
+        }
+      }
+    );
+    
+    return () => unsubscribe();
   }, [loadArhiva]);
 
   // Listener za promjene u arhivi (samo za vanjske promjene, ne za interne)
