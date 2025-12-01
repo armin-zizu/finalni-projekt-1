@@ -797,14 +797,18 @@ export default function ObracunPage() {
             ...arhiviraniObracun,
             savedAt: serverTimestamp(),
           });
-          console.log("Obračun sačuvan u Firestore:", datumString);
+          console.log("Obračun sačuvan u Firestore:", datumString, "Podaci:", arhiviraniObracun);
         } catch (firestoreError: any) {
           // Ignoriraj greške dozvola - spremit ćemo u localStorage
           const errorCode = firestoreError?.code || "";
           if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
             console.warn("Nije moguće sačuvati u Firestore (možda nema interneta):", firestoreError);
+          } else {
+            console.warn("Greška dozvola pri spremanju u Firestore:", firestoreError);
           }
         }
+      } else {
+        console.warn("Nema korisnika, obračun se sprema samo u localStorage");
       }
 
       // 2. SPREMI U LOCALSTORAGE (cache/offline backup - per-user)
