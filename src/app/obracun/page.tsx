@@ -792,12 +792,17 @@ export default function ObracunPage() {
       // 1. SPREMI U FIRESTORE (primarni izvor - ako postoji korisnik)
       if (user && userId) {
         try {
+          // Ukloni undefined vrijednosti prije spremanja u Firestore
+          const cleanArhiviraniObracun = JSON.parse(JSON.stringify(arhiviraniObracun, (key, value) => {
+            return value === undefined ? null : value;
+          }));
+          
           const docRef = doc(db, "users", userId, "obracuni", datumString);
           await setDoc(docRef, {
-            ...arhiviraniObracun,
+            ...cleanArhiviraniObracun,
             savedAt: serverTimestamp(),
           });
-          console.log("Obračun sačuvan u Firestore:", datumString, "Podaci:", arhiviraniObracun);
+          console.log("Obračun sačuvan u Firestore:", datumString);
         } catch (firestoreError: any) {
           // Ignoriraj greške dozvola - spremit ćemo u localStorage
           const errorCode = firestoreError?.code || "";
