@@ -792,10 +792,27 @@ export default function ObracunPage() {
       // 1. SPREMI U FIRESTORE (primarni izvor - ako postoji korisnik)
       if (user && userId) {
         try {
-          // Ukloni undefined vrijednosti prije spremanja u Firestore
-          const cleanArhiviraniObracun = JSON.parse(JSON.stringify(arhiviraniObracun, (key, value) => {
-            return value === undefined ? null : value;
-          }));
+          // Funkcija za uklanjanje undefined vrijednosti
+          const removeUndefined = (obj: any): any => {
+            if (obj === null || obj === undefined) {
+              return null;
+            }
+            if (Array.isArray(obj)) {
+              return obj.map(removeUndefined);
+            }
+            if (typeof obj === 'object') {
+              const cleaned: any = {};
+              for (const key in obj) {
+                if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+                  cleaned[key] = removeUndefined(obj[key]);
+                }
+              }
+              return cleaned;
+            }
+            return obj;
+          };
+          
+          const cleanArhiviraniObracun = removeUndefined(arhiviraniObracun);
           
           const docRef = doc(db, "users", userId, "obracuni", datumString);
           await setDoc(docRef, {
