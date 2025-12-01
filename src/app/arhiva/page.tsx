@@ -221,7 +221,7 @@ export default function ArhivaPage() {
       }
     } else {
       // Fallback: stari ključ (za migraciju)
-      const savedArhiva = localStorage.getItem("arhivaObracuna");
+      savedArhiva = localStorage.getItem("arhivaObracuna");
       if (savedArhiva) {
         try {
           localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
