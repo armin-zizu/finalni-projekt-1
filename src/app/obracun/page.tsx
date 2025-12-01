@@ -760,7 +760,8 @@ export default function ObracunPage() {
           staroPocetnoStanjeZaPrikaz = ulazCache[a.naziv].staroPocetnoStanje;
         }
         
-        return {
+        // Kreiraj objekt bez undefined vrijednosti
+        const artikalObj: any = {
           naziv: a.naziv,
           cijena: a.cijena,
           pocetnoStanje: a.pocetnoStanje,
@@ -769,11 +770,23 @@ export default function ObracunPage() {
           utroseno: a.utroseno,
           krajnjeStanje: a.krajnjeStanje,
           vrijednostKM: a.vrijednostKM,
-          zestokoKolicina: a.zestokoKolicina,
-          proizvodnaCijena: a.proizvodnaCijena,
-          staroPocetnoStanje: staroPocetnoStanjeZaPrikaz, // Sačuvaj staro stanje za prikaz u zagradi
-          sačuvanUlaz: ulazZaPrikaz !== 0 ? ulazZaPrikaz : undefined, // Sačuvaj ulaz samo ako nije 0
         };
+        
+        // Dodaj opcionalna polja samo ako nisu undefined
+        if (a.zestokoKolicina !== undefined) {
+          artikalObj.zestokoKolicina = a.zestokoKolicina;
+        }
+        if (a.proizvodnaCijena !== undefined) {
+          artikalObj.proizvodnaCijena = a.proizvodnaCijena;
+        }
+        if (staroPocetnoStanjeZaPrikaz !== undefined) {
+          artikalObj.staroPocetnoStanje = staroPocetnoStanjeZaPrikaz;
+        }
+        if (ulazZaPrikaz !== 0) {
+          artikalObj.sačuvanUlaz = ulazZaPrikaz;
+        }
+        
+        return artikalObj;
       }),
       rashodi,
       prihodi,
