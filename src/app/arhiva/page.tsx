@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
-import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
@@ -288,11 +288,11 @@ export default function ArhivaPage() {
       };
     });
     
-    // 4. SPREMI U LOCALSTORAGE KAO CACHE (ako je Firestore imao podatke)
-    if (firestoreArhiva.length > 0 && userId) {
+    // 4. SPREMI U LOCALSTORAGE KAO CACHE (uključujući praznu arhivu)
+    if (userId) {
       const storageKey = `arhivaObracuna_${userId}`;
       localStorage.setItem(storageKey, JSON.stringify(transformedArhiva));
-      console.log("Arhiva spremljena u localStorage kao cache");
+      console.log("Arhiva spremljena u localStorage kao cache:", transformedArhiva.length, "obračuna");
     }
     
     // 5. POSTAVI STANJE
@@ -338,12 +338,12 @@ export default function ArhivaPage() {
     const user = auth.currentUser;
     const userId = user?.uid;
     
-    if (arhiva.length > 0 && userId) {
+    if (userId) {
       const storageKey = `arhivaObracuna_${userId}`;
       const currentArhiva = localStorage.getItem(storageKey);
       const newArhivaString = JSON.stringify(arhiva);
       
-      // Spremi samo ako se promijenilo
+      // Spremi samo ako se promijenilo (uključujući praznu arhivu)
       if (currentArhiva !== newArhivaString) {
         localStorage.setItem(storageKey, newArhivaString);
       }
@@ -360,26 +360,27 @@ export default function ArhivaPage() {
       if (user && userId) {
         try {
           const docRef = doc(db, "users", userId, "obracuni", datum);
-          await getDoc(docRef).then(async (docSnap) => {
-            if (docSnap.exists()) {
-              // Firestore ima deleteDoc, ali koristimo setDoc sa merge: false ili brišemo direktno
-              // Za sada ćemo samo ažurirati lokalno, Firestore će se ažurirati pri sljedećem učitavanju
-            }
-          });
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            await deleteDoc(docRef);
+            console.log("Obračun obrisan iz Firestore:", datum);
+          }
         } catch (error: any) {
           console.warn("Greška pri brisanju iz Firestore:", error);
         }
       }
       
-      // 2. Obriši iz localStorage
+      // 2. Obriši iz lokalnog state-a
       const filteredArhiva = arhiva.filter((item) => item.datum !== datum);
       setArhiva(filteredArhiva);
       
-      // Spremi ažuriranu arhivu u localStorage
+      // 3. Spremi ažuriranu arhivu u localStorage (uključujući praznu arhivu)
       if (userId) {
         const storageKey = `arhivaObracuna_${userId}`;
         localStorage.setItem(storageKey, JSON.stringify(filteredArhiva));
+        console.log("Arhiva ažurirana u localStorage:", filteredArhiva.length, "obračuna");
       }
+      
       delete obracunRefs.current[datum];
       setEditingObracunDatum(null);
     }
