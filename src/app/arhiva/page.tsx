@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
@@ -200,12 +200,11 @@ export default function ArhivaPage() {
     }
     
     // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup)
-    let savedArhiva: string | null = null;
     if (userId) {
       // User-specific localStorage ključ
       const storageKey = `arhivaObracuna_${userId}`;
-      savedArhiva = localStorage.getItem(storageKey);
-      if (savedArhiva !== null) {
+      const savedArhiva = localStorage.getItem(storageKey);
+      if (savedArhiva) {
         try {
           localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
             ...item,
@@ -221,7 +220,7 @@ export default function ArhivaPage() {
       }
     } else {
       // Fallback: stari ključ (za migraciju)
-      savedArhiva = localStorage.getItem("arhivaObracuna");
+      const savedArhiva = localStorage.getItem("arhivaObracuna");
       if (savedArhiva) {
         try {
           localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
@@ -238,28 +237,15 @@ export default function ArhivaPage() {
     }
     
     // 3. MERGE: Firestore ima prioritet, ali dodaj i iz localStorage ako nema u Firestore
-    // IZUZETAK: Ako je localStorage eksplicitno prazan array (savedArhiva === "[]"), koristi praznu arhivu
-    // SAMO ako je Firestore također prazan (korisnik je obrisao sve)
-    let mergedArhiva: ArhiviraniObracun[] = [];
+    const mergedArhiva: ArhiviraniObracun[] = [...firestoreArhiva];
+    const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
     
-    // Ako je localStorage eksplicitno prazan array (savedArhiva === "[]") I Firestore je također prazan,
-    // korisnik je obrisao sve - koristi praznu arhivu
-    // Ako je localStorage prazan ali Firestore ima podatke, koristi Firestore (obračun je sačuvan u Firestore)
-    if (savedArhiva === "[]" && firestoreArhiva.length === 0) {
-      mergedArhiva = [];
-      console.log("Koristi se prazna arhiva iz localStorage (svi obračuni obrisani)");
-    } else {
-      // Inače, Firestore ima prioritet - koristi sve iz Firestore-a
-      mergedArhiva = [...firestoreArhiva];
-      const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
-      
-      // Dodaj iz localStorage samo one koji nisu u Firestore (offline backup)
-      localStorageArhiva.forEach((item) => {
-        if (!firestoreDatumi.has(item.datum)) {
-          mergedArhiva.push(item);
-        }
-      });
-    }
+    // Dodaj iz localStorage samo one koji nisu u Firestore
+    localStorageArhiva.forEach((item) => {
+      if (!firestoreDatumi.has(item.datum)) {
+        mergedArhiva.push(item);
+      }
+    });
     
     // Sortiraj po datumu (najnoviji prvo)
     const sortedArhiva = mergedArhiva.sort((a, b) => {
@@ -332,120 +318,6 @@ export default function ArhivaPage() {
     loadArhiva();
   }, [loadArhiva]);
 
-  // Real-time listener za Firestore promjene
-  useEffect(() => {
-    const user = auth.currentUser;
-    const userId = user?.uid;
-    
-    if (!userId) return;
-    
-    const obracuniRef = collection(db, "users", userId, "obracuni");
-    
-    const unsubscribe = onSnapshot(
-      obracuniRef,
-      async (snapshot) => {
-        // Osvježi arhivu kada se promijeni Firestore - direktno iz snapshot-a
-        console.log("Firestore promjena detektovana, osvježavam arhivu...");
-        
-        // Učitaj Firestore podatke direktno iz snapshot-a
-        const firestoreArhiva: ArhiviraniObracun[] = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            ...data,
-            prihodi: data.prihodi ?? [],
-            ukupnoPrihod: data.ukupnoPrihod ?? 0,
-            imaUlaz: data.imaUlaz ?? false,
-            isAzuriran: data.isAzuriran ?? false,
-          } as ArhiviraniObracun;
-        });
-        
-        // Učitaj iz localStorage
-        const storageKey = `arhivaObracuna_${userId}`;
-        const savedArhiva = localStorage.getItem(storageKey);
-        let localStorageArhiva: ArhiviraniObracun[] = [];
-        
-        if (savedArhiva !== null && savedArhiva !== "[]") {
-          try {
-            localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
-              ...item,
-              prihodi: item.prihodi ?? [],
-              ukupnoPrihod: item.ukupnoPrihod ?? 0,
-              imaUlaz: item.imaUlaz ?? false,
-              isAzuriran: item.isAzuriran ?? false,
-            }));
-          } catch (e) {
-            console.warn("Greška pri čitanju localStorage:", e);
-          }
-        }
-        
-        // Merge: Firestore ima prioritet
-        let mergedArhiva: ArhiviraniObracun[] = [...firestoreArhiva];
-        const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
-        
-        // Dodaj iz localStorage samo one koji nisu u Firestore
-        localStorageArhiva.forEach((item) => {
-          if (!firestoreDatumi.has(item.datum)) {
-            mergedArhiva.push(item);
-          }
-        });
-        
-        // Sortiraj po datumu (najnoviji prvo)
-        const sortedArhiva = mergedArhiva.sort((a, b) => {
-          const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-          const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-          return dateB - dateA;
-        });
-        
-        // Transformiraj podatke
-        const transformedArhiva = sortedArhiva.map((obracun) => {
-          let imaUlaz = obracun.imaUlaz ?? false;
-          const transformedArtikli = obracun.artikli.map((artikal) => {
-            if (
-              artikal.staroPocetnoStanje !== undefined &&
-              artikal.pocetnoStanje !== undefined &&
-              artikal.staroPocetnoStanje !== artikal.pocetnoStanje
-            ) {
-              const staroStanje = artikal.staroPocetnoStanje;
-              const novoStanje = artikal.pocetnoStanje;
-              const ulaz = novoStanje - staroStanje;
-              
-              imaUlaz = true;
-              
-              return {
-                ...artikal,
-                pocetnoStanje: staroStanje,
-                ulaz: ulaz,
-                staroPocetnoStanje: undefined,
-              };
-            }
-            return artikal;
-          });
-          
-          return {
-            ...obracun,
-            artikli: transformedArtikli,
-            imaUlaz: imaUlaz,
-          };
-        });
-        
-        // Ažuriraj state
-        setArhiva(transformedArhiva);
-        
-        // Spremi u localStorage kao cache
-        localStorage.setItem(storageKey, JSON.stringify(transformedArhiva));
-        console.log("Arhiva osvježena iz real-time listenera:", transformedArhiva.length, "obračuna");
-      },
-      (error: any) => {
-        // Ignoriraj greške dozvola
-        const errorCode = error?.code || "";
-        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-          console.warn("Greška u real-time listeneru za arhivu:", error);
-        }
-      }
-    );
-    
-    return () => unsubscribe();
-  }, []);
 
   // Listener za promjene u arhivi (samo za vanjske promjene, ne za interne)
   useEffect(() => {
