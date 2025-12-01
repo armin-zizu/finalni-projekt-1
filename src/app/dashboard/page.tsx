@@ -590,6 +590,7 @@ export default function DashboardPage() {
         className="chart-container"
         style={{
           width: "100%",
+          maxWidth: "100%",
           height: 400,
           backgroundColor: "#fff",
           borderRadius: 12,
@@ -597,10 +598,11 @@ export default function DashboardPage() {
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
           marginBottom: 30,
           overflow: "hidden",
+          boxSizing: "border-box",
         }}
       >
         <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-          <LineChart data={chartData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+          <LineChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis 
               dataKey="datum" 
@@ -731,16 +733,19 @@ export default function DashboardPage() {
         <div
           style={{
             width: "100%",
+            maxWidth: "100%",
             height: 300,
             backgroundColor: "#fff",
             borderRadius: 12,
             padding: 20,
             boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
             marginBottom: 10,
+            overflow: "hidden",
+            boxSizing: "border-box",
           }}
         >
           <ResponsiveContainer width="100%" height="100%" minHeight={280}>
-            <LineChart data={selectedData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+            <LineChart data={selectedData} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
