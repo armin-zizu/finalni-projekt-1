@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
