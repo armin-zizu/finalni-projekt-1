@@ -318,6 +318,33 @@ export default function ArhivaPage() {
     loadArhiva();
   }, [loadArhiva]);
 
+  // Real-time listener za Firestore promjene
+  useEffect(() => {
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    
+    if (!userId) return;
+    
+    const obracuniRef = collection(db, "users", userId, "obracuni");
+    
+    const unsubscribe = onSnapshot(
+      obracuniRef,
+      () => {
+        // Osvježi arhivu kada se promijeni Firestore
+        console.log("Firestore promjena detektovana, osvježavam arhivu...");
+        loadArhiva();
+      },
+      (error: any) => {
+        // Ignoriraj greške dozvola
+        const errorCode = error?.code || "";
+        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+          console.warn("Greška u real-time listeneru za arhivu:", error);
+        }
+      }
+    );
+    
+    return () => unsubscribe();
+  }, [loadArhiva]);
 
   // Listener za promjene u arhivi (samo za vanjske promjene, ne za interne)
   useEffect(() => {
