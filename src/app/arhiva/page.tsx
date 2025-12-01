@@ -200,11 +200,12 @@ export default function ArhivaPage() {
     }
     
     // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup)
+    let savedArhiva: string | null = null;
     if (userId) {
       // User-specific localStorage ključ
       const storageKey = `arhivaObracuna_${userId}`;
-      const savedArhiva = localStorage.getItem(storageKey);
-      if (savedArhiva) {
+      savedArhiva = localStorage.getItem(storageKey);
+      if (savedArhiva !== null) {
         try {
           localStorageArhiva = JSON.parse(savedArhiva).map((item: any) => ({
             ...item,
@@ -236,16 +237,27 @@ export default function ArhivaPage() {
       }
     }
     
-    // 3. MERGE: Firestore ima prioritet, ali dodaj i iz localStorage ako nema u Firestore
-    const mergedArhiva: ArhiviraniObracun[] = [...firestoreArhiva];
-    const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
+    // 3. MERGE: Ako je localStorage eksplicitno prazan array (korisnik je obrisao sve), koristi praznu arhivu
+    // Inače, Firestore ima prioritet, ali dodaj i iz localStorage ako nema u Firestore
+    let mergedArhiva: ArhiviraniObracun[] = [];
     
-    // Dodaj iz localStorage samo one koji nisu u Firestore
-    localStorageArhiva.forEach((item) => {
-      if (!firestoreDatumi.has(item.datum)) {
-        mergedArhiva.push(item);
-      }
-    });
+    // Ako je localStorage eksplicitno prazan array (savedArhiva === "[]"), korisnik je obrisao sve
+    // U tom slučaju, koristi praznu arhivu bez obzira na Firestore
+    if (savedArhiva === "[]") {
+      mergedArhiva = [];
+      console.log("Koristi se prazna arhiva iz localStorage (svi obračuni obrisani)");
+    } else {
+      // Inače, Firestore ima prioritet
+      mergedArhiva = [...firestoreArhiva];
+      const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
+      
+      // Dodaj iz localStorage samo one koji nisu u Firestore
+      localStorageArhiva.forEach((item) => {
+        if (!firestoreDatumi.has(item.datum)) {
+          mergedArhiva.push(item);
+        }
+      });
+    }
     
     // Sortiraj po datumu (najnoviji prvo)
     const sortedArhiva = mergedArhiva.sort((a, b) => {
