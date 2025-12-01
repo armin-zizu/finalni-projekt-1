@@ -237,8 +237,8 @@ export default function ArhivaPage() {
       }
     }
     
-    // 3. MERGE: Ako je localStorage eksplicitno prazan array (korisnik je obrisao sve), koristi praznu arhivu
-    // Inače, Firestore ima prioritet, ali dodaj i iz localStorage ako nema u Firestore
+    // 3. MERGE: Firestore ima prioritet, ali dodaj i iz localStorage ako nema u Firestore
+    // IZUZETAK: Ako je localStorage eksplicitno prazan array (savedArhiva === "[]"), koristi praznu arhivu
     let mergedArhiva: ArhiviraniObracun[] = [];
     
     // Ako je localStorage eksplicitno prazan array (savedArhiva === "[]"), korisnik je obrisao sve
