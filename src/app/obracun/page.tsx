@@ -1150,10 +1150,6 @@ export default function ObracunPage() {
       const noviDatum = new Date(trenutniDatum);
       noviDatum.setDate(noviDatum.getDate() + 1);
       setTrenutniDatum(noviDatum);
-      
-      // Resetiraj artikle - useEffect će se pokrenuti kada se promijeni trenutniDatum i cjenovnik
-      // i automatski će inicijalizirati artikle sa ispravnim početnim stanjem iz cjenovnika
-      // Krajnje stanje će biti 0 jer ga još nismo uradili za novi dan
 
       setRashodi([]);
       setPrihodi([]);
@@ -1164,8 +1160,9 @@ export default function ObracunPage() {
       setIsAzuriran(false); // Resetiraj flag nakon spremanja
       setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju
       
-      // Ne resetiraj artikle ovdje - useEffect će se pokrenuti kada se promijeni trenutniDatum i cjenovnik
-      // i automatski će inicijalizirati artikle sa ispravnim početnim stanjem iz cjenovnika
+      // Eksplicitno resetiraj artikle na prazan niz da se useEffect pokrene i inicijalizira nove artikle
+      // Ovo će osigurati da se artikli odmah resetiraju za novi dan
+      setArtikli([]);
 
       // Emituj događaj (ako koristiš fallback)
       window.dispatchEvent(new Event("arhivaChanged"));
