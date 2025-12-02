@@ -164,24 +164,6 @@ export default function AdminPage() {
       }
       setIsAdmin(true);
       await loadUsers();
-      
-      // Automatski postavi test12 korisnika kao vlasnika ako postoji
-      try {
-        const usersCollection = collection(db, "users");
-        const usersSnapshot = await getDocs(usersCollection);
-        for (const userDoc of usersSnapshot.docs) {
-          const userData = userDoc.data();
-          if (userData.email === "test12" || userData.email?.includes("test12")) {
-            if (userData.isOwner !== true) {
-              console.log("Postavljam test12 korisnika kao vlasnika...");
-              await setUserAsOwnerHelper(userData.email);
-              await loadUsers(); // Osvježi listu korisnika
-            }
-          }
-        }
-      } catch (error) {
-        console.warn("Greška pri automatskom postavljanju test12 korisnika:", error);
-      }
     };
 
     const unsubscribe = auth.onAuthStateChanged((user) => {
