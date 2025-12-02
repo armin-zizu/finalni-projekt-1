@@ -169,6 +169,7 @@ export default function ArhivaPage() {
   const [showFaktureModal, setShowFaktureModal] = useState(false);
   const [selectedFakturaDatum, setSelectedFakturaDatum] = useState<string | null>(null);
   const [selectedFakturaImages, setSelectedFakturaImages] = useState<string[]>([]);
+  const [modalFakture, setModalFakture] = useState<{ datum: string; images: string[] }[]>([]);
   const [uploadingImagesForDatum, setUploadingImagesForDatum] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [invoiceFiles, setInvoiceFiles] = useState<{ [datum: string]: File[] }>({});
@@ -601,7 +602,7 @@ export default function ArhivaPage() {
   };
 
   // Funkcija za otvaranje modala sa faktorama jednog obračuna
-  const openSingleObracunFaktureModal = (datum: string) => {
+  const openSingleObracunFaktureModal = async (datum: string) => {
     setFaktureModalMode("single");
     setSingleObracunDatum(datum);
     setSelectedFakturaDatum(null);
@@ -609,6 +610,25 @@ export default function ArhivaPage() {
     setShowFaktureModal(true);
     setShowModalUploadInput(false);
     setModalInvoiceFiles([]);
+    
+    // Učitaj fakture za taj obračun
+    const fakture = await getSingleObracunFakture(datum);
+    setModalFakture(fakture);
+    
+    // Ažuriraj arhivu sa slikama ako nisu već učitane
+    if (fakture.length > 0 && fakture[0].images.length > 0) {
+      setArhiva((prev) =>
+        prev.map((obracun) => {
+          if (obracun.datum === datum && (!obracun.invoiceImages || obracun.invoiceImages.length === 0)) {
+            return {
+              ...obracun,
+              invoiceImages: fakture[0].images,
+            };
+          }
+          return obracun;
+        })
+      );
+    }
   };
 
   // Funkcija za klik na datum u listi faktura (prikazuje slike)
