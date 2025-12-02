@@ -149,9 +149,13 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                   setCjenovnik(firestoreCjenovnik);
                   // Spremi u localStorage kao cache
                   localStorage.setItem(storageKey, JSON.stringify(firestoreCjenovnik));
+                  setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
                 } else if (localStorageCjenovnik.length > 0) {
                   // Ako Firestore nema cjenovnik, koristi localStorage
                   setCjenovnik(localStorageCjenovnik);
+                  setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
+                } else {
+                  setIsInitialLoad(false); // Označi da je prvo učitavanje završeno (čak i ako nema podataka)
                 }
               }
             }
