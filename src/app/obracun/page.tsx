@@ -23,6 +23,8 @@ type Artikal = {
   zestokoKolicina?: number;
   proizvodnaCijena?: number;
   isKrajnjeSet: boolean;
+  staroPocetnoStanje?: number; // Za praćenje starog stanja pri ažuriranju
+  sačuvanUlaz?: number; // Sačuvaj ulaz prije resetiranja za prikaz u arhivi
 };
 
 type Rashod = {
@@ -46,6 +48,8 @@ type ArhiviraniArtikal = {
   vrijednostKM: number;
   zestokoKolicina?: number;
   proizvodnaCijena?: number;
+  staroPocetnoStanje?: number; // Staro stanje prije ažuriranja
+  sačuvanUlaz?: number; // Sačuvani ulaz za prikaz u arhivi
 };
 
 type ArhiviraniObracun = {
@@ -330,26 +334,46 @@ export default function ObracunPage() {
         const cached = ulazCache[item.naziv];
         const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
         
-        // Ako postoji cache sa ulazom, učitaj ga
-        if (cached && cached.ulaz !== 0) {
-          return {
-            naziv: item.naziv,
-            cijena: item.cijena,
-            pocetnoStanje: pocetnoStanje,
-            ulaz: cached.ulaz,
-            ukupno: pocetnoStanje + cached.ulaz,
-            utroseno: 0,
-            krajnjeStanje: 0,
-            vrijednostKM: 0,
-            zestokoKolicina: item.zestokoKolicina,
-            proizvodnaCijena: item.proizvodnaCijena,
-            isKrajnjeSet: false,
-            staroPocetnoStanje: undefined,
-            sačuvanUlaz: undefined,
-          };
+        // Ako postoji cache, učitaj ulaz i staro početno stanje
+        if (cached && cached.staroPocetnoStanje !== undefined) {
+          if (cached.ulaz !== 0) {
+            // Ako ima ulaz, učitaj ga
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              pocetnoStanje: pocetnoStanje,
+              ulaz: cached.ulaz,
+              ukupno: pocetnoStanje + cached.ulaz,
+              utroseno: 0,
+              krajnjeStanje: 0,
+              vrijednostKM: 0,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              isKrajnjeSet: false,
+              staroPocetnoStanje: cached.staroPocetnoStanje,
+              sačuvanUlaz: undefined,
+            };
+          } else {
+            // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              pocetnoStanje: pocetnoStanje,
+              ulaz: 0,
+              ukupno: pocetnoStanje,
+              utroseno: 0,
+              krajnjeStanje: 0,
+              vrijednostKM: 0,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              isKrajnjeSet: false,
+              staroPocetnoStanje: cached.staroPocetnoStanje,
+              sačuvanUlaz: undefined,
+            };
+          }
         }
         
-        // Ako nema cache ili je ulaz 0, inicijaliziraj normalno
+        // Ako nema cache, inicijaliziraj normalno
         return {
           naziv: item.naziv,
           cijena: item.cijena,
@@ -385,26 +409,42 @@ export default function ObracunPage() {
         const cached = ulazCache[item.naziv];
         const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
         
-        // Ako postoji cache sa ulazom, učitaj ga
-        if (cached && cached.ulaz !== 0) {
-          return {
-            naziv: item.naziv,
-            cijena: item.cijena,
-            pocetnoStanje: pocetnoStanje,
-            ulaz: cached.ulaz,
-            ukupno: pocetnoStanje + cached.ulaz,
-            utroseno: 0,
-            krajnjeStanje: 0,
-            vrijednostKM: 0,
-            zestokoKolicina: item.zestokoKolicina,
-            proizvodnaCijena: item.proizvodnaCijena,
-            isKrajnjeSet: false,
-            staroPocetnoStanje: undefined,
-            sačuvanUlaz: undefined,
-          };
+        if (cached && cached.staroPocetnoStanje !== undefined) {
+          if (cached.ulaz !== 0) {
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              pocetnoStanje: pocetnoStanje,
+              ulaz: cached.ulaz,
+              ukupno: pocetnoStanje + cached.ulaz,
+              utroseno: 0,
+              krajnjeStanje: 0,
+              vrijednostKM: 0,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              isKrajnjeSet: false,
+              staroPocetnoStanje: cached.staroPocetnoStanje,
+              sačuvanUlaz: undefined,
+            };
+          } else {
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              pocetnoStanje: pocetnoStanje,
+              ulaz: 0,
+              ukupno: pocetnoStanje,
+              utroseno: 0,
+              krajnjeStanje: 0,
+              vrijednostKM: 0,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              isKrajnjeSet: false,
+              staroPocetnoStanje: cached.staroPocetnoStanje,
+              sačuvanUlaz: undefined,
+            };
+          }
         }
         
-        // Ako nema cache ili je ulaz 0, inicijaliziraj normalno
         return {
           naziv: item.naziv,
           cijena: item.cijena,
@@ -463,13 +503,25 @@ export default function ObracunPage() {
         setArtikli((prev) =>
           prev.map((a) => {
             const cached = ulazCache[a.naziv];
-            // Ako postoji cache sa ulazom, učitaj ga
-            if (cached && cached.ulaz !== 0) {
-              return {
-                ...a,
-                ulaz: cached.ulaz,
-                ukupno: a.pocetnoStanje + cached.ulaz,
-              };
+            if (cached && cached.staroPocetnoStanje !== undefined) {
+              // Ako postoji cache sa staroPocetnoStanje, učitaj ga
+              // Čak i ako je ulaz 0 (već je ažuriran), postavi staroPocetnoStanje da se prikaže zagrada
+              if (cached.ulaz !== 0) {
+                // Ako ima ulaz, učitaj ga
+                return {
+                  ...a,
+                  ulaz: cached.ulaz,
+                  ukupno: a.pocetnoStanje + cached.ulaz,
+                  staroPocetnoStanje: cached.staroPocetnoStanje,
+                };
+              } else {
+                // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje da se prikaže zagrada
+                // Ne mijenjaj početno stanje, samo postavi staroPocetnoStanje
+                return {
+                  ...a,
+                  staroPocetnoStanje: cached.staroPocetnoStanje,
+                };
+              }
             }
             return a;
           })
@@ -488,7 +540,7 @@ export default function ObracunPage() {
   };
 
   // Helper funkcije za ulaz cache u Firestore (umjesto localStorage)
-  const loadUlazCacheFromFirestore = async (datumString: string): Promise<{ [naziv: string]: { ulaz: number } }> => {
+  const loadUlazCacheFromFirestore = async (datumString: string): Promise<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number } }> => {
     const user = auth.currentUser;
     if (!user) return {};
     
@@ -508,7 +560,7 @@ export default function ObracunPage() {
     return {};
   };
 
-  const saveUlazCacheToFirestore = async (datumString: string, ulazCache: { [naziv: string]: { ulaz: number } }) => {
+  const saveUlazCacheToFirestore = async (datumString: string, ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } }) => {
     const user = auth.currentUser;
     if (!user) return;
     
@@ -544,6 +596,11 @@ export default function ObracunPage() {
         // Izračunaj novo ukupno stanje (početno + ulaz)
         const novoUkupno = a.pocetnoStanje + value;
         
+        // Sačuvaj staro početno stanje ako već nije postavljeno i ako ima ulaz (pozitivan ili negativan)
+        const novoStaroPocetnoStanje = a.staroPocetnoStanje !== undefined 
+          ? a.staroPocetnoStanje 
+          : (value !== 0 ? a.pocetnoStanje : undefined);
+        
         // Ako je postavljeno krajnje stanje, izračunaj utrošeno i vrijednost na osnovu novog ukupnog
         let utroseno = 0;
         let vrijednostKM = 0;
@@ -566,6 +623,7 @@ export default function ObracunPage() {
           ...a,
           ulaz: value,
           ukupno: novoUkupno, // Početno stanje + ulaz
+          staroPocetnoStanje: novoStaroPocetnoStanje,
           utroseno: utroseno,
           vrijednostKM: vrijednostKM,
         };
@@ -691,14 +749,22 @@ export default function ObracunPage() {
 
     // Učitaj postojeći cache iz Firestore da ne izgubimo podatke
     const existingCache = await loadUlazCacheFromFirestore(datumString);
-    let ulazCache: { [naziv: string]: { ulaz: number } } = existingCache;
+    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = existingCache;
     
     // Ažuriraj cache sa novim podacima - SAČUVAJ ulaz prije nego što se resetira
     artikli.forEach((a) => {
       if (a.ulaz !== 0) {
-        // Ako ima ulaz, ažuriraj cache sa ulazom
+        // Ako ima ulaz, ažuriraj cache sa ulazom i starim početnim stanjem
         ulazCache[a.naziv] = {
           ulaz: a.ulaz, // Sačuvaj ulaz
+          staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
+        };
+      } else if (a.staroPocetnoStanje !== undefined) {
+        // Ako nema ulaz ali ima staroPocetnoStanje (već je ažuriran), sačuvaj samo staroPocetnoStanje
+        // Postavi ulaz na 0 da znamo da je već ažuriran
+        ulazCache[a.naziv] = {
+          ulaz: 0,
+          staroPocetnoStanje: a.staroPocetnoStanje,
         };
       }
     });
@@ -706,12 +772,14 @@ export default function ObracunPage() {
     // Spremi cache u Firestore PRIJE nego što se artikli ažuriraju
     await saveUlazCacheToFirestore(datumString, ulazCache);
 
-    // Ažuriraj cjenovnik i artikle
+    // Ažuriraj cjenovnik i artikle - sačuvaj staro stanje prije ažuriranja
     setCjenovnik((prev) =>
       prev.map((item) => {
         const artikal = artikli.find((a) => a.naziv === item.naziv);
         if (!artikal || artikal.ulaz === 0) return item;
         
+        // Sačuvaj staro početno stanje prije ažuriranja
+        const staroPocetnoStanje = item.pocetnoStanje;
         const novoPocetnoStanje = artikal.naziv.toLowerCase().includes("kafa")
           ? 0
           : artikal.pocetnoStanje + artikal.ulaz;
@@ -723,9 +791,11 @@ export default function ObracunPage() {
       })
     );
 
-    // Ažuriraj artikle u formi - postavi novo početno stanje i resetiraj ulaz
+    // Ažuriraj artikle u formi - postavi novo početno stanje i resetiraj ulaz (isto kao u handleSaveObracun)
     const updated = artikli.map((a) => {
       if (a.ulaz !== 0) {
+        const staroPocetnoStanje = a.staroPocetnoStanje ?? a.pocetnoStanje;
+        const sačuvanUlaz = a.ulaz; // Sačuvaj ulaz prije resetiranja
         const novoPocetnoStanje = a.naziv.toLowerCase().includes("kafa")
           ? 0
           : a.pocetnoStanje + a.ulaz;
@@ -739,9 +809,11 @@ export default function ObracunPage() {
           vrijednostKM: 0, // Resetiraj vrijednost
           krajnjeStanje: 0, // Resetiraj krajnje stanje
           isKrajnjeSet: false, // Resetiraj flag
+          staroPocetnoStanje: staroPocetnoStanje, // Sačuvaj staro stanje da se prikaže zagrada
+          sačuvanUlaz: sačuvanUlaz, // Sačuvaj ulaz za prikaz u arhivi
         };
       }
-      // Za artikle bez ulaza, resetiraj ulaz na 0
+      // Za artikle bez ulaza, resetiraj ulaz na 0 ali zadrži staroPocetnoStanje ako postoji
       return {
         ...a,
         ulaz: 0,
@@ -750,15 +822,16 @@ export default function ObracunPage() {
     
     setArtikli(updated);
     
-    // Ažuriraj cache - postavi ulaz na 0 jer je ažuriran
+    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
     const existingCache2 = await loadUlazCacheFromFirestore(datumString);
-    let ulazCache2: { [naziv: string]: { ulaz: number } } = existingCache2;
+    let ulazCache2: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = existingCache2;
     
-    // Postavi ulaz na 0 za sve artikle koji su imali ulaz
+    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
     updated.forEach((a) => {
-      if (existingCache2[a.naziv]) {
+      if (a.staroPocetnoStanje !== undefined) {
         ulazCache2[a.naziv] = {
           ulaz: 0, // Ulaz je sada 0 jer je ažuriran
+          staroPocetnoStanje: a.staroPocetnoStanje,
         };
       }
     });
@@ -777,7 +850,7 @@ export default function ObracunPage() {
   };
 
   // Provjeri da li obračun ima ulaz
-  const hasUlaz = artikli.some((a) => a.ulaz !== 0);
+  const hasUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0));
 
   // Funkcija za upload slika faktura
   const uploadInvoiceImages = async (datumString: string): Promise<string[]> => {
@@ -874,9 +947,15 @@ export default function ObracunPage() {
     const ulazCache = await loadUlazCacheFromFirestore(datumString);
 
     // Provjeri da li obračun ima ulaz
+    // Provjeri trenutni ulaz u state-u ili sačuvan ulaz (ako je obračun već ažuriran)
+    // Ne provjeravaj cache jer to može biti iz prethodnih obračuna
     const imaUlaz = artikli.some((a) => {
       // Provjeri trenutni ulaz
       if (a.ulaz !== 0) {
+        return true;
+      }
+      // Provjeri sačuvan ulaz (ako je obračun već ažuriran, ulaz je resetovan na 0 ali je sačuvan)
+      if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
         return true;
       }
       // Provjeri cache (ako postoji ulaz u cache-u za ovaj datum)
@@ -893,16 +972,29 @@ export default function ObracunPage() {
       ukupnoPrihod,
       neto,
       artikli: artikli.map((a) => {
-        // Prioritet: 1. trenutni ulaz, 2. ulaz iz cache-a
+        // Prioritet: 1. trenutni ulaz, 2. sačuvani ulaz u state-u, 3. ulaz iz cache-a
         let ulazZaPrikaz = 0;
+        let staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
 
-        // Ako trenutni ulaz nije 0, koristi ga
+        // Ako trenutni ulaz nije 0, koristi ga (direktno spremanje bez ažuriranja)
         if (a.ulaz !== 0) {
           ulazZaPrikaz = a.ulaz;
+          // Ako nema staroPocetnoStanje, postavi ga na trenutno početno stanje
+          if (a.staroPocetnoStanje === undefined) {
+            staroPocetnoStanjeZaPrikaz = a.pocetnoStanje;
+          }
         } 
-        // Ako nema trenutni ulaz, provjeri cache
+        // Ako trenutni ulaz je 0, provjeri sačuvan ulaz (ako je obračun već ažuriran)
+        else if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
+          // Kada je obračun ažuriran, ulaz je resetovan na 0, ali je sačuvan u sačuvanUlaz
+          // Koristi sačuvanUlaz za prikaz u arhivi
+          ulazZaPrikaz = a.sačuvanUlaz;
+          staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
+        } 
+        // Ako nema ni trenutni ni sačuvan ulaz, provjeri cache
         else if (ulazCache[a.naziv] && ulazCache[a.naziv].ulaz !== 0) {
           ulazZaPrikaz = ulazCache[a.naziv].ulaz;
+          staroPocetnoStanjeZaPrikaz = ulazCache[a.naziv].staroPocetnoStanje;
         }
         
         // Kreiraj objekt bez undefined vrijednosti
@@ -920,7 +1012,7 @@ export default function ObracunPage() {
           naziv: a.naziv,
           cijena: a.cijena,
           pocetnoStanje: a.pocetnoStanje,
-          ulaz: ulazZaPrikaz, // Sačuvaj ulaz za prikaz u arhivi
+          ulaz: ulazZaPrikaz, // Sačuvaj ulaz za prikaz u arhivi - OBAVEZNO postavi ulaz ako postoji
           ukupno: a.ukupno,
           utroseno: a.utroseno,
           krajnjeStanje: krajnjeStanjeZaPrikaz, // Uvijek postavi krajnje stanje (ili postavljeno ili ukupno)
@@ -933,6 +1025,12 @@ export default function ObracunPage() {
         }
         if (a.proizvodnaCijena !== undefined) {
           artikalObj.proizvodnaCijena = a.proizvodnaCijena;
+        }
+        if (staroPocetnoStanjeZaPrikaz !== undefined) {
+          artikalObj.staroPocetnoStanje = staroPocetnoStanjeZaPrikaz;
+        }
+        if (ulazZaPrikaz !== 0) {
+          artikalObj.sačuvanUlaz = ulazZaPrikaz;
         }
         
         return artikalObj;
@@ -1026,16 +1124,16 @@ export default function ObracunPage() {
           const artikal = artikli.find((a) => a.naziv === item.naziv);
           if (!artikal) return item;
           
-          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana
+          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana (ili ukupno ako nije postavljeno krajnje)
           // Ako je postavljeno krajnje stanje, koristi ga; inače koristi ukupno (početno + ulaz)
           let novoPocetnoStanje: number;
           if (artikal.naziv.toLowerCase().includes("kafa")) {
             novoPocetnoStanje = 0; // Kafa se uvijek resetuje na 0
           } else if (artikal.isKrajnjeSet && artikal.krajnjeStanje > 0) {
-            // Ako je postavljeno krajnje stanje, koristi ga kao početno stanje za novi dan
+            // Ako je postavljeno krajnje stanje, koristi ga
             novoPocetnoStanje = artikal.krajnjeStanje;
           } else {
-            // Ako nije postavljeno krajnje stanje, koristi ukupno (početno + ulaz) kao početno stanje za novi dan
+            // Ako nije postavljeno krajnje stanje, koristi ukupno (početno + ulaz)
             novoPocetnoStanje = artikal.ukupno;
           }
           
@@ -1541,6 +1639,11 @@ export default function ObracunPage() {
                 <td style={tdStyle} data-label="Proizvodna Cijena">{a.proizvodnaCijena ? a.proizvodnaCijena.toFixed(2) : "-"}</td>
                 <td style={tdStyle} data-label="Početno stanje">
                   {a.pocetnoStanje}
+                  {a.staroPocetnoStanje !== undefined && a.staroPocetnoStanje !== a.pocetnoStanje && (
+                    <span style={{ color: "#eab308", marginLeft: "4px", fontSize: "12px" }}>
+                      ({a.staroPocetnoStanje})
+                    </span>
+                  )}
                 </td>
                 <td style={tdStyle} data-label="Ulaz">
                   <input
