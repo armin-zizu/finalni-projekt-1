@@ -1355,6 +1355,43 @@ export default function ObracunPage() {
         >
           {uploadingImages ? `Upload slika... ${Math.round(uploadProgress)}%` : "Sačuvaj obračun"}
         </button>
+        {/* Upload slika faktura - prikazuje se samo ako ima ulaz I nije ažurirano */}
+        {hasUlaz && !isAzuriran && (
+          <label
+            style={{
+              ...saveButtonStyle,
+              background: "#f59e0b",
+              opacity: canEdit ? 1 : 0.5,
+              cursor: canEdit ? "pointer" : "not-allowed",
+              display: "inline-block",
+              margin: 0
+            }}
+            onMouseEnter={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#d97706";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#f59e0b";
+              }
+            }}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setInvoiceImages([...invoiceImages, ...files]);
+                e.target.value = ""; // Reset input
+              }}
+              style={{ display: "none" }}
+              disabled={!canEdit}
+            />
+            📸 Dodaj slike fakture
+          </label>
+        )}
         {isAzuriran && (
           <span style={{ fontSize: "14px", color: "#f59e0b", fontWeight: 500, marginLeft: "8px" }}>
             (Ažurirano)
@@ -1362,8 +1399,8 @@ export default function ObracunPage() {
         )}
       </div>
 
-      {/* Upload slika faktura - prikazuje se samo ako ima ulaz I nije ažurirano */}
-      {hasUlaz && !isAzuriran && (
+      {/* Prikaz odabranih slika faktura */}
+      {hasUlaz && !isAzuriran && invoiceImages.length > 0 && (
         <div style={{ 
           marginTop: "16px", 
           marginBottom: "16px", 
@@ -1392,55 +1429,6 @@ export default function ObracunPage() {
             </h3>
           </div>
           
-          <label
-            style={{
-              display: "block",
-              padding: "8px 12px",
-              background: canEdit ? "#fff" : "#f3f4f6",
-              borderWidth: "1px",
-              borderStyle: "dashed",
-              borderColor: canEdit ? "#f59e0b" : "#d1d5db",
-              borderRadius: "6px",
-              cursor: canEdit ? "pointer" : "not-allowed",
-              textAlign: "center",
-              transition: "all 0.2s ease",
-              marginBottom: "10px"
-            }}
-            onMouseEnter={(e) => {
-              if (canEdit) {
-                e.currentTarget.style.background = "#fffbeb";
-                e.currentTarget.style.borderColor = "#d97706";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (canEdit) {
-                e.currentTarget.style.background = "#fff";
-                e.currentTarget.style.borderColor = "#f59e0b";
-              }
-            }}
-          >
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                setInvoiceImages([...invoiceImages, ...files]);
-                e.target.value = ""; // Reset input
-              }}
-              style={{ 
-                display: "none"
-              }}
-              disabled={!canEdit}
-            />
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-              <span style={{ fontSize: "16px" }}>📎</span>
-              <span style={{ fontSize: "12px", fontWeight: 500, color: canEdit ? "#92400e" : "#9ca3af" }}>
-                {canEdit ? "Dodaj slike" : "Niste u mogućnosti"}
-              </span>
-            </div>
-          </label>
-
           {invoiceImages.length > 0 && (
             <div style={{ marginTop: "10px" }}>
               <div style={{ 
