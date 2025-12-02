@@ -511,6 +511,13 @@ export default function ObracunPage() {
     const loadCache = async () => {
       const ulazCache = await loadUlazCacheFromFirestore(datumString);
       
+      // Provjeri da li postoji ulaz u cache-u (bilo da je ulaz > 0 ili da postoji staroPocetnoStanje)
+      const imaUlazUCache = Object.keys(ulazCache).some(naziv => {
+        const cached = ulazCache[naziv];
+        return (cached && cached.ulaz !== 0) || (cached && cached.staroPocetnoStanje !== undefined);
+      });
+      setHasUlazInCache(imaUlazUCache);
+      
       if (Object.keys(ulazCache).length > 0) {
         setArtikli((prev) =>
           prev.map((a) => {
