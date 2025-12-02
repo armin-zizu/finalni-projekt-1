@@ -1360,7 +1360,7 @@ export default function ObracunPage() {
           <label
             style={{
               ...saveButtonStyle,
-              background: "#f59e0b",
+              background: "#6366f1",
               opacity: canEdit ? 1 : 0.5,
               cursor: canEdit ? "pointer" : "not-allowed",
               display: "inline-block",
@@ -1368,12 +1368,12 @@ export default function ObracunPage() {
             }}
             onMouseEnter={(e) => {
               if (canEdit) {
-                e.currentTarget.style.background = "#d97706";
+                e.currentTarget.style.background = "#4f46e5";
               }
             }}
             onMouseLeave={(e) => {
               if (canEdit) {
-                e.currentTarget.style.background = "#f59e0b";
+                e.currentTarget.style.background = "#6366f1";
               }
             }}
           >
@@ -1410,54 +1410,89 @@ export default function ObracunPage() {
           border: "1px solid #f59e0b",
           boxShadow: "0 2px 8px rgba(245, 158, 11, 0.1)"
         }}>
-          <div style={{ display: "flex", alignItems: "center", marginBottom: "10px" }}>
-            <div style={{
-              width: "28px",
-              height: "28px",
-              borderRadius: "6px",
-              background: "#f59e0b",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: "8px",
-              fontSize: "16px"
-            }}>
-              📸
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <div style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "6px",
+                background: "#6366f1",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: "8px",
+                fontSize: "16px"
+              }}>
+                📸
+              </div>
+              <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#92400e", margin: 0 }}>
+                Slike faktura za ulaz
+              </h3>
             </div>
-            <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#92400e", margin: 0 }}>
-              Slike faktura za ulaz
-            </h3>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "#92400e" }}>
+                Odabrano: {invoiceImages.length}
+              </span>
+              {canEdit && invoiceImages.length > 0 && (
+                <>
+                  <button
+                    onClick={async () => {
+                      const datumString = formatirajDatum(trenutniDatum);
+                      try {
+                        setUploadingImages(true);
+                        setUploadProgress(0);
+                        await uploadInvoiceImages(datumString);
+                        alert("Slike faktura uspješno sačuvane!");
+                        setInvoiceImages([]);
+                      } catch (error: any) {
+                        console.error("Greška pri upload-u slika:", error);
+                        alert("Greška pri upload-u slika: " + (error.message || "Nepoznata greška"));
+                      } finally {
+                        setUploadingImages(false);
+                        setUploadProgress(0);
+                      }
+                    }}
+                    disabled={uploadingImages || !canEdit}
+                    style={{
+                      ...saveButtonStyle,
+                      background: "#15803d",
+                      opacity: (canEdit && !uploadingImages) ? 1 : 0.5,
+                      cursor: (canEdit && !uploadingImages) ? "pointer" : "not-allowed",
+                      padding: "6px 12px",
+                      fontSize: "12px"
+                    }}
+                  >
+                    {uploadingImages ? `Spremanje... ${Math.round(uploadProgress)}%` : "Sačuvaj slike"}
+                  </button>
+                  <button
+                    onClick={() => setInvoiceImages([])}
+                    style={{
+                      padding: "6px 12px",
+                      background: "#dc2626",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                      opacity: canEdit ? 1 : 0.5
+                    }}
+                    disabled={!canEdit}
+                  >
+                    Obriši sve
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           
           {invoiceImages.length > 0 && (
             <div style={{ marginTop: "10px" }}>
               <div style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                justifyContent: "space-between",
-                marginBottom: "8px"
+                display: "grid", 
+                gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
+                gap: "8px"
               }}>
-                <span style={{ fontSize: "12px", fontWeight: 500, color: "#92400e" }}>
-                  Odabrano: {invoiceImages.length}
-                </span>
-                {canEdit && invoiceImages.length > 0 && (
-                  <button
-                    onClick={() => setInvoiceImages([])}
-                    style={{
-                      padding: "2px 8px",
-                      background: "#dc2626",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 500
-                    }}
-                  >
-                    Obriši sve
-                  </button>
-                )}
-              </div>
               <div style={{ 
                 display: "grid", 
                 gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
