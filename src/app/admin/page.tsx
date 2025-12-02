@@ -67,7 +67,7 @@ export default function AdminPage() {
   const [activateOnPayment, setActivateOnPayment] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni" | "prilagođeno">("dnevni");
+  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni" | "tromjesečni" | "godišnji" | "prilagođeno">("dnevni");
   const [customFromDate, setCustomFromDate] = useState<string>("");
   const [customToDate, setCustomToDate] = useState<string>("");
   const [premiumDaysAdjustment, setPremiumDaysAdjustment] = useState(0);
@@ -725,9 +725,21 @@ export default function AdminPage() {
       startDate = new Date(now);
       startDate.setDate(startDate.getDate() - 84); // Zadnjih 12 tjedana
       startDate.setHours(0, 0, 0, 0);
-    } else {
+    } else if (revenueFilter === "mjesečni") {
       startDate = new Date(now);
       startDate.setMonth(startDate.getMonth() - 12); // Zadnjih 12 mjeseci
+      startDate.setHours(0, 0, 0, 0);
+    } else if (revenueFilter === "tromjesečni") {
+      startDate = new Date(now);
+      startDate.setMonth(startDate.getMonth() - 24); // Zadnjih 8 kvartala (2 godine)
+      startDate.setHours(0, 0, 0, 0);
+    } else if (revenueFilter === "godišnji") {
+      startDate = new Date(now);
+      startDate.setFullYear(startDate.getFullYear() - 5); // Zadnjih 5 godina
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      startDate = new Date(now);
+      startDate.setMonth(startDate.getMonth() - 12);
       startDate.setHours(0, 0, 0, 0);
     }
 
@@ -765,8 +777,26 @@ export default function AdminPage() {
         const year = weekStart.getFullYear();
         key = `Tjedan ${day}.${month}.${year}`;
         sortKey = `${year}-${month}-${day}`;
-      } else {
+      } else if (revenueFilter === "mjesečni") {
         // Mjesečni
+        const monthNames = ["januar", "februar", "mart", "april", "maj", "juni", "juli", "august", "septembar", "oktobar", "novembar", "decembar"];
+        const month = monthNames[date.getMonth()];
+        const year = date.getFullYear();
+        key = `${month} ${year}`;
+        sortKey = `${year}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      } else if (revenueFilter === "tromjesečni") {
+        // Tromjesečni (kvartali)
+        const quarter = Math.floor(date.getMonth() / 3) + 1;
+        const year = date.getFullYear();
+        key = `Q${quarter} ${year}`;
+        sortKey = `${year}-Q${quarter}`;
+      } else if (revenueFilter === "godišnji") {
+        // Godišnji
+        const year = date.getFullYear();
+        key = `${year}`;
+        sortKey = `${year}`;
+      } else {
+        // Default: mjesečni
         const monthNames = ["januar", "februar", "mart", "april", "maj", "juni", "juli", "august", "septembar", "oktobar", "novembar", "decembar"];
         const month = monthNames[date.getMonth()];
         const year = date.getFullYear();
@@ -916,6 +946,38 @@ export default function AdminPage() {
                 }}
               >
                 Mjesečni
+              </button>
+              <button
+                onClick={() => setRevenueFilter("tromjesečni")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: revenueFilter === "tromjesečni" ? "#3b82f6" : "#f3f4f6",
+                  color: revenueFilter === "tromjesečni" ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                }}
+              >
+                Tromjesečni
+              </button>
+              <button
+                onClick={() => setRevenueFilter("godišnji")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: revenueFilter === "godišnji" ? "#3b82f6" : "#f3f4f6",
+                  color: revenueFilter === "godišnji" ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                }}
+              >
+                Godišnji
               </button>
               <button
                 onClick={() => setRevenueFilter("prilagođeno")}
