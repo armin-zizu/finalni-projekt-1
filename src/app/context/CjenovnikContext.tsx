@@ -76,7 +76,16 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                 console.log("Cjenovnik učitano iz Firestore (real-time):", firestoreCjenovnik.length, "artikala");
                 
                 // 4. AŽURIRAJ POČETNO STANJE IZ ARHIVE (najnoviji obračun)
+                // VAŽNO: Ažuriraj samo ako artikal već postoji u cjenovniku (nije novi artikal)
+                // Ako je artikal novi (nije bio u prethodnom cjenovniku), koristi početno stanje koje je korisnik unio
                 try {
+                  // Učitaj prethodni cjenovnik iz Firestore da znamo koji artikli su novi
+                  const userDocRef = doc(db, "users", userId);
+                  const userDoc = await getDoc(userDocRef);
+                  const prethodniCjenovnik: ArtiklCijena[] = userDoc.exists() && userDoc.data().cjenovnik 
+                    ? userDoc.data().cjenovnik 
+                    : [];
+                  
                   const obracuniRef = collection(db, "users", userId, "obracuni");
                   const snapshot = await getDocs(obracuniRef);
                   const arhiva = snapshot.docs.map((doc) => doc.data());
@@ -93,7 +102,17 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                     const najnovijiObracun = arhiva[0];
                     if (najnovijiObracun && najnovijiObracun.artikli && Array.isArray(najnovijiObracun.artikli)) {
                       // Ažuriraj početno stanje u cjenovniku sa krajnjim stanjem iz najnovijeg obračuna
+                      // ALI samo za artikle koji su već postojali u prethodnom cjenovniku
                       firestoreCjenovnik = firestoreCjenovnik.map((item) => {
+                        // Provjeri da li artikal već postoji u prethodnom cjenovniku
+                        const postojiUPrethodnom = prethodniCjenovnik.some((a) => a.naziv === item.naziv);
+                        
+                        // Ako artikal ne postoji u prethodnom cjenovniku, koristi početno stanje koje je korisnik unio
+                        if (!postojiUPrethodnom) {
+                          return item; // Koristi početno stanje iz Firestore (koje je korisnik unio)
+                        }
+                        
+                        // Ako artikal postoji u prethodnom cjenovniku, provjeri arhivu
                         const artikalIzArhive = najnovijiObracun.artikli.find((a: any) => a.naziv === item.naziv);
                         if (artikalIzArhive) {
                           let novoPocetnoStanje = item.pocetnoStanje; // Default
@@ -116,6 +135,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                             pocetnoStanje: novoPocetnoStanje,
                           };
                         }
+                        // Ako artikal ne postoji u arhivi, koristi početno stanje iz Firestore
                         return item;
                       });
                     }
