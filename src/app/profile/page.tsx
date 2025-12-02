@@ -483,12 +483,51 @@ export default function Profile() {
     try {
       setSavingRole(true);
       const deviceRef = doc(db, "devices", deviceId);
+      const deviceDoc = await getDoc(deviceRef);
+      
+      // Provjeri da li je korisnik vlasnik (isOwner === true u user dokumentu)
+      let deviceRole: UserRole = "vlasnik"; // Default: vlasnik
+      if (deviceDoc.exists()) {
+        const deviceData = deviceDoc.data();
+        const deviceUserId = deviceData.userId;
+        
+        // Provjeri da li je korisnik vlasnik
+        if (deviceUserId) {
+          const userDocRef = doc(db, "users", deviceUserId);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const isOwnerFromUserDoc = userData.isOwner === true;
+            // Ako je vlasnik, postavi kao vlasnik, inače kao konobar
+            deviceRole = isOwnerFromUserDoc ? "vlasnik" : "konobar";
+          }
+        }
+      }
+      
       await setDoc(
         deviceRef,
         {
+          role: deviceRole,
           status: "approved",
           approvedAt: Timestamp.fromDate(new Date()),
           approvedBy: user.uid,
+          permissions: deviceRole === "vlasnik" ? {
+            dashboard: true,
+            obracun: true,
+            arhiva: true,
+            cjenovnik: true,
+            profit: true,
+            profile: true,
+            admin: false,
+          } : {
+            dashboard: false,
+            obracun: false,
+            arhiva: false,
+            cjenovnik: false,
+            profit: false,
+            profile: false,
+            admin: false,
+          },
           updatedAt: Timestamp.fromDate(new Date()),
         },
         { merge: true }
