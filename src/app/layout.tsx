@@ -18,6 +18,13 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Preusmjeri na dashboard ako je role postavljen i korisnik je na login stranici
+  useEffect(() => {
+    if (!roleLoading && role !== null && pathname === "/login") {
+      router.push("/dashboard");
+    }
+  }, [role, roleLoading, pathname, router]);
+
   // Ako se još učitava role, prikaži loading
   if (roleLoading) {
     return (
@@ -85,9 +92,8 @@ function AppContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Ako je role postavljen i korisnik je na login stranici, preusmjeri na dashboard
+  // Ako je role postavljen i korisnik je na login stranici, prikaži loading dok se preusmjerava
   if (pathname === "/login" && role !== null) {
-    router.push("/dashboard");
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "#f4f5f7" }}>
         <div style={{ fontSize: "16px", color: "#6b7280" }}>Preusmjeravanje...</div>
