@@ -326,57 +326,62 @@ export default function LoginPage() {
                 // Ako je vlasnik sa specifičnim emailom i OS-om, dozvoli pristup
                 // Uređaj će se kreirati u RoleContext sa statusom "approved"
               } else {
+                // Provjeri da li je korisnik vlasnik (isOwner === true)
+                const userDocRefCheck = doc(db, "users", user.uid);
+                const userDocCheck = await getDoc(userDocRefCheck);
+                const isOwnerCheck = userDocCheck.exists() && userDocCheck.data().isOwner === true;
+                
                 const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
                 const devicesSnapshot = await getDocs(devicesQuery);
                 
-                console.log("Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size);
+                console.log("Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size, "isOwner:", isOwnerCheck);
                 
-                // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
+                // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju (čak i ako je vlasnik)
                 if (!devicesSnapshot.empty) {
-                console.log("Korisnik već ima druge uređaje, kreiram novi sa statusom 'verifikacija'");
-                
-                // Kreiraj novi uređaj sa statusom "verifikacija"
-                const browser = navigator.userAgent.includes("Chrome")
-                  ? "Chrome"
-                  : navigator.userAgent.includes("Firefox")
-                  ? "Firefox"
-                  : navigator.userAgent.includes("Safari")
-                  ? "Safari"
-                  : navigator.userAgent.includes("Edge")
-                  ? "Edge"
-                  : "Unknown";
+                  console.log("Korisnik već ima druge uređaje, kreiram novi sa statusom 'verifikacija'");
+                  
+                  // Kreiraj novi uređaj sa statusom "verifikacija"
+                  const browser = navigator.userAgent.includes("Chrome")
+                    ? "Chrome"
+                    : navigator.userAgent.includes("Firefox")
+                    ? "Firefox"
+                    : navigator.userAgent.includes("Safari")
+                    ? "Safari"
+                    : navigator.userAgent.includes("Edge")
+                    ? "Edge"
+                    : "Unknown";
 
-                const os = navigator.userAgent.includes("Windows")
-                  ? "Windows"
-                  : navigator.userAgent.includes("Mac")
-                  ? "macOS"
-                  : navigator.userAgent.includes("Linux")
-                  ? "Linux"
-                  : navigator.userAgent.includes("Android")
-                  ? "Android"
-                  : navigator.userAgent.includes("iOS")
-                  ? "iOS"
-                  : "Unknown";
+                  const os = navigator.userAgent.includes("Windows")
+                    ? "Windows"
+                    : navigator.userAgent.includes("Mac")
+                    ? "macOS"
+                    : navigator.userAgent.includes("Linux")
+                    ? "Linux"
+                    : navigator.userAgent.includes("Android")
+                    ? "Android"
+                    : navigator.userAgent.includes("iOS")
+                    ? "iOS"
+                    : "Unknown";
 
-                await setDoc(deviceRef, {
-                  userId: user.uid,
-                  userEmail: user.email,
-                  role: null,
-                  status: "verifikacija",
-                  isBlocked: false,
-                  deviceInfo: {
-                    deviceId: deviceId,
-                    browser,
-                    os,
-                    screenSize: `${screen.width}x${screen.height}`,
-                    userAgent: navigator.userAgent,
-                    firstSeen: Timestamp.fromDate(new Date()),
+                  await setDoc(deviceRef, {
+                    userId: user.uid,
+                    userEmail: user.email,
+                    role: null,
+                    status: "verifikacija",
+                    isBlocked: false,
+                    deviceInfo: {
+                      deviceId: deviceId,
+                      browser,
+                      os,
+                      screenSize: `${screen.width}x${screen.height}`,
+                      userAgent: navigator.userAgent,
+                      firstSeen: Timestamp.fromDate(new Date()),
+                      lastLogin: Timestamp.fromDate(new Date()),
+                    },
                     lastLogin: Timestamp.fromDate(new Date()),
-                  },
-                  lastLogin: Timestamp.fromDate(new Date()),
-                  createdAt: Timestamp.fromDate(new Date()),
-                  updatedAt: Timestamp.fromDate(new Date()),
-                });
+                    createdAt: Timestamp.fromDate(new Date()),
+                    updatedAt: Timestamp.fromDate(new Date()),
+                  });
 
                   console.log("Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
                   setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
