@@ -198,6 +198,7 @@ export default function ArhivaPage() {
             ukupnoPrihod: data.ukupnoPrihod ?? 0,
             imaUlaz: data.imaUlaz ?? false,
             isAzuriran: data.isAzuriran ?? false,
+            invoiceImages: data.invoiceImages ?? [],
           } as ArhiviraniObracun;
         });
         console.log("Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
