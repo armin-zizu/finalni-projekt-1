@@ -553,12 +553,37 @@ export default function ArhivaPage() {
   };
 
   // Funkcija za dobijanje faktura jednog obračuna
-  const getSingleObracunFakture = (datum: string): { datum: string; images: string[] }[] => {
+  const getSingleObracunFakture = async (datum: string): Promise<{ datum: string; images: string[] }[]> => {
     const obracun = arhiva.find(o => o.datum === datum);
+    let images: string[] = [];
+    
+    // Prvo provjeri u arhivi
     if (obracun && obracun.invoiceImages && obracun.invoiceImages.length > 0) {
+      images = obracun.invoiceImages;
+    }
+    
+    // Također provjeri direktno u Firestore (za obračune koji možda još nisu u arhivi)
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    if (userId) {
+      try {
+        const obracunRef = doc(db, "users", userId, "obracuni", datum);
+        const obracunDoc = await getDoc(obracunRef);
+        if (obracunDoc.exists()) {
+          const data = obracunDoc.data();
+          if (data.invoiceImages && data.invoiceImages.length > 0) {
+            images = data.invoiceImages;
+          }
+        }
+      } catch (error) {
+        console.warn("Greška pri učitavanju faktura iz Firestore:", error);
+      }
+    }
+    
+    if (images.length > 0) {
       return [{
-        datum: obracun.datum,
-        images: obracun.invoiceImages,
+        datum: datum,
+        images: images,
       }];
     }
     return [];

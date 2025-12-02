@@ -356,13 +356,14 @@ export default function ObracunPage() {
               sačuvanUlaz: undefined,
             };
           } else {
-            // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje
+            // Ako je ulaz 0 (već je ažuriran), koristi staroPocetnoStanje kao početno stanje za prikaz
+            // Ovo osigurava da se zagrade prikazuju pravilno
             return {
               naziv: item.naziv,
               cijena: item.cijena,
-              pocetnoStanje: pocetnoStanje,
+              pocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje za prikaz
               ulaz: 0,
-              ukupno: pocetnoStanje,
+              ukupno: cached.staroPocetnoStanje, // Ukupno = staro početno stanje (jer je ulaz 0)
               utroseno: 0,
               krajnjeStanje: 0,
               vrijednostKM: 0,
@@ -555,10 +556,12 @@ export default function ObracunPage() {
                   staroPocetnoStanje: cached.staroPocetnoStanje,
                 };
               } else {
-                // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje da se prikaže zagrada
-                // Ne mijenjaj početno stanje, samo postavi staroPocetnoStanje
+                // Ako je ulaz 0 (već je ažuriran), koristi staroPocetnoStanje kao početno stanje za prikaz
+                // Ovo osigurava da se zagrade prikazuju pravilno
                 return {
                   ...a,
+                  pocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje za prikaz
+                  ukupno: cached.staroPocetnoStanje, // Ukupno = staro početno stanje (jer je ulaz 0)
                   staroPocetnoStanje: cached.staroPocetnoStanje,
                 };
               }
