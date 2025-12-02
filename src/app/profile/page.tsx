@@ -139,36 +139,46 @@ export default function Profile() {
       };
       
       try {
-        // Pokušaj dobiti IP i lokaciju iz ip-api.com (besplatno, bez API ključa)
-        const response = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
-        if (response.ok && response.status !== 403) {
-          const data = await response.json();
-          if (data.status === "success") {
-            return {
-              ip: data.query,
-              location: `${data.city || ""}, ${data.regionName || ""}, ${data.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim() || "Nepoznata lokacija",
-              isp: data.isp || "N/A"
-            };
+        // Pokušaj dobiti IP - koristimo ipify kao primarni izvor jer ip-api.com često vraća 403
+        let ip = "N/A";
+        try {
+          const ipResponse = await fetch("https://api.ipify.org?format=json");
+          if (ipResponse.ok) {
+            const ipData = await ipResponse.json();
+            ip = ipData.ip || "N/A";
           }
+        } catch (fallbackError) {
+          // Ignoriraj grešku sa ipify
         }
-      } catch (error) {
-        // Ignoriraj grešku sa ip-api.com (uključujući 403 Forbidden)
-      }
-      
-      // Fallback na ipify ako ip-api ne radi
-      try {
-        const ipResponse = await fetch("https://api.ipify.org?format=json");
-        if (ipResponse.ok) {
-          const ipData = await ipResponse.json();
-          return {
-            ip: ipData.ip || "N/A",
-            location: "Nepoznata lokacija",
-            isp: "N/A"
-          };
+        
+        // Opcionalno: pokušaj dobiti lokaciju iz ip-api.com (ali ignoriraj greške)
+        let location = "Nepoznata lokacija";
+        let isp = "N/A";
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const response = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp", {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (response.ok && response.status !== 403) {
+            const data = await response.json();
+            if (data.status === "success") {
+              if (data.query) ip = data.query;
+              location = `${data.city || ""}, ${data.regionName || ""}, ${data.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim() || "Nepoznata lokacija";
+              if (data.isp) isp = data.isp;
+            }
+          }
+        } catch (error: any) {
+          // Ignoriraj sve greške sa ip-api.com (uključujući 403 Forbidden, timeout, itd.)
+          // Ne loguj grešku u konzolu
         }
-      } catch (fallbackError) {
-        // Ignoriraj grešku sa ipify
-      }
+        
+        return {
+          ip,
+          location,
+          isp
+        };
       
       return ipInfo;
     };
