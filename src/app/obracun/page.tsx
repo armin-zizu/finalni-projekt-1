@@ -1176,8 +1176,14 @@ export default function ObracunPage() {
             savedInvoiceImagesCount: 0,
           }, { merge: true });
           setSavedInvoiceImagesCount(0);
-        } catch (error) {
-          console.warn("Greška pri brisanju broja sačuvanih slika:", error);
+        } catch (error: any) {
+          // Ignoriraj greške dozvola
+          const errorCode = error?.code || "";
+          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+            console.warn("Greška pri brisanju broja sačuvanih slika:", error);
+          }
+          // Resetuj lokalno kao fallback
+          setSavedInvoiceImagesCount(0);
         }
       }
 
@@ -1507,36 +1513,54 @@ export default function ObracunPage() {
                         
                         // Ažuriraj obračun u Firestore sa slikama
                         if (uploadedUrls.length > 0) {
-                          const obracunRef = doc(db, "users", userId, "obracuni", datumString);
-                          const obracunDoc = await getDoc(obracunRef);
-                          
-                          if (obracunDoc.exists()) {
-                            // Ako obračun već postoji, dodaj nove slike postojećim
-                            const existingData = obracunDoc.data();
-                            const existingImages = existingData.invoiceImages || [];
-                            const allImages = [...existingImages, ...uploadedUrls];
+                          try {
+                            const obracunRef = doc(db, "users", userId, "obracuni", datumString);
+                            const obracunDoc = await getDoc(obracunRef);
                             
-                            await setDoc(obracunRef, {
-                              invoiceImages: allImages,
-                            }, { merge: true });
-                          } else {
-                            // Ako obračun ne postoji, kreiraj novi sa slikama
-                            await setDoc(obracunRef, {
-                              invoiceImages: uploadedUrls,
-                            }, { merge: true });
+                            if (obracunDoc.exists()) {
+                              // Ako obračun već postoji, dodaj nove slike postojećim
+                              const existingData = obracunDoc.data();
+                              const existingImages = existingData.invoiceImages || [];
+                              const allImages = [...existingImages, ...uploadedUrls];
+                              
+                              await setDoc(obracunRef, {
+                                invoiceImages: allImages,
+                              }, { merge: true });
+                            } else {
+                              // Ako obračun ne postoji, kreiraj novi sa slikama
+                              await setDoc(obracunRef, {
+                                invoiceImages: uploadedUrls,
+                              }, { merge: true });
+                            }
+                          } catch (firestoreError: any) {
+                            // Ignoriraj greške dozvola - slike su već upload-ovane u Storage
+                            const errorCode = firestoreError?.code || "";
+                            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+                              console.warn("Greška pri spremanju slika u Firestore:", firestoreError);
+                            }
                           }
                           
                           // Sačuvaj broj sačuvanih slika u cache
-                          const cacheRef = doc(db, "users", userId, "cache", datumString);
-                          const cacheDoc = await getDoc(cacheRef);
-                          const currentCount = cacheDoc.exists() ? (cacheDoc.data().savedInvoiceImagesCount || 0) : 0;
-                          const newCount = currentCount + uploadedUrls.length;
-                          
-                          await setDoc(cacheRef, {
-                            savedInvoiceImagesCount: newCount,
-                          }, { merge: true });
-                          
-                          setSavedInvoiceImagesCount(newCount);
+                          try {
+                            const cacheRef = doc(db, "users", userId, "cache", datumString);
+                            const cacheDoc = await getDoc(cacheRef);
+                            const currentCount = cacheDoc.exists() ? (cacheDoc.data().savedInvoiceImagesCount || 0) : 0;
+                            const newCount = currentCount + uploadedUrls.length;
+                            
+                            await setDoc(cacheRef, {
+                              savedInvoiceImagesCount: newCount,
+                            }, { merge: true });
+                            
+                            setSavedInvoiceImagesCount(newCount);
+                          } catch (cacheError: any) {
+                            // Ignoriraj greške dozvola - broj će se sačuvati lokalno
+                            const errorCode = cacheError?.code || "";
+                            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+                              console.warn("Greška pri spremanju broja slika u cache:", cacheError);
+                            }
+                            // Sačuvaj lokalno kao fallback
+                            setSavedInvoiceImagesCount((prev) => prev + uploadedUrls.length);
+                          }
                         }
                         
                         alert("Slike faktura uspješno sačuvane!");
