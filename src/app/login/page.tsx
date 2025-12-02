@@ -267,14 +267,10 @@ export default function LoginPage() {
       // KOMENTIRANO ZA TESTIRANJE - omogućava pristup bez provjere uređaja
       /*
       try {
-        let deviceId = localStorage.getItem("deviceId");
-        if (!deviceId) {
-          // Generiši deviceId ako ne postoji
-          const fp = await FingerprintJS.load();
-          const result = await fp.get();
-          deviceId = result.visitorId;
-          localStorage.setItem("deviceId", deviceId);
-        }
+        // Generiši deviceId (ne čuva se u localStorage - čuva se u Firestore nakon prijave)
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        const deviceId = result.visitorId;
 
         if (deviceId) {
           const deviceRef = doc(db, "devices", deviceId);

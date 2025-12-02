@@ -241,7 +241,13 @@ export default function Profile() {
             const updatedSessions = existingSessions.map(s => 
               s.id === activeSession.id ? activeSession : s
             );
-            localStorage.setItem("userSessions", JSON.stringify(updatedSessions));
+            // Spremi u Firestore
+            try {
+              const sessionRef = doc(db, "users", user.uid, "sessions", activeSession.id);
+              await setDoc(sessionRef, activeSession, { merge: true });
+            } catch (error) {
+              console.warn("Greška pri spremanju sesije u Firestore:", error);
+            }
             setSessions(updatedSessions);
           } else {
             setSessions(existingSessions);
