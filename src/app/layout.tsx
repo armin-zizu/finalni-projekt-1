@@ -28,7 +28,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
   }
 
   // Ako je role null (verifikacija potrebna), blokiraj pristup i prikaži poruku
-  if (role === null && pathname !== "/login") {
+  if (role === null) {
+    // Ako je na login stranici, ostavi ga tamo (login stranica će prikazati poruku)
+    if (pathname === "/login") {
+      return <>{children}</>;
+    }
+    // Ako nije na login stranici, blokiraj pristup i prikaži poruku
     return (
       <div style={{ 
         display: "flex", 
@@ -76,6 +81,16 @@ function AppContent({ children }: { children: React.ReactNode }) {
             Odjavi se
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // Ako je role postavljen i korisnik je na login stranici, preusmjeri na dashboard
+  if (pathname === "/login" && role !== null) {
+    router.push("/dashboard");
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "#f4f5f7" }}>
+        <div style={{ fontSize: "16px", color: "#6b7280" }}>Preusmjeravanje...</div>
       </div>
     );
   }
