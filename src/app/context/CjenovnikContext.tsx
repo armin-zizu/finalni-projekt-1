@@ -44,14 +44,8 @@ const initialCjenovnik: ArtiklCijena[] = [
 
 // ---- Provider ----
 export function CjenovnikProvider({ children }: { children: ReactNode }) {
-  const [cjenovnik, setCjenovnik] = useState<ArtiklCijena[]>(() => {
-    if (typeof window === "undefined") {
-      return initialCjenovnik;
-    }
-    // Fallback: stari ključ za migraciju
-    const savedCjenovnik = localStorage.getItem("cjenovnik");
-    return savedCjenovnik ? JSON.parse(savedCjenovnik) : initialCjenovnik;
-  });
+  // NE koristi localStorage za početno učitavanje - čekaj da se korisnik prijavi
+  const [cjenovnik, setCjenovnik] = useState<ArtiklCijena[]>(initialCjenovnik);
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag za prvo učitavanje
 
@@ -67,19 +61,32 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
         unsubscribeSnapshot = null;
       }
       
-      // 1. UČITAJ IZ LOCALSTORAGE (cache/offline backup) - za početno učitavanje
+      // 1. OČISTI STARI CACHE (bez userId-a) - koristi samo cjenovnik_${userId}
+      // Ovo osigurava da se ne koriste podaci od drugog korisnika
+      try {
+        const oldCache = localStorage.getItem("cjenovnik");
+        if (oldCache) {
+          localStorage.removeItem("cjenovnik"); // Obriši stari cache
+          console.log("Obrisan stari cache cjenovnika (bez userId-a)");
+        }
+      } catch (e) {
+        // Ignoriraj greške
+      }
+      
+      // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup) - SAMO za trenutnog korisnika
       let localStorageCjenovnik: ArtiklCijena[] = [];
       const storageKey = `cjenovnik_${userId}`;
       const savedCjenovnik = localStorage.getItem(storageKey);
       if (savedCjenovnik) {
         try {
           localStorageCjenovnik = JSON.parse(savedCjenovnik);
+          console.log("Cjenovnik učitano iz localStorage za korisnika:", userId, localStorageCjenovnik.length, "artikala");
         } catch (e) {
           console.warn("Greška pri čitanju cjenovnika iz localStorage:", e);
         }
       }
       
-      // 2. POSTAVI REAL-TIME LISTENER ZA FIRESTORE (automatska sinkronizacija)
+      // 3. POSTAVI REAL-TIME LISTENER ZA FIRESTORE (automatska sinkronizacija)
       try {
         const userDocRef = doc(db, "users", userId);
         
@@ -92,7 +99,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                 let firestoreCjenovnik = data.cjenovnik;
                 console.log("Cjenovnik učitano iz Firestore (real-time):", firestoreCjenovnik.length, "artikala");
                 
-                // 3. AŽURIRAJ POČETNO STANJE IZ ARHIVE (najnoviji obračun)
+                // 4. AŽURIRAJ POČETNO STANJE IZ ARHIVE (najnoviji obračun)
                 try {
                   const obracuniRef = collection(db, "users", userId, "obracuni");
                   const snapshot = await getDocs(obracuniRef);
@@ -144,17 +151,23 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                   }
                 }
                 
-                // 4. POSTAVI CJENOVNIK (Firestore ima prioritet)
+                // 5. POSTAVI CJENOVNIK (Firestore ima prioritet - UVIJEK koristi Firestore ako postoji)
                 if (firestoreCjenovnik.length > 0) {
+                  // Firestore ima cjenovnik - koristi ga (to je izvor istine)
                   setCjenovnik(firestoreCjenovnik);
-                  // Spremi u localStorage kao cache
+                  // Spremi u localStorage kao cache (samo za trenutnog korisnika)
                   localStorage.setItem(storageKey, JSON.stringify(firestoreCjenovnik));
+                  console.log("Cjenovnik postavljen iz Firestore za korisnika:", userId);
                   setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
                 } else if (localStorageCjenovnik.length > 0) {
-                  // Ako Firestore nema cjenovnik, koristi localStorage
+                  // Ako Firestore nema cjenovnik, koristi localStorage (samo za trenutnog korisnika)
                   setCjenovnik(localStorageCjenovnik);
+                  console.log("Cjenovnik postavljen iz localStorage za korisnika:", userId);
                   setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
                 } else {
+                  // Nema ni Firestore ni localStorage - koristi initial
+                  setCjenovnik(initialCjenovnik);
+                  console.log("Cjenovnik postavljen na initial za korisnika:", userId);
                   setIsInitialLoad(false); // Označi da je prvo učitavanje završeno (čak i ako nema podataka)
                 }
               }
