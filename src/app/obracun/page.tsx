@@ -1458,10 +1458,41 @@ export default function ObracunPage() {
                   <button
                     onClick={async () => {
                       const datumString = formatirajDatum(trenutniDatum);
+                      const user = auth.currentUser;
+                      const userId = user?.uid;
+                      
+                      if (!user || !userId) {
+                        alert("Korisnik nije autentifikovan");
+                        return;
+                      }
+                      
                       try {
                         setUploadingImages(true);
                         setUploadProgress(0);
-                        await uploadInvoiceImages(datumString);
+                        const uploadedUrls = await uploadInvoiceImages(datumString);
+                        
+                        // Ažuriraj obračun u Firestore sa slikama
+                        if (uploadedUrls.length > 0) {
+                          const obracunRef = doc(db, "users", userId, "obracuni", datumString);
+                          const obracunDoc = await getDoc(obracunRef);
+                          
+                          if (obracunDoc.exists()) {
+                            // Ako obračun već postoji, dodaj nove slike postojećim
+                            const existingData = obracunDoc.data();
+                            const existingImages = existingData.invoiceImages || [];
+                            const allImages = [...existingImages, ...uploadedUrls];
+                            
+                            await setDoc(obracunRef, {
+                              invoiceImages: allImages,
+                            }, { merge: true });
+                          } else {
+                            // Ako obračun ne postoji, kreiraj novi sa slikama
+                            await setDoc(obracunRef, {
+                              invoiceImages: uploadedUrls,
+                            }, { merge: true });
+                          }
+                        }
+                        
                         alert("Slike faktura uspješno sačuvane!");
                         setInvoiceImages([]);
                       } catch (error: any) {
