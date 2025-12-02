@@ -853,6 +853,11 @@ export default function ObracunPage() {
         }
         
         // Kreiraj objekt bez undefined vrijednosti
+        // VAŽNO: Ako nije postavljeno krajnje stanje, krajnje stanje = ukupno (početno + ulaz)
+        const krajnjeStanjeZaPrikaz = a.isKrajnjeSet && a.krajnjeStanje > 0 
+          ? a.krajnjeStanje 
+          : a.ukupno; // Ako nije postavljeno krajnje stanje, koristi ukupno
+        
         const artikalObj: any = {
           naziv: a.naziv,
           cijena: a.cijena,
@@ -860,7 +865,7 @@ export default function ObracunPage() {
           ulaz: ulazZaPrikaz, // Sačuvaj ulaz za prikaz u arhivi - OBAVEZNO postavi ulaz ako postoji
           ukupno: a.ukupno,
           utroseno: a.utroseno,
-          krajnjeStanje: a.krajnjeStanje,
+          krajnjeStanje: krajnjeStanjeZaPrikaz, // Uvijek postavi krajnje stanje (ili postavljeno ili ukupno)
           vrijednostKM: a.vrijednostKM,
         };
         
@@ -991,16 +996,28 @@ export default function ObracunPage() {
       // Resetuj slike faktura nakon uspješnog spremanja
       setInvoiceImages([]);
 
-      // Ažuriranje cjenovnika (početno stanje za sljedeći dan)
+      // Ažuriranje cjenovnika (početno stanje za sljedeći dan = krajnje stanje iz ovog dana)
+      // VAŽNO: Ažuriraj cjenovnik PRIJE promjene datuma, da se novi datum učita sa ispravnim početnim stanjem
       setCjenovnik((prev) =>
         prev.map((item) => {
           const artikal = artikli.find((a) => a.naziv === item.naziv);
           if (!artikal) return item;
-          const novoPocetnoStanje = artikal.naziv.toLowerCase().includes("kafa")
-            ? 0
-            : artikal.isKrajnjeSet
-            ? artikal.krajnjeStanje
-            : artikal.ukupno;
+          
+          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana
+          // Ako je postavljeno krajnje stanje, koristi ga; inače koristi ukupno (početno + ulaz)
+          let novoPocetnoStanje: number;
+          if (artikal.naziv.toLowerCase().includes("kafa")) {
+            novoPocetnoStanje = 0; // Kafa se uvijek resetuje na 0
+          } else if (artikal.isKrajnjeSet && artikal.krajnjeStanje > 0) {
+            // Ako je postavljeno krajnje stanje, koristi ga
+            novoPocetnoStanje = artikal.krajnjeStanje;
+          } else {
+            // Ako nije postavljeno krajnje stanje, koristi ukupno (početno + ulaz)
+            novoPocetnoStanje = artikal.ukupno;
+          }
+          
+          console.log(`Ažuriranje cjenovnika za ${item.naziv}: ${item.pocetnoStanje} -> ${novoPocetnoStanje} (krajnje: ${artikal.krajnjeStanje}, ukupno: ${artikal.ukupno})`);
+          
           return {
             ...item,
             pocetnoStanje: novoPocetnoStanje,
@@ -1013,40 +1030,6 @@ export default function ObracunPage() {
       noviDatum.setDate(noviDatum.getDate() + 1);
       setTrenutniDatum(noviDatum);
 
-      // Resetiraj formu
-      setArtikli((prev) =>
-        prev.map((a) => {
-          if (a.naziv.toLowerCase().includes("kafa")) {
-            return {
-              ...a,
-              pocetnoStanje: 0,
-              ulaz: 0,
-              ukupno: 0,
-              utroseno: 0,
-              krajnjeStanje: 0,
-              vrijednostKM: 0,
-              isKrajnjeSet: false,
-              sačuvanUlaz: undefined,
-              staroPocetnoStanje: undefined,
-            };
-          } else {
-            const novoPocetnoStanje = a.isKrajnjeSet ? a.krajnjeStanje : a.ukupno;
-            return {
-              ...a,
-              pocetnoStanje: novoPocetnoStanje,
-              ulaz: 0,
-              ukupno: novoPocetnoStanje,
-              utroseno: 0,
-              krajnjeStanje: 0,
-              vrijednostKM: 0,
-              isKrajnjeSet: false,
-              sačuvanUlaz: undefined,
-              staroPocetnoStanje: undefined,
-            };
-          }
-        })
-      );
-
       setRashodi([]);
       setPrihodi([]);
       setNewRashod({ naziv: "", cijena: 0 });
@@ -1056,13 +1039,8 @@ export default function ObracunPage() {
       setIsAzuriran(false); // Resetiraj flag nakon spremanja
       setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju
       
-      // Resetiraj sačuvane ulaze u artiklima
-      setArtikli((prev) =>
-        prev.map((a) => ({
-          ...a,
-          sačuvanUlaz: undefined,
-        }))
-      );
+      // Ne resetiraj artikle ovdje - useEffect će se pokrenuti kada se promijeni trenutniDatum i cjenovnik
+      // i automatski će inicijalizirati artikle sa ispravnim početnim stanjem iz cjenovnika
 
       // Emituj događaj (ako koristiš fallback)
       window.dispatchEvent(new Event("arhivaChanged"));
