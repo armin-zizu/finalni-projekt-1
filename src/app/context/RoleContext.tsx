@@ -363,6 +363,19 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         let defaultRole: UserRole = "vlasnik"; // Po defaultu postavi kao vlasnik
         let status = "approved"; // Prvi uređaj je automatski odobren
         
+        // Provjeri da li je korisnik vlasnik (isOwner === true u user dokumentu)
+        let isOwnerFromUserDoc = false;
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            isOwnerFromUserDoc = userData.isOwner === true;
+          }
+        } catch (error) {
+          console.warn("Greška pri provjeri isOwner iz user dokumenta:", error);
+        }
+        
         // Provjeri da li je vlasnik sa specifičnim emailom i OS-om
         const os = info.os || (navigator.userAgent.includes("Windows")
           ? "Windows"
@@ -378,11 +391,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         
         const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
         
-        if (isOwnerDevice) {
-          // Vlasnik sa specifičnim emailom i OS-om - automatski odobren
+        if (isOwnerDevice || isOwnerFromUserDoc) {
+          // Vlasnik sa specifičnim emailom i OS-om ili isOwner === true - automatski odobren
           defaultRole = "vlasnik";
           status = "approved";
-          console.log("RoleContext - Vlasnik sa specifičnim emailom i OS-om, automatski odobren");
+          console.log("RoleContext - Vlasnik (email+OS ili isOwner), automatski odobren");
         } else {
           try {
             // Pokušaj provjeriti da li korisnik već ima druge uređaje

@@ -224,6 +224,7 @@ export default function ObracunPage() {
   const [trenutniDatum, setTrenutniDatum] = useState<Date>(new Date());
   const [isAzuriran, setIsAzuriran] = useState<boolean>(false); // Praćenje da li je obračun bio ažuriran
   const [resetKey, setResetKey] = useState<number>(0); // Key za reset input polja
+  const [isOwner, setIsOwner] = useState<boolean>(false); // Provjera da li je korisnik vlasnik
   
   // Postavke za malu zalihu
   const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
@@ -235,11 +236,37 @@ export default function ObracunPage() {
   const [uploadingImages, setUploadingImages] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
 
+  // Provjeri da li je korisnik vlasnik (iz user dokumenta)
+  useEffect(() => {
+    const checkIsOwner = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setIsOwner(data.isOwner === true);
+          }
+        } catch (error) {
+          console.warn("Greška pri provjeri isOwner:", error);
+        }
+      }
+    };
+    checkIsOwner();
+  }, []);
+
   // Provjeri da li korisnik može editovati (ne može ako grace period istekne)
   const canEditSubscription = subscription && (subscription.isActive || subscription.isTrial || subscription.isGracePeriod);
   
   // Provjeri da li korisnik može editovati na osnovu uloge
-  const canEdit = canEditSubscription && (role === "vlasnik" || (role === "konobar" && permissions?.obracun === true));
+  // Ako role je null ali korisnik ima aktivan subscription ili je vlasnik (isOwner), dozvoli pristup
+  const canEdit = canEditSubscription && (
+    role === "vlasnik" || 
+    isOwner || 
+    (role === "konobar" && permissions?.obracun === true) ||
+    (role === null && canEditSubscription) // Novi korisnici sa aktivnim subscription mogu koristiti obracun
+  );
   
   // Konobar2 može samo pregledati
   const isReadOnly = role === "konobar" && permissions?.obracun !== true;
