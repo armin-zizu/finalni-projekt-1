@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
-import { db } from "../../lib/firestore";
+import { db, storage } from "../../lib/firebase";
 import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
@@ -168,6 +169,9 @@ export default function ArhivaPage() {
   const [showFaktureModal, setShowFaktureModal] = useState(false);
   const [selectedFakturaDatum, setSelectedFakturaDatum] = useState<string | null>(null);
   const [selectedFakturaImages, setSelectedFakturaImages] = useState<string[]>([]);
+  const [uploadingImagesForDatum, setUploadingImagesForDatum] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [invoiceFiles, setInvoiceFiles] = useState<{ [datum: string]: File[] }>({});
   const obracunRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement | null> }>({});
 
   // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
@@ -600,6 +604,119 @@ export default function ArhivaPage() {
         }, 2000);
       }
     }, 100);
+  };
+
+  // Funkcija za upload slika faktura u arhivi
+  const uploadInvoiceImagesInArchive = async (datum: string) => {
+    const files = invoiceFiles[datum] || [];
+    if (files.length === 0) return;
+    
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Korisnik nije autentifikovan");
+      return;
+    }
+    
+    const userId = user.uid;
+    
+    try {
+      await user.getIdToken(true); // Refresh token
+    } catch (authError) {
+      console.error("Greška pri autentifikaciji:", authError);
+      alert("Greška pri autentifikaciji. Molimo prijavite se ponovo.");
+      return;
+    }
+
+    const cleanDatumString = datum.replace(/\.$/, '');
+    const uploadedUrls: string[] = [];
+    setUploadingImagesForDatum(datum);
+    setUploadProgress(0);
+
+    try {
+      // Učitaj postojeće slike iz obračuna
+      const obracun = arhiva.find(o => o.datum === datum);
+      const existingImages = obracun?.invoiceImages || [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const timestamp = Date.now();
+        const fileExtension = file.name.split('.').pop() || 'jpg';
+        const fileName = `${cleanDatumString}_${timestamp}_${i}.${fileExtension}`;
+        const storagePath = `users/${userId}/invoices/${cleanDatumString}/${fileName}`;
+        const storageRef = ref(storage, storagePath);
+        
+        const metadata = {
+          contentType: file.type || `image/${fileExtension}`,
+          customMetadata: {
+            uploadedBy: userId,
+            uploadedAt: new Date().toISOString(),
+            datum: datum,
+          }
+        };
+        
+        await uploadBytes(storageRef, file, metadata);
+        const downloadURL = await getDownloadURL(storageRef);
+        uploadedUrls.push(downloadURL);
+        
+        setUploadProgress(((i + 1) / files.length) * 100);
+      }
+
+      // Kombinuj postojeće i nove slike
+      const allImages = [...existingImages, ...uploadedUrls];
+
+      // Ažuriraj obračun u arhivi
+      const updatedArhiva = arhiva.map((obracun) => {
+        if (obracun.datum === datum) {
+          return {
+            ...obracun,
+            invoiceImages: allImages,
+          };
+        }
+        return obracun;
+      });
+      setArhiva(updatedArhiva);
+
+      // Spremi u Firestore
+      if (user && userId) {
+        try {
+          const obracunToUpdate = updatedArhiva.find(o => o.datum === datum);
+          if (obracunToUpdate) {
+            const docRef = doc(db, "users", userId, "obracuni", datum);
+            await setDoc(docRef, obracunToUpdate, { merge: true });
+            console.log("Slike faktura ažurirane u Firestore:", datum);
+          }
+        } catch (error: any) {
+          console.warn("Greška pri spremanju u Firestore:", error);
+          alert("Slike su upload-ovane, ali greška pri spremanju u bazu. Provjerite konzolu.");
+        }
+      }
+
+      // Očisti fajlove
+      setInvoiceFiles((prev) => {
+        const newFiles = { ...prev };
+        delete newFiles[datum];
+        return newFiles;
+      });
+
+      alert(`Uspješno upload-ovano ${uploadedUrls.length} slika!`);
+    } catch (error: any) {
+      console.error("Greška pri upload-u slika:", error);
+      alert("Greška pri upload-u slika. Provjerite konzolu za detalje.");
+    } finally {
+      setUploadingImagesForDatum(null);
+      setUploadProgress(0);
+    }
+  };
+
+  // Funkcija za brisanje slike iz preview-a
+  const removeImageFromPreview = (datum: string, index: number) => {
+    setInvoiceFiles((prev) => {
+      const files = prev[datum] || [];
+      return {
+        ...prev,
+        [datum]: files.filter((_, i) => i !== index),
+      };
+    });
   };
 
   // Funkcija za označavanje duga kao plaćenog
@@ -1125,6 +1242,206 @@ export default function ArhivaPage() {
                 </div>
               </div>
 
+              {/* Upload slika faktura - prikazuje se za obračune sa ulazom */}
+              {stvarnoImaUlaz && (
+                <div style={{ 
+                  marginTop: "16px", 
+                  marginBottom: "16px", 
+                  padding: "12px", 
+                  background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                  borderRadius: "8px",
+                  border: "1px solid #f59e0b",
+                  boxShadow: "0 2px 8px rgba(245, 158, 11, 0.1)"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", marginBottom: "10px" }}>
+                    <div style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "6px",
+                      background: "#f59e0b",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: "8px",
+                      fontSize: "16px"
+                    }}>
+                      📸
+                    </div>
+                    <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#92400e", margin: 0 }}>
+                      Dodaj slike faktura
+                    </h3>
+                  </div>
+                  
+                  <label
+                    style={{
+                      display: "block",
+                      padding: "8px 12px",
+                      background: "#fff",
+                      borderWidth: "1px",
+                      borderStyle: "dashed",
+                      borderColor: "#f59e0b",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      textAlign: "center",
+                      transition: "all 0.2s ease",
+                      marginBottom: "10px"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#fffbeb";
+                      e.currentTarget.style.borderColor = "#d97706";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#fff";
+                      e.currentTarget.style.borderColor = "#f59e0b";
+                    }}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setInvoiceFiles((prev) => ({
+                          ...prev,
+                          [item.datum]: [...(prev[item.datum] || []), ...files],
+                        }));
+                        e.target.value = "";
+                      }}
+                      style={{ display: "none" }}
+                    />
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "16px" }}>📎</span>
+                      <span style={{ fontSize: "12px", fontWeight: 500, color: "#92400e" }}>
+                        Dodaj slike
+                      </span>
+                    </div>
+                  </label>
+
+                  {(invoiceFiles[item.datum] || []).length > 0 && (
+                    <div style={{ marginTop: "10px" }}>
+                      <div style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "space-between",
+                        marginBottom: "8px"
+                      }}>
+                        <span style={{ fontSize: "12px", fontWeight: 500, color: "#92400e" }}>
+                          Odabrano: {(invoiceFiles[item.datum] || []).length}
+                        </span>
+                        <button
+                          onClick={() => setInvoiceFiles((prev) => {
+                            const newFiles = { ...prev };
+                            delete newFiles[item.datum];
+                            return newFiles;
+                          })}
+                          style={{
+                            padding: "2px 8px",
+                            background: "#dc2626",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            cursor: "pointer",
+                            fontWeight: 500
+                          }}
+                        >
+                          Obriši sve
+                        </button>
+                      </div>
+                      <div style={{ 
+                        display: "grid", 
+                        gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
+                        gap: "8px"
+                      }}>
+                        {(invoiceFiles[item.datum] || []).map((file, index) => (
+                          <div 
+                            key={index} 
+                            style={{ 
+                              position: "relative", 
+                              width: "100%",
+                              aspectRatio: "1",
+                              borderRadius: "6px",
+                              overflow: "hidden",
+                              boxShadow: "0 1px 4px rgba(0, 0, 0, 0.1)"
+                            }}
+                          >
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={`Preview ${index + 1}`}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover"
+                              }}
+                            />
+                            <button
+                              onClick={() => removeImageFromPreview(item.datum, index)}
+                              style={{
+                                position: "absolute",
+                                top: "2px",
+                                right: "2px",
+                                background: "rgba(220, 38, 38, 0.9)",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "50%",
+                                width: "20px",
+                                height: "20px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center"
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => uploadInvoiceImagesInArchive(item.datum)}
+                        disabled={uploadingImagesForDatum === item.datum}
+                        style={{
+                          marginTop: "10px",
+                          padding: "8px 16px",
+                          background: uploadingImagesForDatum === item.datum ? "#9ca3af" : "#8b5cf6",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          cursor: uploadingImagesForDatum === item.datum ? "not-allowed" : "pointer",
+                          fontWeight: 500,
+                          width: "100%"
+                        }}
+                      >
+                        {uploadingImagesForDatum === item.datum 
+                          ? `Upload... ${Math.round(uploadProgress)}%` 
+                          : "Upload slike"}
+                      </button>
+                      {uploadingImagesForDatum === item.datum && uploadProgress > 0 && (
+                        <div style={{ marginTop: "8px" }}>
+                          <div style={{
+                            width: "100%",
+                            height: "6px",
+                            background: "#fde68a",
+                            borderRadius: "3px",
+                            overflow: "hidden"
+                          }}>
+                            <div style={{
+                              width: `${uploadProgress}%`,
+                              height: "100%",
+                              background: "linear-gradient(90deg, #f59e0b, #d97706)",
+                              borderRadius: "3px",
+                              transition: "width 0.3s ease"
+                            }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Obrazac za uređivanje rashoda i prihoda */}
               {editingObracunDatum === item.datum && (
                 <div style={editFormStyle} className="edit-form">
@@ -1254,7 +1571,19 @@ export default function ArhivaPage() {
                         </td>
                         <td style={tdStyle}>{a.ukupno ?? "-"}</td>
                         <td style={tdStyle}>{a.utroseno ?? "-"}</td>
-                        <td style={tdStyle}>{a.krajnjeStanje ?? "-"}</td>
+                        <td style={tdStyle}>
+                          {(() => {
+                            // Ako nije postavljeno krajnje stanje ili je 0, prikaži ukupno (ili početno ako nema ukupnog)
+                            if (a.krajnjeStanje !== undefined && a.krajnjeStanje !== null && a.krajnjeStanje > 0) {
+                              return a.krajnjeStanje;
+                            } else if (a.ukupno !== undefined && a.ukupno !== null && a.ukupno > 0) {
+                              return a.ukupno;
+                            } else if (a.pocetnoStanje !== undefined && a.pocetnoStanje !== null && a.pocetnoStanje > 0) {
+                              return a.pocetnoStanje;
+                            }
+                            return "-";
+                          })()}
+                        </td>
                         <td style={tdStyle}>{a.vrijednostKM.toFixed(2)}</td>
                       </tr>
                     ))}

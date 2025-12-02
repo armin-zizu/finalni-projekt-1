@@ -854,9 +854,14 @@ export default function ObracunPage() {
         
         // Kreiraj objekt bez undefined vrijednosti
         // VAŽNO: Ako nije postavljeno krajnje stanje, krajnje stanje = ukupno (početno + ulaz)
-        const krajnjeStanjeZaPrikaz = a.isKrajnjeSet && a.krajnjeStanje > 0 
+        // Ako je krajnje stanje 0 ili nije postavljeno, koristi ukupno
+        const krajnjeStanjeZaPrikaz = (a.isKrajnjeSet && a.krajnjeStanje !== undefined && a.krajnjeStanje !== null && a.krajnjeStanje > 0)
           ? a.krajnjeStanje 
-          : a.ukupno; // Ako nije postavljeno krajnje stanje, koristi ukupno
+          : (a.ukupno !== undefined && a.ukupno !== null && a.ukupno > 0)
+          ? a.ukupno
+          : (a.pocetnoStanje !== undefined && a.pocetnoStanje !== null && a.pocetnoStanje > 0)
+          ? a.pocetnoStanje
+          : 0; // Fallback na 0 ako ništa nije postavljeno
         
         const artikalObj: any = {
           naziv: a.naziv,
