@@ -608,8 +608,8 @@ export default function ObracunPage() {
 
   // Funkcije za update artikala
   const handleUlazChange = (index: number, value: number) => {
-    setArtikli((prev) =>
-      prev.map((a, i) => {
+    setArtikli((prev) => {
+      const updated = prev.map((a, i) => {
         if (i !== index) return a;
         
         // Izračunaj novo ukupno stanje (početno + ulaz)
@@ -646,8 +646,16 @@ export default function ObracunPage() {
           utroseno: utroseno,
           vrijednostKM: vrijednostKM,
         };
-      })
-    );
+      });
+      
+      // Postavi flag da postoji ulaz ako bilo koji artikal ima ulaz
+      const imaUlaz = updated.some((a) => a.ulaz !== 0);
+      if (imaUlaz) {
+        setHasUlazInCache(true);
+      }
+      
+      return updated;
+    });
   };
 
   const handleKrajnjeStanjeChange = (index: number, value: string) => {
