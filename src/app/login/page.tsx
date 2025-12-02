@@ -55,14 +55,10 @@ export default function LoginPage() {
 
       // Provjeri status uređaja prije dozvoljavanja pristupa
       try {
-        let deviceId = localStorage.getItem("deviceId");
-        if (!deviceId) {
-          // Generiši deviceId ako ne postoji
-          const fp = await FingerprintJS.load();
-          const result = await fp.get();
-          deviceId = result.visitorId;
-          localStorage.setItem("deviceId", deviceId);
-        }
+        // Generiši deviceId (ne čuva se u localStorage - čuva se u Firestore nakon prijave)
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        const deviceId = result.visitorId;
 
         if (deviceId) {
           const deviceRef = doc(db, "devices", deviceId);
@@ -483,12 +479,8 @@ export default function LoginPage() {
           // Ignoriraj grešku sa ipify
         }
         
-        // Spremi IP info u localStorage za kasnije korištenje
-        localStorage.setItem("lastLoginIP", JSON.stringify({
-          ...ipInfo,
-          timestamp: Date.now(),
-          userEmail: user.email
-        }));
+        // NE SPREMAJ U LOCALSTORAGE - IP info se može čuvati u Firestore ako je potrebno
+        // Trenutno se ne čuva jer nije kritično
       } catch (ipError) {
         console.error("Greška pri dohvaćanju IP adrese:", ipError);
         // Nastavi sa login-om čak i ako IP dohvat ne uspije
@@ -599,12 +591,8 @@ export default function LoginPage() {
           // Ignoriraj grešku sa ipify
         }
         
-        // Spremi IP info u localStorage za kasnije korištenje
-        localStorage.setItem("lastLoginIP", JSON.stringify({
-          ...ipInfo,
-          timestamp: Date.now(),
-          userEmail: user.email
-        }));
+        // NE SPREMAJ U LOCALSTORAGE - IP info se može čuvati u Firestore ako je potrebno
+        // Trenutno se ne čuva jer nije kritično
       } catch (ipError) {
         console.error("Greška pri dohvaćanju IP adrese:", ipError);
         // Nastavi sa registracijom čak i ako IP dohvat ne uspije

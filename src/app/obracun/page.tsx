@@ -6,7 +6,7 @@ import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
 import { auth } from "../../lib/firebase";
 import { db, storage } from "../../lib/firebase";
-import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp, onSnapshot } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp, onSnapshot, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -323,20 +323,13 @@ export default function ObracunPage() {
     if (cjenovnik.length === 0) return;
     
     const datumString = formatirajDatum(trenutniDatum);
-    const cacheKey = `ulazCache_${datumString}`;
-    const cachedUlaz = localStorage.getItem(cacheKey);
-    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
     
-    if (cachedUlaz) {
-      try {
-        ulazCache = JSON.parse(cachedUlaz);
-      } catch (e) {
-        console.warn("Greška pri čitanju cache-a ulaza pri inicijalizaciji:", e);
-      }
-    }
-    
-    // Ako nema postojećih artikala, inicijaliziraj sve iz cjenovnika
-    if (artikli.length === 0) {
+    // Učitaj ulaz cache iz Firestore
+    const loadCacheAndInit = async () => {
+      const ulazCache = await loadUlazCacheFromFirestore(datumString);
+      
+      // Ako nema postojećih artikala, inicijaliziraj sve iz cjenovnika
+      if (artikli.length === 0) {
       const inicijalniArtikli = cjenovnik.map((item) => {
         const cached = ulazCache[item.naziv];
         const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
@@ -498,13 +491,12 @@ export default function ObracunPage() {
     if (cjenovnik.length === 0 || artikli.length === 0) return;
     
     const datumString = formatirajDatum(trenutniDatum);
-    const cacheKey = `ulazCache_${datumString}`;
-    const cachedUlaz = localStorage.getItem(cacheKey);
     
-    if (cachedUlaz) {
-      try {
-        const ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = JSON.parse(cachedUlaz);
-        
+    // Učitaj ulaz cache iz Firestore
+    const loadCache = async () => {
+      const ulazCache = await loadUlazCacheFromFirestore(datumString);
+      
+      if (Object.keys(ulazCache).length > 0) {
         setArtikli((prev) =>
           prev.map((a) => {
             const cached = ulazCache[a.naziv];
@@ -531,10 +523,10 @@ export default function ObracunPage() {
             return a;
           })
         );
-      } catch (e) {
-        console.warn("Greška pri čitanju cache-a ulaza:", e);
       }
-    }
+    };
+    
+    loadCache();
   }, [trenutniDatum]);
 
   const formatirajDatum = (datum: Date): string => {
@@ -542,6 +534,46 @@ export default function ObracunPage() {
     const mjesec = (datum.getMonth() + 1).toString().padStart(2, "0");
     const godina = datum.getFullYear();
     return `${dan}.${mjesec}.${godina}.`;
+  };
+
+  // Helper funkcije za ulaz cache u Firestore (umjesto localStorage)
+  const loadUlazCacheFromFirestore = async (datumString: string): Promise<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number } }> => {
+    const user = auth.currentUser;
+    if (!user) return {};
+    
+    try {
+      const ulazCacheRef = doc(db, "users", user.uid, "ulazCache", datumString);
+      const ulazCacheDoc = await getDoc(ulazCacheRef);
+      if (ulazCacheDoc.exists()) {
+        const data = ulazCacheDoc.data();
+        return data.cache || {};
+      }
+    } catch (error: any) {
+      const errorCode = error?.code || "";
+      if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+        console.warn("Greška pri učitavanju ulaz cache iz Firestore:", error);
+      }
+    }
+    return {};
+  };
+
+  const saveUlazCacheToFirestore = async (datumString: string, ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } }) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      const ulazCacheRef = doc(db, "users", user.uid, "ulazCache", datumString);
+      await setDoc(ulazCacheRef, {
+        cache: ulazCache,
+        datum: datumString,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (error: any) {
+      const errorCode = error?.code || "";
+      if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+        console.warn("Greška pri spremanju ulaz cache u Firestore:", error);
+      }
+    }
   };
 
   // Funkcija za promjenu datuma
@@ -702,7 +734,7 @@ export default function ObracunPage() {
   };
 
   // Funkcija za ažuriranje obračuna (bez spremanja u arhivu)
-  const handleAzurirajObracun = () => {
+  const handleAzurirajObracun = async () => {
     // Provjeri da li ima artikala s ulazom (pozitivnim ili negativnim)
     const imaUlaz = artikli.some((a) => a.ulaz !== 0);
     if (!imaUlaz) {
@@ -712,18 +744,9 @@ export default function ObracunPage() {
 
     const datumString = formatirajDatum(trenutniDatum);
 
-    // Sačuvaj ulaz u localStorage cache po datumu
-    // Učitaj postojeći cache da ne izgubimo podatke
-    const cacheKey = `ulazCache_${datumString}`;
-    const existingCache = localStorage.getItem(cacheKey);
-    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
-    if (existingCache) {
-      try {
-        ulazCache = JSON.parse(existingCache);
-      } catch (e) {
-        console.warn("Greška pri čitanju postojećeg cache-a:", e);
-      }
-    }
+    // Učitaj postojeći cache iz Firestore da ne izgubimo podatke
+    const existingCache = await loadUlazCacheFromFirestore(datumString);
+    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = existingCache;
     
     // Ažuriraj cache sa novim podacima - SAČUVAJ ulaz prije nego što se resetira
     artikli.forEach((a) => {
@@ -743,8 +766,8 @@ export default function ObracunPage() {
       }
     });
 
-    // Spremi cache u localStorage PRIJE nego što se artikli ažuriraju
-    localStorage.setItem(cacheKey, JSON.stringify(ulazCache));
+    // Spremi cache u Firestore PRIJE nego što se artikli ažuriraju
+    await saveUlazCacheToFirestore(datumString, ulazCache);
 
     // Ažuriraj cjenovnik i artikle - sačuvaj staro stanje prije ažuriranja
     setCjenovnik((prev) =>
@@ -766,61 +789,51 @@ export default function ObracunPage() {
     );
 
     // Ažuriraj artikle u formi - postavi novo početno stanje i resetiraj ulaz (isto kao u handleSaveObracun)
-    setArtikli((prev) => {
-      const updated = prev.map((a) => {
-        if (a.ulaz !== 0) {
-          const staroPocetnoStanje = a.staroPocetnoStanje ?? a.pocetnoStanje;
-          const sačuvanUlaz = a.ulaz; // Sačuvaj ulaz prije resetiranja
-          const novoPocetnoStanje = a.naziv.toLowerCase().includes("kafa")
-            ? 0
-            : a.pocetnoStanje + a.ulaz;
-          
-          return {
-            ...a,
-            pocetnoStanje: novoPocetnoStanje,
-            ulaz: 0, // Resetiraj ulaz na 0 da se obriše iz input polja
-            ukupno: novoPocetnoStanje,
-            utroseno: 0, // Resetiraj utrošeno jer se početno stanje promijenilo
-            vrijednostKM: 0, // Resetiraj vrijednost
-            krajnjeStanje: 0, // Resetiraj krajnje stanje
-            isKrajnjeSet: false, // Resetiraj flag
-            staroPocetnoStanje: staroPocetnoStanje, // Sačuvaj staro stanje da se prikaže zagrada
-            sačuvanUlaz: sačuvanUlaz, // Sačuvaj ulaz za prikaz u arhivi
-          };
-        }
-        // Za artikle bez ulaza, resetiraj ulaz na 0 ali zadrži staroPocetnoStanje ako postoji
+    const updated = artikli.map((a) => {
+      if (a.ulaz !== 0) {
+        const staroPocetnoStanje = a.staroPocetnoStanje ?? a.pocetnoStanje;
+        const sačuvanUlaz = a.ulaz; // Sačuvaj ulaz prije resetiranja
+        const novoPocetnoStanje = a.naziv.toLowerCase().includes("kafa")
+          ? 0
+          : a.pocetnoStanje + a.ulaz;
+        
         return {
           ...a,
-          ulaz: 0,
+          pocetnoStanje: novoPocetnoStanje,
+          ulaz: 0, // Resetiraj ulaz na 0 da se obriše iz input polja
+          ukupno: novoPocetnoStanje,
+          utroseno: 0, // Resetiraj utrošeno jer se početno stanje promijenilo
+          vrijednostKM: 0, // Resetiraj vrijednost
+          krajnjeStanje: 0, // Resetiraj krajnje stanje
+          isKrajnjeSet: false, // Resetiraj flag
+          staroPocetnoStanje: staroPocetnoStanje, // Sačuvaj staro stanje da se prikaže zagrada
+          sačuvanUlaz: sačuvanUlaz, // Sačuvaj ulaz za prikaz u arhivi
         };
-      });
-      
-      // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
-      const cacheKey = `ulazCache_${datumString}`;
-      const existingCache = localStorage.getItem(cacheKey);
-      let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
-      if (existingCache) {
-        try {
-          ulazCache = JSON.parse(existingCache);
-        } catch (e) {
-          console.warn("Greška pri čitanju postojećeg cache-a:", e);
-        }
       }
-      
-      // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
-      updated.forEach((a) => {
-        if (a.staroPocetnoStanje !== undefined) {
-          ulazCache[a.naziv] = {
-            ulaz: 0, // Ulaz je sada 0 jer je ažuriran
-            staroPocetnoStanje: a.staroPocetnoStanje,
-          };
-        }
-      });
-      
-      localStorage.setItem(cacheKey, JSON.stringify(ulazCache));
-      
-      return updated;
+      // Za artikle bez ulaza, resetiraj ulaz na 0 ali zadrži staroPocetnoStanje ako postoji
+      return {
+        ...a,
+        ulaz: 0,
+      };
     });
+    
+    setArtikli(updated);
+    
+    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
+    const existingCache2 = await loadUlazCacheFromFirestore(datumString);
+    let ulazCache2: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = existingCache2;
+    
+    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
+    updated.forEach((a) => {
+      if (a.staroPocetnoStanje !== undefined) {
+        ulazCache2[a.naziv] = {
+          ulaz: 0, // Ulaz je sada 0 jer je ažuriran
+          staroPocetnoStanje: a.staroPocetnoStanje,
+        };
+      }
+    });
+    
+    await saveUlazCacheToFirestore(datumString, ulazCache2);
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
     
@@ -927,17 +940,8 @@ export default function ObracunPage() {
     const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
     const datumString = formatirajDatum(trenutniDatum);
 
-    // Učitaj cache ulaza za ovaj datum
-    const cacheKey = `ulazCache_${datumString}`;
-    const cachedUlaz = localStorage.getItem(cacheKey);
-    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
-    if (cachedUlaz) {
-      try {
-        ulazCache = JSON.parse(cachedUlaz);
-      } catch (e) {
-        console.warn("Greška pri čitanju cache-a ulaza:", e);
-      }
-    }
+    // Učitaj cache ulaza za ovaj datum iz Firestore
+    const ulazCache = await loadUlazCacheFromFirestore(datumString);
 
     // Provjeri da li obračun ima ulaz
     // Provjeri trenutni ulaz u state-u ili sačuvan ulaz (ako je obračun već ažuriran)
@@ -1034,8 +1038,8 @@ export default function ObracunPage() {
       imaUlaz: imaUlaz, // Sačuvaj flag da obračun ima ulaz
     };
 
-    // Obriši cache nakon što se obračun spremi
-    localStorage.removeItem(cacheKey);
+    // NE briši cache - možda će korisnik htjeti vidjeti ulaz u arhivi
+    // Cache se automatski ažurira kada se promijeni datum
 
     const user = auth.currentUser;
     const userId = user?.uid;
@@ -1099,41 +1103,12 @@ export default function ObracunPage() {
         console.warn("Nema korisnika, obračun se sprema samo u localStorage");
       }
 
-      // 2. SPREMI U LOCALSTORAGE (cache/offline backup - per-user)
+      // 2. NE SPREMAJ U LOCALSTORAGE - sve se čuva u Firestore
+      // Arhiva se automatski učitava iz Firestore kroz real-time listener u arhiva/page.tsx
       if (userId) {
-        // User-specific localStorage ključ
-        const storageKey = `arhivaObracuna_${userId}`;
-        const savedArhiva = localStorage.getItem(storageKey);
-        let arhiva: ArhiviraniObracun[] = savedArhiva ? JSON.parse(savedArhiva) : [];
-        
-        // Ukloni postojeći obračun za isti datum ako postoji
-        arhiva = arhiva.filter((item) => item.datum !== datumString);
-        
-        // Dodaj novi obračun
-        arhiva.push(arhiviraniObracun);
-        
-        // Sortiraj po datumu (najnoviji prvo)
-        arhiva.sort((a, b) => {
-          const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-          const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-          return dateB - dateA;
-        });
-        
-        localStorage.setItem(storageKey, JSON.stringify(arhiva));
-        console.log("Obračun sačuvan u localStorage (per-user):", datumString);
+        console.log("Obračun sačuvan u Firestore:", datumString);
       } else {
-        // Fallback: ako nema korisnika, koristi stari ključ (za migraciju)
-        const savedArhiva = localStorage.getItem("arhivaObracuna");
-        let arhiva: ArhiviraniObracun[] = savedArhiva ? JSON.parse(savedArhiva) : [];
-        arhiva = arhiva.filter((item) => item.datum !== datumString);
-        arhiva.push(arhiviraniObracun);
-        arhiva.sort((a, b) => {
-          const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-          const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-          return dateB - dateA;
-        });
-        localStorage.setItem("arhivaObracuna", JSON.stringify(arhiva));
-        console.log("Obračun sačuvan u localStorage (fallback):", datumString);
+        console.warn("Nema korisnika, obračun se ne može sačuvati");
       }
 
       // Resetuj slike faktura nakon uspješnog spremanja

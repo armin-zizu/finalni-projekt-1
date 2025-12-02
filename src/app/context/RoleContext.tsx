@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc, Timestamp, onSnapshot, collection, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, onSnapshot, collection, getDocs, query, where, serverTimestamp } from "firebase/firestore";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 export type UserRole = "vlasnik" | "konobar" | null;
@@ -134,15 +134,47 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  // Učitaj ili kreiraj Device ID
+  // Učitaj ili kreiraj Device ID - čuva se u Firestore kolekciji "devices"
   const initializeDeviceId = async (): Promise<string> => {
-    const storedDeviceId = localStorage.getItem("deviceId");
-    if (storedDeviceId) {
-      return storedDeviceId;
+    // Prvo pokušaj učitati iz Firestore (ako je korisnik prijavljen)
+    if (user && user.uid) {
+      try {
+        // Provjeri da li postoji deviceId u Firestore za ovog korisnika
+        const devicesRef = collection(db, "devices");
+        const devicesSnapshot = await getDocs(devicesRef);
+        const userDevice = devicesSnapshot.docs.find(doc => {
+          const data = doc.data();
+          return data.userId === user.uid && data.deviceId;
+        });
+        
+        if (userDevice) {
+          const deviceId = userDevice.data().deviceId;
+          if (deviceId) {
+            return deviceId;
+          }
+        }
+      } catch (error) {
+        console.warn("Greška pri učitavanju deviceId iz Firestore:", error);
+      }
     }
 
+    // Generiši novi deviceId
     const newDeviceId = await generateDeviceId();
-    localStorage.setItem("deviceId", newDeviceId);
+    
+    // Spremi u Firestore ako je korisnik prijavljen
+    if (user && user.uid) {
+      try {
+        const deviceRef = doc(db, "devices", newDeviceId);
+        await setDoc(deviceRef, {
+          deviceId: newDeviceId,
+          userId: user.uid,
+          createdAt: serverTimestamp(),
+        }, { merge: true });
+      } catch (error) {
+        console.warn("Greška pri spremanju deviceId u Firestore:", error);
+      }
+    }
+    
     return newDeviceId;
   };
 
