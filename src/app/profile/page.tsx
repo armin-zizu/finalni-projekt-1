@@ -1426,7 +1426,7 @@ export default function Profile() {
           <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Aktivnih sesija</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
-              {sessions.filter(s => s.status === "Aktivna").length}
+              {devices.filter(d => (d.role === "vlasnik" || d.role === "konobar") && d.status === "approved" && !d.isBlocked).length}
             </p>
           </div>
         </div>

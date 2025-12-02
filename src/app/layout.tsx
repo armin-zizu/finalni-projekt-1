@@ -148,10 +148,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       if (!authenticated && pathname !== "/login") {
         router.push("/login");
       }
-      // Ako je korisnik prijavljen i na login stranici, preusmjeri na dashboard
-      if (authenticated && pathname === "/login") {
-        router.push("/dashboard");
-      }
+      // Ako je korisnik prijavljen i na login stranici, NE preusmjeravaj automatski
+      // AppContent će provjeriti role i blokirati pristup ako je potrebno
+      // Preusmjeravanje na dashboard će se desiti samo ako je role postavljen (u AppContent)
     });
     return () => unsubscribe();
   }, [pathname, router]);
