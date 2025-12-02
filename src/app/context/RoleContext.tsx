@@ -390,44 +390,41 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         
         const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
         
-        // Ako je korisnik vlasnik (isOwner === true), provjeri da li je prvi uređaj
-        if (isOwnerFromUserDoc || isOwnerDevice) {
-          try {
-            // Provjeri da li korisnik već ima druge uređaje
-            const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
-            const devicesSnapshot = await getDocs(devicesQuery);
-            
-            // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
-            if (!devicesSnapshot.empty) {
-              defaultRole = null;
-              status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju od vlasnika
-              console.log("RoleContext - Vlasnik ima druge uređaje, novi uređaj zahtijeva verifikaciju");
-            } else {
+        // Provjeri da li korisnik već ima druge uređaje (prije kreiranja novog)
+        try {
+          const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
+          const devicesSnapshot = await getDocs(devicesQuery);
+          
+          // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
+          if (!devicesSnapshot.empty) {
+            defaultRole = null;
+            status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju
+            console.log("RoleContext - Korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju");
+          } else {
+            // Prvi uređaj - provjeri da li je korisnik vlasnik
+            if (isOwnerFromUserDoc || isOwnerDevice) {
               // Prvi uređaj za vlasnika - automatski odobren
               defaultRole = "vlasnik";
               status = "approved";
               console.log("RoleContext - Prvi uređaj za vlasnika, automatski odobren");
+            } else {
+              // Prvi uređaj za korisnika koji nije vlasnik - također automatski odobren (jer je prvi)
+              defaultRole = "vlasnik";
+              status = "approved";
+              console.log("RoleContext - Prvi uređaj za korisnika, automatski odobren");
             }
-          } catch (queryError: any) {
-            // Ako query ne uspije zbog permisija ili indexa, ostavi kao vlasnik (fallback)
-            console.warn("Greška pri provjeri drugih uređaja, postavljam kao vlasnik:", queryError);
-            // defaultRole ostaje "vlasnik", status ostaje "approved"
           }
-        } else {
-          // Korisnik nije vlasnik - provjeri da li je prvi uređaj
-          try {
-            const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
-            const devicesSnapshot = await getDocs(devicesQuery);
-            
-            // Ako korisnik već ima druge uređaje, postavi ulogu na null i status na "verifikacija"
-            if (!devicesSnapshot.empty) {
-              defaultRole = null;
-              status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju
-            }
-          } catch (queryError: any) {
-            // Ako query ne uspije zbog permisija ili indexa, ostavi kao vlasnik (fallback)
-            console.warn("Greška pri provjeri drugih uređaja, postavljam kao vlasnik:", queryError);
-            // defaultRole ostaje "vlasnik", status ostaje "approved"
+        } catch (queryError: any) {
+          // Ako query ne uspije zbog permisija ili indexa, provjeri da li je vlasnik
+          console.warn("Greška pri provjeri drugih uređaja:", queryError);
+          if (isOwnerFromUserDoc || isOwnerDevice) {
+            // Ako je vlasnik, postavi kao vlasnik (fallback)
+            defaultRole = "vlasnik";
+            status = "approved";
+          } else {
+            // Ako nije vlasnik i query ne radi, postavi na verifikaciju (sigurnije)
+            defaultRole = null;
+            status = "verifikacija";
           }
         }
         
