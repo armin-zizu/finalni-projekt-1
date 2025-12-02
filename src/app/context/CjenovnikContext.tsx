@@ -53,6 +53,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     return savedCjenovnik ? JSON.parse(savedCjenovnik) : initialCjenovnik;
   });
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag za prvo učitavanje
 
   // Učitaj cjenovnik iz Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP sa real-time sinkronizacijom
   useEffect(() => {
@@ -195,11 +196,17 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
 
   // Spremi cjenovnik u Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP
   // Ovo se pokreće kada se cjenovnik promijeni (ažuriranje cijena, brisanje, itd.)
+  // NE sprema se kada se prvi put učita iz Firestore (izbjegavanje beskonačne petlje)
   useEffect(() => {
     const user = auth.currentUser;
     const userId = user?.uid;
     
     if (!userId) return;
+    
+    // Ako je prvo učitavanje, ne spremaj (izbjegni beskonačnu petlju)
+    if (isInitialLoad) {
+      return;
+    }
     
     // Spremi u localStorage odmah (cache/offline backup)
     const storageKey = `cjenovnik_${userId}`;
@@ -223,7 +230,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     
     // Spremi u Firestore
     saveToFirestore();
-  }, [cjenovnik]);
+  }, [cjenovnik, isInitialLoad]);
 
   const addArtikal = (artikal: ArtiklCijena) => {
     // Dodaj direktno u cjenovnik i automatski spremi u Firestore
