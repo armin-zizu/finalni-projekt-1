@@ -55,6 +55,7 @@ const containerStyle: React.CSSProperties = {
 
 const tableStyle: React.CSSProperties = {
   width: "100%",
+  minWidth: "800px", // Minimalna širina za horizontalni scroll
   borderCollapse: "separate" as "separate",
   borderSpacing: 0,
   background: "#ffffff",
@@ -72,6 +73,7 @@ const thStyle: React.CSSProperties = {
   fontSize: "14px",
   fontWeight: 600,
   borderBottom: "1px solid #e5e7eb",
+  whiteSpace: "nowrap", // Sprečava prelamanje teksta u headerima
 };
 
 const tdStyle: React.CSSProperties = {
@@ -80,6 +82,7 @@ const tdStyle: React.CSSProperties = {
   borderBottom: "1px solid #f3f4f6",
   fontSize: "14px",
   color: "#374151",
+  whiteSpace: "nowrap", // Sprečava prelamanje teksta u ćelijama
 };
 
 const buttonStyle: React.CSSProperties = {
@@ -613,15 +616,20 @@ export default function ArhivaPage() {
             font-size: 16px;
             margin-bottom: 12px !important;
           }
+          div[style*='overflowX: auto'] {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling na iOS */
+            width: 100%;
+          }
           table {
-            overflow-x: auto; /* Horizontalni scroll za tablice */
-            display: block;
             font-size: 12px;
+            min-width: 800px; /* Osigurava horizontalni scroll */
           }
           th, td {
             font-size: 11px !important; /* Smanjen font za tablice */
             padding: 8px !important; /* Smanjen padding za ćelije */
             min-width: 80px;
+            white-space: nowrap; /* Sprečava prelamanje teksta */
           }
           button {
             width: 100%;
@@ -980,107 +988,113 @@ export default function ArhivaPage() {
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>
                 Artikli
               </h3>
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Artikal</th>
-                    <th style={thStyle}>Cijena</th>
-                    <th style={thStyle}>Zestoko Količina (ml)</th>
-                    <th style={thStyle}>Proizvodna Cijena</th>
-                    <th style={thStyle}>Početno stanje</th>
-                    <th style={thStyle}>Ulaz</th>
-                    <th style={thStyle}>Ukupno</th>
-                    <th style={thStyle}>Utrošeno</th>
-                    <th style={thStyle}>Krajnje stanje</th>
-                    <th style={thStyle}>Vrijednost KM</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {item.artikli.map((a, i) => (
-                    <tr key={i}>
-                      <td style={tdStyle}>{a.naziv}</td>
-                      <td style={tdStyle}>{a.cijena?.toFixed(2) ?? "-"}</td>
-                      <td style={tdStyle}>{a.zestokoKolicina?.toFixed(3) ?? "-"}</td>
-                      <td style={tdStyle}>{a.proizvodnaCijena?.toFixed(2) ?? "-"}</td>
-                      <td style={tdStyle}>
-                        {a.pocetnoStanje ?? "-"}
-                        {a.staroPocetnoStanje !== undefined && a.staroPocetnoStanje !== a.pocetnoStanje && (
-                          <span style={{ color: "#eab308", marginLeft: "4px", fontSize: "12px" }}>
-                            ({a.staroPocetnoStanje})
-                          </span>
-                        )}
-                      </td>
-                      <td style={tdStyle}>
-                        {(() => {
-                          // Prioritet: 1. ulaz, 2. sačuvanUlaz
-                          // Provjeri da li postoji ulaz (može biti 0, negativan ili pozitivan)
-                          let ulazZaPrikaz = 0;
-                          
-                          // Prvo provjeri ulaz (može biti 0, negativan ili pozitivan)
-                          if (a.ulaz !== undefined && a.ulaz !== null && a.ulaz !== 0) {
-                            ulazZaPrikaz = a.ulaz;
-                          } 
-                          // Ako ulaz nije postavljen ili je 0, provjeri sačuvanUlaz
-                          else if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== null && a.sačuvanUlaz !== 0) {
-                            ulazZaPrikaz = a.sačuvanUlaz;
-                          }
-                          
-                          // Prikaži ulaz ako postoji (može biti i negativan)
-                          return ulazZaPrikaz !== 0 ? ulazZaPrikaz : "-";
-                        })()}
-                      </td>
-                      <td style={tdStyle}>{a.ukupno ?? "-"}</td>
-                      <td style={tdStyle}>{a.utroseno ?? "-"}</td>
-                      <td style={tdStyle}>{a.krajnjeStanje ?? "-"}</td>
-                      <td style={tdStyle}>{a.vrijednostKM.toFixed(2)}</td>
+              <div style={{ overflowX: "auto" }}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Artikal</th>
+                      <th style={thStyle}>Cijena</th>
+                      <th style={thStyle}>Zestoko Količina (ml)</th>
+                      <th style={thStyle}>Proizvodna Cijena</th>
+                      <th style={thStyle}>Početno stanje</th>
+                      <th style={thStyle}>Ulaz</th>
+                      <th style={thStyle}>Ukupno</th>
+                      <th style={thStyle}>Utrošeno</th>
+                      <th style={thStyle}>Krajnje stanje</th>
+                      <th style={thStyle}>Vrijednost KM</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {item.artikli.map((a, i) => (
+                      <tr key={i}>
+                        <td style={tdStyle}>{a.naziv}</td>
+                        <td style={tdStyle}>{a.cijena?.toFixed(2) ?? "-"}</td>
+                        <td style={tdStyle}>{a.zestokoKolicina?.toFixed(3) ?? "-"}</td>
+                        <td style={tdStyle}>{a.proizvodnaCijena?.toFixed(2) ?? "-"}</td>
+                        <td style={tdStyle}>
+                          {a.pocetnoStanje ?? "-"}
+                          {a.staroPocetnoStanje !== undefined && a.staroPocetnoStanje !== a.pocetnoStanje && (
+                            <span style={{ color: "#eab308", marginLeft: "4px", fontSize: "12px" }}>
+                              ({a.staroPocetnoStanje})
+                            </span>
+                          )}
+                        </td>
+                        <td style={tdStyle}>
+                          {(() => {
+                            // Prioritet: 1. ulaz, 2. sačuvanUlaz
+                            // Provjeri da li postoji ulaz (može biti 0, negativan ili pozitivan)
+                            let ulazZaPrikaz = 0;
+                            
+                            // Prvo provjeri ulaz (može biti 0, negativan ili pozitivan)
+                            if (a.ulaz !== undefined && a.ulaz !== null && a.ulaz !== 0) {
+                              ulazZaPrikaz = a.ulaz;
+                            } 
+                            // Ako ulaz nije postavljen ili je 0, provjeri sačuvanUlaz
+                            else if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== null && a.sačuvanUlaz !== 0) {
+                              ulazZaPrikaz = a.sačuvanUlaz;
+                            }
+                            
+                            // Prikaži ulaz ako postoji (može biti i negativan)
+                            return ulazZaPrikaz !== 0 ? ulazZaPrikaz : "-";
+                          })()}
+                        </td>
+                        <td style={tdStyle}>{a.ukupno ?? "-"}</td>
+                        <td style={tdStyle}>{a.utroseno ?? "-"}</td>
+                        <td style={tdStyle}>{a.krajnjeStanje ?? "-"}</td>
+                        <td style={tdStyle}>{a.vrijednostKM.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               {/* Rashodi */}
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>
                 Rashodi
               </h3>
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Naziv</th>
-                    <th style={thStyle}>Cijena</th>
-                    <th style={thStyle}>Plaćeno</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {item.rashodi.map((r, i) => (
-                    <tr key={i}>
-                      <td style={tdStyle}>{r.naziv}</td>
-                      <td style={tdStyle}>{r.cijena.toFixed(2)}</td>
-                      <td style={tdStyle}>{r.placeno ? "Da" : "Ne"}</td>
+              <div style={{ overflowX: "auto" }}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Naziv</th>
+                      <th style={thStyle}>Cijena</th>
+                      <th style={thStyle}>Plaćeno</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {item.rashodi.map((r, i) => (
+                      <tr key={i}>
+                        <td style={tdStyle}>{r.naziv}</td>
+                        <td style={tdStyle}>{r.cijena.toFixed(2)}</td>
+                        <td style={tdStyle}>{r.placeno ? "Da" : "Ne"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               {/* Prihodi */}
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>
                 Prihodi
               </h3>
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Naziv</th>
-                    <th style={thStyle}>Cijena</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {item.prihodi.map((p, i) => (
-                    <tr key={i}>
-                      <td style={tdStyle}>{p.naziv}</td>
-                      <td style={tdStyle}>{p.cijena.toFixed(2)}</td>
+              <div style={{ overflowX: "auto" }}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Naziv</th>
+                      <th style={thStyle}>Cijena</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {item.prihodi.map((p, i) => (
+                      <tr key={i}>
+                        <td style={tdStyle}>{p.naziv}</td>
+                        <td style={tdStyle}>{p.cijena.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               {/* Ukupno */}
               <div style={{ fontSize: "16px", color: "#1f2937", marginTop: "16px", fontWeight: 600 }}>
