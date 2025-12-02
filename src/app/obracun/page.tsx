@@ -467,7 +467,7 @@ export default function ObracunPage() {
     }
     
     // Ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, početno stanje, itd.)
-    // VAŽNO: Zadrži staroPocetnoStanje i sačuvanUlaz ako postoje
+    // VAŽNO: Zadrži ulaz, staroPocetnoStanje i sačuvanUlaz ako postoje
     setArtikli(prev => prev.map(artikal => {
       const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
       if (cjenovnikItem) {
@@ -479,11 +479,18 @@ export default function ObracunPage() {
           pocetnoStanje: pocetnoStanje,
           zestokoKolicina: cjenovnikItem.zestokoKolicina,
           proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
-          // Ažuriraj ukupno samo ako nije bilo ulaza
-          ukupno: artikal.ulaz > 0 ? pocetnoStanje + artikal.ulaz : pocetnoStanje,
+          // VAŽNO: Eksplicitno zadrži ulaz iz trenutnog state-a
+          ulaz: artikal.ulaz,
+          // Ažuriraj ukupno na osnovu novog početnog stanja i postojećeg ulaza
+          ukupno: artikal.ulaz !== 0 ? pocetnoStanje + artikal.ulaz : pocetnoStanje,
           // Zadrži staroPocetnoStanje i sačuvanUlaz ako postoje
           staroPocetnoStanje: artikal.staroPocetnoStanje,
           sačuvanUlaz: artikal.sačuvanUlaz,
+          // Zadrži i ostala polja koja su možda postavljena
+          utroseno: artikal.utroseno,
+          krajnjeStanje: artikal.krajnjeStanje,
+          vrijednostKM: artikal.vrijednostKM,
+          isKrajnjeSet: artikal.isKrajnjeSet,
         };
       }
       return artikal;
