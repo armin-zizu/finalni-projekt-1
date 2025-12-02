@@ -193,13 +193,17 @@ export default function ArhivaPage() {
         const snapshot = await getDocs(obracuniRef);
         firestoreArhiva = snapshot.docs.map((doc) => {
           const data = doc.data();
+          const invoiceImages = data.invoiceImages ?? [];
+          if (invoiceImages.length > 0) {
+            console.log(`Obračun ${doc.id} ima ${invoiceImages.length} slika faktura`);
+          }
           return {
             ...data,
             prihodi: data.prihodi ?? [],
             ukupnoPrihod: data.ukupnoPrihod ?? 0,
             imaUlaz: data.imaUlaz ?? false,
             isAzuriran: data.isAzuriran ?? false,
-            invoiceImages: data.invoiceImages ?? [],
+            invoiceImages: invoiceImages,
           } as ArhiviraniObracun;
         });
         console.log("Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
