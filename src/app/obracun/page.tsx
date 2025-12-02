@@ -678,6 +678,30 @@ export default function ObracunPage() {
         setHasUlazInCache(true);
       }
       
+      // Automatski sačuvaj u Firestore cache (bez čekanja)
+      const datumString = formatirajDatum(trenutniDatum);
+      const saveCacheAsync = async () => {
+        try {
+          const existingCache = await loadUlazCacheFromFirestore(datumString);
+          let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = existingCache;
+          
+          // Ažuriraj cache sa novim podacima
+          updated.forEach((a) => {
+            if (a.ulaz !== 0 || a.staroPocetnoStanje !== undefined) {
+              ulazCache[a.naziv] = {
+                ulaz: a.ulaz,
+                staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
+              };
+            }
+          });
+          
+          await saveUlazCacheToFirestore(datumString, ulazCache);
+        } catch (error) {
+          console.warn("Greška pri automatskom spremanju ulaz cache:", error);
+        }
+      };
+      saveCacheAsync(); // Pokreni asinkrono, ne blokiraj UI
+      
       return updated;
     });
   };
