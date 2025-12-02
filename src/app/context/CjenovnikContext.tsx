@@ -61,32 +61,8 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
         unsubscribeSnapshot = null;
       }
       
-      // 1. OČISTI STARI CACHE (bez userId-a) - koristi samo cjenovnik_${userId}
-      // Ovo osigurava da se ne koriste podaci od drugog korisnika
-      try {
-        const oldCache = localStorage.getItem("cjenovnik");
-        if (oldCache) {
-          localStorage.removeItem("cjenovnik"); // Obriši stari cache
-          console.log("Obrisan stari cache cjenovnika (bez userId-a)");
-        }
-      } catch (e) {
-        // Ignoriraj greške
-      }
-      
-      // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup) - SAMO za trenutnog korisnika
-      let localStorageCjenovnik: ArtiklCijena[] = [];
-      const storageKey = `cjenovnik_${userId}`;
-      const savedCjenovnik = localStorage.getItem(storageKey);
-      if (savedCjenovnik) {
-        try {
-          localStorageCjenovnik = JSON.parse(savedCjenovnik);
-          console.log("Cjenovnik učitano iz localStorage za korisnika:", userId, localStorageCjenovnik.length, "artikala");
-        } catch (e) {
-          console.warn("Greška pri čitanju cjenovnika iz localStorage:", e);
-        }
-      }
-      
-      // 3. POSTAVI REAL-TIME LISTENER ZA FIRESTORE (automatska sinkronizacija)
+      // POSTAVI REAL-TIME LISTENER ZA FIRESTORE (automatska sinkronizacija)
+      // NE koristi localStorage - sve se čuva u Firestore
       try {
         const userDocRef = doc(db, "users", userId);
         
@@ -151,24 +127,17 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                   }
                 }
                 
-                // 5. POSTAVI CJENOVNIK (Firestore ima prioritet - UVIJEK koristi Firestore ako postoji)
+                // POSTAVI CJENOVNIK (samo iz Firestore - nema localStorage)
                 if (firestoreCjenovnik.length > 0) {
                   // Firestore ima cjenovnik - koristi ga (to je izvor istine)
                   setCjenovnik(firestoreCjenovnik);
-                  // Spremi u localStorage kao cache (samo za trenutnog korisnika)
-                  localStorage.setItem(storageKey, JSON.stringify(firestoreCjenovnik));
                   console.log("Cjenovnik postavljen iz Firestore za korisnika:", userId);
                   setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
-                } else if (localStorageCjenovnik.length > 0) {
-                  // Ako Firestore nema cjenovnik, koristi localStorage (samo za trenutnog korisnika)
-                  setCjenovnik(localStorageCjenovnik);
-                  console.log("Cjenovnik postavljen iz localStorage za korisnika:", userId);
-                  setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
                 } else {
-                  // Nema ni Firestore ni localStorage - koristi initial
+                  // Nema cjenovnik u Firestore - koristi initial
                   setCjenovnik(initialCjenovnik);
                   console.log("Cjenovnik postavljen na initial za korisnika:", userId);
-                  setIsInitialLoad(false); // Označi da je prvo učitavanje završeno (čak i ako nema podataka)
+                  setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
                 }
               }
             }
@@ -211,7 +180,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Spremi cjenovnik u Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP
+  // Spremi cjenovnik u Firestore - SAMO Firestore, nema localStorage
   // Ovo se pokreće kada se cjenovnik promijeni (ažuriranje cijena, brisanje, itd.)
   // NE sprema se kada se prvi put učita iz Firestore (izbjegavanje beskonačne petlje)
   useEffect(() => {
@@ -225,13 +194,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // Spremi u localStorage odmah (cache/offline backup)
-    const storageKey = `cjenovnik_${userId}`;
-    if (cjenovnik.length > 0) {
-      localStorage.setItem(storageKey, JSON.stringify(cjenovnik));
-    }
-    
-    // SPREMI U FIRESTORE (primarno) - automatski čim se promijeni
+    // SPREMI U FIRESTORE - automatski čim se promijeni
     const saveToFirestore = async () => {
       try {
         const userDocRef = doc(db, "users", userId);
