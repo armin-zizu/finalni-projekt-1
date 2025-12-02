@@ -67,9 +67,11 @@ export default function AdminPage() {
   const [activateOnPayment, setActivateOnPayment] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni" | "tromjesečni" | "godišnji" | "prilagođeno">("dnevni");
+  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni" | "tromjesečni" | "godišnji" | "prilagođeno" | "odaberiMjesec">("dnevni");
   const [customFromDate, setCustomFromDate] = useState<string>("");
   const [customToDate, setCustomToDate] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [premiumDaysAdjustment, setPremiumDaysAdjustment] = useState(0);
   const [trialDaysAdjustment, setTrialDaysAdjustment] = useState(0);
   const [newSubscriptionStatus, setNewSubscriptionStatus] = useState<"trial" | "premium" | "grace" | "inactive">("premium");
@@ -722,13 +724,24 @@ export default function AdminPage() {
       startDate.setDate(startDate.getDate() - 30); // Zadnjih 30 dana
       startDate.setHours(0, 0, 0, 0);
     } else if (revenueFilter === "tjedni") {
+      // Od trenutnog datuma unazad 7 dana
       startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 84); // Zadnjih 12 tjedana
+      startDate.setDate(startDate.getDate() - 7);
       startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
     } else if (revenueFilter === "mjesečni") {
+      // Od trenutnog datuma unazad do početka mjeseca
       startDate = new Date(now);
-      startDate.setMonth(startDate.getMonth() - 12); // Zadnjih 12 mjeseci
+      startDate.setDate(1); // Prvi dan trenutnog mjeseca
       startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (revenueFilter === "odaberiMjesec") {
+      if (!selectedMonth || !selectedYear) return [];
+      startDate = new Date(selectedYear, selectedMonth - 1, 1); // Prvi dan odabranog mjeseca
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999); // Posljednji dan odabranog mjeseca
     } else if (revenueFilter === "tromjesečni") {
       startDate = new Date(now);
       startDate.setMonth(startDate.getMonth() - 24); // Zadnjih 8 kvartala (2 godine)
@@ -758,7 +771,7 @@ export default function AdminPage() {
       let sortKey: string; // Za sortiranje
       const date = new Date(payment.date);
       
-      if (revenueFilter === "dnevni" || revenueFilter === "prilagođeno") {
+      if (revenueFilter === "dnevni" || revenueFilter === "prilagođeno" || revenueFilter === "odaberiMjesec") {
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
@@ -819,7 +832,7 @@ export default function AdminPage() {
       }))
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
       .map(({ period, zarada }) => ({ period, zarada }));
-  }, [allPayments, revenueFilter, customFromDate, customToDate]);
+  }, [allPayments, revenueFilter, customFromDate, customToDate, selectedMonth, selectedYear]);
 
   // Ukupna zarada za odabrani period
   const totalRevenue = useMemo(() => {
@@ -995,6 +1008,22 @@ export default function AdminPage() {
               >
                 Prilagođeno
               </button>
+              <button
+                onClick={() => setRevenueFilter("odaberiMjesec")}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: revenueFilter === "odaberiMjesec" ? "#3b82f6" : "#f3f4f6",
+                  color: revenueFilter === "odaberiMjesec" ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                }}
+              >
+                Odaberi Mjesec
+              </button>
             </div>
             {revenueFilter === "prilagođeno" && (
               <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
@@ -1019,6 +1048,25 @@ export default function AdminPage() {
                     type="date"
                     value={customToDate}
                     onChange={(e) => setCustomToDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      minWidth: "150px",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {revenueFilter === "odaberiMjesec" && (
+              <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Odaberi mjesec:</label>
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
                     style={{
                       padding: "8px 12px",
                       border: "1px solid #e5e7eb",
