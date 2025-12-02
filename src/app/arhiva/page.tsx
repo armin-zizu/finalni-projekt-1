@@ -55,7 +55,6 @@ const containerStyle: React.CSSProperties = {
 
 const tableStyle: React.CSSProperties = {
   width: "100%",
-  minWidth: "800px", // Minimalna širina za horizontalni scroll
   borderCollapse: "separate" as "separate",
   borderSpacing: 0,
   background: "#ffffff",
@@ -73,7 +72,6 @@ const thStyle: React.CSSProperties = {
   fontSize: "14px",
   fontWeight: 600,
   borderBottom: "1px solid #e5e7eb",
-  whiteSpace: "nowrap", // Sprečava prelamanje teksta u headerima
 };
 
 const tdStyle: React.CSSProperties = {
@@ -82,7 +80,6 @@ const tdStyle: React.CSSProperties = {
   borderBottom: "1px solid #f3f4f6",
   fontSize: "14px",
   color: "#374151",
-  whiteSpace: "nowrap", // Sprečava prelamanje teksta u ćelijama
 };
 
 const buttonStyle: React.CSSProperties = {
@@ -604,6 +601,10 @@ export default function ArhivaPage() {
         .edit-button:hover {
           background-color: #059669;
         }
+        .table-scroll-wrapper {
+          overflow-x: visible; /* Na desktopu nema scroll */
+          width: 100%;
+        }
         @media (max-width: 768px) {
           div[style*='padding: 24px'] {
             padding: 10px; /* Smanjen padding na mobilu */
@@ -616,8 +617,8 @@ export default function ArhivaPage() {
             font-size: 16px;
             margin-bottom: 12px !important;
           }
-          div[style*='overflowX: auto'] {
-            overflow-x: auto !important;
+          .table-scroll-wrapper {
+            overflow-x: auto !important; /* Na mobilu omogući scroll */
             -webkit-overflow-scrolling: touch; /* Smooth scrolling na iOS */
             width: 100%;
           }
@@ -775,7 +776,7 @@ export default function ArhivaPage() {
             </div>
 
             {/* Tabela dugova */}
-            <div style={{ overflowX: "auto" }}>
+            <div className="table-scroll-wrapper">
               <table style={tableStyle}>
                 <thead>
                   <tr>
@@ -988,7 +989,7 @@ export default function ArhivaPage() {
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>
                 Artikli
               </h3>
-              <div style={{ overflowX: "auto" }}>
+              <div className="table-scroll-wrapper">
                 <table style={tableStyle}>
                   <thead>
                     <tr>
@@ -1052,7 +1053,7 @@ export default function ArhivaPage() {
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>
                 Rashodi
               </h3>
-              <div style={{ overflowX: "auto" }}>
+              <div className="table-scroll-wrapper">
                 <table style={tableStyle}>
                   <thead>
                     <tr>
@@ -1077,7 +1078,7 @@ export default function ArhivaPage() {
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>
                 Prihodi
               </h3>
-              <div style={{ overflowX: "auto" }}>
+              <div className="table-scroll-wrapper">
                 <table style={tableStyle}>
                   <thead>
                     <tr>
