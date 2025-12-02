@@ -1355,8 +1355,8 @@ export default function ObracunPage() {
         )}
       </div>
 
-      {/* Upload slika faktura - prikazuje se samo ako ima ulaz */}
-      {hasUlaz && (
+      {/* Upload slika faktura - prikazuje se samo ako ima ulaz I nije ažurirano */}
+      {hasUlaz && !isAzuriran && (
         <div style={{ 
           marginTop: "16px", 
           marginBottom: "16px", 
