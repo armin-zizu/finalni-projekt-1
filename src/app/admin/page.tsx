@@ -1060,21 +1060,70 @@ export default function AdminPage() {
               </div>
             )}
             {revenueFilter === "odaberiMjesec" && (
-              <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Odaberi mjesec:</label>
-                  <input
-                    type="month"
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Mjesec:</label>
+                  <select
                     value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
                     style={{
                       padding: "8px 12px",
                       border: "1px solid #e5e7eb",
                       borderRadius: "6px",
                       fontSize: "14px",
                       minWidth: "150px",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      appearance: "none",
+                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E\")",
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 12px center",
+                      paddingRight: "32px",
                     }}
-                  />
+                  >
+                    <option value={1}>Januar</option>
+                    <option value={2}>Februar</option>
+                    <option value={3}>Mart</option>
+                    <option value={4}>April</option>
+                    <option value={5}>Maj</option>
+                    <option value={6}>Juni</option>
+                    <option value={7}>Juli</option>
+                    <option value={8}>August</option>
+                    <option value={9}>Septembar</option>
+                    <option value={10}>Oktobar</option>
+                    <option value={11}>Novembar</option>
+                    <option value={12}>Decembar</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Godina:</label>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    style={{
+                      padding: "8px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      minWidth: "120px",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      appearance: "none",
+                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E\")",
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 12px center",
+                      paddingRight: "32px",
+                    }}
+                  >
+                    {Array.from({ length: 10 }, (_, i) => {
+                      const year = new Date().getFullYear() - 5 + i;
+                      return (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
               </div>
             )}
