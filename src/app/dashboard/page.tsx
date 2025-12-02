@@ -168,16 +168,15 @@ export default function DashboardPage() {
           firestorePodaci.push(doc.data() as ArhiviraniObracun);
         });
 
-        // Ako nema podataka u localStorage, koristi Firestore
-        const savedArhiva = localStorage.getItem("arhivaObracuna");
-        if (!savedArhiva && firestorePodaci.length > 0) {
+        // Koristi Firestore podatke
+        if (firestorePodaci.length > 0) {
           firestorePodaci.sort((a, b) => {
             const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
             const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
             return dateA - dateB;
           });
           setArhiva(firestorePodaci);
-          console.log("Učitano iz Firestore-a (fallback):", firestorePodaci.length, "obračuna");
+          console.log("Učitano iz Firestore-a:", firestorePodaci.length, "obračuna");
         }
       } catch (error: any) {
         // Ignoriraj greške dozvola - koristi localStorage
