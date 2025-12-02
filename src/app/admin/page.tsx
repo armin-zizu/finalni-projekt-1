@@ -95,6 +95,63 @@ export default function AdminPage() {
   const [savingUserInfo, setSavingUserInfo] = useState(false);
   const [editingUserInfo, setEditingUserInfo] = useState(false);
 
+  // Postavi korisnika kao vlasnika (isOwner = true) - pomoćna funkcija
+  const setUserAsOwnerHelper = async (userEmail: string) => {
+    try {
+      // Pronađi korisnika po emailu
+      const usersCollection = collection(db, "users");
+      const usersSnapshot = await getDocs(usersCollection);
+      
+      let foundUser = null;
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        if (userData.email === userEmail) {
+          foundUser = { id: userDoc.id, ...userData };
+          break;
+        }
+      }
+      
+      if (!foundUser) {
+        console.warn(`Korisnik sa emailom ${userEmail} nije pronađen`);
+        return;
+      }
+      
+      // Ažuriraj isOwner na true
+      const userDocRef = doc(db, "users", foundUser.id);
+      await updateDoc(userDocRef, {
+        isOwner: true,
+      });
+      
+      // Ažuriraj sve device dokumente za ovog korisnika da imaju role "vlasnik"
+      const devicesCollection = collection(db, "devices");
+      const devicesSnapshot = await getDocs(devicesCollection);
+      
+      for (const deviceDoc of devicesSnapshot.docs) {
+        const deviceData = deviceDoc.data();
+        if (deviceData.userId === foundUser.id) {
+          const deviceRef = doc(db, "devices", deviceDoc.id);
+          await updateDoc(deviceRef, {
+            role: "vlasnik",
+            status: "approved",
+            permissions: {
+              dashboard: true,
+              obracun: true,
+              arhiva: true,
+              cjenovnik: true,
+              profit: true,
+              profile: true,
+              admin: false,
+            },
+          });
+        }
+      }
+      
+      console.log(`Korisnik ${userEmail} je postavljen kao vlasnik`);
+    } catch (error) {
+      console.error("Greška pri postavljanju korisnika kao vlasnika:", error);
+    }
+  };
+
   // Provjeri da li je korisnik admin
   useEffect(() => {
     const checkAdmin = async () => {
@@ -117,7 +174,8 @@ export default function AdminPage() {
           if (userData.email === "test12" || userData.email?.includes("test12")) {
             if (userData.isOwner !== true) {
               console.log("Postavljam test12 korisnika kao vlasnika...");
-              await setUserAsOwner(userData.email);
+              await setUserAsOwnerHelper(userData.email);
+              await loadUsers(); // Osvježi listu korisnika
             }
           }
         }
