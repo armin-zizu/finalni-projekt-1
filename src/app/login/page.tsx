@@ -484,15 +484,16 @@ export default function LoginPage() {
 
       // Session management se rješava automatski kroz Firebase Auth
       // API route nije potreban za static export
-      console.log("Login uspješan, preusmjeravam na dashboard");
+      console.log("Login uspješan, čekam provjeru role...");
       setLoading(false);
-      router.push("/dashboard");
+      // Ne preusmjeravaj automatski - AppContent će provjeriti role i preusmjeriti ako je potrebno
+      // Ako je role === null, AppContent će blokirati pristup
     } catch (err: any) {
       // Ignoriraj grešku ako je korisnik već prijavljen (može se desiti zbog race condition)
       if (auth.currentUser && auth.currentUser.email === email) {
-        console.log("Korisnik je već prijavljen, preusmjeravam na dashboard");
+        console.log("Korisnik je već prijavljen, čekam provjeru role...");
         setLoading(false);
-        router.push("/dashboard");
+        // Ne preusmjeravaj automatski - AppContent će provjeriti role
         return;
       }
       
@@ -500,7 +501,7 @@ export default function LoginPage() {
       if (err.code === "auth/invalid-credential" && auth.currentUser) {
         console.log("Greška ignorirana - korisnik je već prijavljen");
         setLoading(false);
-        router.push("/dashboard");
+        // Ne preusmjeravaj automatski - AppContent će provjeriti role
         return;
       }
       
@@ -508,7 +509,7 @@ export default function LoginPage() {
       if (auth.currentUser) {
         console.log("Korisnik je već prijavljen, ignoriranje greške");
         setLoading(false);
-        router.push("/dashboard");
+        // Ne preusmjeravaj automatski - AppContent će provjeriti role
         return;
       }
       
@@ -596,8 +597,9 @@ export default function LoginPage() {
 
       // Session management se rješava automatski kroz Firebase Auth
       // API route nije potreban za static export
-      console.log("Registracija uspješna, preusmjeravam na dashboard");
-      router.push("/dashboard");
+      console.log("Registracija uspješna, čekam provjeru role...");
+      // Ne preusmjeravaj automatski - AppContent će provjeriti role i preusmjeriti ako je potrebno
+      // Prvi uređaj za vlasnika će automatski dobiti role, pa će AppContent preusmjeriti na dashboard
     } catch (err: any) {
       console.error("Greška pri registraciji:", err);
       if (err.code === "auth/email-already-in-use") {
