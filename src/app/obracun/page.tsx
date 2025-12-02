@@ -5,8 +5,9 @@ import { useCjenovnik } from "../context/CjenovnikContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
 import { auth } from "../../lib/firebase";
-import { db } from "../../lib/firestore";
+import { db, storage } from "../../lib/firebase";
 import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp, onSnapshot } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
 import { onAuthStateChanged } from "firebase/auth";
 
 // ---- Tipovi ----
@@ -228,6 +229,11 @@ export default function ObracunPage() {
   const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
   const [lowStockThresholdZestoka, setLowStockThresholdZestoka] = useState<number>(100);
   const [lowStockThresholdOstala, setLowStockThresholdOstala] = useState<number>(10);
+  
+  // State za slike faktura
+  const [invoiceImages, setInvoiceImages] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   // Provjeri da li korisnik može editovati (ne može ako grace period istekne)
   const canEditSubscription = subscription && (subscription.isActive || subscription.isTrial || subscription.isGracePeriod);
@@ -689,6 +695,92 @@ export default function ObracunPage() {
     alert("Obračun ažuriran! Početno stanje artikala je ažurirano.");
   };
 
+  // Provjeri da li obračun ima ulaz
+  const hasUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0));
+
+  // Funkcija za upload slika faktura
+  const uploadInvoiceImages = async (datumString: string): Promise<string[]> => {
+    if (invoiceImages.length === 0) return [];
+    
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("Korisnik nije autentifikovan");
+    }
+    
+    const userId = user.uid;
+    
+    // Čekaj da se korisnik potpuno autentifikuje i refresh token
+    try {
+      await user.getIdToken(true); // Refresh token
+      console.log("Korisnik autentifikovan:", userId);
+    } catch (authError) {
+      console.error("Greška pri autentifikaciji:", authError);
+      throw new Error("Greška pri autentifikaciji. Molimo prijavite se ponovo.");
+    }
+
+    // Očisti datum string za Storage putanju (ukloni tačku na kraju ako postoji)
+    const cleanDatumString = datumString.replace(/\.$/, '');
+
+    const uploadedUrls: string[] = [];
+    setUploadingImages(true);
+    setUploadProgress(0);
+
+    try {
+      for (let i = 0; i < invoiceImages.length; i++) {
+        const file = invoiceImages[i];
+        const timestamp = Date.now();
+        const fileExtension = file.name.split('.').pop() || 'jpg';
+        const fileName = `${cleanDatumString}_${timestamp}_${i}.${fileExtension}`;
+        const storagePath = `users/${userId}/invoices/${cleanDatumString}/${fileName}`;
+        const storageRef = ref(storage, storagePath);
+        
+        console.log("Upload slike na putanju:", storagePath);
+        
+        // Dodaj metadata sa contentType
+        const metadata = {
+          contentType: file.type || `image/${fileExtension}`,
+          customMetadata: {
+            uploadedBy: userId,
+            uploadedAt: new Date().toISOString(),
+            datum: datumString,
+          }
+        };
+        
+        await uploadBytes(storageRef, file, metadata);
+        const downloadURL = await getDownloadURL(storageRef);
+        uploadedUrls.push(downloadURL);
+        
+        console.log("Slika uspješno upload-ovana:", downloadURL);
+        
+        setUploadProgress(((i + 1) / invoiceImages.length) * 100);
+      }
+    } catch (error: any) {
+      console.error("Greška pri upload-u slika:", error);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
+      
+      // Detaljnija greška
+      if (error.code === 'storage/unauthorized') {
+        throw new Error("Nemate dozvolu za upload slika. Provjerite Firebase Storage pravila i da li ste prijavljeni.");
+      } else if (error.code === 'storage/canceled') {
+        throw new Error("Upload je otkazan.");
+      } else if (error.code === 'storage/unknown') {
+        throw new Error("Nepoznata greška pri upload-u. Provjerite Firebase Storage pravila i CORS postavke.");
+      }
+      throw error;
+    } finally {
+      setUploadingImages(false);
+      setUploadProgress(0);
+    }
+
+    return uploadedUrls;
+  };
+
+  // Funkcija za brisanje slike iz preview-a
+  const removeImageFromPreview = (index: number) => {
+    setInvoiceImages(invoiceImages.filter((_, i) => i !== index));
+  };
+
   // Čuvanje obračuna (localStorage + opcionalno Firestore)
   const handleSaveObracun = async () => {
     const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
@@ -800,6 +892,19 @@ export default function ObracunPage() {
     const user = auth.currentUser;
     const userId = user?.uid;
 
+    // Upload slika faktura ako postoje
+    let invoiceImageUrls: string[] = [];
+    if (invoiceImages.length > 0 && user && userId) {
+      try {
+        invoiceImageUrls = await uploadInvoiceImages(datumString);
+        // Sačuvaj URL-ove slika u obračun
+        (arhiviraniObracun as any).invoiceImages = invoiceImageUrls;
+      } catch (error) {
+        console.error("Greška pri upload-u slika faktura:", error);
+        alert("Upozorenje: Obračun je sačuvan, ali slike faktura nisu uspješno upload-ovane.");
+      }
+    }
+
     // HIBRIDNI PRISTUP: Prvo Firestore (primarno), zatim localStorage (cache/offline)
     try {
       // 1. SPREMI U FIRESTORE (primarni izvor - ako postoji korisnik)
@@ -882,6 +987,9 @@ export default function ObracunPage() {
         localStorage.setItem("arhivaObracuna", JSON.stringify(arhiva));
         console.log("Obračun sačuvan u localStorage (fallback):", datumString);
       }
+
+      // Resetuj slike faktura nakon uspješnog spremanja
+      setInvoiceImages([]);
 
       // Ažuriranje cjenovnika (početno stanje za sljedeći dan)
       setCjenovnik((prev) =>
@@ -1132,9 +1240,9 @@ export default function ObracunPage() {
           style={{ ...saveButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed" }} 
           onClick={handleSaveObracun} 
           className="save-button"
-          disabled={!canEdit}
+          disabled={!canEdit || uploadingImages}
         >
-          Sačuvaj obračun
+          {uploadingImages ? `Upload slika... ${Math.round(uploadProgress)}%` : "Sačuvaj obračun"}
         </button>
         {isAzuriran && (
           <span style={{ fontSize: "14px", color: "#f59e0b", fontWeight: 500, marginLeft: "8px" }}>
@@ -1142,6 +1250,212 @@ export default function ObracunPage() {
           </span>
         )}
       </div>
+
+      {/* Upload slika faktura - prikazuje se samo ako ima ulaz */}
+      {hasUlaz && (
+        <div style={{ 
+          marginTop: "16px", 
+          marginBottom: "16px", 
+          padding: "12px", 
+          background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+          borderRadius: "8px",
+          border: "1px solid #f59e0b",
+          boxShadow: "0 2px 8px rgba(245, 158, 11, 0.1)"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", marginBottom: "10px" }}>
+            <div style={{
+              width: "28px",
+              height: "28px",
+              borderRadius: "6px",
+              background: "#f59e0b",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: "8px",
+              fontSize: "16px"
+            }}>
+              📸
+            </div>
+            <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#92400e", margin: 0 }}>
+              Slike faktura za ulaz
+            </h3>
+          </div>
+          
+          <label
+            style={{
+              display: "block",
+              padding: "8px 12px",
+              background: canEdit ? "#fff" : "#f3f4f6",
+              borderWidth: "1px",
+              borderStyle: "dashed",
+              borderColor: canEdit ? "#f59e0b" : "#d1d5db",
+              borderRadius: "6px",
+              cursor: canEdit ? "pointer" : "not-allowed",
+              textAlign: "center",
+              transition: "all 0.2s ease",
+              marginBottom: "10px"
+            }}
+            onMouseEnter={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#fffbeb";
+                e.currentTarget.style.borderColor = "#d97706";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#fff";
+                e.currentTarget.style.borderColor = "#f59e0b";
+              }
+            }}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                setInvoiceImages([...invoiceImages, ...files]);
+                e.target.value = ""; // Reset input
+              }}
+              style={{ 
+                display: "none"
+              }}
+              disabled={!canEdit}
+            />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+              <span style={{ fontSize: "16px" }}>📎</span>
+              <span style={{ fontSize: "12px", fontWeight: 500, color: canEdit ? "#92400e" : "#9ca3af" }}>
+                {canEdit ? "Dodaj slike" : "Niste u mogućnosti"}
+              </span>
+            </div>
+          </label>
+
+          {invoiceImages.length > 0 && (
+            <div style={{ marginTop: "10px" }}>
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "space-between",
+                marginBottom: "8px"
+              }}>
+                <span style={{ fontSize: "12px", fontWeight: 500, color: "#92400e" }}>
+                  Odabrano: {invoiceImages.length}
+                </span>
+                {canEdit && invoiceImages.length > 0 && (
+                  <button
+                    onClick={() => setInvoiceImages([])}
+                    style={{
+                      padding: "2px 8px",
+                      background: "#dc2626",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 500
+                    }}
+                  >
+                    Obriši sve
+                  </button>
+                )}
+              </div>
+              <div style={{ 
+                display: "grid", 
+                gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
+                gap: "8px"
+              }}>
+                {invoiceImages.map((file, index) => (
+                  <div 
+                    key={index} 
+                    style={{ 
+                      position: "relative", 
+                      width: "100%",
+                      aspectRatio: "1",
+                      borderRadius: "6px",
+                      overflow: "hidden",
+                      boxShadow: "0 1px 4px rgba(0, 0, 0, 0.1)",
+                      transition: "transform 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "scale(1.05)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
+                    }}
+                  >
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={`Preview ${index + 1}`}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover"
+                      }}
+                    />
+                    {canEdit && (
+                      <button
+                        onClick={() => removeImageFromPreview(index)}
+                        style={{
+                          position: "absolute",
+                          top: "2px",
+                          right: "2px",
+                          background: "rgba(220, 38, 38, 0.9)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: "20px",
+                          height: "20px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)"
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {uploadProgress > 0 && (
+            <div style={{ marginTop: "10px" }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "4px"
+              }}>
+                <span style={{ fontSize: "12px", fontWeight: 500, color: "#92400e" }}>
+                  Upload...
+                </span>
+                <span style={{ fontSize: "12px", fontWeight: 600, color: "#92400e" }}>
+                  {Math.round(uploadProgress)}%
+                </span>
+              </div>
+              <div style={{
+                width: "100%",
+                height: "6px",
+                background: "#fde68a",
+                borderRadius: "3px",
+                overflow: "hidden"
+              }}>
+                <div style={{
+                  width: `${uploadProgress}%`,
+                  height: "100%",
+                  background: "linear-gradient(90deg, #f59e0b, #d97706)",
+                  borderRadius: "3px",
+                  transition: "width 0.3s ease"
+                }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Artikli */}
       <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px" }}>

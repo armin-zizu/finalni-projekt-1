@@ -43,6 +43,7 @@ type ArhiviraniObracun = {
   prihodi: Prihod[];
   isAzuriran?: boolean; // Flag da je obračun bio ažuriran
   imaUlaz?: boolean; // Flag da obračun ima ulaz
+  invoiceImages?: string[]; // URL-ovi slika faktura
 };
 
 // ---- CSS Stilovi ----
@@ -164,6 +165,9 @@ export default function ArhivaPage() {
   const [editedPrihodi, setEditedPrihodi] = useState<Prihod[]>([]);
   const [showDugoviModal, setShowDugoviModal] = useState(false);
   const [dugoviFilter, setDugoviFilter] = useState<"svi" | "neplaceni" | "placeni">("svi");
+  const [showFaktureModal, setShowFaktureModal] = useState(false);
+  const [selectedFakturaDatum, setSelectedFakturaDatum] = useState<string | null>(null);
+  const [selectedFakturaImages, setSelectedFakturaImages] = useState<string[]>([]);
   const obracunRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement | null> }>({});
 
   // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
@@ -556,6 +560,48 @@ export default function ArhivaPage() {
       .reduce((sum, d) => sum + d.iznos, 0);
   };
 
+  // Funkcija za prikupljanje svih faktura iz arhive
+  const getAllFakture = (): { datum: string; images: string[] }[] => {
+    const fakture: { datum: string; images: string[] }[] = [];
+    
+    arhiva.forEach((obracun) => {
+      if (obracun.invoiceImages && obracun.invoiceImages.length > 0) {
+        fakture.push({
+          datum: obracun.datum,
+          images: obracun.invoiceImages,
+        });
+      }
+    });
+
+    return fakture.sort((a, b) => {
+      const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+      const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+      return dateB - dateA; // Najnoviji prvo
+    });
+  };
+
+  // Funkcija za prikaz fakture i scroll na obračun
+  const handleFakturaClick = (datum: string, images: string[]) => {
+    setSelectedFakturaDatum(datum);
+    setSelectedFakturaImages(images);
+    setShowFaktureModal(true);
+    
+    // Scroll na obračun
+    setTimeout(() => {
+      const obracunRef = obracunRefs.current[datum];
+      if (obracunRef && obracunRef.current) {
+        obracunRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Highlight obračun
+        obracunRef.current.style.boxShadow = "0 0 0 3px #3b82f6";
+        setTimeout(() => {
+          if (obracunRef.current) {
+            obracunRef.current.style.boxShadow = "";
+          }
+        }, 2000);
+      }
+    }, 100);
+  };
+
   // Funkcija za označavanje duga kao plaćenog
   const markDugAsPlacen = async (obracunDatum: string, rashodIndex: number) => {
     const user = auth.currentUser;
@@ -659,21 +705,170 @@ export default function ArhivaPage() {
         <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
           Arhiva
         </h1>
-        {getAllDugovi().length > 0 && (
-          <button
-            style={{
-              ...buttonStyle,
-              background: "#f59e0b",
-              padding: "10px 20px",
-              fontSize: "14px",
-              fontWeight: 600,
-            }}
-            onClick={() => setShowDugoviModal(true)}
-          >
-            💰 Pregled duga ({getAllDugovi().filter(d => !d.placeno).length} neplaćenih)
-          </button>
-        )}
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {getAllDugovi().length > 0 && (
+            <button
+              style={{
+                ...buttonStyle,
+                background: "#f59e0b",
+                padding: "10px 20px",
+                fontSize: "14px",
+                fontWeight: 600,
+              }}
+              onClick={() => setShowDugoviModal(true)}
+            >
+              💰 Pregled duga ({getAllDugovi().filter(d => !d.placeno).length} neplaćenih)
+            </button>
+          )}
+          {getAllFakture().length > 0 && (
+            <button
+              style={{
+                ...buttonStyle,
+                background: "#8b5cf6",
+                padding: "10px 20px",
+                fontSize: "14px",
+                fontWeight: 600,
+              }}
+              onClick={() => setShowFaktureModal(true)}
+            >
+              📸 Pregled faktura ({getAllFakture().length})
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Modal za pregled faktura */}
+      {showFaktureModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+          onClick={() => {
+            setShowFaktureModal(false);
+            setSelectedFakturaDatum(null);
+            setSelectedFakturaImages([]);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "900px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 10px 40px rgba(0, 0, 0, 0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
+                📸 Pregled faktura
+              </h2>
+              <button
+                style={{
+                  background: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 16px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+                onClick={() => {
+                  setShowFaktureModal(false);
+                  setSelectedFakturaDatum(null);
+                  setSelectedFakturaImages([]);
+                }}
+              >
+                ✕ Zatvori
+              </button>
+            </div>
+
+            {/* Lista faktura */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {getAllFakture().length === 0 ? (
+                <p style={{ textAlign: "center", color: "#6b7280", padding: "20px" }}>
+                  Nema faktura za prikaz
+                </p>
+              ) : (
+                getAllFakture().map((faktura, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      padding: "16px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      transition: "background-color 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f9fafb";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "#fff";
+                    }}
+                    onClick={() => handleFakturaClick(faktura.datum, faktura.images)}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
+                          Faktura - {faktura.datum}
+                        </h3>
+                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                          {faktura.images.length} {faktura.images.length === 1 ? "slika" : "slika"}
+                        </p>
+                      </div>
+                      <div style={{ fontSize: "14px", color: "#8b5cf6", fontWeight: 500 }}>
+                        Klikni za pregled →
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Prikaz slika odabrane fakture */}
+            {selectedFakturaDatum && selectedFakturaImages.length > 0 && (
+              <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
+                <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
+                  Slike fakture - {selectedFakturaDatum}
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px" }}>
+                  {selectedFakturaImages.map((imageUrl, index) => (
+                    <div key={index} style={{ position: "relative" }}>
+                      <img
+                        src={imageUrl}
+                        alt={`Faktura ${selectedFakturaDatum} - ${index + 1}`}
+                        style={{
+                          width: "100%",
+                          height: "200px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                          border: "1px solid #e5e7eb",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => window.open(imageUrl, "_blank")}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal za pregled duga */}
       {showDugoviModal && (
@@ -893,8 +1088,26 @@ export default function ArhivaPage() {
                       (Ažurirano)
                     </span>
                   )}
+                  {item.invoiceImages && item.invoiceImages.length > 0 && (
+                    <span style={{ fontSize: "14px", color: "#8b5cf6", fontWeight: 500, marginLeft: "8px" }}>
+                      📸 {item.invoiceImages.length} {item.invoiceImages.length === 1 ? "faktura" : "faktura"}
+                    </span>
+                  )}
                 </h2>
-                <div>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  {item.invoiceImages && item.invoiceImages.length > 0 && (
+                    <button
+                      style={{
+                        ...buttonStyle,
+                        background: "#8b5cf6",
+                        padding: "8px 16px",
+                        fontSize: "14px",
+                      }}
+                      onClick={() => handleFakturaClick(item.datum, item.invoiceImages || [])}
+                    >
+                      📸 Pregled faktura
+                    </button>
+                  )}
                   <button
                     style={{ ...buttonStyle, background: "#10b981" }}
                     className="edit-button"
