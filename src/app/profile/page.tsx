@@ -151,11 +151,14 @@ export default function Profile() {
           // Ignoriraj grešku sa ipify
         }
         
-        return {
+        ipInfo = {
           ip,
           location: "Nepoznata lokacija",
           isp: "N/A"
         };
+      } catch (error) {
+        // Ignoriraj grešku
+      }
       
       return ipInfo;
     };
