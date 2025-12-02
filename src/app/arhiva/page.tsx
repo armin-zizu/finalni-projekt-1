@@ -1156,9 +1156,7 @@ export default function ArhivaPage() {
             {/* Lista faktura */}
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               {(() => {
-                const fakture = faktureModalMode === "single" && singleObracunDatum 
-                  ? getSingleObracunFakture(singleObracunDatum)
-                  : getAllFakture();
+                const fakture = modalFakture;
                 
                 if (fakture.length === 0) {
                   return (
