@@ -849,6 +849,9 @@ export default function ObracunPage() {
     });
     
     await saveUlazCacheToFirestore(datumString, ulazCache2);
+    
+    // Postavi flag da postoji ulaz u cache-u (za prikaz gumba za slike)
+    setHasUlazInCache(true);
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
     
