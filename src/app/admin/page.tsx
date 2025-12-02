@@ -282,7 +282,7 @@ export default function AdminPage() {
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
-                    localId: [userId]
+                    localId: userId  // Treba biti string, ne array
                   }),
                 }
               );
@@ -302,8 +302,13 @@ export default function AdminPage() {
                     console.warn(`Greška pri ažuriranju email-a u Firestore za korisnika ${userId}:`, updateError);
                   }
                 }
+              } else {
+                // Ako API poziv ne uspije, samo loguj grešku bez prikazivanja korisniku
+                const errorData = await response.json().catch(() => ({}));
+                console.warn(`Greška pri dohvaćanju email-a iz Firebase Auth za korisnika ${userId}:`, errorData);
               }
             } catch (authError) {
+              // Ignoriraj grešku - email će ostati null ako nije dostupan
               console.warn(`Greška pri dohvaćanju email-a iz Firebase Auth za korisnika ${userId}:`, authError);
             }
           }

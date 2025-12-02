@@ -469,7 +469,7 @@ export default function LoginPage() {
         
         try {
           const ipResponse = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
-          if (ipResponse.ok) {
+          if (ipResponse.ok && ipResponse.status !== 403) {
             const ipData = await ipResponse.json();
             if (ipData.status === "success") {
               ipInfo = {
@@ -480,7 +480,7 @@ export default function LoginPage() {
             }
           }
         } catch (ipApiError) {
-          // Ignoriraj grešku sa ip-api.com
+          // Ignoriraj grešku sa ip-api.com (uključujući 403 Forbidden)
         }
         
         // Fallback na ipify ako ip-api ne radi ili nije uspio
@@ -603,7 +603,7 @@ export default function LoginPage() {
         
         try {
           const ipResponse = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
-          if (ipResponse.ok) {
+          if (ipResponse.ok && ipResponse.status !== 403) {
             const ipData = await ipResponse.json();
             if (ipData.status === "success") {
               ipInfo = {
@@ -614,7 +614,7 @@ export default function LoginPage() {
             }
           }
         } catch (ipApiError) {
-          // Ignoriraj grešku sa ip-api.com
+          // Ignoriraj grešku sa ip-api.com (uključujući 403 Forbidden)
         }
         
         // Fallback na ipify ako ip-api ne radi ili nije uspio

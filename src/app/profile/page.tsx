@@ -141,7 +141,7 @@ export default function Profile() {
       try {
         // Pokušaj dobiti IP i lokaciju iz ip-api.com (besplatno, bez API ključa)
         const response = await fetch("https://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp");
-        if (response.ok) {
+        if (response.ok && response.status !== 403) {
           const data = await response.json();
           if (data.status === "success") {
             return {
@@ -152,7 +152,7 @@ export default function Profile() {
           }
         }
       } catch (error) {
-        // Ignoriraj grešku sa ip-api.com
+        // Ignoriraj grešku sa ip-api.com (uključujući 403 Forbidden)
       }
       
       // Fallback na ipify ako ip-api ne radi
