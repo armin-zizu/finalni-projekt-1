@@ -48,6 +48,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   const [cjenovnik, setCjenovnik] = useState<ArtiklCijena[]>(initialCjenovnik);
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag za prvo učitavanje
+  const [prethodniCjenovnik, setPrethodniCjenovnik] = useState<ArtiklCijena[]>([]); // Prethodno stanje cjenovnika
 
   // Učitaj cjenovnik iz Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP sa real-time sinkronizacijom
   useEffect(() => {
@@ -79,13 +80,6 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                 // VAŽNO: Ažuriraj samo ako artikal već postoji u cjenovniku (nije novi artikal)
                 // Ako je artikal novi (nije bio u prethodnom cjenovniku), koristi početno stanje koje je korisnik unio
                 try {
-                  // Učitaj prethodni cjenovnik iz Firestore da znamo koji artikli su novi
-                  const userDocRef = doc(db, "users", userId);
-                  const userDoc = await getDoc(userDocRef);
-                  const prethodniCjenovnik: ArtiklCijena[] = userDoc.exists() && userDoc.data().cjenovnik 
-                    ? userDoc.data().cjenovnik 
-                    : [];
-                  
                   const obracuniRef = collection(db, "users", userId, "obracuni");
                   const snapshot = await getDocs(obracuniRef);
                   const arhiva = snapshot.docs.map((doc) => doc.data());
@@ -104,7 +98,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                       // Ažuriraj početno stanje u cjenovniku sa krajnjim stanjem iz najnovijeg obračuna
                       // ALI samo za artikle koji su već postojali u prethodnom cjenovniku
                       firestoreCjenovnik = firestoreCjenovnik.map((item) => {
-                        // Provjeri da li artikal već postoji u prethodnom cjenovniku
+                        // Provjeri da li artikal već postoji u prethodnom cjenovniku (nije novi)
                         const postojiUPrethodnom = prethodniCjenovnik.some((a) => a.naziv === item.naziv);
                         
                         // Ako artikal ne postoji u prethodnom cjenovniku, koristi početno stanje koje je korisnik unio
@@ -150,11 +144,14 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                 // POSTAVI CJENOVNIK (samo iz Firestore - nema localStorage)
                 if (firestoreCjenovnik.length > 0) {
                   // Firestore ima cjenovnik - koristi ga (to je izvor istine)
+                  // Sačuvaj prethodno stanje prije ažuriranja
+                  setPrethodniCjenovnik(cjenovnik);
                   setCjenovnik(firestoreCjenovnik);
                   console.log("Cjenovnik postavljen iz Firestore za korisnika:", userId);
                   setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
                 } else {
                   // Nema cjenovnik u Firestore - koristi initial
+                  setPrethodniCjenovnik(cjenovnik);
                   setCjenovnik(initialCjenovnik);
                   console.log("Cjenovnik postavljen na initial za korisnika:", userId);
                   setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
