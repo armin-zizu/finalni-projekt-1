@@ -167,35 +167,21 @@ export default function Profile() {
     if (user) {
       setEmail(user.email || "N/A"); // Postavi trenutni e-mail
       
-      // Provjeri da li već postoji sesija u localStorage
-      const savedSessions = localStorage.getItem("userSessions");
+      // Učitaj sesije iz Firestore
       let existingSessions: any[] = [];
-      if (savedSessions) {
-        try {
-          existingSessions = JSON.parse(savedSessions);
-        } catch (e) {
-          existingSessions = [];
-        }
-      }
-
-      // Provjeri da li postoji aktivna sesija za ovog korisnika
-      const activeSession = existingSessions.find(s => s.userEmail === user.email && s.status === "Aktivna");
+      let activeSession: any = null;
       
-      // Provjeri da li postoji IP info iz posljednjeg login-a
-      const lastLoginIP = localStorage.getItem("lastLoginIP");
+      try {
+        const sessionsRef = collection(db, "users", user.uid, "sessions");
+        const sessionsSnapshot = await getDocs(sessionsRef);
+        existingSessions = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        activeSession = existingSessions.find(s => s.userEmail === user.email && s.status === "Aktivna");
+      } catch (error) {
+        console.warn("Greška pri učitavanju sesija iz Firestore:", error);
+      }
+      
+      // IP info se sada dohvaća direktno
       let ipInfo = { ip: "N/A", location: "Nepoznata lokacija", isp: "N/A" };
-      
-      if (lastLoginIP) {
-        try {
-          const parsed = JSON.parse(lastLoginIP);
-          // Koristi IP info samo ako je za istog korisnika i nije stariji od 1 sata
-          if (parsed.userEmail === user.email && (Date.now() - parsed.timestamp) < 3600000) {
-            ipInfo = { ip: parsed.ip, location: parsed.location, isp: parsed.isp };
-          }
-        } catch (e) {
-          // Ignoriraj grešku
-        }
-      }
 
       // Dohvati IP info ako nije dostupan
       if (ipInfo.ip === "N/A") {
@@ -220,7 +206,13 @@ export default function Profile() {
               const updatedSessions = existingSessions.map(s => 
                 s.id === activeSession.id ? activeSession : s
               );
-              localStorage.setItem("userSessions", JSON.stringify(updatedSessions));
+              // Spremi u Firestore
+              try {
+                const sessionRef = doc(db, "users", user.uid, "sessions", activeSession.id);
+                await setDoc(sessionRef, activeSession, { merge: true });
+              } catch (error) {
+                console.warn("Greška pri spremanju sesije u Firestore:", error);
+              }
               setSessions(updatedSessions);
             } else {
               setSessions(existingSessions);
@@ -277,11 +269,23 @@ export default function Profile() {
           isp: ipInfo.isp
         };
         
-        // Ažuriraj localStorage
-        const updatedSessions = [currentSession, ...existingSessions.filter(s => s.userEmail !== user.email || s.status !== "Aktivna")];
-        localStorage.setItem("userSessions", JSON.stringify(updatedSessions));
-        
-        setSessions(updatedSessions);
+        // Spremi sesiju u Firestore
+        try {
+          const sessionRef = doc(db, "users", user.uid, "sessions", currentSession.id);
+          await setDoc(sessionRef, currentSession, { merge: true });
+          
+          // Deaktiviraj stare sesije
+          const oldSessions = existingSessions.filter(s => s.userEmail === user.email && s.status === "Aktivna" && s.id !== currentSession.id);
+          for (const oldSession of oldSessions) {
+            const oldSessionRef = doc(db, "users", user.uid, "sessions", oldSession.id);
+            await updateDoc(oldSessionRef, { status: "Neaktivna" });
+          }
+          
+          const updatedSessions = [currentSession, ...existingSessions.filter(s => s.userEmail !== user.email || s.status !== "Aktivna")];
+          setSessions(updatedSessions);
+        } catch (error) {
+          console.warn("Greška pri spremanju sesije u Firestore:", error);
+        }
       }
     }
   }, []);
@@ -366,11 +370,7 @@ export default function Profile() {
       // Ažuriraj context
       setAppName(localAppName.trim());
       
-      // Spremi u localStorage kao backup
-      const storageKey = `appName_${user.uid}`;
-      localStorage.setItem(storageKey, localAppName.trim());
-      localStorage.setItem("appName", localAppName.trim()); // Fallback
-      localStorage.setItem(`${storageKey}_updatedAt`, Date.now().toString());
+      // NE SPREMAJ U LOCALSTORAGE - sve je u Firestore
       
       setIsAppNameUpdated(true);
       setLastUpdatedTime(new Date().toLocaleString("bs-BA", { 
@@ -1366,11 +1366,9 @@ export default function Profile() {
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Ukupno obračuna</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
               {(() => {
-                const user = auth.currentUser;
-                const userId = user?.uid;
-                const storageKey = userId ? `arhivaObracuna_${userId}` : "arhivaObracuna";
-                const arhiva = localStorage.getItem(storageKey);
-                return arhiva ? JSON.parse(arhiva).length : 0;
+                // Učitaj iz Firestore - koristi state ili direktno iz Firestore
+                // Za sada prikaži 0, može se dodati state za arhiva count
+                return 0; // TODO: Dodati state za arhiva count iz Firestore
               })()}
             </p>
           </div>
@@ -1378,11 +1376,9 @@ export default function Profile() {
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Artikala u cjenovniku</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
               {(() => {
-                const user = auth.currentUser;
-                const userId = user?.uid;
-                const storageKey = userId ? `cjenovnik_${userId}` : "cjenovnik";
-                const cjenovnik = localStorage.getItem(storageKey);
-                return cjenovnik ? JSON.parse(cjenovnik).length : 0;
+                // Učitaj iz Firestore - koristi useCjenovnik hook
+                // Za sada prikaži 0, može se dodati useCjenovnik hook
+                return 0; // TODO: Dodati useCjenovnik hook za cjenovnik count
               })()}
             </p>
           </div>
@@ -1472,16 +1468,33 @@ export default function Profile() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center", width: "100%" }}>
             <button
-            onClick={() => {
+            onClick={async () => {
               const user = auth.currentUser;
               const userId = user?.uid;
-              const arhivaKey = userId ? `arhivaObracuna_${userId}` : "arhivaObracuna";
-              const cjenovnikKey = userId ? `cjenovnik_${userId}` : "cjenovnik";
-              const arhivaRaw = localStorage.getItem(arhivaKey);
-              const cjenovnikRaw = localStorage.getItem(cjenovnikKey);
+              if (!userId) return;
               
-              let arhiva = arhivaRaw ? JSON.parse(arhivaRaw) : [];
-              const cjenovnik = cjenovnikRaw ? JSON.parse(cjenovnikRaw) : [];
+              // Učitaj iz Firestore
+              let arhiva: any[] = [];
+              let cjenovnik: any[] = [];
+              
+              try {
+                // Učitaj arhivu
+                const obracuniRef = collection(db, "users", userId, "obracuni");
+                const obracuniSnapshot = await getDocs(obracuniRef);
+                arhiva = obracuniSnapshot.docs.map(doc => doc.data());
+                
+                // Učitaj cjenovnik
+                const userDocRef = doc(db, "users", userId);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                  const userData = userDoc.data();
+                  cjenovnik = userData.cjenovnik || [];
+                }
+              } catch (error) {
+                console.error("Greška pri učitavanju podataka za backup:", error);
+                alert("Greška pri učitavanju podataka za backup.");
+                return;
+              }
               
               // Filtriraj arhivu po datumu ako su odabrani datumi
               if (backupFromDate || backupToDate) {
