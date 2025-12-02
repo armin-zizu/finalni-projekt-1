@@ -51,9 +51,8 @@ export async function initializeUser(userId: string, email: string | null) {
       return;
     }
 
-    // Provjeri da li je prvi korisnik - samo prvi korisnik postaje vlasnik
-    const firstUser = await isFirstUser();
-    const isOwner = firstUser;
+    // Svaki novi korisnik (novi email) postaje vlasnik svog profila
+    const isOwner = true;
 
     // Kreiraj glavni user dokument sa osnovnim podacima
     await setDoc(userDocRef, {
@@ -62,7 +61,7 @@ export async function initializeUser(userId: string, email: string | null) {
       cjenovnik: defaultCjenovnik,
       createdAt: Timestamp.fromDate(now),
       lastSignIn: Timestamp.fromDate(now),
-      isOwner: isOwner, // Samo prvi korisnik je vlasnik
+      isOwner: isOwner, // Svaki novi korisnik je vlasnik svog profila
     });
 
     // Kreiraj subscription dokument sa trial periodom
