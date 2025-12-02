@@ -136,42 +136,26 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   // Učitaj ili kreiraj Device ID - čuva se u Firestore kolekciji "devices"
   const initializeDeviceId = async (): Promise<string> => {
-    // Prvo pokušaj učitati iz Firestore (ako je korisnik prijavljen)
-    if (user && user.uid) {
-      try {
-        // Provjeri da li postoji deviceId u Firestore za ovog korisnika
-        const devicesRef = collection(db, "devices");
-        const devicesSnapshot = await getDocs(devicesRef);
-        const userDevice = devicesSnapshot.docs.find(doc => {
-          const data = doc.data();
-          return data.userId === user.uid && data.deviceId;
-        });
-        
-        if (userDevice) {
-          const deviceId = userDevice.data().deviceId;
-          if (deviceId) {
-            return deviceId;
-          }
-        }
-      } catch (error) {
-        console.warn("Greška pri učitavanju deviceId iz Firestore:", error);
-      }
-    }
-
-    // Generiši novi deviceId
+    // Generiši deviceId koristeći FingerprintJS (isti kao u login)
     const newDeviceId = await generateDeviceId();
     
-    // Spremi u Firestore ako je korisnik prijavljen
+    // Provjeri da li dokument sa ovim deviceId-om već postoji
     if (user && user.uid) {
       try {
         const deviceRef = doc(db, "devices", newDeviceId);
-        await setDoc(deviceRef, {
-          deviceId: newDeviceId,
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-        }, { merge: true });
+        const deviceDoc = await getDoc(deviceRef);
+        
+        // Ako dokument postoji, vrati deviceId
+        if (deviceDoc.exists()) {
+          console.log("RoleContext - Device dokument već postoji:", newDeviceId);
+          return newDeviceId;
+        }
+        
+        // Ako dokument ne postoji, to je novi uređaj - ne kreiraj ga ovdje,
+        // neka ga kreira loadRole() funkcija sa pravilnim statusom
+        console.log("RoleContext - Novi uređaj detektovan:", newDeviceId);
       } catch (error) {
-        console.warn("Greška pri spremanju deviceId u Firestore:", error);
+        console.warn("Greška pri provjeri deviceId u Firestore:", error);
       }
     }
     
@@ -375,7 +359,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           // Blokiraj pristup ako je uređaj blokiran ili zahtijeva verifikaciju (osim ako je vlasnik)
           setRole(null);
           setPermissions(null);
-          console.log("RoleContext - Uređaj blokiran ili zahtijeva verifikaciju:", { isBlocked, needsVerification, status });
+          console.log("RoleContext - Uređaj blokiran ili zahtijeva verifikaciju:", { 
+            isBlocked, 
+            needsVerification, 
+            status, 
+            deviceId: currentDeviceId,
+            userId: user.uid 
+          });
         } else {
           setRole(deviceRole);
           setPermissions(data.permissions || (deviceRole === "vlasnik" ? {
@@ -427,11 +417,30 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
           const devicesSnapshot = await getDocs(devicesQuery);
           
+          console.log("RoleContext - Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size, "deviceId:", currentDeviceId);
+          
           // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
           if (!devicesSnapshot.empty) {
-            defaultRole = null;
-            status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju
-            console.log("RoleContext - Korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju");
+            // Provjeri da li je trenutni uređaj već u listi (ne bi trebao biti jer je novi)
+            const existingDeviceIds = devicesSnapshot.docs.map(doc => doc.id);
+            console.log("RoleContext - Postojeći uređaji:", existingDeviceIds);
+            
+            // Ako trenutni deviceId nije u listi postojećih, to je novi uređaj
+            if (!existingDeviceIds.includes(currentDeviceId)) {
+              defaultRole = null;
+              status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju
+              console.log("RoleContext - Korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju");
+            } else {
+              // Ako je trenutni uređaj već u listi, to znači da je već kreiran (možda iz login stranice)
+              console.log("RoleContext - Trenutni uređaj već postoji u bazi, učitavam postojeći status");
+              const existingDeviceDoc = devicesSnapshot.docs.find(doc => doc.id === currentDeviceId);
+              if (existingDeviceDoc) {
+                const existingData = existingDeviceDoc.data();
+                defaultRole = existingData.role || null;
+                status = existingData.status || "verifikacija";
+                console.log("RoleContext - Učitavanje postojećeg statusa:", { role: defaultRole, status });
+              }
+            }
           } else {
             // Prvi uređaj - provjeri da li je korisnik vlasnik
             if (isOwnerFromUserDoc || isOwnerDevice) {
@@ -487,8 +496,17 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         };
         
         await setDoc(deviceRef, deviceData);
-        setRole(defaultRole);
-        console.log("RoleContext - Novi uređaj kreiran, uloga:", defaultRole, "status:", status);
+        
+        // Ako je status "verifikacija", blokiraj pristup
+        if (status === "verifikacija") {
+          setRole(null);
+          setPermissions(null);
+          console.log("RoleContext - Novi uređaj kreiran sa statusom 'verifikacija', pristup blokiran");
+        } else {
+          setRole(defaultRole);
+          setPermissions(deviceData.permissions || null);
+          console.log("RoleContext - Novi uređaj kreiran, uloga:", defaultRole, "status:", status);
+        }
       }
 
       // Slušaj promjene u realnom vremenu (samo ako dokument postoji)
