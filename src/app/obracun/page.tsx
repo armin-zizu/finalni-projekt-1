@@ -1124,7 +1124,7 @@ export default function ObracunPage() {
           const artikal = artikli.find((a) => a.naziv === item.naziv);
           if (!artikal) return item;
           
-          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana
+          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana (ili ukupno ako nije postavljeno krajnje)
           // Ako je postavljeno krajnje stanje, koristi ga; inače koristi ukupno (početno + ulaz)
           let novoPocetnoStanje: number;
           if (artikal.naziv.toLowerCase().includes("kafa")) {
@@ -1146,10 +1146,14 @@ export default function ObracunPage() {
         })
       );
 
-      // Povećaj datum za jedan dan
+      // Povećaj datum za jedan dan (prebacivanje na novi dan)
       const noviDatum = new Date(trenutniDatum);
       noviDatum.setDate(noviDatum.getDate() + 1);
       setTrenutniDatum(noviDatum);
+      
+      // Resetiraj artikle - useEffect će se pokrenuti kada se promijeni trenutniDatum i cjenovnik
+      // i automatski će inicijalizirati artikle sa ispravnim početnim stanjem iz cjenovnika
+      // Krajnje stanje će biti 0 jer ga još nismo uradili za novi dan
 
       setRashodi([]);
       setPrihodi([]);
