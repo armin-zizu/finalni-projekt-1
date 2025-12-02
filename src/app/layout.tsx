@@ -4,13 +4,102 @@ import React, { useState, useEffect } from "react";
 import { AppNameProvider } from "./context/AppNameContext";
 import { CjenovnikProvider } from "./context/CjenovnikContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
-import { RoleProvider } from "./context/RoleContext";
+import { RoleProvider, useRole } from "./context/RoleContext";
 import SubscriptionBanner from "./components/SubscriptionBanner";
 import Sidebar from "./sidebar/Sidebar";
 import { auth, db } from "../lib/firebase";
 import { usePathname, useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
+
+// Komponenta koja provjerava role i blokira pristup ako je potrebno
+function AppContent({ children }: { children: React.ReactNode }) {
+  const { role, loading: roleLoading } = useRole();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Ako se još učitava role, prikaži loading
+  if (roleLoading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "#f4f5f7" }}>
+        <div style={{ fontSize: "16px", color: "#6b7280" }}>Učitavanje...</div>
+      </div>
+    );
+  }
+
+  // Ako je role null (verifikacija potrebna), blokiraj pristup i prikaži poruku
+  if (role === null && pathname !== "/login") {
+    return (
+      <div style={{ 
+        display: "flex", 
+        flexDirection: "column",
+        justifyContent: "center", 
+        alignItems: "center", 
+        height: "100vh", 
+        backgroundColor: "#f4f5f7",
+        padding: "20px",
+        textAlign: "center"
+      }}>
+        <div style={{ 
+          maxWidth: "500px",
+          backgroundColor: "#fff",
+          padding: "32px",
+          borderRadius: "12px",
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+        }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>⏳</div>
+          <h2 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+            Čekanje na odobrenje
+          </h2>
+          <p style={{ fontSize: "16px", color: "#6b7280", marginBottom: "24px", lineHeight: "1.6" }}>
+            Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.
+          </p>
+          <button
+            onClick={() => {
+              auth.signOut();
+              router.push("/login");
+            }}
+            style={{
+              padding: "12px 24px",
+              backgroundColor: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "16px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "background-color 0.2s"
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#2563eb"}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#3b82f6"}
+          >
+            Odjavi se
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Ako je role postavljen, prikaži normalnu aplikaciju
+  return (
+    <>
+      <SubscriptionBanner />
+      <Sidebar />
+      <main
+        style={{
+          flex: 1,
+          padding: "0",
+          backgroundColor: "#f4f5f7",
+          minHeight: "100vh",
+          paddingBottom: "60px", // Prostor za bottom bar
+          width: "100%",
+        }}
+      >
+        <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
+      </main>
+    </>
+  );
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // null = loading
@@ -133,20 +222,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CjenovnikProvider>
             <SubscriptionProvider>
               <RoleProvider>
-                <SubscriptionBanner />
-                <Sidebar />
-                <main
-                  style={{
-                    flex: 1,
-                    padding: "0",
-                    backgroundColor: "#f4f5f7",
-                    minHeight: "100vh",
-                    paddingBottom: "60px", // Prostor za bottom bar
-                    width: "100%",
-                  }}
-                >
-                  <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
-                </main>
+                <AppContent>{children}</AppContent>
               </RoleProvider>
             <style jsx>{`
               .sidebar-link:hover {
