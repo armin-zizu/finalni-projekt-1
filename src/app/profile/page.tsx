@@ -182,6 +182,42 @@ export default function Profile() {
         return ipInfo;
       };
       
+      async function createSession(ipInfo: { ip: string; location: string; isp: string }) {
+        const currentUser = auth.currentUser;
+        if (!currentUser || !currentUser.email) return; // Ako nema korisnika, ne kreiraj sesiju
+        
+        const device = /Mobi|Android/i.test(navigator.userAgent) ? "Mobilni" : "Desktop";
+        const currentSession = {
+          id: Date.now().toString(),
+          date: new Date().toLocaleString("bs-BA", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+          status: "Aktivna",
+          device,
+          location: ipInfo.location,
+          ip: ipInfo.ip,
+          name: currentUser.displayName || "Korisnik",
+          userEmail: currentUser.email,
+          isp: ipInfo.isp
+        };
+        
+        // Spremi sesiju u Firestore
+        try {
+          const sessionRef = doc(db, "users", currentUser.uid, "sessions", currentSession.id);
+          await setDoc(sessionRef, currentSession, { merge: true });
+          
+          // Deaktiviraj stare sesije
+          const oldSessions = existingSessions.filter(s => s.userEmail === currentUser.email && s.status === "Aktivna" && s.id !== currentSession.id);
+          for (const oldSession of oldSessions) {
+            const oldSessionRef = doc(db, "users", currentUser.uid, "sessions", oldSession.id);
+            await updateDoc(oldSessionRef, { status: "Neaktivna" });
+          }
+          
+          const updatedSessions = [currentSession, ...existingSessions.filter(s => s.userEmail !== currentUser.email || s.status !== "Aktivna")];
+          setSessions(updatedSessions);
+        } catch (error) {
+          console.warn("Greška pri spremanju sesije u Firestore:", error);
+        }
+      }
+      
       // IP info se sada dohvaća direktno
       let ipInfo = { ip: "N/A", location: "Nepoznata lokacija", isp: "N/A" };
 
@@ -249,43 +285,6 @@ export default function Profile() {
         } else {
           // Postoji sesija sa istom IP, ne kreiraj novu
           setSessions(existingSessions);
-        }
-      }
-
-        async function createSession(ipInfo: { ip: string; location: string; isp: string }) {
-          const user = auth.currentUser;
-          if (!user || !user.email) return; // Ako nema korisnika, ne kreiraj sesiju
-          
-          const device = /Mobi|Android/i.test(navigator.userAgent) ? "Mobilni" : "Desktop";
-          const currentSession = {
-            id: Date.now().toString(),
-            date: new Date().toLocaleString("bs-BA", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-            status: "Aktivna",
-            device,
-            location: ipInfo.location,
-            ip: ipInfo.ip,
-            name: user.displayName || "Korisnik",
-            userEmail: user.email,
-            isp: ipInfo.isp
-          };
-          
-          // Spremi sesiju u Firestore
-          try {
-            const sessionRef = doc(db, "users", user.uid, "sessions", currentSession.id);
-            await setDoc(sessionRef, currentSession, { merge: true });
-            
-            // Deaktiviraj stare sesije
-            const oldSessions = existingSessions.filter(s => s.userEmail === user.email && s.status === "Aktivna" && s.id !== currentSession.id);
-            for (const oldSession of oldSessions) {
-              const oldSessionRef = doc(db, "users", user.uid, "sessions", oldSession.id);
-              await updateDoc(oldSessionRef, { status: "Neaktivna" });
-            }
-            
-            const updatedSessions = [currentSession, ...existingSessions.filter(s => s.userEmail !== user.email || s.status !== "Aktivna")];
-            setSessions(updatedSessions);
-          } catch (error) {
-            console.warn("Greška pri spremanju sesije u Firestore:", error);
-          }
         }
       }
     };
