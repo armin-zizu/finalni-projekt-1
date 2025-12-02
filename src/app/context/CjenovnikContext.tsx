@@ -223,11 +223,49 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   }, [cjenovnik]);
 
   const addArtikal = (artikal: ArtiklCijena) => {
-    setPendingCjenovnik((prev) => [...prev, artikal]); // Dodaj u privremeni cjenovnik
+    // Dodaj direktno u cjenovnik i automatski spremi u Firestore
+    setCjenovnik((prev) => {
+      const noviCjenovnik = [...prev, artikal];
+      // Automatski spremi u Firestore
+      const user = auth.currentUser;
+      const userId = user?.uid;
+      if (userId && noviCjenovnik.length > 0) {
+        const userDocRef = doc(db, "users", userId);
+        setDoc(userDocRef, { cjenovnik: noviCjenovnik }, { merge: true }).catch((error: any) => {
+          const errorCode = error?.code || "";
+          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+            console.warn("Greška pri automatskom spremanju cjenovnika u Firestore:", error);
+          }
+        });
+        // Spremi u localStorage
+        const storageKey = `cjenovnik_${userId}`;
+        localStorage.setItem(storageKey, JSON.stringify(noviCjenovnik));
+      }
+      return noviCjenovnik;
+    });
   };
 
   const updateCjenovnik = () => {
-    setCjenovnik((prev) => [...prev, ...pendingCjenovnik]); // Potvrdi promjene
+    // Dodaj pending artikle u cjenovnik i automatski spremi u Firestore
+    setCjenovnik((prev) => {
+      const noviCjenovnik = [...prev, ...pendingCjenovnik];
+      // Automatski spremi u Firestore
+      const user = auth.currentUser;
+      const userId = user?.uid;
+      if (userId && noviCjenovnik.length > 0) {
+        const userDocRef = doc(db, "users", userId);
+        setDoc(userDocRef, { cjenovnik: noviCjenovnik }, { merge: true }).catch((error: any) => {
+          const errorCode = error?.code || "";
+          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+            console.warn("Greška pri automatskom spremanju cjenovnika u Firestore:", error);
+          }
+        });
+        // Spremi u localStorage
+        const storageKey = `cjenovnik_${userId}`;
+        localStorage.setItem(storageKey, JSON.stringify(noviCjenovnik));
+      }
+      return noviCjenovnik;
+    });
     setPendingCjenovnik([]); // Očisti privremeni cjenovnik
   };
 
