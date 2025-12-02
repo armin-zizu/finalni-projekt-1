@@ -306,7 +306,6 @@ export default function ProfitPage() {
       const userId = user?.uid;
       
       let firestoreArhiva: Obracun[] = [];
-      let localStorageArhiva: Obracun[] = [];
       
       // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
       if (user && userId) {
@@ -329,31 +328,12 @@ export default function ProfitPage() {
         }
       }
       
-      // 2. NE UČITAVAJ IZ LOCALSTORAGE - sve je u Firestore
-      // Arhiva se učitava samo iz Firestore
-          } catch (e) {
-            console.warn("Profit - Greška pri čitanju localStorage (fallback):", e);
-          }
-        }
-      }
-      
-      // 3. MERGE: Firestore ima prioritet
-      const mergedArhiva: Obracun[] = [...firestoreArhiva];
-      const firestoreDatumi = new Set(firestoreArhiva.map((item) => item.datum));
-      localStorageArhiva.forEach((item) => {
-        if (!firestoreDatumi.has(item.datum)) {
-          mergedArhiva.push(item);
-        }
-      });
-      
       console.log("Profit - Učitavanje arhive:", {
         firestoreCount: firestoreArhiva.length,
-        localStorageCount: localStorageArhiva.length,
-        mergedCount: mergedArhiva.length,
         cjenovnikLength: cjenovnik.length,
       });
 
-      if (mergedArhiva.length === 0) {
+      if (firestoreArhiva.length === 0) {
         console.log("Profit - Nema arhive");
         setObracuniProfit([]);
         return;
