@@ -555,27 +555,44 @@ export default function ObracunPage() {
   // Funkcije za update artikala
   const handleUlazChange = (index: number, value: number) => {
     setArtikli((prev) =>
-      prev.map((a, i) =>
-        i === index
-          ? {
-              ...a,
-              ulaz: value,
-              ukupno: a.pocetnoStanje + value,
-              // Sačuvaj staro početno stanje ako već nije postavljeno i ako ima ulaz (pozitivan ili negativan)
-              staroPocetnoStanje: a.staroPocetnoStanje !== undefined 
-                ? a.staroPocetnoStanje 
-                : (value !== 0 ? a.pocetnoStanje : undefined),
-              ...(a.krajnjeStanje > 0
-                ? {
-                    utroseno: a.pocetnoStanje + value - a.krajnjeStanje,
-                    vrijednostKM: a.zestokoKolicina
-                      ? ((a.pocetnoStanje + value - a.krajnjeStanje) / a.zestokoKolicina) * a.cijena
-                      : (a.pocetnoStanje + value - a.krajnjeStanje) * a.cijena,
-                  }
-                : {}),
-            }
-          : a
-      )
+      prev.map((a, i) => {
+        if (i !== index) return a;
+        
+        // Izračunaj novo ukupno stanje (početno + ulaz)
+        const novoUkupno = a.pocetnoStanje + value;
+        
+        // Sačuvaj staro početno stanje ako već nije postavljeno i ako ima ulaz (pozitivan ili negativan)
+        const novoStaroPocetnoStanje = a.staroPocetnoStanje !== undefined 
+          ? a.staroPocetnoStanje 
+          : (value !== 0 ? a.pocetnoStanje : undefined);
+        
+        // Ako je postavljeno krajnje stanje, izračunaj utrošeno i vrijednost na osnovu novog ukupnog
+        let utroseno = 0;
+        let vrijednostKM = 0;
+        
+        if (a.isKrajnjeSet && a.krajnjeStanje > 0) {
+          // Za kafu, utrošeno = krajnje stanje
+          if (a.naziv.toLowerCase().includes("kafa")) {
+            utroseno = a.krajnjeStanje;
+            vrijednostKM = utroseno * a.cijena;
+          } else {
+            // Za ostale artikle, utrošeno = ukupno - krajnje stanje
+            utroseno = Math.max(novoUkupno - a.krajnjeStanje, 0);
+            vrijednostKM = a.zestokoKolicina
+              ? (utroseno / a.zestokoKolicina) * a.cijena
+              : utroseno * a.cijena;
+          }
+        }
+        
+        return {
+          ...a,
+          ulaz: value,
+          ukupno: novoUkupno, // Početno stanje + ulaz
+          staroPocetnoStanje: novoStaroPocetnoStanje,
+          utroseno: utroseno,
+          vrijednostKM: vrijednostKM,
+        };
+      })
     );
   };
 
