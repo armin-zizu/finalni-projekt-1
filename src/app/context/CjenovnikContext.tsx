@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
-import { doc, setDoc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, onSnapshot } from "firebase/firestore";
 
 // ---- Tip artikla ----
 type ArtiklCijena = {
@@ -54,148 +54,143 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   });
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
 
-  // Učitaj cjenovnik iz Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP
+  // Učitaj cjenovnik iz Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP sa real-time sinkronizacijom
   useEffect(() => {
-    const loadCjenovnik = async () => {
-      const user = auth.currentUser;
-      const userId = user?.uid;
+    let unsubscribeSnapshot: (() => void) | null = null;
+    let unsubscribeAuth: (() => void) | null = null;
+    
+    const setupCjenovnikListener = async (user: any, userId: string) => {
+      // Očisti prethodni snapshot listener ako postoji
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
       
-      let firestoreCjenovnik: ArtiklCijena[] = [];
+      // 1. UČITAJ IZ LOCALSTORAGE (cache/offline backup) - za početno učitavanje
       let localStorageCjenovnik: ArtiklCijena[] = [];
-      
-      // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
-      if (user && userId) {
+      const storageKey = `cjenovnik_${userId}`;
+      const savedCjenovnik = localStorage.getItem(storageKey);
+      if (savedCjenovnik) {
         try {
-          const userDocRef = doc(db, "users", userId);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            if (data.cjenovnik && Array.isArray(data.cjenovnik)) {
-              firestoreCjenovnik = data.cjenovnik;
-              console.log("Cjenovnik učitano iz Firestore:", firestoreCjenovnik.length, "artikala");
-            }
-          }
-        } catch (error: any) {
-          const errorCode = error?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Greška pri učitavanju cjenovnika iz Firestore:", error);
-          }
+          localStorageCjenovnik = JSON.parse(savedCjenovnik);
+        } catch (e) {
+          console.warn("Greška pri čitanju cjenovnika iz localStorage:", e);
         }
       }
       
-      // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup)
-      if (userId) {
-        const storageKey = `cjenovnik_${userId}`;
-        const savedCjenovnik = localStorage.getItem(storageKey);
-        if (savedCjenovnik) {
-          try {
-            localStorageCjenovnik = JSON.parse(savedCjenovnik);
-          } catch (e) {
-            console.warn("Greška pri čitanju cjenovnika iz localStorage:", e);
-          }
-        }
-      } else {
-        // Fallback: stari ključ
-        const savedCjenovnik = localStorage.getItem("cjenovnik");
-        if (savedCjenovnik) {
-          try {
-            localStorageCjenovnik = JSON.parse(savedCjenovnik);
-          } catch (e) {
-            console.warn("Greška pri čitanju cjenovnika iz localStorage (fallback):", e);
-          }
-        }
-      }
-      
-      // 3. MERGE: Firestore ima prioritet, ali koristi localStorage ako Firestore prazan
-      let finalCjenovnik: ArtiklCijena[] = [];
-      if (firestoreCjenovnik.length > 0) {
-        finalCjenovnik = firestoreCjenovnik;
-      } else if (localStorageCjenovnik.length > 0) {
-        finalCjenovnik = localStorageCjenovnik;
-      }
-      
-      // 4. AŽURIRAJ POČETNO STANJE IZ ARHIVE (najnoviji obračun)
-      if (finalCjenovnik.length > 0 && user && userId) {
-        try {
-          // Učitaj arhivu iz Firestore
-          const obracuniRef = collection(db, "users", userId, "obracuni");
-          const snapshot = await getDocs(obracuniRef);
-          const arhiva = snapshot.docs.map((doc) => doc.data());
-          
-          if (arhiva.length > 0) {
-            // Sortiraj po datumu (najnoviji prvo)
-            arhiva.sort((a: any, b: any) => {
-              const dateA = new Date(a.datum?.split(".").reverse().join("-") || 0).getTime();
-              const dateB = new Date(b.datum?.split(".").reverse().join("-") || 0).getTime();
-              return dateB - dateA;
-            });
-            
-            // Uzmi najnoviji obračun
-            const najnovijiObracun = arhiva[0];
-            if (najnovijiObracun && najnovijiObracun.artikli && Array.isArray(najnovijiObracun.artikli)) {
-              console.log("Ažuriranje cjenovnika iz najnovijeg obračuna:", najnovijiObracun.datum);
-              
-              // Ažuriraj početno stanje u cjenovniku sa krajnjim stanjem iz najnovijeg obračuna
-              finalCjenovnik = finalCjenovnik.map((item) => {
-                const artikalIzArhive = najnovijiObracun.artikli.find((a: any) => a.naziv === item.naziv);
-                if (artikalIzArhive) {
-                  // Koristi krajnje stanje iz arhive kao početno stanje
-                  // Ako nema krajnjeg stanja, koristi ukupno; ako nema ni ukupnog, koristi početno
-                  let novoPocetnoStanje = item.pocetnoStanje; // Default
+      // 2. POSTAVI REAL-TIME LISTENER ZA FIRESTORE (automatska sinkronizacija)
+      try {
+        const userDocRef = doc(db, "users", userId);
+        
+        unsubscribeSnapshot = onSnapshot(
+          userDocRef,
+          async (docSnapshot) => {
+            if (docSnapshot.exists()) {
+              const data = docSnapshot.data();
+              if (data.cjenovnik && Array.isArray(data.cjenovnik)) {
+                let firestoreCjenovnik = data.cjenovnik;
+                console.log("Cjenovnik učitano iz Firestore (real-time):", firestoreCjenovnik.length, "artikala");
+                
+                // 3. AŽURIRAJ POČETNO STANJE IZ ARHIVE (najnoviji obračun)
+                try {
+                  const obracuniRef = collection(db, "users", userId, "obracuni");
+                  const snapshot = await getDocs(obracuniRef);
+                  const arhiva = snapshot.docs.map((doc) => doc.data());
                   
-                  if (artikalIzArhive.krajnjeStanje !== undefined && artikalIzArhive.krajnjeStanje !== null && artikalIzArhive.krajnjeStanje > 0) {
-                    novoPocetnoStanje = artikalIzArhive.krajnjeStanje;
-                  } else if (artikalIzArhive.ukupno !== undefined && artikalIzArhive.ukupno !== null && artikalIzArhive.ukupno > 0) {
-                    novoPocetnoStanje = artikalIzArhive.ukupno;
-                  } else if (artikalIzArhive.pocetnoStanje !== undefined && artikalIzArhive.pocetnoStanje !== null && artikalIzArhive.pocetnoStanje > 0) {
-                    novoPocetnoStanje = artikalIzArhive.pocetnoStanje;
+                  if (arhiva.length > 0) {
+                    // Sortiraj po datumu (najnoviji prvo)
+                    arhiva.sort((a: any, b: any) => {
+                      const dateA = new Date(a.datum?.split(".").reverse().join("-") || 0).getTime();
+                      const dateB = new Date(b.datum?.split(".").reverse().join("-") || 0).getTime();
+                      return dateB - dateA;
+                    });
+                    
+                    // Uzmi najnoviji obračun
+                    const najnovijiObracun = arhiva[0];
+                    if (najnovijiObracun && najnovijiObracun.artikli && Array.isArray(najnovijiObracun.artikli)) {
+                      // Ažuriraj početno stanje u cjenovniku sa krajnjim stanjem iz najnovijeg obračuna
+                      firestoreCjenovnik = firestoreCjenovnik.map((item) => {
+                        const artikalIzArhive = najnovijiObracun.artikli.find((a: any) => a.naziv === item.naziv);
+                        if (artikalIzArhive) {
+                          let novoPocetnoStanje = item.pocetnoStanje; // Default
+                          
+                          if (artikalIzArhive.krajnjeStanje !== undefined && artikalIzArhive.krajnjeStanje !== null && artikalIzArhive.krajnjeStanje > 0) {
+                            novoPocetnoStanje = artikalIzArhive.krajnjeStanje;
+                          } else if (artikalIzArhive.ukupno !== undefined && artikalIzArhive.ukupno !== null && artikalIzArhive.ukupno > 0) {
+                            novoPocetnoStanje = artikalIzArhive.ukupno;
+                          } else if (artikalIzArhive.pocetnoStanje !== undefined && artikalIzArhive.pocetnoStanje !== null && artikalIzArhive.pocetnoStanje > 0) {
+                            novoPocetnoStanje = artikalIzArhive.pocetnoStanje;
+                          }
+                          
+                          // Za kafu, uvijek resetuj na 0
+                          if (item.naziv.toLowerCase().includes("kafa")) {
+                            novoPocetnoStanje = 0;
+                          }
+                          
+                          return {
+                            ...item,
+                            pocetnoStanje: novoPocetnoStanje,
+                          };
+                        }
+                        return item;
+                      });
+                    }
                   }
-                  
-                  // Za kafu, uvijek resetuj na 0
-                  if (item.naziv.toLowerCase().includes("kafa")) {
-                    novoPocetnoStanje = 0;
+                } catch (error: any) {
+                  const errorCode = error?.code || "";
+                  if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+                    console.warn("Greška pri učitavanju arhive za ažuriranje cjenovnika:", error);
                   }
-                  
-                  if (novoPocetnoStanje !== item.pocetnoStanje) {
-                    console.log(`Ažuriranje ${item.naziv}: ${item.pocetnoStanje} -> ${novoPocetnoStanje} (iz arhive)`);
-                  }
-                  
-                  return {
-                    ...item,
-                    pocetnoStanje: novoPocetnoStanje,
-                  };
                 }
-                return item;
-              });
+                
+                // 4. POSTAVI CJENOVNIK (Firestore ima prioritet)
+                if (firestoreCjenovnik.length > 0) {
+                  setCjenovnik(firestoreCjenovnik);
+                  // Spremi u localStorage kao cache
+                  localStorage.setItem(storageKey, JSON.stringify(firestoreCjenovnik));
+                } else if (localStorageCjenovnik.length > 0) {
+                  // Ako Firestore nema cjenovnik, koristi localStorage
+                  setCjenovnik(localStorageCjenovnik);
+                }
+              }
+            }
+          },
+          (error: any) => {
+            const errorCode = error?.code || "";
+            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+              console.warn("Greška pri real-time listeneru za cjenovnik:", error);
             }
           }
-        } catch (error: any) {
-          const errorCode = error?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Greška pri učitavanju arhive za ažuriranje cjenovnika:", error);
-          }
-        }
-      }
-      
-      // 5. POSTAVI CJENOVNIK
-      if (finalCjenovnik.length > 0) {
-        setCjenovnik(finalCjenovnik);
-        // Spremi u localStorage kao cache
-        if (userId) {
-          const storageKey = `cjenovnik_${userId}`;
-          localStorage.setItem(storageKey, JSON.stringify(finalCjenovnik));
+        );
+      } catch (error: any) {
+        const errorCode = error?.code || "";
+        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+          console.warn("Greška pri postavljanju real-time listenera za cjenovnik:", error);
         }
       }
     };
     
-    loadCjenovnik();
-    
     // Listener za promjene autentifikacije
-    const unsubscribe = onAuthStateChanged(auth, () => {
-      loadCjenovnik();
+    unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user && user.uid) {
+        setupCjenovnikListener(user, user.uid);
+      } else {
+        // Ako nema korisnika, očisti listener
+        if (unsubscribeSnapshot) {
+          unsubscribeSnapshot();
+          unsubscribeSnapshot = null;
+        }
+      }
     });
     
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+      if (unsubscribeAuth) {
+        unsubscribeAuth();
+      }
+    };
   }, []);
 
   // Spremi cjenovnik u Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP
