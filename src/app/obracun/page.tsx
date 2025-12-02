@@ -484,6 +484,9 @@ export default function ObracunPage() {
       }
       return artikal;
     }));
+    };
+    
+    loadCacheAndInit();
   }, [cjenovnik, trenutniDatum]);
 
   // Učitaj ulaz iz cache-a kada se promijeni datum (backup - ako se promijeni datum nakon inicijalizacije)
