@@ -320,6 +320,8 @@ export default function ObracunPage() {
 
   // Inicijalizacija artikala na osnovu cjenovnika
   useEffect(() => {
+    if (cjenovnik.length === 0) return;
+    
     const datumString = formatirajDatum(trenutniDatum);
     const cacheKey = `ulazCache_${datumString}`;
     const cachedUlaz = localStorage.getItem(cacheKey);
@@ -333,70 +335,162 @@ export default function ObracunPage() {
       }
     }
     
-    const inicijalniArtikli = cjenovnik.map((item) => {
-      const cached = ulazCache[item.naziv];
-      const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
-      
-      // Ako postoji cache, učitaj ulaz i staro početno stanje
-      if (cached && cached.staroPocetnoStanje !== undefined) {
-        if (cached.ulaz !== 0) {
-          // Ako ima ulaz, učitaj ga
-          return {
-            naziv: item.naziv,
-            cijena: item.cijena,
-            pocetnoStanje: pocetnoStanje,
-            ulaz: cached.ulaz,
-            ukupno: pocetnoStanje + cached.ulaz,
-            utroseno: 0,
-            krajnjeStanje: 0,
-            vrijednostKM: 0,
-            zestokoKolicina: item.zestokoKolicina,
-            proizvodnaCijena: item.proizvodnaCijena,
-            isKrajnjeSet: false,
-            staroPocetnoStanje: cached.staroPocetnoStanje,
-            sačuvanUlaz: undefined,
-          };
-        } else {
-          // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje
-          return {
-            naziv: item.naziv,
-            cijena: item.cijena,
-            pocetnoStanje: pocetnoStanje,
-            ulaz: 0,
-            ukupno: pocetnoStanje,
-            utroseno: 0,
-            krajnjeStanje: 0,
-            vrijednostKM: 0,
-            zestokoKolicina: item.zestokoKolicina,
-            proizvodnaCijena: item.proizvodnaCijena,
-            isKrajnjeSet: false,
-            staroPocetnoStanje: cached.staroPocetnoStanje,
-            sačuvanUlaz: undefined,
-          };
+    // Ako nema postojećih artikala, inicijaliziraj sve iz cjenovnika
+    if (artikli.length === 0) {
+      const inicijalniArtikli = cjenovnik.map((item) => {
+        const cached = ulazCache[item.naziv];
+        const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
+        
+        // Ako postoji cache, učitaj ulaz i staro početno stanje
+        if (cached && cached.staroPocetnoStanje !== undefined) {
+          if (cached.ulaz !== 0) {
+            // Ako ima ulaz, učitaj ga
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              pocetnoStanje: pocetnoStanje,
+              ulaz: cached.ulaz,
+              ukupno: pocetnoStanje + cached.ulaz,
+              utroseno: 0,
+              krajnjeStanje: 0,
+              vrijednostKM: 0,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              isKrajnjeSet: false,
+              staroPocetnoStanje: cached.staroPocetnoStanje,
+              sačuvanUlaz: undefined,
+            };
+          } else {
+            // Ako je ulaz 0 (već je ažuriran), samo postavi staroPocetnoStanje
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              pocetnoStanje: pocetnoStanje,
+              ulaz: 0,
+              ukupno: pocetnoStanje,
+              utroseno: 0,
+              krajnjeStanje: 0,
+              vrijednostKM: 0,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              isKrajnjeSet: false,
+              staroPocetnoStanje: cached.staroPocetnoStanje,
+              sačuvanUlaz: undefined,
+            };
+          }
         }
-      }
+        
+        // Ako nema cache, inicijaliziraj normalno
+        return {
+          naziv: item.naziv,
+          cijena: item.cijena,
+          pocetnoStanje: pocetnoStanje,
+          ulaz: 0,
+          ukupno: pocetnoStanje,
+          utroseno: 0,
+          krajnjeStanje: 0,
+          vrijednostKM: 0,
+          zestokoKolicina: item.zestokoKolicina,
+          proizvodnaCijena: item.proizvodnaCijena,
+          isKrajnjeSet: false,
+          staroPocetnoStanje: undefined,
+          sačuvanUlaz: undefined,
+        };
+      });
       
-      // Ako nema cache, inicijaliziraj normalno
-      return {
-        naziv: item.naziv,
-        cijena: item.cijena,
-        pocetnoStanje: pocetnoStanje,
-        ulaz: 0,
-        ukupno: pocetnoStanje,
-        utroseno: 0,
-        krajnjeStanje: 0,
-        vrijednostKM: 0,
-        zestokoKolicina: item.zestokoKolicina,
-        proizvodnaCijena: item.proizvodnaCijena,
-        isKrajnjeSet: false,
-        staroPocetnoStanje: undefined,
-        sačuvanUlaz: undefined,
-      };
-    });
+      setArtikli(inicijalniArtikli);
+      setIsAzuriran(false);
+      setResetKey(0);
+      return;
+    }
     
-    setArtikli(inicijalniArtikli);
-    setIsAzuriran(false); // Resetiraj flag pri inicijalizaciji
-    setResetKey(0); // Resetiraj reset key pri inicijalizaciji
+    // Ako postoje artikli, provjeri da li postoje novi artikli u cjenovniku
+    const postojeciNazivi = new Set(artikli.map(a => a.naziv));
+    const noviArtikli = cjenovnik.filter(item => !postojeciNazivi.has(item.naziv));
+    
+    // Ako postoje novi artikli, dodaj ih postojećim artiklima
+    if (noviArtikli.length > 0) {
+      console.log("Pronađeni novi artikli u cjenovniku:", noviArtikli.map(a => a.naziv));
+      
+      const noviArtikliZaDodati = noviArtikli.map((item) => {
+        const cached = ulazCache[item.naziv];
+        const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
+        
+        if (cached && cached.staroPocetnoStanje !== undefined) {
+          if (cached.ulaz !== 0) {
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              pocetnoStanje: pocetnoStanje,
+              ulaz: cached.ulaz,
+              ukupno: pocetnoStanje + cached.ulaz,
+              utroseno: 0,
+              krajnjeStanje: 0,
+              vrijednostKM: 0,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              isKrajnjeSet: false,
+              staroPocetnoStanje: cached.staroPocetnoStanje,
+              sačuvanUlaz: undefined,
+            };
+          } else {
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              pocetnoStanje: pocetnoStanje,
+              ulaz: 0,
+              ukupno: pocetnoStanje,
+              utroseno: 0,
+              krajnjeStanje: 0,
+              vrijednostKM: 0,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              isKrajnjeSet: false,
+              staroPocetnoStanje: cached.staroPocetnoStanje,
+              sačuvanUlaz: undefined,
+            };
+          }
+        }
+        
+        return {
+          naziv: item.naziv,
+          cijena: item.cijena,
+          pocetnoStanje: pocetnoStanje,
+          ulaz: 0,
+          ukupno: pocetnoStanje,
+          utroseno: 0,
+          krajnjeStanje: 0,
+          vrijednostKM: 0,
+          zestokoKolicina: item.zestokoKolicina,
+          proizvodnaCijena: item.proizvodnaCijena,
+          isKrajnjeSet: false,
+          staroPocetnoStanje: undefined,
+          sačuvanUlaz: undefined,
+        };
+      });
+      
+      // Dodaj nove artikle postojećim
+      setArtikli(prev => [...prev, ...noviArtikliZaDodati]);
+    }
+    
+    // Ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, početno stanje, itd.)
+    setArtikli(prev => prev.map(artikal => {
+      const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
+      if (cjenovnikItem) {
+        // Ažuriraj cijenu i početno stanje iz cjenovnika
+        const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
+        return {
+          ...artikal,
+          cijena: cjenovnikItem.cijena,
+          pocetnoStanje: pocetnoStanje,
+          zestokoKolicina: cjenovnikItem.zestokoKolicina,
+          proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
+          // Ažuriraj ukupno samo ako nije bilo ulaza
+          ukupno: artikal.ulaz > 0 ? pocetnoStanje + artikal.ulaz : pocetnoStanje,
+        };
+      }
+      return artikal;
+    }));
   }, [cjenovnik, trenutniDatum]);
 
   // Učitaj ulaz iz cache-a kada se promijeni datum (backup - ako se promijeni datum nakon inicijalizacije)
