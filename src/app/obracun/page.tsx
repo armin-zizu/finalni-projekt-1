@@ -1552,12 +1552,16 @@ export default function ObracunPage() {
                               
                               await setDoc(obracunRef, {
                                 invoiceImages: allImages,
+                                datum: datumString, // Osiguraj da datum postoji
                               }, { merge: true });
+                              console.log(`Slike dodane u postojeći obračun ${datumString}: ${allImages.length} slika`);
                             } else {
                               // Ako obračun ne postoji, kreiraj novi sa slikama
                               await setDoc(obracunRef, {
                                 invoiceImages: uploadedUrls,
+                                datum: datumString, // Osiguraj da datum postoji
                               }, { merge: true });
+                              console.log(`Kreiran novi obračun ${datumString} sa ${uploadedUrls.length} slikama`);
                             }
                           } catch (firestoreError: any) {
                             // Ignoriraj greške dozvola - slike su već upload-ovane u Storage
