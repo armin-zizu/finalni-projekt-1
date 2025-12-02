@@ -98,11 +98,12 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                       // Ažuriraj početno stanje u cjenovniku sa krajnjim stanjem iz najnovijeg obračuna
                       // ALI samo za artikle koji su već postojali u prethodnom cjenovniku
                       firestoreCjenovnik = firestoreCjenovnik.map((item) => {
-                        // Provjeri da li artikal već postoji u prethodnom cjenovniku (nije novi)
-                        const postojiUPrethodnom = prethodniCjenovnik.some((a) => a.naziv === item.naziv);
+                        // Provjeri da li artikal već postoji u trenutnom cjenovniku (nije novi)
+                        // Koristi cjenovnik state koji sadrži prethodno stanje prije nego što se ažurira
+                        const postojiUTrenutnom = cjenovnik.some((a) => a.naziv === item.naziv);
                         
-                        // Ako artikal ne postoji u prethodnom cjenovniku, koristi početno stanje koje je korisnik unio
-                        if (!postojiUPrethodnom) {
+                        // Ako artikal ne postoji u trenutnom cjenovniku, koristi početno stanje koje je korisnik unio
+                        if (!postojiUTrenutnom) {
                           return item; // Koristi početno stanje iz Firestore (koje je korisnik unio)
                         }
                         
