@@ -1378,8 +1378,9 @@ export default function ObracunPage() {
         {hasUlaz && (
           <label
             style={{
-              ...saveButtonStyle,
+              ...buttonStyle,
               background: "#6366f1",
+              maxWidth: "160px",
               opacity: canEdit ? 1 : 0.5,
               cursor: canEdit ? "pointer" : "not-allowed",
               display: "inline-block",
@@ -1408,7 +1409,7 @@ export default function ObracunPage() {
               style={{ display: "none" }}
               disabled={!canEdit}
             />
-            📸 Dodaj slike fakture
+            📸 Dodaj slike fakture{invoiceImages.length > 0 ? ` (${invoiceImages.length})` : ""}
           </label>
         )}
         {isAzuriran && (

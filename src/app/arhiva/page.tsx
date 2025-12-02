@@ -611,9 +611,9 @@ export default function ArhivaPage() {
   };
 
   // Funkcija za upload slika faktura u arhivi
-  const uploadInvoiceImagesInArchive = async (datum: string) => {
-    const files = invoiceFiles[datum] || [];
-    if (files.length === 0) return;
+  const uploadInvoiceImagesInArchive = async (datum: string, files?: File[]) => {
+    const filesToUpload = files || invoiceFiles[datum] || [];
+    if (filesToUpload.length === 0) return;
     
     const user = auth.currentUser;
     if (!user) {
@@ -641,8 +641,8 @@ export default function ArhivaPage() {
       const obracun = arhiva.find(o => o.datum === datum);
       const existingImages = obracun?.invoiceImages || [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
         const timestamp = Date.now();
         const fileExtension = file.name.split('.').pop() || 'jpg';
         const fileName = `${cleanDatumString}_${timestamp}_${i}.${fileExtension}`;
@@ -662,7 +662,7 @@ export default function ArhivaPage() {
         const downloadURL = await getDownloadURL(storageRef);
         uploadedUrls.push(downloadURL);
         
-        setUploadProgress(((i + 1) / files.length) * 100);
+        setUploadProgress(((i + 1) / filesToUpload.length) * 100);
       }
 
       // Kombinuj postojeće i nove slike
@@ -1622,21 +1622,61 @@ export default function ArhivaPage() {
                   )}
                 </h2>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  {item.invoiceImages && item.invoiceImages.length > 0 && (
+                  {item.invoiceImages && item.invoiceImages.length > 0 ? (
                     <button
                       style={{
                         ...buttonStyle,
                         background: "#8b5cf6",
                         padding: "8px 16px",
                         fontSize: "14px",
+                        maxWidth: "160px",
                       }}
                       onClick={() => openSingleObracunFaktureModal(item.datum)}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "#7c3aed";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "#8b5cf6";
+                      }}
                     >
-                      📸 Pregled faktura
+                      📸 Pogledaj fakturu
                     </button>
-                  )}
+                  ) : stvarnoImaUlaz ? (
+                    <label
+                      style={{
+                        ...buttonStyle,
+                        background: "#6366f1",
+                        padding: "8px 16px",
+                        fontSize: "14px",
+                        maxWidth: "160px",
+                        cursor: "pointer",
+                        margin: 0
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "#4f46e5";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "#6366f1";
+                      }}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length > 0) {
+                            uploadInvoiceImagesInArchive(item.datum, files);
+                          }
+                          e.target.value = ""; // Reset input
+                        }}
+                        style={{ display: "none" }}
+                      />
+                      📸 Dodaj slike fakture
+                    </label>
+                  ) : null}
                   <button
-                    style={{ ...buttonStyle, background: "#10b981" }}
+                    style={{ ...buttonStyle, background: "#10b981", maxWidth: "160px" }}
                     className="edit-button"
                     onClick={() => startEditingObracun(item.datum, item.rashodi, item.prihodi)}
                   >
