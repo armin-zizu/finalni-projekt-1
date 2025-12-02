@@ -225,6 +225,7 @@ export default function ObracunPage() {
   const [isAzuriran, setIsAzuriran] = useState<boolean>(false); // Praćenje da li je obračun bio ažuriran
   const [resetKey, setResetKey] = useState<number>(0); // Key za reset input polja
   const [isOwner, setIsOwner] = useState<boolean>(false); // Provjera da li je korisnik vlasnik
+  const [hasUlazInCache, setHasUlazInCache] = useState<boolean>(false); // Provjera da li postoji ulaz u cache-u
   
   // Postavke za malu zalihu
   const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
@@ -860,8 +861,8 @@ export default function ObracunPage() {
     alert("Obračun ažuriran! Početno stanje artikala je ažurirano.");
   };
 
-  // Provjeri da li obračun ima ulaz
-  const hasUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0));
+  // Provjeri da li obračun ima ulaz (trenutni ulaz, sačuvan ulaz, ili u cache-u)
+  const hasUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
 
   // Funkcija za upload slika faktura
   const uploadInvoiceImages = async (datumString: string): Promise<string[]> => {
@@ -1355,8 +1356,8 @@ export default function ObracunPage() {
         >
           {uploadingImages ? `Upload slika... ${Math.round(uploadProgress)}%` : "Sačuvaj obračun"}
         </button>
-        {/* Upload slika faktura - prikazuje se samo ako ima ulaz I nije ažurirano */}
-        {hasUlaz && !isAzuriran && (
+        {/* Upload slika faktura - prikazuje se samo ako ima ulaz (sve dok obračun nije sačuvan) */}
+        {hasUlaz && (
           <label
             style={{
               ...saveButtonStyle,
@@ -1400,7 +1401,7 @@ export default function ObracunPage() {
       </div>
 
       {/* Prikaz odabranih slika faktura */}
-      {hasUlaz && !isAzuriran && invoiceImages.length > 0 && (
+      {hasUlaz && invoiceImages.length > 0 && (
         <div style={{ 
           marginTop: "16px", 
           marginBottom: "16px", 
