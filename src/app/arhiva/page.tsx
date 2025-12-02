@@ -453,8 +453,28 @@ export default function ArhivaPage() {
     setEditedPrihodi(updatedPrihodi);
   };
 
+  // Funkcija za uklanjanje undefined vrijednosti
+  const removeUndefined = (obj: any): any => {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(removeUndefined);
+    }
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+          cleaned[key] = removeUndefined(obj[key]);
+        }
+      }
+      return cleaned;
+    }
+    return obj;
+  };
+
   // Spremanje uređenih rashoda i prihoda
-  const saveEditedObracun = (datum: string) => {
+  const saveEditedObracun = async (datum: string) => {
     const updatedArhiva = arhiva
       .map((item) => {
         if (item.datum === datum) {
@@ -477,6 +497,24 @@ export default function ArhivaPage() {
         return dateB - dateA;
       });
     setArhiva(updatedArhiva);
+    
+    // Spremi u Firestore
+    const user = auth.currentUser;
+    const userId = user?.uid;
+    if (user && userId) {
+      try {
+        const obracunToUpdate = updatedArhiva.find(o => o.datum === datum);
+        if (obracunToUpdate) {
+          const cleanedObracun = removeUndefined(obracunToUpdate);
+          const docRef = doc(db, "users", userId, "obracuni", datum);
+          await setDoc(docRef, cleanedObracun, { merge: true });
+          console.log("Obračun ažuriran u Firestore:", datum);
+        }
+      } catch (error: any) {
+        console.warn("Greška pri spremanju u Firestore:", error);
+      }
+    }
+    
     setEditingObracunDatum(null);
     setEditedRashodi([]);
     setEditedPrihodi([]);
@@ -681,8 +719,9 @@ export default function ArhivaPage() {
         try {
           const obracunToUpdate = updatedArhiva.find(o => o.datum === datum);
           if (obracunToUpdate) {
+            const cleanedObracun = removeUndefined(obracunToUpdate);
             const docRef = doc(db, "users", userId, "obracuni", datum);
-            await setDoc(docRef, obracunToUpdate, { merge: true });
+            await setDoc(docRef, cleanedObracun, { merge: true });
             console.log("Slike faktura ažurirane u Firestore:", datum);
           }
         } catch (error: any) {
@@ -743,8 +782,9 @@ export default function ArhivaPage() {
       try {
         const obracunToUpdate = updatedArhiva.find(o => o.datum === obracunDatum);
         if (obracunToUpdate) {
+          const cleanedObracun = removeUndefined(obracunToUpdate);
           const docRef = doc(db, "users", userId, "obracuni", obracunDatum);
-          await setDoc(docRef, obracunToUpdate, { merge: true });
+          await setDoc(docRef, cleanedObracun, { merge: true });
         }
       } catch (error: any) {
         console.warn("Greška pri spremanju u Firestore:", error);
