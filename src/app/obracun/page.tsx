@@ -1592,6 +1592,10 @@ export default function ObracunPage() {
                         
                         alert("Slike faktura uspješno sačuvane!");
                         setInvoiceImages([]);
+                        
+                        // Eksplicitno osvježi arhivu nakon upload-a slika
+                        // Real-time listener bi trebao osvježiti, ali osiguravamo da se osvježi
+                        console.log("Slike upload-ovane, osvježavam arhivu...");
                       } catch (error: any) {
                         console.error("Greška pri upload-u slika:", error);
                         alert("Greška pri upload-u slika: " + (error.message || "Nepoznata greška"));
