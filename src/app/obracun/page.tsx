@@ -236,6 +236,7 @@ export default function ObracunPage() {
   const [invoiceImages, setInvoiceImages] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [savedInvoiceImagesCount, setSavedInvoiceImagesCount] = useState<number>(0); // Broj sačuvanih slika
 
   // Provjeri da li je korisnik vlasnik (iz user dokumenta)
   useEffect(() => {
@@ -510,6 +511,26 @@ export default function ObracunPage() {
     // Učitaj ulaz cache iz Firestore
     const loadCache = async () => {
       const ulazCache = await loadUlazCacheFromFirestore(datumString);
+      
+      // Učitaj broj sačuvanih slika iz Firestore
+      const user = auth.currentUser;
+      const userId = user?.uid;
+      if (userId) {
+        try {
+          const cacheRef = doc(db, "users", userId, "cache", datumString);
+          const cacheDoc = await getDoc(cacheRef);
+          if (cacheDoc.exists()) {
+            const cacheData = cacheDoc.data();
+            const savedCount = cacheData.savedInvoiceImagesCount || 0;
+            setSavedInvoiceImagesCount(savedCount);
+          } else {
+            setSavedInvoiceImagesCount(0);
+          }
+        } catch (error) {
+          console.warn("Greška pri učitavanju broja sačuvanih slika:", error);
+          setSavedInvoiceImagesCount(0);
+        }
+      }
       
       // Provjeri da li postoji ulaz u cache-u (bilo da je ulaz > 0 ili da postoji staroPocetnoStanje)
       const imaUlazUCache = Object.keys(ulazCache).some(naziv => {
@@ -1409,7 +1430,7 @@ export default function ObracunPage() {
               style={{ display: "none" }}
               disabled={!canEdit}
             />
-            📸 Dodaj slike fakture{invoiceImages.length > 0 ? ` (${invoiceImages.length})` : ""}
+            📸 Dodaj slike fakture{(invoiceImages.length > 0 || savedInvoiceImagesCount > 0) ? ` (${invoiceImages.length + savedInvoiceImagesCount})` : ""}
           </label>
         )}
         {isAzuriran && (
@@ -1491,6 +1512,18 @@ export default function ObracunPage() {
                               invoiceImages: uploadedUrls,
                             }, { merge: true });
                           }
+                          
+                          // Sačuvaj broj sačuvanih slika u cache
+                          const cacheRef = doc(db, "users", userId, "cache", datumString);
+                          const cacheDoc = await getDoc(cacheRef);
+                          const currentCount = cacheDoc.exists() ? (cacheDoc.data().savedInvoiceImagesCount || 0) : 0;
+                          const newCount = currentCount + uploadedUrls.length;
+                          
+                          await setDoc(cacheRef, {
+                            savedInvoiceImagesCount: newCount,
+                          }, { merge: true });
+                          
+                          setSavedInvoiceImagesCount(newCount);
                         }
                         
                         alert("Slike faktura uspješno sačuvane!");
