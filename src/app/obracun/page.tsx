@@ -467,6 +467,7 @@ export default function ObracunPage() {
     }
     
     // Ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, početno stanje, itd.)
+    // VAŽNO: Zadrži staroPocetnoStanje i sačuvanUlaz ako postoje
     setArtikli(prev => prev.map(artikal => {
       const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
       if (cjenovnikItem) {
@@ -480,6 +481,9 @@ export default function ObracunPage() {
           proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
           // Ažuriraj ukupno samo ako nije bilo ulaza
           ukupno: artikal.ulaz > 0 ? pocetnoStanje + artikal.ulaz : pocetnoStanje,
+          // Zadrži staroPocetnoStanje i sačuvanUlaz ako postoje
+          staroPocetnoStanje: artikal.staroPocetnoStanje,
+          sačuvanUlaz: artikal.sačuvanUlaz,
         };
       }
       return artikal;
