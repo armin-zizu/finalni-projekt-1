@@ -174,6 +174,8 @@ export default function ArhivaPage() {
   const [invoiceFiles, setInvoiceFiles] = useState<{ [datum: string]: File[] }>({});
   const [modalInvoiceFiles, setModalInvoiceFiles] = useState<File[]>([]);
   const [showModalUploadInput, setShowModalUploadInput] = useState<boolean>(false);
+  const [faktureModalMode, setFaktureModalMode] = useState<"all" | "single">("all"); // "all" za sve fakture, "single" za jedan obračun
+  const [singleObracunDatum, setSingleObracunDatum] = useState<string | null>(null);
   const obracunRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement | null> }>({});
 
   // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
@@ -624,28 +626,63 @@ export default function ArhivaPage() {
     });
   };
 
-  // Funkcija za prikaz fakture i scroll na obračun
-  const handleFakturaClick = (datum: string, images: string[]) => {
-    setSelectedFakturaDatum(datum);
-    setSelectedFakturaImages(images);
+  // Funkcija za dobijanje faktura jednog obračuna
+  const getSingleObracunFakture = (datum: string): { datum: string; images: string[] }[] => {
+    const obracun = arhiva.find(o => o.datum === datum);
+    if (obracun && obracun.invoiceImages && obracun.invoiceImages.length > 0) {
+      return [{
+        datum: obracun.datum,
+        images: obracun.invoiceImages,
+      }];
+    }
+    return [];
+  };
+
+  // Funkcija za otvaranje modala sa svim faktorama
+  const openAllFaktureModal = () => {
+    setFaktureModalMode("all");
+    setSingleObracunDatum(null);
+    setSelectedFakturaDatum(null);
+    setSelectedFakturaImages([]);
     setShowFaktureModal(true);
     setShowModalUploadInput(false);
     setModalInvoiceFiles([]);
+  };
+
+  // Funkcija za otvaranje modala sa faktorama jednog obračuna
+  const openSingleObracunFaktureModal = (datum: string) => {
+    setFaktureModalMode("single");
+    setSingleObracunDatum(datum);
+    setSelectedFakturaDatum(null);
+    setSelectedFakturaImages([]);
+    setShowFaktureModal(true);
+    setShowModalUploadInput(false);
+    setModalInvoiceFiles([]);
+  };
+
+  // Funkcija za klik na datum u listi faktura (prikazuje slike)
+  const handleFakturaDatumClick = (datum: string, images: string[]) => {
+    setSelectedFakturaDatum(datum);
+    setSelectedFakturaImages(images);
+    setShowModalUploadInput(false);
+    setModalInvoiceFiles([]);
     
-    // Scroll na obračun
-    setTimeout(() => {
-      const obracunRef = obracunRefs.current[datum];
-      if (obracunRef && obracunRef.current) {
-        obracunRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Highlight obračun
-        obracunRef.current.style.boxShadow = "0 0 0 3px #3b82f6";
-        setTimeout(() => {
-          if (obracunRef.current) {
-            obracunRef.current.style.boxShadow = "";
-          }
-        }, 2000);
-      }
-    }, 100);
+    // Scroll na obračun ako je modal za sve fakture
+    if (faktureModalMode === "all") {
+      setTimeout(() => {
+        const obracunRef = obracunRefs.current[datum];
+        if (obracunRef && obracunRef.current) {
+          obracunRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+          // Highlight obračun
+          obracunRef.current.style.boxShadow = "0 0 0 3px #3b82f6";
+          setTimeout(() => {
+            if (obracunRef.current) {
+              obracunRef.current.style.boxShadow = "";
+            }
+          }, 2000);
+        }
+      }, 100);
+    }
   };
 
   // Funkcija za upload slika faktura u arhivi
@@ -1052,7 +1089,7 @@ export default function ArhivaPage() {
                 fontSize: "14px",
                 fontWeight: 600,
               }}
-              onClick={() => setShowFaktureModal(true)}
+              onClick={openAllFaktureModal}
             >
               📸 Pregled faktura ({getAllFakture().length})
             </button>
@@ -1080,6 +1117,10 @@ export default function ArhivaPage() {
             setShowFaktureModal(false);
             setSelectedFakturaDatum(null);
             setSelectedFakturaImages([]);
+            setModalInvoiceFiles([]);
+            setShowModalUploadInput(false);
+            setFaktureModalMode("all");
+            setSingleObracunDatum(null);
           }}
         >
           <div
@@ -1097,10 +1138,10 @@ export default function ArhivaPage() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
-                📸 Pregled faktura
+                📸 Pregled faktura{faktureModalMode === "single" && singleObracunDatum ? ` - ${singleObracunDatum}` : ""}
               </h2>
               <div style={{ display: "flex", gap: "8px" }}>
-                {selectedFakturaDatum && selectedFakturaImages.length > 0 && (
+                {selectedFakturaDatum && (
                   <button
                     style={{
                       background: "#8b5cf6",
@@ -1132,6 +1173,8 @@ export default function ArhivaPage() {
                     setSelectedFakturaImages([]);
                     setModalInvoiceFiles([]);
                     setShowModalUploadInput(false);
+                    setFaktureModalMode("all");
+                    setSingleObracunDatum(null);
                   }}
                 >
                   ✕ Zatvori
@@ -1141,45 +1184,58 @@ export default function ArhivaPage() {
 
             {/* Lista faktura */}
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {getAllFakture().length === 0 ? (
-                <p style={{ textAlign: "center", color: "#6b7280", padding: "20px" }}>
-                  Nema faktura za prikaz
-                </p>
-              ) : (
-                getAllFakture().map((faktura, index) => (
+              {(() => {
+                const fakture = faktureModalMode === "single" && singleObracunDatum 
+                  ? getSingleObracunFakture(singleObracunDatum)
+                  : getAllFakture();
+                
+                if (fakture.length === 0) {
+                  return (
+                    <p style={{ textAlign: "center", color: "#6b7280", padding: "20px" }}>
+                      Nema faktura za prikaz
+                    </p>
+                  );
+                }
+                
+                return fakture.map((faktura, index) => (
                   <div
                     key={index}
                     style={{
                       padding: "16px",
-                      border: "1px solid #e5e7eb",
+                      border: selectedFakturaDatum === faktura.datum ? "2px solid #8b5cf6" : "1px solid #e5e7eb",
                       borderRadius: "8px",
                       cursor: "pointer",
-                      transition: "background-color 0.2s",
+                      transition: "all 0.2s",
+                      background: selectedFakturaDatum === faktura.datum ? "#f3e8ff" : "#fff",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "#f9fafb";
+                      if (selectedFakturaDatum !== faktura.datum) {
+                        e.currentTarget.style.backgroundColor = "#f9fafb";
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "#fff";
+                      if (selectedFakturaDatum !== faktura.datum) {
+                        e.currentTarget.style.backgroundColor = "#fff";
+                      }
                     }}
-                    onClick={() => handleFakturaClick(faktura.datum, faktura.images)}
+                    onClick={() => handleFakturaDatumClick(faktura.datum, faktura.images)}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
                         <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
-                          Faktura - {faktura.datum}
+                          {faktura.datum}
                         </h3>
                         <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
                           {faktura.images.length} {faktura.images.length === 1 ? "slika" : "slika"}
                         </p>
                       </div>
                       <div style={{ fontSize: "14px", color: "#8b5cf6", fontWeight: 500 }}>
-                        Klikni za pregled →
+                        {selectedFakturaDatum === faktura.datum ? "▼ Otvoreno" : "▶ Klikni za pregled"}
                       </div>
                     </div>
                   </div>
-                ))
-              )}
+                ));
+              })()}
             </div>
 
             {/* Prikaz slika odabrane fakture */}
@@ -1649,7 +1705,7 @@ export default function ArhivaPage() {
                         padding: "8px 16px",
                         fontSize: "14px",
                       }}
-                      onClick={() => handleFakturaClick(item.datum, item.invoiceImages || [])}
+                      onClick={() => openSingleObracunFaktureModal(item.datum)}
                     >
                       📸 Pregled faktura
                     </button>
