@@ -194,18 +194,25 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Spremi cjenovnik u Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP
+  // Ovo se pokreće kada se cjenovnik promijeni (ažuriranje cijena, brisanje, itd.)
   useEffect(() => {
     const user = auth.currentUser;
     const userId = user?.uid;
     
-    if (!userId || cjenovnik.length === 0) return;
+    if (!userId) return;
     
-    // 1. SPREMI U FIRESTORE (primarno)
+    // Spremi u localStorage odmah (cache/offline backup)
+    const storageKey = `cjenovnik_${userId}`;
+    if (cjenovnik.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(cjenovnik));
+    }
+    
+    // SPREMI U FIRESTORE (primarno) - automatski čim se promijeni
     const saveToFirestore = async () => {
       try {
         const userDocRef = doc(db, "users", userId);
         await setDoc(userDocRef, { cjenovnik }, { merge: true });
-        console.log("Cjenovnik spremljen u Firestore");
+        console.log("Cjenovnik automatski spremljen u Firestore:", cjenovnik.length, "artikala");
       } catch (error: any) {
         const errorCode = error?.code || "";
         if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
@@ -213,10 +220,6 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
         }
       }
     };
-    
-    // 2. SPREMI U LOCALSTORAGE (cache/offline backup)
-    const storageKey = `cjenovnik_${userId}`;
-    localStorage.setItem(storageKey, JSON.stringify(cjenovnik));
     
     // Spremi u Firestore
     saveToFirestore();
