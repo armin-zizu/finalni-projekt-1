@@ -44,11 +44,6 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
             }
             if (firestoreAppName) {
               setAppName(firestoreAppName);
-              // Spremi u localStorage kao cache
-              localStorage.setItem(storageKey, firestoreAppName);
-              if (firestoreUpdatedAt) {
-                localStorage.setItem(`${storageKey}_updatedAt`, firestoreUpdatedAt.toString());
-              }
               console.log("AppName učitano iz Firestore:", firestoreAppName);
             }
           }
@@ -59,40 +54,10 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
-        // 2. UČITAJ IZ LOCALSTORAGE (cache/offline backup) - samo ako Firestore nema ili je stariji
+        // 2. NE UČITAVAJ IZ LOCALSTORAGE - sve je u Firestore
+        // Ako Firestore nema ime, koristi default
         if (!firestoreAppName) {
-          const localAppName = localStorage.getItem(storageKey) || localStorage.getItem("appName");
-          const localUpdatedAt = localStorage.getItem(`${storageKey}_updatedAt`);
-          
-          if (localAppName) {
-            // Ako Firestore nema ime, koristi localStorage i spremi u Firestore
-            if (!firestoreAppName) {
-              setAppName(localAppName);
-              try {
-                const userDocRef = doc(db, "users", userId);
-                await setDoc(
-                  userDocRef, 
-                  { 
-                    appName: localAppName,
-                    appNameUpdatedAt: localUpdatedAt ? Timestamp.fromMillis(parseInt(localUpdatedAt)) : Timestamp.fromDate(new Date())
-                  }, 
-                  { merge: true }
-                );
-              } catch (error: any) {
-                // Ignoriraj greške
-              }
-            }
-          }
-        } else {
-          // Ako Firestore ima ime, provjeri da li je localStorage stariji i ažuriraj ga
-          const localUpdatedAt = localStorage.getItem(`${storageKey}_updatedAt`);
-          if (!localUpdatedAt || (firestoreUpdatedAt && parseInt(localUpdatedAt) < firestoreUpdatedAt)) {
-            // Firestore ima novije ime, ažuriraj localStorage
-            localStorage.setItem(storageKey, firestoreAppName);
-            if (firestoreUpdatedAt) {
-              localStorage.setItem(`${storageKey}_updatedAt`, firestoreUpdatedAt.toString());
-            }
-          }
+          setAppName("Moja Aplikacija");
         }
 
         // Postavi real-time listener za automatsku sinkronizaciju na svim uređajima
@@ -111,12 +76,6 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
                   setAppName((currentAppName) => {
                     if (currentAppName !== newAppName) {
                       console.log("AppName ažurirano preko real-time listenera:", newAppName);
-                      // Spremi u localStorage kao cache (per-user)
-                      const storageKeyForSnapshot = `appName_${userId}`;
-                      localStorage.setItem(storageKeyForSnapshot, newAppName);
-                      if (newUpdatedAt) {
-                        localStorage.setItem(`${storageKeyForSnapshot}_updatedAt`, newUpdatedAt.toString());
-                      }
                       return newAppName;
                     }
                     return currentAppName;
@@ -140,9 +99,8 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } else {
-        // Ako korisnik nije prijavljen, učitaj iz localStorage ili default
-        const localAppName = localStorage.getItem("appName");
-        setAppName(localAppName || "Moja Aplikacija");
+        // Ako korisnik nije prijavljen, koristi default
+        setAppName("Moja Aplikacija");
       }
     });
 
