@@ -180,9 +180,35 @@ export default function ProfitPage() {
     from: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split("T")[0],
     to: new Date().toISOString().split("T")[0],
   });
+  // Dropdown state za custom period
+  const [customFromDay, setCustomFromDay] = useState<number>(new Date().getDate());
+  const [customFromMonth, setCustomFromMonth] = useState<number>(new Date().getMonth() + 1);
+  const [customFromYear, setCustomFromYear] = useState<number>(new Date().getFullYear());
+  const [customToDay, setCustomToDay] = useState<number>(new Date().getDate());
+  const [customToMonth, setCustomToMonth] = useState<number>(new Date().getMonth() + 1);
+  const [customToYear, setCustomToYear] = useState<number>(new Date().getFullYear());
+  const [customFromDayDropdownOpen, setCustomFromDayDropdownOpen] = useState(false);
+  const [customFromMonthDropdownOpen, setCustomFromMonthDropdownOpen] = useState(false);
+  const [customFromYearDropdownOpen, setCustomFromYearDropdownOpen] = useState(false);
+  const [customToDayDropdownOpen, setCustomToDayDropdownOpen] = useState(false);
+  const [customToMonthDropdownOpen, setCustomToMonthDropdownOpen] = useState(false);
+  const [customToYearDropdownOpen, setCustomToYearDropdownOpen] = useState(false);
   const [filteredObracuni, setFilteredObracuni] = useState<ObracunProfit[]>([]);
   const [selectedArtikl, setSelectedArtikl] = useState<string>("");
   const [artiklFilter, setArtiklFilter] = useState<"trenutnaSedmica" | "proslaSedmica" | "prosliMjesec" | "custom">("trenutnaSedmica");
+  // Dropdown state za artikl filter custom period
+  const [artiklCustomFromDay, setArtiklCustomFromDay] = useState<number>(new Date().getDate());
+  const [artiklCustomFromMonth, setArtiklCustomFromMonth] = useState<number>(new Date().getMonth() + 1);
+  const [artiklCustomFromYear, setArtiklCustomFromYear] = useState<number>(new Date().getFullYear());
+  const [artiklCustomToDay, setArtiklCustomToDay] = useState<number>(new Date().getDate());
+  const [artiklCustomToMonth, setArtiklCustomToMonth] = useState<number>(new Date().getMonth() + 1);
+  const [artiklCustomToYear, setArtiklCustomToYear] = useState<number>(new Date().getFullYear());
+  const [artiklCustomFromDayDropdownOpen, setArtiklCustomFromDayDropdownOpen] = useState(false);
+  const [artiklCustomFromMonthDropdownOpen, setArtiklCustomFromMonthDropdownOpen] = useState(false);
+  const [artiklCustomFromYearDropdownOpen, setArtiklCustomFromYearDropdownOpen] = useState(false);
+  const [artiklCustomToDayDropdownOpen, setArtiklCustomToDayDropdownOpen] = useState(false);
+  const [artiklCustomToMonthDropdownOpen, setArtiklCustomToMonthDropdownOpen] = useState(false);
+  const [artiklCustomToYearDropdownOpen, setArtiklCustomToYearDropdownOpen] = useState(false);
   const [isPasswordProtected, setIsPasswordProtected] = useState<boolean | null>(null); // null = loading
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");

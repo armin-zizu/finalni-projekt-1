@@ -67,11 +67,25 @@ export default function AdminPage() {
   const [activateOnPayment, setActivateOnPayment] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni" | "tromjesečni" | "godišnji" | "prilagođeno" | "odaberiMjesec">("dnevni");
+  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni" | "tromjesečni" | "prilagođeno" | "odaberiMjesec">("dnevni");
   const [customFromDate, setCustomFromDate] = useState<string>("");
   const [customToDate, setCustomToDate] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
+  const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+  const [customFromDay, setCustomFromDay] = useState<number>(new Date().getDate());
+  const [customFromMonth, setCustomFromMonth] = useState<number>(new Date().getMonth() + 1);
+  const [customFromYear, setCustomFromYear] = useState<number>(new Date().getFullYear());
+  const [customToDay, setCustomToDay] = useState<number>(new Date().getDate());
+  const [customToMonth, setCustomToMonth] = useState<number>(new Date().getMonth() + 1);
+  const [customToYear, setCustomToYear] = useState<number>(new Date().getFullYear());
+  const [customFromDayDropdownOpen, setCustomFromDayDropdownOpen] = useState(false);
+  const [customFromMonthDropdownOpen, setCustomFromMonthDropdownOpen] = useState(false);
+  const [customFromYearDropdownOpen, setCustomFromYearDropdownOpen] = useState(false);
+  const [customToDayDropdownOpen, setCustomToDayDropdownOpen] = useState(false);
+  const [customToMonthDropdownOpen, setCustomToMonthDropdownOpen] = useState(false);
+  const [customToYearDropdownOpen, setCustomToYearDropdownOpen] = useState(false);
   const [premiumDaysAdjustment, setPremiumDaysAdjustment] = useState(0);
   const [trialDaysAdjustment, setTrialDaysAdjustment] = useState(0);
   const [newSubscriptionStatus, setNewSubscriptionStatus] = useState<"trial" | "premium" | "grace" | "inactive">("premium");
@@ -714,10 +728,10 @@ export default function AdminPage() {
     
     // Odredi početni i krajnji datum na osnovu filtera
     if (revenueFilter === "prilagođeno") {
-      if (!customFromDate || !customToDate) return [];
-      startDate = new Date(customFromDate);
+      // Koristi dropdown vrijednosti za custom date range
+      startDate = new Date(customFromYear, customFromMonth - 1, customFromDay);
       startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(customToDate);
+      endDate = new Date(customToYear, customToMonth - 1, customToDay);
       endDate.setHours(23, 59, 59, 999);
     } else if (revenueFilter === "dnevni") {
       startDate = new Date(now);
@@ -745,10 +759,6 @@ export default function AdminPage() {
     } else if (revenueFilter === "tromjesečni") {
       startDate = new Date(now);
       startDate.setMonth(startDate.getMonth() - 24); // Zadnjih 8 kvartala (2 godine)
-      startDate.setHours(0, 0, 0, 0);
-    } else if (revenueFilter === "godišnji") {
-      startDate = new Date(now);
-      startDate.setFullYear(startDate.getFullYear() - 5); // Zadnjih 5 godina
       startDate.setHours(0, 0, 0, 0);
     } else {
       startDate = new Date(now);
@@ -803,11 +813,6 @@ export default function AdminPage() {
         const year = date.getFullYear();
         key = `Q${quarter} ${year}`;
         sortKey = `${year}-Q${quarter}`;
-      } else if (revenueFilter === "godišnji") {
-        // Godišnji
-        const year = date.getFullYear();
-        key = `${year}`;
-        sortKey = `${year}`;
       } else {
         // Default: mjesečni
         const monthNames = ["januar", "februar", "mart", "april", "maj", "juni", "juli", "august", "septembar", "oktobar", "novembar", "decembar"];
@@ -832,7 +837,7 @@ export default function AdminPage() {
       }))
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
       .map(({ period, zarada }) => ({ period, zarada }));
-  }, [allPayments, revenueFilter, customFromDate, customToDate, selectedMonth, selectedYear]);
+  }, [allPayments, revenueFilter, customFromDay, customFromMonth, customFromYear, customToDay, customToMonth, customToYear, selectedMonth, selectedYear]);
 
   // Ukupna zarada za odabrani period
   const totalRevenue = useMemo(() => {
@@ -854,6 +859,34 @@ export default function AdminPage() {
     }
     return null;
   };
+
+  // Zatvori dropdown kada se klikne van njega
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-dropdown-container]')) {
+        setMonthDropdownOpen(false);
+        setYearDropdownOpen(false);
+        setCustomFromDayDropdownOpen(false);
+        setCustomFromMonthDropdownOpen(false);
+        setCustomFromYearDropdownOpen(false);
+        setCustomToDayDropdownOpen(false);
+        setCustomToMonthDropdownOpen(false);
+        setCustomToYearDropdownOpen(false);
+      }
+    };
+
+    if (monthDropdownOpen || yearDropdownOpen || 
+        customFromDayDropdownOpen || customFromMonthDropdownOpen || customFromYearDropdownOpen ||
+        customToDayDropdownOpen || customToMonthDropdownOpen || customToYearDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [monthDropdownOpen, yearDropdownOpen, 
+      customFromDayDropdownOpen, customFromMonthDropdownOpen, customFromYearDropdownOpen,
+      customToDayDropdownOpen, customToMonthDropdownOpen, customToYearDropdownOpen]);
 
   if (isAdmin === null || loading) {
     return (
@@ -977,22 +1010,6 @@ export default function AdminPage() {
                 Tromjesečni
               </button>
               <button
-                onClick={() => setRevenueFilter("godišnji")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  backgroundColor: revenueFilter === "godišnji" ? "#3b82f6" : "#f3f4f6",
-                  color: revenueFilter === "godišnji" ? "#fff" : "#374151",
-                  transition: "all 0.2s",
-                }}
-              >
-                Godišnji
-              </button>
-              <button
                 onClick={() => setRevenueFilter("prilagođeno")}
                 style={{
                   padding: "8px 16px",
@@ -1026,104 +1043,890 @@ export default function AdminPage() {
               </button>
             </div>
             {revenueFilter === "prilagođeno" && (
-              <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ display: "flex", gap: "16px", alignItems: "flex-end", flexWrap: "wrap" }}>
+                {/* Od datuma */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Od datuma:</label>
-                  <input
-                    type="date"
-                    value={customFromDate}
-                    onChange={(e) => setCustomFromDate(e.target.value)}
-                    style={{
-                      padding: "8px 12px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "6px",
-                      fontSize: "14px",
-                      minWidth: "150px",
-                    }}
-                  />
+                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
+                    {/* Dan */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
+                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Dan:</label>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomFromDayDropdownOpen(!customFromDayDropdownOpen);
+                            setCustomFromMonthDropdownOpen(false);
+                            setCustomFromYearDropdownOpen(false);
+                            setCustomToDayDropdownOpen(false);
+                            setCustomToMonthDropdownOpen(false);
+                            setCustomToYearDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: "10px 32px 10px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            minWidth: "70px",
+                            backgroundColor: "#fff",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            boxShadow: customFromDayDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                            transition: "all 0.2s ease",
+                            fontWeight: 500,
+                            color: "#1f2937",
+                          }}
+                        >
+                          <span>{customFromDay}</span>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            style={{
+                              transform: customFromDayDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease",
+                              position: "absolute",
+                              right: "8px",
+                            }}
+                          >
+                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                          </svg>
+                        </button>
+                        {customFromDayDropdownOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              marginTop: "4px",
+                              backgroundColor: "#fff",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "8px",
+                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                              zIndex: 1000,
+                              maxHeight: "200px",
+                              overflowY: "auto",
+                              animation: "slideDown 0.2s ease-out",
+                            }}
+                          >
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => {
+                                  setCustomFromDay(day);
+                                  setCustomFromDayDropdownOpen(false);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "8px 12px",
+                                  textAlign: "left",
+                                  border: "none",
+                                  backgroundColor: customFromDay === day ? "#eff6ff" : "#fff",
+                                  color: customFromDay === day ? "#2563eb" : "#1f2937",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                  fontWeight: customFromDay === day ? 600 : 400,
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (customFromDay !== day) {
+                                    e.currentTarget.style.backgroundColor = "#f9fafb";
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (customFromDay !== day) {
+                                    e.currentTarget.style.backgroundColor = "#fff";
+                                  }
+                                }}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Mjesec */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
+                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomFromMonthDropdownOpen(!customFromMonthDropdownOpen);
+                            setCustomFromDayDropdownOpen(false);
+                            setCustomFromYearDropdownOpen(false);
+                            setCustomToDayDropdownOpen(false);
+                            setCustomToMonthDropdownOpen(false);
+                            setCustomToYearDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: "10px 32px 10px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            minWidth: "120px",
+                            backgroundColor: "#fff",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            boxShadow: customFromMonthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                            transition: "all 0.2s ease",
+                            fontWeight: 500,
+                            color: "#1f2937",
+                          }}
+                        >
+                          <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][customFromMonth - 1]}</span>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            style={{
+                              transform: customFromMonthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease",
+                              position: "absolute",
+                              right: "8px",
+                            }}
+                          >
+                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                          </svg>
+                        </button>
+                        {customFromMonthDropdownOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              marginTop: "4px",
+                              backgroundColor: "#fff",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "8px",
+                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                              zIndex: 1000,
+                              maxHeight: "240px",
+                              overflowY: "auto",
+                              animation: "slideDown 0.2s ease-out",
+                            }}
+                          >
+                            {[
+                              "Januar", "Februar", "Mart", "April", "Maj", "Juni",
+                              "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
+                            ].map((month, index) => (
+                              <button
+                                key={index + 1}
+                                type="button"
+                                onClick={() => {
+                                  setCustomFromMonth(index + 1);
+                                  setCustomFromMonthDropdownOpen(false);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "10px 14px",
+                                  textAlign: "left",
+                                  border: "none",
+                                  backgroundColor: customFromMonth === index + 1 ? "#eff6ff" : "#fff",
+                                  color: customFromMonth === index + 1 ? "#2563eb" : "#1f2937",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                  fontWeight: customFromMonth === index + 1 ? 600 : 400,
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (customFromMonth !== index + 1) {
+                                    e.currentTarget.style.backgroundColor = "#f9fafb";
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (customFromMonth !== index + 1) {
+                                    e.currentTarget.style.backgroundColor = "#fff";
+                                  }
+                                }}
+                              >
+                                {month}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Godina */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
+                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Godina:</label>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomFromYearDropdownOpen(!customFromYearDropdownOpen);
+                            setCustomFromDayDropdownOpen(false);
+                            setCustomFromMonthDropdownOpen(false);
+                            setCustomToDayDropdownOpen(false);
+                            setCustomToMonthDropdownOpen(false);
+                            setCustomToYearDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: "10px 32px 10px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            minWidth: "100px",
+                            backgroundColor: "#fff",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            boxShadow: customFromYearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                            transition: "all 0.2s ease",
+                            fontWeight: 500,
+                            color: "#1f2937",
+                          }}
+                        >
+                          <span>{customFromYear}</span>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            style={{
+                              transform: customFromYearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease",
+                              position: "absolute",
+                              right: "8px",
+                            }}
+                          >
+                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                          </svg>
+                        </button>
+                        {customFromYearDropdownOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              marginTop: "4px",
+                              backgroundColor: "#fff",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "8px",
+                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                              zIndex: 1000,
+                              maxHeight: "240px",
+                              overflowY: "auto",
+                              animation: "slideDown 0.2s ease-out",
+                            }}
+                          >
+                            {Array.from({ length: 10 }, (_, i) => {
+                              const year = new Date().getFullYear() - 5 + i;
+                              return (
+                                <button
+                                  key={year}
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomFromYear(year);
+                                    setCustomFromYearDropdownOpen(false);
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    padding: "10px 14px",
+                                    textAlign: "left",
+                                    border: "none",
+                                    backgroundColor: customFromYear === year ? "#eff6ff" : "#fff",
+                                    color: customFromYear === year ? "#2563eb" : "#1f2937",
+                                    fontSize: "14px",
+                                    cursor: "pointer",
+                                    transition: "all 0.15s ease",
+                                    fontWeight: customFromYear === year ? 600 : 400,
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (customFromYear !== year) {
+                                      e.currentTarget.style.backgroundColor = "#f9fafb";
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (customFromYear !== year) {
+                                      e.currentTarget.style.backgroundColor = "#fff";
+                                    }
+                                  }}
+                                >
+                                  {year}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+
+                {/* Do datuma */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Do datuma:</label>
-                  <input
-                    type="date"
-                    value={customToDate}
-                    onChange={(e) => setCustomToDate(e.target.value)}
-                    style={{
-                      padding: "8px 12px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "6px",
-                      fontSize: "14px",
-                      minWidth: "150px",
-                    }}
-                  />
+                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
+                    {/* Dan */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
+                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Dan:</label>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomToDayDropdownOpen(!customToDayDropdownOpen);
+                            setCustomFromDayDropdownOpen(false);
+                            setCustomFromMonthDropdownOpen(false);
+                            setCustomFromYearDropdownOpen(false);
+                            setCustomToMonthDropdownOpen(false);
+                            setCustomToYearDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: "10px 32px 10px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            minWidth: "70px",
+                            backgroundColor: "#fff",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            boxShadow: customToDayDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                            transition: "all 0.2s ease",
+                            fontWeight: 500,
+                            color: "#1f2937",
+                          }}
+                        >
+                          <span>{customToDay}</span>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            style={{
+                              transform: customToDayDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease",
+                              position: "absolute",
+                              right: "8px",
+                            }}
+                          >
+                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                          </svg>
+                        </button>
+                        {customToDayDropdownOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              marginTop: "4px",
+                              backgroundColor: "#fff",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "8px",
+                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                              zIndex: 1000,
+                              maxHeight: "200px",
+                              overflowY: "auto",
+                              animation: "slideDown 0.2s ease-out",
+                            }}
+                          >
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => {
+                                  setCustomToDay(day);
+                                  setCustomToDayDropdownOpen(false);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "8px 12px",
+                                  textAlign: "left",
+                                  border: "none",
+                                  backgroundColor: customToDay === day ? "#eff6ff" : "#fff",
+                                  color: customToDay === day ? "#2563eb" : "#1f2937",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                  fontWeight: customToDay === day ? 600 : 400,
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (customToDay !== day) {
+                                    e.currentTarget.style.backgroundColor = "#f9fafb";
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (customToDay !== day) {
+                                    e.currentTarget.style.backgroundColor = "#fff";
+                                  }
+                                }}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Mjesec */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
+                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomToMonthDropdownOpen(!customToMonthDropdownOpen);
+                            setCustomFromDayDropdownOpen(false);
+                            setCustomFromMonthDropdownOpen(false);
+                            setCustomFromYearDropdownOpen(false);
+                            setCustomToDayDropdownOpen(false);
+                            setCustomToYearDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: "10px 32px 10px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            minWidth: "120px",
+                            backgroundColor: "#fff",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            boxShadow: customToMonthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                            transition: "all 0.2s ease",
+                            fontWeight: 500,
+                            color: "#1f2937",
+                          }}
+                        >
+                          <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][customToMonth - 1]}</span>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            style={{
+                              transform: customToMonthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease",
+                              position: "absolute",
+                              right: "8px",
+                            }}
+                          >
+                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                          </svg>
+                        </button>
+                        {customToMonthDropdownOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              marginTop: "4px",
+                              backgroundColor: "#fff",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "8px",
+                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                              zIndex: 1000,
+                              maxHeight: "240px",
+                              overflowY: "auto",
+                              animation: "slideDown 0.2s ease-out",
+                            }}
+                          >
+                            {[
+                              "Januar", "Februar", "Mart", "April", "Maj", "Juni",
+                              "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
+                            ].map((month, index) => (
+                              <button
+                                key={index + 1}
+                                type="button"
+                                onClick={() => {
+                                  setCustomToMonth(index + 1);
+                                  setCustomToMonthDropdownOpen(false);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "10px 14px",
+                                  textAlign: "left",
+                                  border: "none",
+                                  backgroundColor: customToMonth === index + 1 ? "#eff6ff" : "#fff",
+                                  color: customToMonth === index + 1 ? "#2563eb" : "#1f2937",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                  fontWeight: customToMonth === index + 1 ? 600 : 400,
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (customToMonth !== index + 1) {
+                                    e.currentTarget.style.backgroundColor = "#f9fafb";
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (customToMonth !== index + 1) {
+                                    e.currentTarget.style.backgroundColor = "#fff";
+                                  }
+                                }}
+                              >
+                                {month}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Godina */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
+                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Godina:</label>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomToYearDropdownOpen(!customToYearDropdownOpen);
+                            setCustomFromDayDropdownOpen(false);
+                            setCustomFromMonthDropdownOpen(false);
+                            setCustomFromYearDropdownOpen(false);
+                            setCustomToDayDropdownOpen(false);
+                            setCustomToMonthDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: "10px 32px 10px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            minWidth: "100px",
+                            backgroundColor: "#fff",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            boxShadow: customToYearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                            transition: "all 0.2s ease",
+                            fontWeight: 500,
+                            color: "#1f2937",
+                          }}
+                        >
+                          <span>{customToYear}</span>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            style={{
+                              transform: customToYearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease",
+                              position: "absolute",
+                              right: "8px",
+                            }}
+                          >
+                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                          </svg>
+                        </button>
+                        {customToYearDropdownOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              marginTop: "4px",
+                              backgroundColor: "#fff",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "8px",
+                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                              zIndex: 1000,
+                              maxHeight: "240px",
+                              overflowY: "auto",
+                              animation: "slideDown 0.2s ease-out",
+                            }}
+                          >
+                            {Array.from({ length: 10 }, (_, i) => {
+                              const year = new Date().getFullYear() - 5 + i;
+                              return (
+                                <button
+                                  key={year}
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomToYear(year);
+                                    setCustomToYearDropdownOpen(false);
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    padding: "10px 14px",
+                                    textAlign: "left",
+                                    border: "none",
+                                    backgroundColor: customToYear === year ? "#eff6ff" : "#fff",
+                                    color: customToYear === year ? "#2563eb" : "#1f2937",
+                                    fontSize: "14px",
+                                    cursor: "pointer",
+                                    transition: "all 0.15s ease",
+                                    fontWeight: customToYear === year ? 600 : 400,
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (customToYear !== year) {
+                                      e.currentTarget.style.backgroundColor = "#f9fafb";
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (customToYear !== year) {
+                                      e.currentTarget.style.backgroundColor = "#fff";
+                                    }
+                                  }}
+                                >
+                                  {year}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
             {revenueFilter === "odaberiMjesec" && (
               <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {/* Custom Dropdown za Mjesec */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
                   <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Mjesec:</label>
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                    style={{
-                      padding: "8px 12px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "6px",
-                      fontSize: "14px",
-                      minWidth: "150px",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      appearance: "none",
-                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E\")",
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 12px center",
-                      paddingRight: "32px",
-                    }}
-                  >
-                    <option value={1}>Januar</option>
-                    <option value={2}>Februar</option>
-                    <option value={3}>Mart</option>
-                    <option value={4}>April</option>
-                    <option value={5}>Maj</option>
-                    <option value={6}>Juni</option>
-                    <option value={7}>Juli</option>
-                    <option value={8}>August</option>
-                    <option value={9}>Septembar</option>
-                    <option value={10}>Oktobar</option>
-                    <option value={11}>Novembar</option>
-                    <option value={12}>Decembar</option>
-                  </select>
+                  <div style={{ position: "relative" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMonthDropdownOpen(!monthDropdownOpen);
+                        setYearDropdownOpen(false);
+                      }}
+                      style={{
+                        padding: "10px 40px 10px 14px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        minWidth: "160px",
+                        backgroundColor: "#fff",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        boxShadow: monthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                        transition: "all 0.2s ease",
+                        fontWeight: 500,
+                        color: "#1f2937",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!monthDropdownOpen) {
+                          e.currentTarget.style.borderColor = "#9ca3af";
+                          e.currentTarget.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.1)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!monthDropdownOpen) {
+                          e.currentTarget.style.borderColor = "#d1d5db";
+                          e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
+                        }
+                      }}
+                    >
+                      <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][selectedMonth - 1]}</span>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        style={{
+                          transform: monthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                          transition: "transform 0.2s ease",
+                          position: "absolute",
+                          right: "14px",
+                        }}
+                      >
+                        <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                      </svg>
+                    </button>
+                    {monthDropdownOpen && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          marginTop: "4px",
+                          backgroundColor: "#fff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "8px",
+                          boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                          zIndex: 1000,
+                          maxHeight: "240px",
+                          overflowY: "auto",
+                          animation: "slideDown 0.2s ease-out",
+                        }}
+                      >
+                        {[
+                          "Januar", "Februar", "Mart", "April", "Maj", "Juni",
+                          "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
+                        ].map((month, index) => (
+                          <button
+                            key={index + 1}
+                            type="button"
+                            onClick={() => {
+                              setSelectedMonth(index + 1);
+                              setMonthDropdownOpen(false);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "10px 14px",
+                              textAlign: "left",
+                              border: "none",
+                              backgroundColor: selectedMonth === index + 1 ? "#eff6ff" : "#fff",
+                              color: selectedMonth === index + 1 ? "#2563eb" : "#1f2937",
+                              fontSize: "14px",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                              fontWeight: selectedMonth === index + 1 ? 600 : 400,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (selectedMonth !== index + 1) {
+                                e.currentTarget.style.backgroundColor = "#f9fafb";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (selectedMonth !== index + 1) {
+                                e.currentTarget.style.backgroundColor = "#fff";
+                              }
+                            }}
+                          >
+                            {month}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+
+                {/* Custom Dropdown za Godinu */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
                   <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Godina:</label>
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                    style={{
-                      padding: "8px 12px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "6px",
-                      fontSize: "14px",
-                      minWidth: "120px",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      appearance: "none",
-                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E\")",
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 12px center",
-                      paddingRight: "32px",
-                    }}
-                  >
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const year = new Date().getFullYear() - 5 + i;
-                      return (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      );
-                    })}
-                  </select>
+                  <div style={{ position: "relative" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYearDropdownOpen(!yearDropdownOpen);
+                        setMonthDropdownOpen(false);
+                      }}
+                      style={{
+                        padding: "10px 40px 10px 14px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        minWidth: "130px",
+                        backgroundColor: "#fff",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        boxShadow: yearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                        transition: "all 0.2s ease",
+                        fontWeight: 500,
+                        color: "#1f2937",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!yearDropdownOpen) {
+                          e.currentTarget.style.borderColor = "#9ca3af";
+                          e.currentTarget.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.1)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!yearDropdownOpen) {
+                          e.currentTarget.style.borderColor = "#d1d5db";
+                          e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
+                        }
+                      }}
+                    >
+                      <span>{selectedYear}</span>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        style={{
+                          transform: yearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                          transition: "transform 0.2s ease",
+                          position: "absolute",
+                          right: "14px",
+                        }}
+                      >
+                        <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                      </svg>
+                    </button>
+                    {yearDropdownOpen && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          marginTop: "4px",
+                          backgroundColor: "#fff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "8px",
+                          boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                          zIndex: 1000,
+                          maxHeight: "240px",
+                          overflowY: "auto",
+                          animation: "slideDown 0.2s ease-out",
+                        }}
+                      >
+                        {Array.from({ length: 10 }, (_, i) => {
+                          const year = new Date().getFullYear() - 5 + i;
+                          return (
+                            <button
+                              key={year}
+                              type="button"
+                              onClick={() => {
+                                setSelectedYear(year);
+                                setYearDropdownOpen(false);
+                              }}
+                              style={{
+                                width: "100%",
+                                padding: "10px 14px",
+                                textAlign: "left",
+                                border: "none",
+                                backgroundColor: selectedYear === year ? "#eff6ff" : "#fff",
+                                color: selectedYear === year ? "#2563eb" : "#1f2937",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                                transition: "all 0.15s ease",
+                                fontWeight: selectedYear === year ? 600 : 400,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (selectedYear !== year) {
+                                  e.currentTarget.style.backgroundColor = "#f9fafb";
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (selectedYear !== year) {
+                                  e.currentTarget.style.backgroundColor = "#fff";
+                                }
+                              }}
+                            >
+                              {year}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1185,6 +1988,16 @@ export default function AdminPage() {
               }
               .recharts-surface {
                 width: 100% !important;
+              }
+              @keyframes slideDown {
+                from {
+                  opacity: 0;
+                  transform: translateY(-8px);
+                }
+                to {
+                  opacity: 1;
+                  transform: translateY(0);
+                }
               }
             `}</style>
           </>
