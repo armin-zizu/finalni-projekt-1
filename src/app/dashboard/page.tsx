@@ -136,7 +136,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Učitavanje arhive iz localStorage
+  // Učitavanje arhive iz Firestore
   useEffect(() => {
     loadArhiva();
   }, [loadArhiva]);
@@ -185,7 +185,7 @@ export default function DashboardPage() {
         if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
           console.warn("Nije moguće učitati iz Firestore-a (možda nema interneta):", error);
         }
-        // Ne prikazuj grešku, koristi localStorage
+        // Ne prikazuj grešku
       }
     });
 
