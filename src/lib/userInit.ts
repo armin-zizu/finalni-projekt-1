@@ -2,7 +2,7 @@
 import { db } from "./firestore";
 import { doc, setDoc, Timestamp, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 
-// Default cjenovnik
+// Default cjenovnik - samo Kafa za nove korisnike
 const defaultCjenovnik = [
   {
     naziv: "Kafa",
@@ -10,33 +10,7 @@ const defaultCjenovnik = [
     jeZestoko: false,
     proizvodnaCijena: 1.5,
     nabavnaCijena: 1.2,
-    pocetnoStanje: 10,
-  },
-  {
-    naziv: "Čaj",
-    cijena: 2,
-    jeZestoko: false,
-    proizvodnaCijena: 1.0,
-    nabavnaCijena: 0.8,
-    pocetnoStanje: 15,
-  },
-  {
-    naziv: "Vodka",
-    cijena: 2,
-    jeZestoko: true,
-    zestokoKolicina: 0.04,
-    proizvodnaCijena: 1.2,
-    nabavnaCijena: 0.9,
-    pocetnoStanje: 1000,
-  },
-  {
-    naziv: "Rakija",
-    cijena: 2,
-    jeZestoko: true,
-    zestokoKolicina: 0.03,
-    proizvodnaCijena: 1.1,
-    nabavnaCijena: 0.85,
-    pocetnoStanje: 800,
+    pocetnoStanje: 0,
   },
 ];
 

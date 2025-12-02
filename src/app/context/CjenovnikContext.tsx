@@ -30,6 +30,7 @@ type CjenovnikContextType = {
 const CjenovnikContext = createContext<CjenovnikContextType | undefined>(undefined);
 
 // ---- Početni podaci ----
+// Samo Kafa za nove korisnike - korisnici će sami dodavati artikle
 const initialCjenovnik: ArtiklCijena[] = [
   {
     naziv: "Kafa",
@@ -37,33 +38,7 @@ const initialCjenovnik: ArtiklCijena[] = [
     jeZestoko: false,
     proizvodnaCijena: 1.5,
     nabavnaCijena: 1.2,
-    pocetnoStanje: 10,
-  },
-  {
-    naziv: "Čaj",
-    cijena: 2,
-    jeZestoko: false,
-    proizvodnaCijena: 1.0,
-    nabavnaCijena: 0.8,
-    pocetnoStanje: 15,
-  },
-  {
-    naziv: "Vodka",
-    cijena: 2,
-    jeZestoko: true,
-    zestokoKolicina: 0.04,
-    proizvodnaCijena: 1.2,
-    nabavnaCijena: 0.9,
-    pocetnoStanje: 1000,
-  },
-  {
-    naziv: "Rakija",
-    cijena: 2,
-    jeZestoko: true,
-    zestokoKolicina: 0.03,
-    proizvodnaCijena: 1.1,
-    nabavnaCijena: 0.85,
-    pocetnoStanje: 800,
+    pocetnoStanje: 0,
   },
 ];
 
