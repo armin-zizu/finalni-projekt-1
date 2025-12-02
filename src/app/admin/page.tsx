@@ -107,6 +107,23 @@ export default function AdminPage() {
       }
       setIsAdmin(true);
       await loadUsers();
+      
+      // Automatski postavi test12 korisnika kao vlasnika ako postoji
+      try {
+        const usersCollection = collection(db, "users");
+        const usersSnapshot = await getDocs(usersCollection);
+        for (const userDoc of usersSnapshot.docs) {
+          const userData = userDoc.data();
+          if (userData.email === "test12" || userData.email?.includes("test12")) {
+            if (userData.isOwner !== true) {
+              console.log("Postavljam test12 korisnika kao vlasnika...");
+              await setUserAsOwner(userData.email);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn("Greška pri automatskom postavljanju test12 korisnika:", error);
+      }
     };
 
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -375,6 +392,71 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Greška pri ažuriranju premium dana:", error);
       setMessage({ type: "error", text: "Greška pri ažuriranju premium dana" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Postavi korisnika kao vlasnika (isOwner = true)
+  const setUserAsOwner = async (userEmail: string) => {
+    try {
+      setSaving(true);
+      setMessage(null);
+      
+      // Pronađi korisnika po emailu
+      const usersCollection = collection(db, "users");
+      const usersSnapshot = await getDocs(usersCollection);
+      
+      let foundUser = null;
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        if (userData.email === userEmail) {
+          foundUser = { id: userDoc.id, ...userData };
+          break;
+        }
+      }
+      
+      if (!foundUser) {
+        setMessage({ type: "error", text: `Korisnik sa emailom ${userEmail} nije pronađen` });
+        return;
+      }
+      
+      // Ažuriraj isOwner na true
+      const userDocRef = doc(db, "users", foundUser.id);
+      await updateDoc(userDocRef, {
+        isOwner: true,
+      });
+      
+      // Ažuriraj sve device dokumente za ovog korisnika da imaju role "vlasnik"
+      const devicesCollection = collection(db, "devices");
+      const devicesSnapshot = await getDocs(devicesCollection);
+      
+      for (const deviceDoc of devicesSnapshot.docs) {
+        const deviceData = deviceDoc.data();
+        if (deviceData.userId === foundUser.id) {
+          const deviceRef = doc(db, "devices", deviceDoc.id);
+          await updateDoc(deviceRef, {
+            role: "vlasnik",
+            status: "approved",
+            permissions: {
+              dashboard: true,
+              obracun: true,
+              arhiva: true,
+              cjenovnik: true,
+              profit: true,
+              profile: true,
+              admin: false,
+            },
+          });
+        }
+      }
+      
+      await loadUsers();
+      setMessage({ type: "success", text: `Korisnik ${userEmail} je postavljen kao vlasnik` });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Greška pri postavljanju korisnika kao vlasnika:", error);
+      setMessage({ type: "error", text: "Greška pri postavljanju korisnika kao vlasnika" });
     } finally {
       setSaving(false);
     }
