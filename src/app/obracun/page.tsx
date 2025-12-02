@@ -1493,11 +1493,6 @@ export default function ObracunPage() {
                 gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
                 gap: "8px"
               }}>
-              <div style={{ 
-                display: "grid", 
-                gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
-                gap: "8px"
-              }}>
                 {invoiceImages.map((file, index) => (
                   <div 
                     key={index} 
