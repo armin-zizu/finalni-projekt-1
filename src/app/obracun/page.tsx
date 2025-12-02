@@ -1167,6 +1167,19 @@ export default function ObracunPage() {
 
       // Resetuj slike faktura nakon uspješnog spremanja
       setInvoiceImages([]);
+      
+      // Obriši broj sačuvanih slika iz cache-a jer je obračun sačuvan
+      if (user && userId) {
+        try {
+          const cacheRef = doc(db, "users", userId, "cache", datumString);
+          await setDoc(cacheRef, {
+            savedInvoiceImagesCount: 0,
+          }, { merge: true });
+          setSavedInvoiceImagesCount(0);
+        } catch (error) {
+          console.warn("Greška pri brisanju broja sačuvanih slika:", error);
+        }
+      }
 
       // Ažuriranje cjenovnika (početno stanje za sljedeći dan = krajnje stanje iz ovog dana)
       // VAŽNO: Ažuriraj cjenovnik PRIJE promjene datuma, da se novi datum učita sa ispravnim početnim stanjem
