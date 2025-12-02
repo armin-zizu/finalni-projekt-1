@@ -11,8 +11,10 @@
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
     "@fingerprintjs/fingerprintjs": "^5.0.1",
+    "@types/crypto-js": "^4.2.2",
     "@vercel/speed-insights": "^1.2.0",
     "chart.js": "^4.5.0",
+    "crypto-js": "^4.2.0",
     "firebase": "^12.5.0",
     "firebase-admin": "^13.5.0",
     "jspdf": "^3.0.3",

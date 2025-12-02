@@ -7,6 +7,7 @@ import { FaTrash, FaPlus } from "react-icons/fa";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { db } from "../../lib/firestore";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { encrypt, decrypt } from "../../lib/encryption";
 
 // ---- Tipovi ----
 type Artikl = {
@@ -181,15 +182,37 @@ export default function CjenovnikPage() {
 
   // Provjera šifre pri učitavanju i pri navigaciji - traži šifru svaki put
   useEffect(() => {
-    const savedPassword = localStorage.getItem("cjenovnikPassword");
-    
-    // Ako postoji šifra, traži je svaki put (ne koristi sessionStorage)
-    if (savedPassword) {
-      setIsPasswordProtected(true);
-    } else {
-      // Ako nema šifre, ne traži je (prvi put)
-      setIsPasswordProtected(false);
-    }
+    const checkPassword = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        setIsPasswordProtected(false);
+        return;
+      }
+
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          const encryptedPassword = data.cjenovnikPassword;
+          
+          // Ako postoji šifra, traži je svaki put
+          if (encryptedPassword) {
+            setIsPasswordProtected(true);
+          } else {
+            // Ako nema šifre, ne traži je (prvi put)
+            setIsPasswordProtected(false);
+          }
+        } else {
+          setIsPasswordProtected(false);
+        }
+      } catch (error) {
+        console.warn("Greška pri provjeri šifre:", error);
+        setIsPasswordProtected(false);
+      }
+    };
+
+    checkPassword();
   }, [pathname]); // Provjeri svaki put kada se pathname promijeni
 
   // Učitaj postavke za malu zalihu iz Firestore
@@ -257,28 +280,50 @@ export default function CjenovnikPage() {
     }
   };
 
-  const handlePasswordSubmit = () => {
-    const savedPassword = localStorage.getItem("cjenovnikPassword");
-    
-    if (!savedPassword) {
-      // Prvi put - postavi šifru
-      if (passwordInput.trim().length >= 4) {
-        localStorage.setItem("cjenovnikPassword", passwordInput);
-        setIsPasswordProtected(false);
-        setPasswordInput("");
-        setPasswordError("");
+  const handlePasswordSubmit = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setPasswordError("Niste prijavljeni");
+      return;
+    }
+
+    try {
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      const data = userDoc.exists() ? userDoc.data() : {};
+      const encryptedPassword = data.cjenovnikPassword;
+      
+      if (!encryptedPassword) {
+        // Prvi put - postavi šifru
+        if (passwordInput.trim().length >= 4) {
+          // Enkriptuj šifru prije spremanja
+          const encrypted = encrypt(passwordInput);
+          await setDoc(userDocRef, { cjenovnikPassword: encrypted }, { merge: true });
+          setIsPasswordProtected(false);
+          setPasswordInput("");
+          setPasswordError("");
+        } else {
+          setPasswordError("Šifra mora imati najmanje 4 znaka");
+        }
       } else {
-        setPasswordError("Šifra mora imati najmanje 4 znaka");
+        // Provjeri šifru - dekriptuj i uporedi
+        try {
+          const decryptedPassword = decrypt(encryptedPassword);
+          if (passwordInput === decryptedPassword) {
+            setIsPasswordProtected(false);
+            setPasswordInput("");
+            setPasswordError("");
+          } else {
+            setPasswordError("Pogrešna šifra!");
+          }
+        } catch (decryptError) {
+          console.error("Greška pri dekripciji šifre:", decryptError);
+          setPasswordError("Greška pri provjeri šifre. Pokušajte ponovo.");
+        }
       }
-    } else {
-      // Provjeri šifru - svaki put traži šifru, ne koristi sessionStorage
-      if (passwordInput === savedPassword) {
-        setIsPasswordProtected(false);
-        setPasswordInput("");
-        setPasswordError("");
-      } else {
-        setPasswordError("Pogrešna šifra!");
-      }
+    } catch (error) {
+      console.error("Greška pri spremanju/provjeri šifre:", error);
+      setPasswordError("Greška pri spremanju šifre. Pokušajte ponovo.");
     }
   };
 
@@ -418,7 +463,7 @@ export default function CjenovnikPage() {
             Zaštićeno šifrom
           </h2>
           <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "20px", textAlign: "center" }}>
-            {localStorage.getItem("cjenovnikPassword") 
+            {isPasswordProtected
               ? "Unesite šifru za pristup Cjenovnik stranici"
               : "Postavite šifru za Cjenovnik stranicu (min. 4 znaka)"}
           </p>
@@ -464,7 +509,7 @@ export default function CjenovnikPage() {
               transition: "background-color 0.2s"
             }}
           >
-            {localStorage.getItem("cjenovnikPassword") ? "Pristupi" : "Postavi šifru"}
+            {isPasswordProtected ? "Pristupi" : "Postavi šifru"}
           </button>
         </div>
       </div>
