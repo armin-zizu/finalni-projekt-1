@@ -708,12 +708,12 @@ export default function ObracunPage() {
       }
     }
     
-    // Ažuriraj cache sa novim podacima
+    // Ažuriraj cache sa novim podacima - SAČUVAJ ulaz prije nego što se resetira
     artikli.forEach((a) => {
       if (a.ulaz !== 0) {
-        // Ako ima ulaz, ažuriraj cache
+        // Ako ima ulaz, ažuriraj cache sa ulazom i starim početnim stanjem
         ulazCache[a.naziv] = {
-          ulaz: a.ulaz,
+          ulaz: a.ulaz, // Sačuvaj ulaz
           staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
         };
       } else if (a.staroPocetnoStanje !== undefined) {
@@ -726,7 +726,7 @@ export default function ObracunPage() {
       }
     });
 
-    // Spremi cache u localStorage
+    // Spremi cache u localStorage PRIJE nego što se artikli ažuriraju
     localStorage.setItem(cacheKey, JSON.stringify(ulazCache));
 
     // Ažuriraj cjenovnik i artikle - sačuvaj staro stanje prije ažuriranja
