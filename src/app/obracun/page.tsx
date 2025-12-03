@@ -1901,6 +1901,13 @@ export default function ObracunPage() {
                 <td style={tdStyle} data-label="Proizvodna Cijena">{a.proizvodnaCijena ? a.proizvodnaCijena.toFixed(2) : "-"}</td>
                 <td style={tdStyle} data-label="Početno stanje">
                   {a.pocetnoStanje}
+                  {(() => {
+                    // Debug log za provjeru
+                    if (a.staroPocetnoStanje !== undefined) {
+                      console.log(`🔍 UI Render - Artikal ${a.naziv}: pocetnoStanje=${a.pocetnoStanje}, staroPocetnoStanje=${a.staroPocetnoStanje}, uslov=${a.staroPocetnoStanje !== a.pocetnoStanje}`);
+                    }
+                    return null;
+                  })()}
                   {a.staroPocetnoStanje !== undefined && a.staroPocetnoStanje !== a.pocetnoStanje && (
                     <span style={{ color: "#eab308", marginLeft: "4px", fontSize: "12px" }}>
                       ({a.staroPocetnoStanje})
