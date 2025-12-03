@@ -501,7 +501,9 @@ export default function ArhivaPage() {
     const dugovi: DugInfo[] = [];
     
     arhiva.forEach((obracun) => {
-      obracun.rashodi.forEach((rashod, index) => {
+      // Provjeri da li rashodi postoje prije nego što pozoveš .forEach()
+      if (obracun.rashodi && Array.isArray(obracun.rashodi)) {
+        obracun.rashodi.forEach((rashod, index) => {
         const dugInfo = extractDugInfo(rashod.naziv);
         if (dugInfo.isDug) {
           dugovi.push({
@@ -515,6 +517,7 @@ export default function ArhivaPage() {
           });
         }
       });
+      }
     });
 
     return dugovi;
