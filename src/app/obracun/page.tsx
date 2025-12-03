@@ -1031,14 +1031,14 @@ export default function ObracunPage() {
     const userId = user.uid;
     
     // Čekaj da se korisnik potpuno autentifikuje i refresh token
-    // Ovo se poziva samo ako ima slika za upload
+    // Ovo se poziva samo ako ima slika za upload (već provjereno gore)
     try {
       await user.getIdToken(true); // Refresh token
       console.log("Korisnik autentifikovan:", userId);
     } catch (authError: any) {
-      // Ako je greška network-related, ne bacaj grešku ako nema slika
-      if (authError?.code === 'auth/network-request-failed' && invoiceImages.length === 0) {
-        console.warn("Network greška, ali nema slika za upload, preskačem");
+      // Ako je greška network-related, vrati prazan array umjesto bacanja greške
+      if (authError?.code === 'auth/network-request-failed') {
+        console.warn("Network greška pri autentifikaciji, preskačem upload:", authError);
         return [];
       }
       console.error("Greška pri autentifikaciji:", authError);
