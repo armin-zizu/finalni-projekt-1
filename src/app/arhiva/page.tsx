@@ -949,12 +949,12 @@ export default function ArhivaPage() {
     
     const updatedArhiva = arhiva.map((obracun) => {
       if (obracun.datum === obracunDatum) {
-        const updatedRashodi = obracun.rashodi.map((rashod, index) => {
+        const updatedRashodi = (obracun.rashodi && Array.isArray(obracun.rashodi)) ? obracun.rashodi.map((rashod, index) => {
           if (index === rashodIndex) {
             return { ...rashod, placeno: true };
           }
           return rashod;
-        });
+        }) : [];
         return { ...obracun, rashodi: updatedRashodi };
       }
       return obracun;
@@ -1630,10 +1630,10 @@ export default function ArhivaPage() {
           {arhiva.map((item, index) => {
             // Provjeri da li obračun ima ulaz - koristi flag imaUlaz (koji je sada pravilno postavljen)
             // ili provjeri direktno ulaz polje u artiklima
-            const stvarnoImaUlaz = item.imaUlaz || item.artikli.some((a) => {
+            const stvarnoImaUlaz = item.imaUlaz || (item.artikli && Array.isArray(item.artikli) && item.artikli.some((a) => {
               // Provjeri ulaz polje - ako postoji i nije 0, ima ulaz
               return (a.ulaz !== undefined && a.ulaz !== null && a.ulaz !== 0);
-            });
+            }));
             
             // Odredi stil na osnovu flagova - koristi flag imaUlaz ili stvarni ulaz
             let containerStyle = obracunContainerStyle;
@@ -1842,7 +1842,7 @@ export default function ArhivaPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {item.artikli.map((a, i) => (
+                    {(item.artikli && Array.isArray(item.artikli) ? item.artikli : []).map((a, i) => (
                       <tr key={i}>
                         <td style={tdStyle}>{a.naziv}</td>
                         <td style={tdStyle}>{a.cijena?.toFixed(2) ?? "-"}</td>
@@ -1911,7 +1911,7 @@ export default function ArhivaPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {item.rashodi.map((r, i) => (
+                    {(item.rashodi && Array.isArray(item.rashodi) ? item.rashodi : []).map((r, i) => (
                       <tr key={i}>
                         <td style={tdStyle}>{r.naziv}</td>
                         <td style={tdStyle}>{r.cijena.toFixed(2)}</td>
@@ -1935,7 +1935,7 @@ export default function ArhivaPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {item.prihodi.map((p, i) => (
+                    {(item.prihodi && Array.isArray(item.prihodi) ? item.prihodi : []).map((p, i) => (
                       <tr key={i}>
                         <td style={tdStyle}>{p.naziv}</td>
                         <td style={tdStyle}>{p.cijena.toFixed(2)}</td>
