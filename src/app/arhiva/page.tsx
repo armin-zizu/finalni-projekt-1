@@ -1687,7 +1687,7 @@ export default function ArhivaPage() {
                         e.currentTarget.style.background = "#8b5cf6";
                       }}
                     >
-                      📸 Pogledaj fakturu
+                      📸 Pregled fakture
                     </button>
                   ) : stvarnoImaUlaz ? (
                     <label
