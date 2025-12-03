@@ -325,12 +325,115 @@ export default function ObracunPage() {
   const [ulazCacheForDatum, setUlazCacheForDatum] = useState<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }>({});
   const [isCacheLoaded, setIsCacheLoaded] = useState<boolean>(false);
 
+  // Helper funkcija za provjeru da li je datum aktivan (nije prošao)
+  const isDatumAktivan = (datum: Date): boolean => {
+    const danas = new Date();
+    danas.setHours(0, 0, 0, 0);
+    const provjeraDatuma = new Date(datum);
+    provjeraDatuma.setHours(0, 0, 0, 0);
+    return provjeraDatuma.getTime() === danas.getTime();
+  };
+
+  // Funkcija za spremanje draft obračuna u Firestore
+  const saveDraftObracun = async (datumString: string, draftData: any) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
+      await setDoc(draftRef, {
+        ...draftData,
+        datum: datumString,
+        updatedAt: serverTimestamp(),
+        isDraft: true,
+      }, { merge: true });
+      console.log("💾 Draft obračun spremljen:", datumString);
+    } catch (error: any) {
+      console.warn("Greška pri spremanju draft obračuna:", error);
+    }
+  };
+
+  // Funkcija za učitavanje draft obračuna iz Firestore
+  const loadDraftObracun = async (datumString: string): Promise<any | null> => {
+    const user = auth.currentUser;
+    if (!user) return null;
+    
+    try {
+      const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
+      const draftDoc = await getDoc(draftRef);
+      if (draftDoc.exists()) {
+        const data = draftDoc.data();
+        console.log("📖 Draft obračun učitano:", datumString, data);
+        return data;
+      }
+    } catch (error: any) {
+      console.warn("Greška pri učitavanju draft obračuna:", error);
+    }
+    return null;
+  };
+
+  // Funkcija za automatsko spremanje draft obračuna kao finalni obračun
+  const autoSaveDraftAsFinal = async (datumString: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      const draftData = await loadDraftObracun(datumString);
+      if (draftData) {
+        // Spremi kao finalni obračun
+        const obracunRef = doc(db, "users", user.uid, "obracuni", datumString);
+        const { isDraft, updatedAt, ...finalData } = draftData;
+        await setDoc(obracunRef, {
+          ...finalData,
+          datum: datumString,
+          savedAt: serverTimestamp(),
+        }, { merge: true });
+        
+        // Obriši draft
+        const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
+        await setDoc(draftRef, { deleted: true }, { merge: true });
+        console.log("✅ Draft obračun automatski sačuvan kao finalni:", datumString);
+      }
+    } catch (error: any) {
+      console.warn("Greška pri automatskom spremanju draft obračuna:", error);
+    }
+  };
+
   useEffect(() => {
     const datumString = formatirajDatum(trenutniDatum);
+    const datumAktivan = isDatumAktivan(trenutniDatum);
     
     // PRVO učitaj cache za taj datum
     const loadCacheFirst = async () => {
       setIsCacheLoaded(false);
+      
+      // Ako datum nije aktivan, automatski sačuvaj draft obračun kao finalni
+      if (!datumAktivan) {
+        await autoSaveDraftAsFinal(datumString);
+      }
+      
+      // Učitaj draft obračun ako je datum aktivan
+      let draftObracun = null;
+      if (datumAktivan) {
+        draftObracun = await loadDraftObracun(datumString);
+        if (draftObracun) {
+          console.log("📖 Draft obračun učitano za aktivan datum:", draftObracun);
+          // Učitaj podatke iz draft obračuna
+          if (draftObracun.artikli) {
+            setArtikli(draftObracun.artikli);
+          }
+          if (draftObracun.rashodi) {
+            setRashodi(draftObracun.rashodi);
+          }
+          if (draftObracun.prihodi) {
+            setPrihodi(draftObracun.prihodi);
+          }
+          if (draftObracun.isAzuriran) {
+            setIsAzuriran(draftObracun.isAzuriran);
+          }
+        }
+      }
+      
       const cache = await loadUlazCacheFromFirestore(datumString);
       console.log("🔵 Cache učitano za datum:", datumString, cache);
       setUlazCacheForDatum(cache);
@@ -993,6 +1096,29 @@ export default function ObracunPage() {
     setHasUlazInCache(true);
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
+    
+    // Spremi draft obračun u Firestore (samo ako je datum aktivan)
+    if (isDatumAktivan(trenutniDatum)) {
+      const ukupnoArtikli = updated.reduce((sum, a) => sum + a.vrijednostKM, 0);
+      const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+      const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+      const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+      
+      const draftData = {
+        datum: datumString,
+        ukupnoArtikli,
+        ukupnoRashod,
+        ukupnoPrihod,
+        neto,
+        artikli: updated,
+        rashodi,
+        prihodi,
+        isAzuriran: true,
+        imaUlaz: true,
+      };
+      
+      await saveDraftObracun(datumString, draftData);
+    }
     
     alert("Obračun ažuriran! Početno stanje artikala je ažurirano.");
   };
