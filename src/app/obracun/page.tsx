@@ -546,6 +546,13 @@ export default function ObracunPage() {
       setArtikli(inicijalniArtikli);
       setIsAzuriran(false);
       setResetKey(0);
+      // Ako postoji ulaz u cache-u, zaključaj ulaze
+      if (Object.keys(ulazCache).some(naziv => ulazCache[naziv] && ulazCache[naziv].ulaz !== 0)) {
+        setIsUlazLocked(true);
+        console.log("🔒 Ulazi zaključani jer postoji ulaz u cache-u");
+      } else {
+        setIsUlazLocked(false);
+      }
       return;
     }
     
