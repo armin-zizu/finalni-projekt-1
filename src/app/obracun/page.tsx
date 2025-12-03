@@ -585,7 +585,7 @@ export default function ObracunPage() {
         };
       });
       
-      console.log("🟢 Inicijalni artikli kreirani:", inicijalniArtikli.map(a => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, staroPocetnoStanje: a.staroPocetnoStanje })));
+      console.log("🟢 Inicijalni artikli kreirani:", inicijalniArtikli.map(a => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, ulaz: a.ulaz })));
       setArtikli(inicijalniArtikli);
       setIsAzuriran(false);
       setResetKey(0);
