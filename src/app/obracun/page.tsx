@@ -956,6 +956,9 @@ export default function ObracunPage() {
       };
     });
     
+    // Povećaj reset key PRIJE nego što se artikli ažuriraju da se input polja odmah resetiraju
+    setResetKey((prev) => prev + 1);
+    
     setArtikli(updated);
     
     // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
@@ -975,16 +978,13 @@ export default function ObracunPage() {
     
     await saveUlazCacheToFirestore(datumString, ulazCache2);
     
+    // Ažuriraj lokalni state cache-a da se odmah koristi
+    setUlazCacheForDatum(ulazCache2);
+    
     // Postavi flag da postoji ulaz u cache-u (za prikaz gumba za slike)
     setHasUlazInCache(true);
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
-    
-    // Povećaj reset key da se input polja potpuno resetiraju (isto kao u handleSaveObracun)
-    // Koristimo setTimeout da se osigura da se React stigne ažurirati prije nego što se prikaže alert
-    setTimeout(() => {
-      setResetKey((prev) => prev + 1);
-    }, 0);
     
     alert("Obračun ažuriran! Početno stanje artikala je ažurirano.");
   };
