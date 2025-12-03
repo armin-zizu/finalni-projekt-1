@@ -1017,7 +1017,11 @@ export default function ObracunPage() {
 
   // Funkcija za upload slika faktura
   const uploadInvoiceImages = async (datumString: string): Promise<string[]> => {
-    if (invoiceImages.length === 0) return [];
+    // Ako nema slika, odmah vrati prazan array bez pozivanja Firebase API-ja
+    if (invoiceImages.length === 0) {
+      console.log("Nema slika za upload, preskačem");
+      return [];
+    }
     
     const user = auth.currentUser;
     if (!user) {
@@ -1027,10 +1031,16 @@ export default function ObracunPage() {
     const userId = user.uid;
     
     // Čekaj da se korisnik potpuno autentifikuje i refresh token
+    // Ovo se poziva samo ako ima slika za upload
     try {
       await user.getIdToken(true); // Refresh token
       console.log("Korisnik autentifikovan:", userId);
-    } catch (authError) {
+    } catch (authError: any) {
+      // Ako je greška network-related, ne bacaj grešku ako nema slika
+      if (authError?.code === 'auth/network-request-failed' && invoiceImages.length === 0) {
+        console.warn("Network greška, ali nema slika za upload, preskačem");
+        return [];
+      }
       console.error("Greška pri autentifikaciji:", authError);
       throw new Error("Greška pri autentifikaciji. Molimo prijavite se ponovo.");
     }
@@ -1670,6 +1680,12 @@ export default function ObracunPage() {
                       
                       if (!user || !userId) {
                         alert("Korisnik nije autentifikovan");
+                        return;
+                      }
+                      
+                      // Provjeri da li ima slika prije nego što pokušaš upload
+                      if (invoiceImages.length === 0) {
+                        alert("Nema slika za upload!");
                         return;
                       }
                       
