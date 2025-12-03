@@ -648,6 +648,17 @@ export default function ObracunPage() {
           return artikal;
         });
         console.log("🟢 Ažurirani artikli:", updated.map(a => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, ulaz: a.ulaz })));
+        
+        // Ako postoji ulaz u cache-u, zaključaj ulaze
+        const imaUlazUCache = Object.keys(ulazCache).some(naziv => {
+          const cached = ulazCache[naziv];
+          return cached && cached.ulaz !== 0;
+        });
+        if (imaUlazUCache) {
+          setIsUlazLocked(true);
+          console.log("🔒 Ulazi zaključani jer postoji ulaz u cache-u (ažuriranje postojećih artikala)");
+        }
+        
         return updated;
       });
     };
