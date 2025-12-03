@@ -349,8 +349,12 @@ export default function ObracunPage() {
           } else {
             setSavedInvoiceImagesCount(0);
           }
-        } catch (error) {
-          console.warn("Greška pri učitavanju broja sačuvanih slika:", error);
+        } catch (error: any) {
+          // Ignoriraj greške sa dozvolama za cache kolekciju (nije kritična)
+          const errorCode = error?.code || "";
+          if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+            console.warn("Greška pri učitavanju broja sačuvanih slika:", error);
+          }
           setSavedInvoiceImagesCount(0);
         }
       }
@@ -632,14 +636,35 @@ export default function ObracunPage() {
     return {};
   };
 
+  // Helper funkcija za uklanjanje undefined vrijednosti iz objekta
+  const removeUndefined = (obj: any): any => {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) {
+      return obj.map(removeUndefined);
+    }
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+          cleaned[key] = removeUndefined(obj[key]);
+        }
+      }
+      return cleaned;
+    }
+    return obj;
+  };
+
   const saveUlazCacheToFirestore = async (datumString: string, ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }) => {
     const user = auth.currentUser;
     if (!user) return;
     
     try {
+      // Očisti undefined vrijednosti prije spremanja
+      const cleanedCache = removeUndefined(ulazCache);
+      
       const ulazCacheRef = doc(db, "users", user.uid, "ulazCache", datumString);
       await setDoc(ulazCacheRef, {
-        cache: ulazCache,
+        cache: cleanedCache,
         datum: datumString,
         updatedAt: serverTimestamp(),
       }, { merge: true });
