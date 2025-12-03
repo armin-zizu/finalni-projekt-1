@@ -356,21 +356,22 @@ export default function ObracunPage() {
               sačuvanUlaz: undefined,
             };
           } else {
-            // Ako je ulaz 0 (već je ažuriran), koristi staroPocetnoStanje kao početno stanje za prikaz
-            // Ovo osigurava da se zagrade prikazuju pravilno
+            // Ako je ulaz 0 (već je ažuriran), koristi novo početno stanje iz cjenovnika za prikaz
+            // i staroPocetnoStanje iz cache-a za zagrade
+            // Ovo osigurava da se zagrade prikazuju pravilno: novo (staro)
             return {
               naziv: item.naziv,
               cijena: item.cijena,
-              pocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje za prikaz
+              pocetnoStanje: pocetnoStanje, // Koristi novo početno stanje iz cjenovnika (ažurirano)
               ulaz: 0,
-              ukupno: cached.staroPocetnoStanje, // Ukupno = staro početno stanje (jer je ulaz 0)
+              ukupno: pocetnoStanje, // Ukupno = novo početno stanje (jer je ulaz 0)
               utroseno: 0,
               krajnjeStanje: 0,
               vrijednostKM: 0,
               zestokoKolicina: item.zestokoKolicina,
               proizvodnaCijena: item.proizvodnaCijena,
               isKrajnjeSet: false,
-              staroPocetnoStanje: cached.staroPocetnoStanje,
+              staroPocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje iz cache-a za zagrade
               sačuvanUlaz: undefined,
             };
           }
@@ -556,13 +557,15 @@ export default function ObracunPage() {
                   staroPocetnoStanje: cached.staroPocetnoStanje,
                 };
               } else {
-                // Ako je ulaz 0 (već je ažuriran), koristi staroPocetnoStanje kao početno stanje za prikaz
-                // Ovo osigurava da se zagrade prikazuju pravilno
+                // Ako je ulaz 0 (već je ažuriran), koristi novo početno stanje iz cjenovnika za prikaz
+                // i staroPocetnoStanje iz cache-a za zagrade
+                // Ovo osigurava da se zagrade prikazuju pravilno: novo (staro)
+                // Ne mijenjaj pocetnoStanje iz cjenovnika, samo postavi staroPocetnoStanje iz cache-a
                 return {
                   ...a,
-                  pocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje za prikaz
-                  ukupno: cached.staroPocetnoStanje, // Ukupno = staro početno stanje (jer je ulaz 0)
-                  staroPocetnoStanje: cached.staroPocetnoStanje,
+                  // pocetnoStanje ostaje iz cjenovnika (ažurirano)
+                  // ukupno ostaje iz cjenovnika (ažurirano)
+                  staroPocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje iz cache-a za zagrade
                 };
               }
             }
