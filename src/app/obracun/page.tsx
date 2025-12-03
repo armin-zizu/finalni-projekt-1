@@ -359,6 +359,8 @@ export default function ObracunPage() {
             // Ako je ulaz 0 (već je ažuriran), koristi novo početno stanje iz cjenovnika za prikaz
             // i staroPocetnoStanje iz cache-a za zagrade
             // Ovo osigurava da se zagrade prikazuju pravilno: novo (staro)
+            // Učitaj sačuvanUlaz iz cache-a ako postoji
+            const sačuvanUlaz = cached.sačuvanUlaz ?? (pocetnoStanje - cached.staroPocetnoStanje > 0 ? pocetnoStanje - cached.staroPocetnoStanje : undefined);
             return {
               naziv: item.naziv,
               cijena: item.cijena,
@@ -372,7 +374,7 @@ export default function ObracunPage() {
               proizvodnaCijena: item.proizvodnaCijena,
               isKrajnjeSet: false,
               staroPocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje iz cache-a za zagrade
-              sačuvanUlaz: undefined,
+              sačuvanUlaz: sačuvanUlaz, // Učitaj sačuvanUlaz iz cache-a za prikaz u arhivi
             };
           }
         }
@@ -472,33 +474,53 @@ export default function ObracunPage() {
     
     // Ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, početno stanje, itd.)
     // VAŽNO: Zadrži ulaz, staroPocetnoStanje i sačuvanUlaz ako postoje
-    setArtikli(prev => prev.map(artikal => {
-      const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
-      if (cjenovnikItem) {
-        // Ažuriraj cijenu i početno stanje iz cjenovnika
-        const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
-        return {
-          ...artikal,
-          cijena: cjenovnikItem.cijena,
-          pocetnoStanje: pocetnoStanje,
-          zestokoKolicina: cjenovnikItem.zestokoKolicina,
-          proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
-          // VAŽNO: Eksplicitno zadrži ulaz iz trenutnog state-a
-          ulaz: artikal.ulaz,
-          // Ažuriraj ukupno na osnovu novog početnog stanja i postojećeg ulaza
-          ukupno: artikal.ulaz !== 0 ? pocetnoStanje + artikal.ulaz : pocetnoStanje,
-          // Zadrži staroPocetnoStanje i sačuvanUlaz ako postoje
-          staroPocetnoStanje: artikal.staroPocetnoStanje,
-          sačuvanUlaz: artikal.sačuvanUlaz,
-          // Zadrži i ostala polja koja su možda postavljena
-          utroseno: artikal.utroseno,
-          krajnjeStanje: artikal.krajnjeStanje,
-          vrijednostKM: artikal.vrijednostKM,
-          isKrajnjeSet: artikal.isKrajnjeSet,
-        };
-      }
-      return artikal;
-    }));
+    // Također provjeri cache i učitaj sačuvanUlaz ako postoji
+    const loadCacheForUpdate = async () => {
+      const ulazCache = await loadUlazCacheFromFirestore(datumString);
+      setArtikli(prev => prev.map(artikal => {
+        const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
+        if (cjenovnikItem) {
+          // Ažuriraj cijenu i početno stanje iz cjenovnika
+          const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
+          const cached = ulazCache[artikal.naziv];
+          
+          // Ako postoji cache sa staroPocetnoStanje i ulaz === 0, učitaj sačuvanUlaz iz cache-a
+          let sačuvanUlaz = artikal.sačuvanUlaz;
+          if (!sačuvanUlaz && cached && cached.staroPocetnoStanje !== undefined && cached.ulaz === 0) {
+            sačuvanUlaz = cached.sačuvanUlaz ?? (pocetnoStanje - cached.staroPocetnoStanje > 0 ? pocetnoStanje - cached.staroPocetnoStanje : undefined);
+          }
+          
+          // Ako postoji cache sa staroPocetnoStanje, koristi ga
+          let staroPocetnoStanje = artikal.staroPocetnoStanje;
+          if (!staroPocetnoStanje && cached && cached.staroPocetnoStanje !== undefined) {
+            staroPocetnoStanje = cached.staroPocetnoStanje;
+          }
+          
+          return {
+            ...artikal,
+            cijena: cjenovnikItem.cijena,
+            pocetnoStanje: pocetnoStanje,
+            zestokoKolicina: cjenovnikItem.zestokoKolicina,
+            proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
+            // VAŽNO: Eksplicitno zadrži ulaz iz trenutnog state-a
+            ulaz: artikal.ulaz,
+            // Ažuriraj ukupno na osnovu novog početnog stanja i postojećeg ulaza
+            ukupno: artikal.ulaz !== 0 ? pocetnoStanje + artikal.ulaz : pocetnoStanje,
+            // Zadrži staroPocetnoStanje i sačuvanUlaz ako postoje (ili učitaj iz cache-a)
+            staroPocetnoStanje: staroPocetnoStanje,
+            sačuvanUlaz: sačuvanUlaz,
+            // Zadrži i ostala polja koja su možda postavljena
+            utroseno: artikal.utroseno,
+            krajnjeStanje: artikal.krajnjeStanje,
+            vrijednostKM: artikal.vrijednostKM,
+            isKrajnjeSet: artikal.isKrajnjeSet,
+          };
+        }
+        return artikal;
+      }));
+    };
+    
+    loadCacheForUpdate();
     };
     
     loadCacheAndInit();
@@ -561,11 +583,14 @@ export default function ObracunPage() {
                 // i staroPocetnoStanje iz cache-a za zagrade
                 // Ovo osigurava da se zagrade prikazuju pravilno: novo (staro)
                 // Ne mijenjaj pocetnoStanje iz cjenovnika, samo postavi staroPocetnoStanje iz cache-a
+                // Učitaj sačuvanUlaz iz cache-a ako postoji
+                const sačuvanUlaz = cached.sačuvanUlaz ?? (a.pocetnoStanje - cached.staroPocetnoStanje > 0 ? a.pocetnoStanje - cached.staroPocetnoStanje : undefined);
                 return {
                   ...a,
                   // pocetnoStanje ostaje iz cjenovnika (ažurirano)
                   // ukupno ostaje iz cjenovnika (ažurirano)
                   staroPocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje iz cache-a za zagrade
+                  sačuvanUlaz: sačuvanUlaz, // Učitaj sačuvanUlaz iz cache-a za prikaz u arhivi
                 };
               }
             }
@@ -586,7 +611,7 @@ export default function ObracunPage() {
   };
 
   // Helper funkcije za ulaz cache u Firestore (umjesto localStorage)
-  const loadUlazCacheFromFirestore = async (datumString: string): Promise<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number } }> => {
+  const loadUlazCacheFromFirestore = async (datumString: string): Promise<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }> => {
     const user = auth.currentUser;
     if (!user) return {};
     
@@ -606,7 +631,7 @@ export default function ObracunPage() {
     return {};
   };
 
-  const saveUlazCacheToFirestore = async (datumString: string, ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } }) => {
+  const saveUlazCacheToFirestore = async (datumString: string, ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }) => {
     const user = auth.currentUser;
     if (!user) return;
     
@@ -686,7 +711,7 @@ export default function ObracunPage() {
       const saveCacheAsync = async () => {
         try {
           const existingCache = await loadUlazCacheFromFirestore(datumString);
-          let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = existingCache;
+          let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = existingCache;
           
           // Ažuriraj cache sa novim podacima
           updated.forEach((a) => {
@@ -694,6 +719,7 @@ export default function ObracunPage() {
               ulazCache[a.naziv] = {
                 ulaz: a.ulaz,
                 staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
+                sačuvanUlaz: a.sačuvanUlaz, // Sačuvaj sačuvanUlaz ako postoji
               };
             }
           });
@@ -827,7 +853,7 @@ export default function ObracunPage() {
 
     // Učitaj postojeći cache iz Firestore da ne izgubimo podatke
     const existingCache = await loadUlazCacheFromFirestore(datumString);
-    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = existingCache;
+    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = existingCache;
     
     // Ažuriraj cache sa novim podacima - SAČUVAJ ulaz prije nego što se resetira
     artikli.forEach((a) => {
@@ -838,11 +864,13 @@ export default function ObracunPage() {
           staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
         };
       } else if (a.staroPocetnoStanje !== undefined) {
-        // Ako nema ulaz ali ima staroPocetnoStanje (već je ažuriran), sačuvaj samo staroPocetnoStanje
+        // Ako nema ulaz ali ima staroPocetnoStanje (već je ažuriran), sačuvaj staroPocetnoStanje i sačuvanUlaz
         // Postavi ulaz na 0 da znamo da je već ažuriran
+        const sačuvanUlaz = a.sačuvanUlaz ?? (a.pocetnoStanje - a.staroPocetnoStanje);
         ulazCache[a.naziv] = {
           ulaz: 0,
           staroPocetnoStanje: a.staroPocetnoStanje,
+          sačuvanUlaz: sačuvanUlaz > 0 ? sačuvanUlaz : undefined, // Sačuvaj ulaz za prikaz u arhivi
         };
       }
     });
@@ -902,14 +930,15 @@ export default function ObracunPage() {
     
     // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
     const existingCache2 = await loadUlazCacheFromFirestore(datumString);
-    let ulazCache2: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = existingCache2;
+    let ulazCache2: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = existingCache2;
     
-    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
+    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje i sačuvanUlaz trebaju ostati)
     updated.forEach((a) => {
       if (a.staroPocetnoStanje !== undefined) {
         ulazCache2[a.naziv] = {
           ulaz: 0, // Ulaz je sada 0 jer je ažuriran
           staroPocetnoStanje: a.staroPocetnoStanje,
+          sačuvanUlaz: a.sačuvanUlaz, // Sačuvaj sačuvanUlaz za prikaz u arhivi
         };
       }
     });
