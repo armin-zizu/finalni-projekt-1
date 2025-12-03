@@ -229,27 +229,27 @@ export default function ArhivaPage() {
       // Provjeri da li artikli postoje prije nego što pozoveš .map()
       const transformedArtikli = (obracun.artikli && Array.isArray(obracun.artikli)) 
         ? obracun.artikli.map((artikal) => {
-        // Ako postoji staroPocetnoStanje i razlikuje se od pocetnoStanje, to znači da je bio ulaz
-        if (
-          artikal.staroPocetnoStanje !== undefined &&
-          artikal.pocetnoStanje !== undefined &&
-          artikal.staroPocetnoStanje !== artikal.pocetnoStanje
-        ) {
-          const staroStanje = artikal.staroPocetnoStanje;
-          const novoStanje = artikal.pocetnoStanje;
-          const ulaz = novoStanje - staroStanje;
-          
-          imaUlaz = true; // Postavi flag da obračun ima ulaz
-          
-          return {
-            ...artikal,
-            pocetnoStanje: staroStanje, // Postavi staro stanje kao početno
-            ulaz: ulaz, // Postavi ulaz kao razliku
-            staroPocetnoStanje: undefined, // Ukloni staroPocetnoStanje jer je sada u pocetnoStanje
-          };
-        }
-        return artikal;
-      })
+          // Ako postoji staroPocetnoStanje i razlikuje se od pocetnoStanje, to znači da je bio ulaz
+          if (
+            artikal.staroPocetnoStanje !== undefined &&
+            artikal.pocetnoStanje !== undefined &&
+            artikal.staroPocetnoStanje !== artikal.pocetnoStanje
+          ) {
+            const staroStanje = artikal.staroPocetnoStanje;
+            const novoStanje = artikal.pocetnoStanje;
+            const ulaz = novoStanje - staroStanje;
+            
+            imaUlaz = true; // Postavi flag da obračun ima ulaz
+            
+            return {
+              ...artikal,
+              pocetnoStanje: staroStanje, // Postavi staro stanje kao početno
+              ulaz: ulaz, // Postavi ulaz kao razliku
+              staroPocetnoStanje: undefined, // Ukloni staroPocetnoStanje jer je sada u pocetnoStanje
+            };
+          }
+          return artikal;
+        })
         : []; // Ako artikli ne postoje, koristi prazan array
       
       return {

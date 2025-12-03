@@ -211,7 +211,7 @@ export default function DashboardPage() {
     });
 
   // Dobivanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive
-  const artikliIzArhive = [...new Set(arhiva.flatMap((o) => o.artikli.map((a) => a.naziv)))];
+  const artikliIzArhive = [...new Set(arhiva.flatMap((o) => (o.artikli && Array.isArray(o.artikli)) ? o.artikli.map((a) => a.naziv) : []))];
   const artikliIzCjenovnika = cjenovnik.map((item) => item.naziv);
   // Kombiniraj i ukloni duplikate - prioritet artiklima iz cjenovnika
   const allArtikli = [...new Set([...artikliIzCjenovnika, ...artikliIzArhive])].sort();
