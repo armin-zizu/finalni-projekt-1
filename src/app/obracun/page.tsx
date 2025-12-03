@@ -335,46 +335,136 @@ export default function ObracunPage() {
     return provjeraDatuma.getTime() === danas.getTime();
   };
 
+  // Funkcija za uklanjanje undefined vrijednosti
+  const removeUndefined = (obj: any): any => {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(removeUndefined);
+    }
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+          cleaned[key] = removeUndefined(obj[key]);
+        }
+      }
+      return cleaned;
+    }
+    return obj;
+  };
+
   // Funkcija za spremanje draft obračuna u Firestore
-  const saveDraftObracun = async (datumString: string, draftData: any) => {
+  const saveDraftObracun = async (datumString: string) => {
     const user = auth.currentUser;
     if (!user) return;
     
     try {
-      // Očisti undefined vrijednosti prije spremanja (uključujući artikli array)
-      const cleanedData = removeUndefined(draftData);
+      const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+      const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+      const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+      const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
       
-      // Dodatno očisti artikli array ako postoji
-      if (cleanedData.artikli && Array.isArray(cleanedData.artikli)) {
-        cleanedData.artikli = cleanedData.artikli.map((a: any) => {
-          const cleaned: any = {};
-          Object.keys(a).forEach(key => {
-            const value = a[key];
-            if (value !== undefined && value !== null) {
-              cleaned[key] = value;
-            }
-          });
-          return cleaned;
-        });
+      // Provjeri da li obračun ima ulaz
+      const imaUlaz = artikli.some((a) => a.ulaz !== 0);
+      
+      // Upload slika faktura ako postoje nove slike (File objekti)
+      let invoiceImageUrls: string[] = [];
+      if (invoiceImages.length > 0) {
+        try {
+          invoiceImageUrls = await uploadInvoiceImages(datumString);
+        } catch (error) {
+          console.warn("Greška pri upload-u slika u draft obračun:", error);
+          // Nastavi bez slika
+        }
       }
       
-      const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
-      await setDoc(draftRef, {
-        ...cleanedData,
+      // Učitaj postojeće slike iz draft-a (ako već postoje)
+      let existingInvoiceImages: string[] = [];
+      try {
+        const draftRefCheck = doc(db, "users", user.uid, "draftObracuni", datumString);
+        const draftDoc = await getDoc(draftRefCheck);
+        if (draftDoc.exists()) {
+          const existingData = draftDoc.data();
+          existingInvoiceImages = existingData.invoiceImages || [];
+        }
+      } catch (error) {
+        // Ignoriraj greške
+      }
+      
+      // Kombiniraj postojeće slike sa novim
+      const allInvoiceImages = [...existingInvoiceImages, ...invoiceImageUrls];
+      
+      const draftData = {
         datum: datumString,
-        updatedAt: serverTimestamp(),
+        artikli: artikli,
+        rashodi: rashodi,
+        prihodi: prihodi,
+        ukupnoArtikli: ukupnoArtikli,
+        ukupnoRashod: ukupnoRashod,
+        ukupnoPrihod: ukupnoPrihod,
+        neto: neto,
+        imaUlaz: imaUlaz,
+        isAzuriran: true,
+        invoiceImages: allInvoiceImages,
+        savedInvoiceImagesCount: allInvoiceImages.length,
         isDraft: true,
-      }, { merge: true });
-      console.log("💾 Draft obračun spremljen:", datumString, cleanedData);
+        updatedAt: serverTimestamp(),
+      };
+      
+      const cleanDraftData = removeUndefined(draftData);
+      
+      const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
+      await setDoc(draftRef, cleanDraftData);
+      console.log("💾 Draft obračun spremljen:", datumString);
+      
+      // Resetuj invoiceImages nakon upload-a
+      if (invoiceImageUrls.length > 0) {
+        setInvoiceImages([]);
+        setSavedInvoiceImagesCount(allInvoiceImages.length);
+      }
     } catch (error: any) {
       const errorCode = error?.code || "";
-      // Ignoriraj greške sa dozvolama (možda nisu postavljena pravila)
       if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
         console.warn("Greška pri spremanju draft obračuna:", error);
-        // Loguj detalje greške za debugging
-        if (error.message) {
-          console.warn("Detalji greške:", error.message);
+      }
+    }
+  };
+
+  // Funkcija za brisanje starih draft-ova (starijih od 24h)
+  const deleteOldDrafts = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      const draftCollection = collection(db, "users", user.uid, "draftObracuni");
+      const snapshot = await getDocs(draftCollection);
+      const now = new Date();
+      
+      snapshot.docs.forEach(async (docSnapshot) => {
+        const data = docSnapshot.data();
+        if (data.deleted) {
+          // Obriši obrisane draft-ove
+          await deleteDoc(docSnapshot.ref);
+          return;
         }
+        
+        const updatedAt = data.updatedAt;
+        if (updatedAt) {
+          const updatedAtDate = updatedAt.toDate ? updatedAt.toDate() : new Date(updatedAt);
+          const diffInHours = (now.getTime() - updatedAtDate.getTime()) / (1000 * 60 * 60);
+          
+          if (diffInHours > 24) {
+            console.log("🗑️ Brisanje starih draft-ova:", docSnapshot.id);
+            await deleteDoc(docSnapshot.ref);
+          }
+        }
+      });
+    } catch (error: any) {
+      const errorCode = error?.code || "";
+      if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+        console.warn("Greška pri brisanju starih draft-ova:", error);
       }
     }
   };
@@ -391,6 +481,22 @@ export default function ObracunPage() {
         const data = draftDoc.data();
         // Provjeri da li je draft obrisan
         if (data.deleted) return null;
+        
+        // Provjeri starost draft-a (24h)
+        const updatedAt = data.updatedAt;
+        if (updatedAt) {
+          const updatedAtDate = updatedAt.toDate ? updatedAt.toDate() : new Date(updatedAt);
+          const now = new Date();
+          const diffInHours = (now.getTime() - updatedAtDate.getTime()) / (1000 * 60 * 60);
+          
+          if (diffInHours > 24) {
+            // Draft je stariji od 24h, obriši ga
+            console.log("🗑️ Draft obračun stariji od 24h, brišem:", datumString);
+            await deleteDoc(draftRef);
+            return null;
+          }
+        }
+        
         console.log("📖 Draft obračun učitano:", datumString, data);
         return data;
       }
@@ -438,6 +544,33 @@ export default function ObracunPage() {
     // PRVO učitaj cache za taj datum
     const loadCacheFirst = async () => {
       setIsCacheLoaded(false);
+      
+      // Obriši stare draft-ove (starije od 24h)
+      await deleteOldDrafts();
+      
+      // Provjeri da li postoji draft obračun za ovaj datum
+      const draftData = await loadDraftObracun(datumString);
+      if (draftData) {
+        // Ako postoji draft, učitaj podatke iz draft-a
+        console.log("📖 Učitavam draft obračun:", datumString);
+        setArtikli(draftData.artikli || []);
+        setRashodi(draftData.rashodi || []);
+        setPrihodi(draftData.prihodi || []);
+        setIsAzuriran(draftData.isAzuriran || false);
+        setIsUlazLocked(true); // Zaključaj ulaze jer je draft ažuriran
+        setHasUlazInCache(draftData.imaUlaz || false);
+        
+        // Učitaj slike faktura (ako postoje URL-ovi u draft-u)
+        if (draftData.invoiceImages && Array.isArray(draftData.invoiceImages) && draftData.invoiceImages.length > 0) {
+          // Ako su URL-ovi (stringovi), koristi ih direktno
+          // Ne možemo spremiti File objekte u Firestore, samo URL-ove
+          setSavedInvoiceImagesCount(draftData.savedInvoiceImagesCount || draftData.invoiceImages.length);
+        }
+        
+        setIsCacheLoaded(true);
+        console.log("🟢 Draft obračun učitan, isCacheLoaded = true");
+        return; // Ne nastavljaj dalje, draft je učitan
+      }
       
       // Učitaj ulaz cache za taj datum
       const cache = await loadUlazCacheFromFirestore(datumString);
@@ -704,23 +837,7 @@ export default function ObracunPage() {
     return {};
   };
 
-  // Helper funkcija za uklanjanje undefined vrijednosti iz objekta
-  const removeUndefined = (obj: any): any => {
-    if (obj === null || obj === undefined) return obj;
-    if (Array.isArray(obj)) {
-      return obj.map(removeUndefined);
-    }
-    if (typeof obj === 'object') {
-      const cleaned: any = {};
-      for (const key in obj) {
-        if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
-          cleaned[key] = removeUndefined(obj[key]);
-        }
-      }
-      return cleaned;
-    }
-    return obj;
-  };
+  // Helper funkcija za uklanjanje undefined vrijednosti iz objekta (već postoji gore)
 
   const saveUlazCacheToFirestore = async (datumString: string, ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }) => {
     const user = auth.currentUser;
@@ -1008,6 +1125,9 @@ export default function ObracunPage() {
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
     setIsUlazLocked(true); // Zaključaj ulaze nakon ažuriranja
+    
+    // Spremi draft obračun u Firestore
+    await saveDraftObracun(datumString);
     
     alert("Ulaz je sačuvan i zaključan! Kliknite 'Uredi' ako želite promijeniti vrijednosti.");
   };
@@ -1368,6 +1488,17 @@ export default function ObracunPage() {
         })
       );
       
+      // Obriši draft obračun jer je sada sačuvan u arhivi
+      if (userId) {
+        try {
+          const draftRef = doc(db, "users", userId, "draftObracuni", datumString);
+          await deleteDoc(draftRef);
+          console.log("🗑️ Draft obračun obrisan za datum:", datumString);
+        } catch (error) {
+          console.warn("Greška pri brisanju draft obračuna:", error);
+        }
+      }
+
       // Obriši ulaz cache za ovaj datum jer je obračun sačuvan
       // Za naredni dan, vrijednosti iz ulaza se postavljaju na nulu
       if (userId) {
