@@ -340,16 +340,23 @@ export default function ObracunPage() {
     if (!user) return;
     
     try {
+      // Očisti undefined vrijednosti prije spremanja
+      const cleanedData = removeUndefined(draftData);
+      
       const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
       await setDoc(draftRef, {
-        ...draftData,
+        ...cleanedData,
         datum: datumString,
         updatedAt: serverTimestamp(),
         isDraft: true,
       }, { merge: true });
       console.log("💾 Draft obračun spremljen:", datumString);
     } catch (error: any) {
-      console.warn("Greška pri spremanju draft obračuna:", error);
+      const errorCode = error?.code || "";
+      // Ignoriraj greške sa dozvolama (možda nisu postavljena pravila)
+      if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+        console.warn("Greška pri spremanju draft obračuna:", error);
+      }
     }
   };
 
@@ -363,11 +370,17 @@ export default function ObracunPage() {
       const draftDoc = await getDoc(draftRef);
       if (draftDoc.exists()) {
         const data = draftDoc.data();
+        // Provjeri da li je draft obrisan
+        if (data.deleted) return null;
         console.log("📖 Draft obračun učitano:", datumString, data);
         return data;
       }
     } catch (error: any) {
-      console.warn("Greška pri učitavanju draft obračuna:", error);
+      const errorCode = error?.code || "";
+      // Ignoriraj greške sa dozvolama (možda nisu postavljena pravila)
+      if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+        console.warn("Greška pri učitavanju draft obračuna:", error);
+      }
     }
     return null;
   };
