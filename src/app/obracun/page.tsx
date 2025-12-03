@@ -742,6 +742,34 @@ export default function ObracunPage() {
     loadCacheAndInit();
   }, [cjenovnik, trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
 
+  // Funkcija za automatsko spremanje draft obračuna kada se promijene podaci
+  const autoSaveDraft = useCallback(async () => {
+    if (!isDatumAktivan(trenutniDatum)) return; // Spremi samo za aktivan datum
+    
+    const datumString = formatirajDatum(trenutniDatum);
+    const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+    const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+    const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+    const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+    
+    // Provjeri da li obračun ima ulaz
+    const imaUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
+    
+    const draftData = {
+      datum: datumString,
+      ukupnoArtikli,
+      ukupnoRashod,
+      ukupnoPrihod,
+      neto,
+      artikli,
+      rashodi,
+      prihodi,
+      isAzuriran,
+      imaUlaz: imaUlaz,
+    };
+    
+    await saveDraftObracun(datumString, draftData);
+  }, [artikli, rashodi, prihodi, isAzuriran, hasUlazInCache, trenutniDatum]);
 
   // Automatsko spremanje draft obračuna kada se promijene podaci (samo za aktivan datum)
   useEffect(() => {
@@ -824,35 +852,6 @@ export default function ObracunPage() {
         console.warn("Greška pri spremanju ulaz cache u Firestore:", error);
       }
     }
-  };
-
-  // Funkcija za automatsko spremanje draft obračuna kada se promijene podaci
-  const autoSaveDraft = async () => {
-    if (!isDatumAktivan(trenutniDatum)) return; // Spremi samo za aktivan datum
-    
-    const datumString = formatirajDatum(trenutniDatum);
-    const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
-    const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
-    const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
-    const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
-    
-    // Provjeri da li obračun ima ulaz
-    const imaUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
-    
-    const draftData = {
-      datum: datumString,
-      ukupnoArtikli,
-      ukupnoRashod,
-      ukupnoPrihod,
-      neto,
-      artikli,
-      rashodi,
-      prihodi,
-      isAzuriran,
-      imaUlaz: imaUlaz,
-    };
-    
-    await saveDraftObracun(datumString, draftData);
   };
 
   // Funkcija za promjenu datuma
