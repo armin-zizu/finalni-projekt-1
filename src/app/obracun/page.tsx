@@ -721,8 +721,6 @@ export default function ObracunPage() {
   const handleDatumChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedDate = new Date(e.target.value);
     if (!isNaN(selectedDate.getTime())) {
-      // Spremi draft obračun za trenutni datum prije promjene
-      autoSaveDraft();
       setTrenutniDatum(selectedDate);
     }
   };
