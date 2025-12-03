@@ -6,7 +6,7 @@ import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
 import { auth } from "../../lib/firebase";
 import { db, storage } from "../../lib/firebase";
-import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp, onSnapshot, Timestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp, onSnapshot, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
 import { onAuthStateChanged } from "firebase/auth";
 
