@@ -1363,6 +1363,7 @@ export default function ObracunPage() {
       setEditRashodIndex(null);
       setEditPrihodIndex(null);
       setIsAzuriran(false); // Resetiraj flag nakon spremanja
+      setIsUlazLocked(false); // Otključaj ulaze za novi dan
       setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju
       
       // Eksplicitno resetiraj artikle na prazan niz da se useEffect pokrene i inicijalizira nove artikle
@@ -1535,12 +1536,22 @@ export default function ObracunPage() {
           style={dateInputStyle}
         />
         <button 
-          style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed" }} 
+          style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed" }} 
           onClick={handleAzurirajObracun}
-          disabled={!canEdit}
+          disabled={!canEdit || isUlazLocked}
         >
           Ažuriraj obračun
         </button>
+        {/* Gumb "Uredi" za otključavanje ulaza - prikazuje se samo ako su ulazi zaključani */}
+        {isUlazLocked && (
+          <button 
+            style={{ ...buttonStyle, background: "#6366f1", maxWidth: "160px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed" }} 
+            onClick={() => setIsUlazLocked(false)}
+            disabled={!canEdit}
+          >
+            Uredi ulaz
+          </button>
+        )}
         <button 
           style={{ ...saveButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed" }} 
           onClick={handleSaveObracun} 
@@ -1938,10 +1949,10 @@ export default function ObracunPage() {
                     value={a.ulaz === 0 ? "" : a.ulaz}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleUlazChange(index, Number(e.target.value) || 0)}
-                    style={{ ...inputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed" }}
+                    style={{ ...inputStyle, opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "text" : "not-allowed" }}
                     className="no-spin"
-                    disabled={!canEdit}
-                    readOnly={!canEdit}
+                    disabled={!canEdit || isUlazLocked}
+                    readOnly={!canEdit || isUlazLocked}
                   />
                 </td>
                 <td style={tdStyle} data-label="Ukupno">{a.ukupno}</td>
