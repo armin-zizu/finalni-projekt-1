@@ -1430,25 +1430,35 @@ export default function ObracunPage() {
 
       // Ažuriranje cjenovnika (početno stanje za sljedeći dan = krajnje stanje iz ovog dana)
       // VAŽNO: Ažuriraj cjenovnik PRIJE promjene datuma, da se novi datum učita sa ispravnim početnim stanjem
+      // Kada se sačuva obračun, ulaz se zbraja sa početnim stanjem i postaje novo početno stanje za sljedeći dan
       setCjenovnik((prev) =>
         prev.map((item) => {
           const artikal = artikli.find((a) => a.naziv === item.naziv);
           if (!artikal) return item;
           
-          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana (ili ukupno ako nije postavljeno krajnje)
-          // Ako je postavljeno krajnje stanje, koristi ga; inače koristi ukupno (početno + ulaz)
+          // Provjeri da li artikal ima ulaz (trenutni ili iz cache-a)
+          let ulazZaPrikaz = artikal.ulaz;
+          if (ulazZaPrikaz === 0 && ulazCache[artikal.naziv] && ulazCache[artikal.naziv].ulaz !== 0) {
+            ulazZaPrikaz = ulazCache[artikal.naziv].ulaz;
+          }
+          
+          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana (ili početno + ulaz ako nije postavljeno krajnje)
+          // Kada se sačuva obračun, ulaz se zbraja sa početnim stanjem i postaje novo početno stanje za sljedeći dan
           let novoPocetnoStanje: number;
           if (artikal.naziv.toLowerCase().includes("kafa")) {
             novoPocetnoStanje = 0; // Kafa se uvijek resetuje na 0
           } else if (artikal.isKrajnjeSet && artikal.krajnjeStanje > 0) {
             // Ako je postavljeno krajnje stanje, koristi ga
             novoPocetnoStanje = artikal.krajnjeStanje;
+          } else if (ulazZaPrikaz !== 0) {
+            // Ako ima ulaz, početno stanje za sljedeći dan = početno stanje + ulaz
+            novoPocetnoStanje = artikal.pocetnoStanje + ulazZaPrikaz;
           } else {
-            // Ako nije postavljeno krajnje stanje, koristi ukupno (početno + ulaz)
+            // Ako nema ulaz i nije postavljeno krajnje stanje, koristi ukupno
             novoPocetnoStanje = artikal.ukupno;
           }
           
-          console.log(`Ažuriranje cjenovnika za ${item.naziv}: ${item.pocetnoStanje} -> ${novoPocetnoStanje} (krajnje: ${artikal.krajnjeStanje}, ukupno: ${artikal.ukupno})`);
+          console.log(`Ažuriranje cjenovnika za ${item.naziv}: ${item.pocetnoStanje} -> ${novoPocetnoStanje} (ulaz: ${ulazZaPrikaz}, krajnje: ${artikal.krajnjeStanje}, ukupno: ${artikal.ukupno})`);
           
           return {
             ...item,
@@ -1456,6 +1466,20 @@ export default function ObracunPage() {
           };
         })
       );
+      
+      // Obriši ulaz cache za ovaj datum jer je obračun sačuvan
+      // Za naredni dan, vrijednosti iz ulaza se postavljaju na nulu
+      if (userId) {
+        try {
+          const cacheRef = doc(db, "users", userId, "ulazCache", datumString);
+          await deleteDoc(cacheRef);
+          setUlazCacheForDatum({});
+          setHasUlazInCache(false);
+          console.log("🗑️ Ulaz cache obrisan za datum:", datumString);
+        } catch (error) {
+          console.warn("Greška pri brisanju ulaz cache:", error);
+        }
+      }
 
       // Povećaj datum za jedan dan (prebacivanje na novi dan)
       const noviDatum = new Date(trenutniDatum);
