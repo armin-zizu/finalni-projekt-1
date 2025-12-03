@@ -550,49 +550,23 @@ export default function ObracunPage() {
         const cached = ulazCache[item.naziv];
         const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
         
-        // Ako postoji cache, učitaj ulaz i staro početno stanje
-        if (cached && cached.staroPocetnoStanje !== undefined) {
-          console.log(`🟢 Artikal ${item.naziv}: cache postoji, staroPocetnoStanje=${cached.staroPocetnoStanje}, ulaz=${cached.ulaz}, pocetnoStanje=${pocetnoStanje}`);
-          if (cached.ulaz !== 0) {
-            // Ako ima ulaz, učitaj ga
-            return {
-              naziv: item.naziv,
-              cijena: item.cijena,
-              pocetnoStanje: pocetnoStanje,
-              ulaz: cached.ulaz,
-              ukupno: pocetnoStanje + cached.ulaz,
-              utroseno: 0,
-              krajnjeStanje: 0,
-              vrijednostKM: 0,
-              zestokoKolicina: item.zestokoKolicina,
-              proizvodnaCijena: item.proizvodnaCijena,
-              isKrajnjeSet: false,
-              staroPocetnoStanje: cached.staroPocetnoStanje,
-              sačuvanUlaz: undefined,
-            };
-          } else {
-            // Ako je ulaz 0 (već je ažuriran), koristi novo početno stanje iz cjenovnika za prikaz
-            // i staroPocetnoStanje iz cache-a za zagrade
-            // Ovo osigurava da se zagrade prikazuju pravilno: novo (staro)
-            // Učitaj sačuvanUlaz iz cache-a ako postoji
-            const sačuvanUlaz = cached.sačuvanUlaz ?? (pocetnoStanje - cached.staroPocetnoStanje > 0 ? pocetnoStanje - cached.staroPocetnoStanje : undefined);
-            console.log(`🟡 Artikal ${item.naziv}: ažuriran, pocetnoStanje=${pocetnoStanje}, staroPocetnoStanje=${cached.staroPocetnoStanje}, sačuvanUlaz=${sačuvanUlaz}`);
-            return {
-              naziv: item.naziv,
-              cijena: item.cijena,
-              pocetnoStanje: pocetnoStanje, // Koristi novo početno stanje iz cjenovnika (ažurirano)
-              ulaz: 0,
-              ukupno: pocetnoStanje, // Ukupno = novo početno stanje (jer je ulaz 0)
-              utroseno: 0,
-              krajnjeStanje: 0,
-              vrijednostKM: 0,
-              zestokoKolicina: item.zestokoKolicina,
-              proizvodnaCijena: item.proizvodnaCijena,
-              isKrajnjeSet: false,
-              staroPocetnoStanje: cached.staroPocetnoStanje, // Koristi staro početno stanje iz cache-a za zagrade
-              sačuvanUlaz: sačuvanUlaz, // Učitaj sačuvanUlaz iz cache-a za prikaz u arhivi
-            };
-          }
+        // Ako postoji cache sa ulazom, učitaj ga (ulaz ostaje vidljiv sve dok se obračun ne sačuva)
+        if (cached && cached.ulaz !== 0) {
+          console.log(`🟢 Artikal ${item.naziv}: cache postoji, ulaz=${cached.ulaz}, pocetnoStanje=${pocetnoStanje}`);
+          // Učitaj ulaz iz cache-a - ostaje vidljiv sve dok se obračun ne sačuva
+          return {
+            naziv: item.naziv,
+            cijena: item.cijena,
+            pocetnoStanje: pocetnoStanje,
+            ulaz: cached.ulaz, // Učitaj ulaz iz cache-a
+            ukupno: pocetnoStanje + cached.ulaz,
+            utroseno: 0,
+            krajnjeStanje: 0,
+            vrijednostKM: 0,
+            zestokoKolicina: item.zestokoKolicina,
+            proizvodnaCijena: item.proizvodnaCijena,
+            isKrajnjeSet: false,
+          };
         }
         
         // Ako nema cache, inicijaliziraj normalno
@@ -608,8 +582,6 @@ export default function ObracunPage() {
           zestokoKolicina: item.zestokoKolicina,
           proizvodnaCijena: item.proizvodnaCijena,
           isKrajnjeSet: false,
-          staroPocetnoStanje: undefined,
-          sačuvanUlaz: undefined,
         };
       });
       
@@ -632,40 +604,21 @@ export default function ObracunPage() {
         const cached = ulazCache[item.naziv];
         const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
         
-        if (cached && cached.staroPocetnoStanje !== undefined) {
-          if (cached.ulaz !== 0) {
-            return {
-              naziv: item.naziv,
-              cijena: item.cijena,
-              pocetnoStanje: pocetnoStanje,
-              ulaz: cached.ulaz,
-              ukupno: pocetnoStanje + cached.ulaz,
-              utroseno: 0,
-              krajnjeStanje: 0,
-              vrijednostKM: 0,
-              zestokoKolicina: item.zestokoKolicina,
-              proizvodnaCijena: item.proizvodnaCijena,
-              isKrajnjeSet: false,
-              staroPocetnoStanje: cached.staroPocetnoStanje,
-              sačuvanUlaz: undefined,
-            };
-          } else {
-            return {
-              naziv: item.naziv,
-              cijena: item.cijena,
-              pocetnoStanje: pocetnoStanje,
-              ulaz: 0,
-              ukupno: pocetnoStanje,
-              utroseno: 0,
-              krajnjeStanje: 0,
-              vrijednostKM: 0,
-              zestokoKolicina: item.zestokoKolicina,
-              proizvodnaCijena: item.proizvodnaCijena,
-              isKrajnjeSet: false,
-              staroPocetnoStanje: cached.staroPocetnoStanje,
-              sačuvanUlaz: undefined,
-            };
-          }
+        // Ako postoji cache sa ulazom, učitaj ga
+        if (cached && cached.ulaz !== 0) {
+          return {
+            naziv: item.naziv,
+            cijena: item.cijena,
+            pocetnoStanje: pocetnoStanje,
+            ulaz: cached.ulaz, // Učitaj ulaz iz cache-a
+            ukupno: pocetnoStanje + cached.ulaz,
+            utroseno: 0,
+            krajnjeStanje: 0,
+            vrijednostKM: 0,
+            zestokoKolicina: item.zestokoKolicina,
+            proizvodnaCijena: item.proizvodnaCijena,
+            isKrajnjeSet: false,
+          };
         }
         
         return {
@@ -680,8 +633,6 @@ export default function ObracunPage() {
           zestokoKolicina: item.zestokoKolicina,
           proizvodnaCijena: item.proizvodnaCijena,
           isKrajnjeSet: false,
-          staroPocetnoStanje: undefined,
-          sačuvanUlaz: undefined,
         };
       });
       
@@ -705,38 +656,11 @@ export default function ObracunPage() {
             const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
             const cached = ulazCache[artikal.naziv];
             
-            // PRIORITET: Učitaj staroPocetnoStanje iz cache-a ako postoji (čak i ako artikal već ima staroPocetnoStanje)
-            // Ovo osigurava da se staroPocetnoStanje ne gubi nakon refresh-a
-            let staroPocetnoStanje = cached && cached.staroPocetnoStanje !== undefined 
-              ? cached.staroPocetnoStanje 
-              : artikal.staroPocetnoStanje;
-            
-            // PRIORITET: Učitaj sačuvanUlaz iz cache-a ako postoji
-            let sačuvanUlaz = cached && cached.sačuvanUlaz !== undefined
-              ? cached.sačuvanUlaz
-              : artikal.sačuvanUlaz;
-            
-            // Ako nema sačuvanUlaz u cache-u ali postoji staroPocetnoStanje, izračunaj ga
-            if (!sačuvanUlaz && cached && cached.staroPocetnoStanje !== undefined && cached.ulaz === 0) {
-              sačuvanUlaz = pocetnoStanje - cached.staroPocetnoStanje > 0 ? pocetnoStanje - cached.staroPocetnoStanje : undefined;
-            }
-            
-            // VAŽNO: Ne učitavaj ulaz iz cache-a ako je artikal već resetovan (ulaz === 0 u state-u)
-            // Ovo osigurava da se ulaz ne duplira nakon ažuriranja
+            // Učitaj ulaz iz cache-a ako postoji (ulaz ostaje vidljiv sve dok se obračun ne sačuva)
             let ulaz = artikal.ulaz;
-            // Učitaj ulaz iz cache-a samo ako:
-            // 1. Artikal u state-u nema ulaz (ulaz === 0)
-            // 2. I cache ima ulaz (cached.ulaz !== 0)
-            // 3. I artikal nije već ažuriran (nema staroPocetnoStanje ili je staroPocetnoStanje === pocetnoStanje)
-            if (cached && cached.ulaz !== 0 && artikal.ulaz === 0) {
-              // Provjeri da li je artikal već ažuriran - ako ima staroPocetnoStanje i razlikuje se od pocetnoStanje, ne učitavaj ulaz
-              if (!artikal.staroPocetnoStanje || artikal.staroPocetnoStanje === pocetnoStanje) {
-                ulaz = cached.ulaz;
-              }
-            }
-            
-            if (cached && cached.staroPocetnoStanje !== undefined) {
-              console.log(`🟡 Artikal ${artikal.naziv}: ažuriran, pocetnoStanje=${pocetnoStanje}, staroPocetnoStanje=${staroPocetnoStanje}, sačuvanUlaz=${sačuvanUlaz}`);
+            if (cached && cached.ulaz !== 0) {
+              // Ako cache ima ulaz, učitaj ga (ulaz ostaje vidljiv)
+              ulaz = cached.ulaz;
             }
             
             return {
@@ -745,14 +669,10 @@ export default function ObracunPage() {
               pocetnoStanje: pocetnoStanje,
               zestokoKolicina: cjenovnikItem.zestokoKolicina,
               proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
-              // VAŽNO: Eksplicitno zadrži ulaz (iz state-a ili cache-a)
+              // Učitaj ulaz iz cache-a ako postoji
               ulaz: ulaz,
               // Ažuriraj ukupno na osnovu novog početnog stanja i postojećeg ulaza
               ukupno: ulaz !== 0 ? pocetnoStanje + ulaz : pocetnoStanje,
-              // PRIORITET: Zadrži staroPocetnoStanje iz cache-a (osigurava da se ne gubi nakon refresh-a)
-              staroPocetnoStanje: staroPocetnoStanje,
-              // PRIORITET: Zadrži sačuvanUlaz iz cache-a
-              sačuvanUlaz: sačuvanUlaz,
               // Zadrži i ostala polja koja su možda postavljena
               utroseno: artikal.utroseno,
               krajnjeStanje: artikal.krajnjeStanje,
