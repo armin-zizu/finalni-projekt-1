@@ -835,6 +835,9 @@ export default function ObracunPage() {
     const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
     const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
     
+    // Provjeri da li obračun ima ulaz
+    const imaUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
+    
     const draftData = {
       datum: datumString,
       ukupnoArtikli,
@@ -845,7 +848,7 @@ export default function ObracunPage() {
       rashodi,
       prihodi,
       isAzuriran,
-      imaUlaz: hasUlaz,
+      imaUlaz: imaUlaz,
     };
     
     await saveDraftObracun(datumString, draftData);
