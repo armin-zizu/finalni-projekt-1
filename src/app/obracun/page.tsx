@@ -333,7 +333,26 @@ export default function ObracunPage() {
       setIsCacheLoaded(false);
       const cache = await loadUlazCacheFromFirestore(datumString);
       setUlazCacheForDatum(cache);
-      setIsCacheLoaded(true);
+      
+      // Učitaj broj sačuvanih slika iz Firestore
+      const user = auth.currentUser;
+      const userId = user?.uid;
+      if (userId) {
+        try {
+          const cacheRef = doc(db, "users", userId, "cache", datumString);
+          const cacheDoc = await getDoc(cacheRef);
+          if (cacheDoc.exists()) {
+            const cacheData = cacheDoc.data();
+            const savedCount = cacheData.savedInvoiceImagesCount || 0;
+            setSavedInvoiceImagesCount(savedCount);
+          } else {
+            setSavedInvoiceImagesCount(0);
+          }
+        } catch (error) {
+          console.warn("Greška pri učitavanju broja sačuvanih slika:", error);
+          setSavedInvoiceImagesCount(0);
+        }
+      }
       
       // Provjeri da li postoji ulaz u cache-u
       const imaUlazUCache = Object.keys(cache).some(naziv => {
@@ -341,6 +360,8 @@ export default function ObracunPage() {
         return (cached && cached.ulaz !== 0) || (cached && cached.staroPocetnoStanje !== undefined);
       });
       setHasUlazInCache(imaUlazUCache);
+      
+      setIsCacheLoaded(true);
     };
     
     loadCacheFirst();
