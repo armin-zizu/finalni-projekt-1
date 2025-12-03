@@ -332,6 +332,7 @@ export default function ObracunPage() {
     const loadCacheFirst = async () => {
       setIsCacheLoaded(false);
       const cache = await loadUlazCacheFromFirestore(datumString);
+      console.log("🔵 Cache učitano za datum:", datumString, cache);
       setUlazCacheForDatum(cache);
       
       // Učitaj broj sačuvanih slika iz Firestore
@@ -362,6 +363,7 @@ export default function ObracunPage() {
       setHasUlazInCache(imaUlazUCache);
       
       setIsCacheLoaded(true);
+      console.log("🟢 Cache učitan, isCacheLoaded = true");
     };
     
     loadCacheFirst();
@@ -376,6 +378,7 @@ export default function ObracunPage() {
     // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCacheAndInit = async () => {
       const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
+      console.log("🟡 Inicijalizacija artikala, cache:", ulazCache);
       
       // Ako nema postojećih artikala, inicijaliziraj sve iz cjenovnika
       if (artikli.length === 0) {
@@ -385,6 +388,7 @@ export default function ObracunPage() {
         
         // Ako postoji cache, učitaj ulaz i staro početno stanje
         if (cached && cached.staroPocetnoStanje !== undefined) {
+          console.log(`🟢 Artikal ${item.naziv}: cache postoji, staroPocetnoStanje=${cached.staroPocetnoStanje}, ulaz=${cached.ulaz}, pocetnoStanje=${pocetnoStanje}`);
           if (cached.ulaz !== 0) {
             // Ako ima ulaz, učitaj ga
             return {
@@ -408,6 +412,7 @@ export default function ObracunPage() {
             // Ovo osigurava da se zagrade prikazuju pravilno: novo (staro)
             // Učitaj sačuvanUlaz iz cache-a ako postoji
             const sačuvanUlaz = cached.sačuvanUlaz ?? (pocetnoStanje - cached.staroPocetnoStanje > 0 ? pocetnoStanje - cached.staroPocetnoStanje : undefined);
+            console.log(`🟡 Artikal ${item.naziv}: ažuriran, pocetnoStanje=${pocetnoStanje}, staroPocetnoStanje=${cached.staroPocetnoStanje}, sačuvanUlaz=${sačuvanUlaz}`);
             return {
               naziv: item.naziv,
               cijena: item.cijena,
@@ -444,6 +449,7 @@ export default function ObracunPage() {
         };
       });
       
+      console.log("🟢 Inicijalni artikli kreirani:", inicijalniArtikli.map(a => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, staroPocetnoStanje: a.staroPocetnoStanje })));
       setArtikli(inicijalniArtikli);
       setIsAzuriran(false);
       setResetKey(0);
@@ -525,59 +531,68 @@ export default function ObracunPage() {
     // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCacheForUpdate = async () => {
       const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
+      console.log("🟡 Ažuriranje postojećih artikala, cache:", ulazCache);
       
-      setArtikli(prev => prev.map(artikal => {
-        const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
-        if (cjenovnikItem) {
-          // Ažuriraj cijenu i početno stanje iz cjenovnika
-          const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
-          const cached = ulazCache[artikal.naziv];
-          
-          // PRIORITET: Učitaj staroPocetnoStanje iz cache-a ako postoji (čak i ako artikal već ima staroPocetnoStanje)
-          // Ovo osigurava da se staroPocetnoStanje ne gubi nakon refresh-a
-          let staroPocetnoStanje = cached && cached.staroPocetnoStanje !== undefined 
-            ? cached.staroPocetnoStanje 
-            : artikal.staroPocetnoStanje;
-          
-          // PRIORITET: Učitaj sačuvanUlaz iz cache-a ako postoji
-          let sačuvanUlaz = cached && cached.sačuvanUlaz !== undefined
-            ? cached.sačuvanUlaz
-            : artikal.sačuvanUlaz;
-          
-          // Ako nema sačuvanUlaz u cache-u ali postoji staroPocetnoStanje, izračunaj ga
-          if (!sačuvanUlaz && cached && cached.staroPocetnoStanje !== undefined && cached.ulaz === 0) {
-            sačuvanUlaz = pocetnoStanje - cached.staroPocetnoStanje > 0 ? pocetnoStanje - cached.staroPocetnoStanje : undefined;
+      setArtikli(prev => {
+        const updated = prev.map(artikal => {
+          const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
+          if (cjenovnikItem) {
+            // Ažuriraj cijenu i početno stanje iz cjenovnika
+            const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
+            const cached = ulazCache[artikal.naziv];
+            
+            // PRIORITET: Učitaj staroPocetnoStanje iz cache-a ako postoji (čak i ako artikal već ima staroPocetnoStanje)
+            // Ovo osigurava da se staroPocetnoStanje ne gubi nakon refresh-a
+            let staroPocetnoStanje = cached && cached.staroPocetnoStanje !== undefined 
+              ? cached.staroPocetnoStanje 
+              : artikal.staroPocetnoStanje;
+            
+            // PRIORITET: Učitaj sačuvanUlaz iz cache-a ako postoji
+            let sačuvanUlaz = cached && cached.sačuvanUlaz !== undefined
+              ? cached.sačuvanUlaz
+              : artikal.sačuvanUlaz;
+            
+            // Ako nema sačuvanUlaz u cache-u ali postoji staroPocetnoStanje, izračunaj ga
+            if (!sačuvanUlaz && cached && cached.staroPocetnoStanje !== undefined && cached.ulaz === 0) {
+              sačuvanUlaz = pocetnoStanje - cached.staroPocetnoStanje > 0 ? pocetnoStanje - cached.staroPocetnoStanje : undefined;
+            }
+            
+            // Ako postoji cache sa ulaz, učitaj ga
+            let ulaz = artikal.ulaz;
+            if (cached && cached.ulaz !== 0) {
+              ulaz = cached.ulaz;
+            }
+            
+            if (cached && cached.staroPocetnoStanje !== undefined) {
+              console.log(`🟡 Artikal ${artikal.naziv}: ažuriran, pocetnoStanje=${pocetnoStanje}, staroPocetnoStanje=${staroPocetnoStanje}, sačuvanUlaz=${sačuvanUlaz}`);
+            }
+            
+            return {
+              ...artikal,
+              cijena: cjenovnikItem.cijena,
+              pocetnoStanje: pocetnoStanje,
+              zestokoKolicina: cjenovnikItem.zestokoKolicina,
+              proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
+              // VAŽNO: Eksplicitno zadrži ulaz (iz state-a ili cache-a)
+              ulaz: ulaz,
+              // Ažuriraj ukupno na osnovu novog početnog stanja i postojećeg ulaza
+              ukupno: ulaz !== 0 ? pocetnoStanje + ulaz : pocetnoStanje,
+              // PRIORITET: Zadrži staroPocetnoStanje iz cache-a (osigurava da se ne gubi nakon refresh-a)
+              staroPocetnoStanje: staroPocetnoStanje,
+              // PRIORITET: Zadrži sačuvanUlaz iz cache-a
+              sačuvanUlaz: sačuvanUlaz,
+              // Zadrži i ostala polja koja su možda postavljena
+              utroseno: artikal.utroseno,
+              krajnjeStanje: artikal.krajnjeStanje,
+              vrijednostKM: artikal.vrijednostKM,
+              isKrajnjeSet: artikal.isKrajnjeSet,
+            };
           }
-          
-          // Ako postoji cache sa ulaz, učitaj ga
-          let ulaz = artikal.ulaz;
-          if (cached && cached.ulaz !== 0) {
-            ulaz = cached.ulaz;
-          }
-          
-          return {
-            ...artikal,
-            cijena: cjenovnikItem.cijena,
-            pocetnoStanje: pocetnoStanje,
-            zestokoKolicina: cjenovnikItem.zestokoKolicina,
-            proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
-            // VAŽNO: Eksplicitno zadrži ulaz (iz state-a ili cache-a)
-            ulaz: ulaz,
-            // Ažuriraj ukupno na osnovu novog početnog stanja i postojećeg ulaza
-            ukupno: ulaz !== 0 ? pocetnoStanje + ulaz : pocetnoStanje,
-            // PRIORITET: Zadrži staroPocetnoStanje iz cache-a (osigurava da se ne gubi nakon refresh-a)
-            staroPocetnoStanje: staroPocetnoStanje,
-            // PRIORITET: Zadrži sačuvanUlaz iz cache-a
-            sačuvanUlaz: sačuvanUlaz,
-            // Zadrži i ostala polja koja su možda postavljena
-            utroseno: artikal.utroseno,
-            krajnjeStanje: artikal.krajnjeStanje,
-            vrijednostKM: artikal.vrijednostKM,
-            isKrajnjeSet: artikal.isKrajnjeSet,
-          };
-        }
-        return artikal;
-      }));
+          return artikal;
+        });
+        console.log("🟢 Ažurirani artikli:", updated.map(a => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, staroPocetnoStanje: a.staroPocetnoStanje })));
+        return updated;
+      });
     };
     
     loadCacheForUpdate();
@@ -586,76 +601,8 @@ export default function ObracunPage() {
     loadCacheAndInit();
   }, [cjenovnik, trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
 
-  // Učitaj ulaz iz cache-a kada se promijeni datum (backup - ako se promijeni datum nakon inicijalizacije)
-  useEffect(() => {
-    if (cjenovnik.length === 0 || artikli.length === 0 || !isCacheLoaded) return; // Čekaj da se cache učita
-    
-    const datumString = formatirajDatum(trenutniDatum);
-    
-    // Koristi već učitani cache umjesto ponovnog učitavanja
-    const loadCache = async () => {
-      const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
-      
-      // Učitaj broj sačuvanih slika iz Firestore
-      const user = auth.currentUser;
-      const userId = user?.uid;
-      if (userId) {
-        try {
-          const cacheRef = doc(db, "users", userId, "cache", datumString);
-          const cacheDoc = await getDoc(cacheRef);
-          if (cacheDoc.exists()) {
-            const cacheData = cacheDoc.data();
-            const savedCount = cacheData.savedInvoiceImagesCount || 0;
-            setSavedInvoiceImagesCount(savedCount);
-          } else {
-            setSavedInvoiceImagesCount(0);
-          }
-        } catch (error) {
-          console.warn("Greška pri učitavanju broja sačuvanih slika:", error);
-          setSavedInvoiceImagesCount(0);
-        }
-      }
-      
-      if (Object.keys(ulazCache).length > 0) {
-        setArtikli((prev) =>
-          prev.map((a) => {
-            const cached = ulazCache[a.naziv];
-            if (cached && cached.staroPocetnoStanje !== undefined) {
-              // PRIORITET: Učitaj staroPocetnoStanje iz cache-a (osigurava da se ne gubi nakon refresh-a)
-              // Čak i ako je ulaz 0 (već je ažuriran), postavi staroPocetnoStanje da se prikaže zagrada
-              if (cached.ulaz !== 0) {
-                // Ako ima ulaz, učitaj ga
-                return {
-                  ...a,
-                  ulaz: cached.ulaz,
-                  ukupno: a.pocetnoStanje + cached.ulaz,
-                  staroPocetnoStanje: cached.staroPocetnoStanje, // PRIORITET: Iz cache-a
-                  sačuvanUlaz: cached.sačuvanUlaz, // Učitaj sačuvanUlaz iz cache-a ako postoji
-                };
-              } else {
-                // Ako je ulaz 0 (već je ažuriran), koristi novo početno stanje iz cjenovnika za prikaz
-                // i staroPocetnoStanje iz cache-a za zagrade
-                // Ovo osigurava da se zagrade prikazuju pravilno: novo (staro)
-                // Ne mijenjaj pocetnoStanje iz cjenovnika, samo postavi staroPocetnoStanje iz cache-a
-                // Učitaj sačuvanUlaz iz cache-a ako postoji
-                const sačuvanUlaz = cached.sačuvanUlaz ?? (a.pocetnoStanje - cached.staroPocetnoStanje > 0 ? a.pocetnoStanje - cached.staroPocetnoStanje : undefined);
-                return {
-                  ...a,
-                  // pocetnoStanje ostaje iz cjenovnika (ažurirano)
-                  // ukupno ostaje iz cjenovnika (ažurirano)
-                  staroPocetnoStanje: cached.staroPocetnoStanje, // PRIORITET: Iz cache-a - osigurava da se zagrade prikazuju
-                  sačuvanUlaz: sačuvanUlaz, // Učitaj sačuvanUlaz iz cache-a za prikaz u arhivi
-                };
-              }
-            }
-            return a;
-          })
-        );
-      }
-    };
-    
-    loadCache();
-  }, [trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
+  // Uklonjen treći useEffect jer duplicira logiku drugog useEffect-a
+  // Sva logika za učitavanje cache-a je sada u drugom useEffect-u
 
   const formatirajDatum = (datum: Date): string => {
     const dan = datum.getDate().toString().padStart(2, "0");
@@ -931,6 +878,10 @@ export default function ObracunPage() {
 
     // Spremi cache u Firestore PRIJE nego što se artikli ažuriraju
     await saveUlazCacheToFirestore(datumString, ulazCache);
+    console.log("💾 Cache spremljen u Firestore:", ulazCache);
+    
+    // Ažuriraj lokalni state cache-a da se odmah koristi
+    setUlazCacheForDatum(ulazCache);
 
     // Ažuriraj cjenovnik i artikle - sačuvaj staro stanje prije ažuriranja
     setCjenovnik((prev) =>
