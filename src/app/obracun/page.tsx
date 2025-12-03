@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
@@ -752,7 +752,7 @@ export default function ObracunPage() {
     }, 2000);
     
     return () => clearTimeout(timeoutId);
-  }, [artikli, rashodi, prihodi, isAzuriran, hasUlazInCache, trenutniDatum, isCacheLoaded]);
+  }, [autoSaveDraft, trenutniDatum, isCacheLoaded]);
 
   // Uklonjen treći useEffect jer duplicira logiku drugog useEffect-a
   // Sva logika za učitavanje cache-a je sada u drugom useEffect-u
