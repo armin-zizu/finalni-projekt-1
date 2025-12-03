@@ -493,30 +493,7 @@ export default function ObracunPage() {
       const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
       console.log("🟡 Inicijalizacija artikala, cache:", ulazCache);
       
-      // Ako je datum aktivan i ima draft obračun sa artiklima, ne inicijaliziraj iz cjenovnika (već je učitano)
-      if (datumAktivan && artikli.length > 0) {
-        console.log("📖 Draft obračun već učitano, preskačem inicijalizaciju iz cjenovnika");
-        // Ako ima draft obračun, samo ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, itd.)
-        // ali zadrži staroPocetnoStanje i sačuvanUlaz iz draft-a
-        const loadCacheForUpdate = async () => {
-          const ulazCache = ulazCacheForDatum;
-          setArtikli(prev => prev.map(artikal => {
-            const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
-            if (cjenovnikItem) {
-              return {
-                ...artikal,
-                cijena: cjenovnikItem.cijena,
-                zestokoKolicina: cjenovnikItem.zestokoKolicina,
-                proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
-                // Zadrži sve ostale podatke iz draft-a (pocetnoStanje, staroPocetnoStanje, sačuvanUlaz, itd.)
-              };
-            }
-            return artikal;
-          }));
-        };
-        loadCacheForUpdate();
-        return;
-      }
+      // Draft obračun je uklonjen - inicijaliziraj artikle iz cjenovnika i cache-a
       
       // Ako nema postojećih artikala, inicijaliziraj sve iz cjenovnika
       if (artikli.length === 0) {
