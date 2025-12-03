@@ -1125,17 +1125,36 @@ export default function ObracunPage() {
     const user = auth.currentUser;
     const userId = user?.uid;
 
-    // Upload slika faktura ako postoje
+    // Upload slika faktura ako postoje nove slike u state-u
     let invoiceImageUrls: string[] = [];
     if (invoiceImages.length > 0 && user && userId) {
       try {
         invoiceImageUrls = await uploadInvoiceImages(datumString);
-        // Sačuvaj URL-ove slika u obračun
-        (arhiviraniObracun as any).invoiceImages = invoiceImageUrls;
       } catch (error) {
         console.error("Greška pri upload-u slika faktura:", error);
         alert("Upozorenje: Obračun je sačuvan, ali slike faktura nisu uspješno upload-ovane.");
       }
+    }
+    
+    // Učitaj postojeće slike iz Firestore dokumenta (ako su već uploadovane ranije)
+    let existingInvoiceImages: string[] = [];
+    if (user && userId) {
+      try {
+        const obracunRef = doc(db, "users", userId, "obracuni", datumString);
+        const obracunDoc = await getDoc(obracunRef);
+        if (obracunDoc.exists()) {
+          const existingData = obracunDoc.data();
+          existingInvoiceImages = existingData.invoiceImages || [];
+        }
+      } catch (error) {
+        console.warn("Greška pri učitavanju postojećih slika:", error);
+      }
+    }
+    
+    // Kombiniraj postojeće slike sa novim (ako postoje)
+    const allInvoiceImages = [...existingInvoiceImages, ...invoiceImageUrls];
+    if (allInvoiceImages.length > 0) {
+      (arhiviraniObracun as any).invoiceImages = allInvoiceImages;
     }
 
     // HIBRIDNI PRISTUP: Prvo Firestore (primarno), zatim localStorage (cache/offline)
@@ -1194,6 +1213,8 @@ export default function ObracunPage() {
 
       // Resetuj slike faktura nakon uspješnog spremanja
       setInvoiceImages([]);
+      setSavedInvoiceImagesCount(0);
+      setHasUlazInCache(false); // Resetuj flag da nema ulaz u cache-u
       
       // Obriši broj sačuvanih slika iz cache-a jer je obračun sačuvan
       if (user && userId) {
@@ -1202,15 +1223,12 @@ export default function ObracunPage() {
           await setDoc(cacheRef, {
             savedInvoiceImagesCount: 0,
           }, { merge: true });
-          setSavedInvoiceImagesCount(0);
         } catch (error: any) {
           // Ignoriraj greške dozvola
           const errorCode = error?.code || "";
           if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
             console.warn("Greška pri brisanju broja sačuvanih slika:", error);
           }
-          // Resetuj lokalno kao fallback
-          setSavedInvoiceImagesCount(0);
         }
       }
 
