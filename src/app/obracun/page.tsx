@@ -1051,43 +1051,21 @@ export default function ObracunPage() {
     // Ažuriraj lokalni state cache-a da se odmah koristi
     setUlazCacheForDatum(ulazCache);
 
-    // Ažuriraj cjenovnik i artikle - sačuvaj staro stanje prije ažuriranja
-    setCjenovnik((prev) =>
-      prev.map((item) => {
-        const artikal = artikli.find((a) => a.naziv === item.naziv);
-        if (!artikal || artikal.ulaz === 0) return item;
-        
-        // Sačuvaj staro početno stanje prije ažuriranja
-        const staroPocetnoStanje = item.pocetnoStanje;
-        const novoPocetnoStanje = artikal.naziv.toLowerCase().includes("kafa")
-          ? 0
-          : artikal.pocetnoStanje + artikal.ulaz;
-        
-        return {
-          ...item,
-          pocetnoStanje: novoPocetnoStanje,
-        };
-      })
-    );
+    // NE mijenjaj cjenovnik - početno stanje ostaje nepromijenjeno sve dok se obračun ne sačuva
+    // Samo sačuvaj ulaz u cache da ostane vidljiv
 
-    // Ažuriraj artikle u formi - postavi novo početno stanje ali ZADRŽI ulaz (ne resetiraj)
+    // Ažuriraj artikle u formi - ZADRŽI početno stanje i ulaz (ne mijenjaj ništa)
     // Ulaz će ostati vidljiv sve dok se obračun ne sačuva
+    // Ukupno se računa kao pocetnoStanje + ulaz samo za prikaz
     const updated = artikli.map((a) => {
       if (a.ulaz !== 0) {
-        const novoPocetnoStanje = a.naziv.toLowerCase().includes("kafa")
-          ? 0
-          : a.pocetnoStanje + a.ulaz;
-        
         return {
           ...a,
-          pocetnoStanje: novoPocetnoStanje,
+          // NE mijenjaj početno stanje - ostaje kako je
+          pocetnoStanje: a.pocetnoStanje,
           ulaz: a.ulaz, // ZADRŽI ulaz - ne resetiraj ga!
-          ukupno: novoPocetnoStanje + a.ulaz, // Ukupno = novo početno stanje + ulaz (jer ulaz ostaje)
-          utroseno: 0, // Resetiraj utrošeno jer se početno stanje promijenilo
-          vrijednostKM: 0, // Resetiraj vrijednost
-          krajnjeStanje: 0, // Resetiraj krajnje stanje
-          isKrajnjeSet: false, // Resetiraj flag
-          // Ne postavljaj staroPocetnoStanje - ne prikazujemo zagrade
+          ukupno: a.pocetnoStanje + a.ulaz, // Ukupno = početno stanje + ulaz (samo za prikaz)
+          // Ne resetiraj utrošeno, vrijednost, krajnje stanje - ostaju kako su
         };
       }
       // Za artikle bez ulaza, zadrži sve kako je
@@ -1096,24 +1074,9 @@ export default function ObracunPage() {
     
     setArtikli(updated);
     
-    // Ažuriraj cache sa novim podacima - sačuvaj ulaz (ne resetiraj ga)
-    const existingCache2 = await loadUlazCacheFromFirestore(datumString);
-    let ulazCache2: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = existingCache2;
-    
-    // Ažuriraj cache - sačuvaj ulaz jer ostaje vidljiv
-    updated.forEach((a) => {
-      if (a.ulaz !== 0) {
-        ulazCache2[a.naziv] = {
-          ulaz: a.ulaz, // Sačuvaj ulaz jer ostaje vidljiv
-          staroPocetnoStanje: a.pocetnoStanje - a.ulaz, // Staro stanje = novo - ulaz
-        };
-      }
-    });
-    
-    await saveUlazCacheToFirestore(datumString, ulazCache2);
-    
+    // Cache je već sačuvan gore, samo ažuriraj lokalni state
     // Ažuriraj lokalni state cache-a da se odmah koristi
-    setUlazCacheForDatum(ulazCache2);
+    setUlazCacheForDatum(ulazCache);
     
     // Postavi flag da postoji ulaz u cache-u (za prikaz gumba za slike)
     setHasUlazInCache(true);
@@ -1155,7 +1118,7 @@ export default function ObracunPage() {
       await saveDraftObracun(datumString, draftData);
     }
     
-    alert("Obračun ažuriran! Početno stanje artikala je ažurirano.");
+    alert("Ulaz je sačuvan! Vrijednosti će ostati vidljive sve dok ne sačuvate obračun.");
   };
 
   // Provjeri da li obračun ima ulaz (trenutni ulaz, sačuvan ulaz, ili u cache-u)
