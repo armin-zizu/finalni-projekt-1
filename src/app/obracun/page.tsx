@@ -320,15 +320,41 @@ export default function ObracunPage() {
     };
   }, []);
 
-  // Inicijalizacija artikala na osnovu cjenovnika
+  // PRVO: Učitaj cache za trenutni datum PRIJE nego što se inicijaliziraju artikli
+  // Ovo osigurava da se staroPocetnoStanje učitava iz cache-a prije nego što se artikli kreiraju
+  const [ulazCacheForDatum, setUlazCacheForDatum] = useState<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }>({});
+  const [isCacheLoaded, setIsCacheLoaded] = useState<boolean>(false);
+
   useEffect(() => {
-    if (cjenovnik.length === 0) return;
+    const datumString = formatirajDatum(trenutniDatum);
+    
+    // PRVO učitaj cache za taj datum
+    const loadCacheFirst = async () => {
+      setIsCacheLoaded(false);
+      const cache = await loadUlazCacheFromFirestore(datumString);
+      setUlazCacheForDatum(cache);
+      setIsCacheLoaded(true);
+      
+      // Provjeri da li postoji ulaz u cache-u
+      const imaUlazUCache = Object.keys(cache).some(naziv => {
+        const cached = cache[naziv];
+        return (cached && cached.ulaz !== 0) || (cached && cached.staroPocetnoStanje !== undefined);
+      });
+      setHasUlazInCache(imaUlazUCache);
+    };
+    
+    loadCacheFirst();
+  }, [trenutniDatum]);
+
+  // DRUGO: Inicijalizacija artikala na osnovu cjenovnika I cache-a
+  useEffect(() => {
+    if (cjenovnik.length === 0 || !isCacheLoaded) return; // Čekaj da se cache učita
     
     const datumString = formatirajDatum(trenutniDatum);
     
-    // Učitaj ulaz cache iz Firestore
+    // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCacheAndInit = async () => {
-      const ulazCache = await loadUlazCacheFromFirestore(datumString);
+      const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
       
       // Ako nema postojećih artikala, inicijaliziraj sve iz cjenovnika
       if (artikli.length === 0) {
@@ -475,9 +501,9 @@ export default function ObracunPage() {
     // Ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, početno stanje, itd.)
     // VAŽNO: Zadrži ulaz, staroPocetnoStanje i sačuvanUlaz ako postoje
     // Također provjeri cache i učitaj sačuvanUlaz ako postoji
-    // PRVO učitaj cache PRIJE nego što ažuriraš artikle
+    // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCacheForUpdate = async () => {
-      const ulazCache = await loadUlazCacheFromFirestore(datumString);
+      const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
       
       setArtikli(prev => prev.map(artikal => {
         const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
@@ -537,17 +563,17 @@ export default function ObracunPage() {
     };
     
     loadCacheAndInit();
-  }, [cjenovnik, trenutniDatum]);
+  }, [cjenovnik, trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
 
   // Učitaj ulaz iz cache-a kada se promijeni datum (backup - ako se promijeni datum nakon inicijalizacije)
   useEffect(() => {
-    if (cjenovnik.length === 0 || artikli.length === 0) return;
+    if (cjenovnik.length === 0 || artikli.length === 0 || !isCacheLoaded) return; // Čekaj da se cache učita
     
     const datumString = formatirajDatum(trenutniDatum);
     
-    // Učitaj ulaz cache iz Firestore
+    // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCache = async () => {
-      const ulazCache = await loadUlazCacheFromFirestore(datumString);
+      const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
       
       // Učitaj broj sačuvanih slika iz Firestore
       const user = auth.currentUser;
@@ -568,13 +594,6 @@ export default function ObracunPage() {
           setSavedInvoiceImagesCount(0);
         }
       }
-      
-      // Provjeri da li postoji ulaz u cache-u (bilo da je ulaz > 0 ili da postoji staroPocetnoStanje)
-      const imaUlazUCache = Object.keys(ulazCache).some(naziv => {
-        const cached = ulazCache[naziv];
-        return (cached && cached.ulaz !== 0) || (cached && cached.staroPocetnoStanje !== undefined);
-      });
-      setHasUlazInCache(imaUlazUCache);
       
       if (Object.keys(ulazCache).length > 0) {
         setArtikli((prev) =>
@@ -615,7 +634,7 @@ export default function ObracunPage() {
     };
     
     loadCache();
-  }, [trenutniDatum]);
+  }, [trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
 
   const formatirajDatum = (datum: Date): string => {
     const dan = datum.getDate().toString().padStart(2, "0");
