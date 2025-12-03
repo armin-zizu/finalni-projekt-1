@@ -1693,7 +1693,7 @@ export default function ArhivaPage() {
                     <label
                       style={{
                         ...buttonStyle,
-                        background: "#6366f1",
+                        background: "#3b82f6",
                         padding: "8px 16px",
                         fontSize: "14px",
                         maxWidth: "160px",
@@ -1701,10 +1701,10 @@ export default function ArhivaPage() {
                         margin: 0
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#4f46e5";
+                        e.currentTarget.style.background = "#2563eb";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "#6366f1";
+                        e.currentTarget.style.background = "#3b82f6";
                       }}
                     >
                       <input

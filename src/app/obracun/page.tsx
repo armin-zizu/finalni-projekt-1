@@ -1446,7 +1446,7 @@ export default function ObracunPage() {
           <label
             style={{
               ...buttonStyle,
-              background: "#6366f1",
+              background: "#3b82f6",
               maxWidth: "160px",
               opacity: canEdit ? 1 : 0.5,
               cursor: canEdit ? "pointer" : "not-allowed",
@@ -1455,12 +1455,12 @@ export default function ObracunPage() {
             }}
             onMouseEnter={(e) => {
               if (canEdit) {
-                e.currentTarget.style.background = "#4f46e5";
+                e.currentTarget.style.background = "#2563eb";
               }
             }}
             onMouseLeave={(e) => {
               if (canEdit) {
-                e.currentTarget.style.background = "#6366f1";
+                e.currentTarget.style.background = "#3b82f6";
               }
             }}
           >
