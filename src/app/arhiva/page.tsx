@@ -1890,7 +1890,7 @@ export default function ArhivaPage() {
                             return "-";
                           })()}
                         </td>
-                        <td style={tdStyle}>{a.vrijednostKM.toFixed(2)}</td>
+                        <td style={tdStyle}>{a.vrijednostKM !== undefined && a.vrijednostKM !== null ? a.vrijednostKM.toFixed(2) : "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1914,7 +1914,7 @@ export default function ArhivaPage() {
                     {(item.rashodi && Array.isArray(item.rashodi) ? item.rashodi : []).map((r, i) => (
                       <tr key={i}>
                         <td style={tdStyle}>{r.naziv}</td>
-                        <td style={tdStyle}>{r.cijena.toFixed(2)}</td>
+                        <td style={tdStyle}>{r.cijena !== undefined && r.cijena !== null ? r.cijena.toFixed(2) : "-"}</td>
                         <td style={tdStyle}>{r.placeno ? "Da" : "Ne"}</td>
                       </tr>
                     ))}
@@ -1938,7 +1938,7 @@ export default function ArhivaPage() {
                     {(item.prihodi && Array.isArray(item.prihodi) ? item.prihodi : []).map((p, i) => (
                       <tr key={i}>
                         <td style={tdStyle}>{p.naziv}</td>
-                        <td style={tdStyle}>{p.cijena.toFixed(2)}</td>
+                        <td style={tdStyle}>{p.cijena !== undefined && p.cijena !== null ? p.cijena.toFixed(2) : "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1948,16 +1948,16 @@ export default function ArhivaPage() {
               {/* Ukupno */}
               <div style={{ fontSize: "16px", color: "#1f2937", marginTop: "16px", fontWeight: 600 }}>
                 <div style={{ marginBottom: "12px", color: "#0284c7" }}>
-                  <strong>Ukupno artikli:</strong> {item.ukupnoArtikli.toFixed(2)} KM
+                  <strong>Ukupno artikli:</strong> {(item.ukupnoArtikli !== undefined && item.ukupnoArtikli !== null ? item.ukupnoArtikli.toFixed(2) : "0.00")} KM
                 </div>
                 <div style={{ marginBottom: "12px", color: "#dc2626" }}>
-                  <strong>Ukupno rashod:</strong> {item.ukupnoRashod.toFixed(2)} KM
+                  <strong>Ukupno rashod:</strong> {(item.ukupnoRashod !== undefined && item.ukupnoRashod !== null ? item.ukupnoRashod.toFixed(2) : "0.00")} KM
                 </div>
                 <div style={{ marginBottom: "12px", color: "#15803d" }}>
-                  <strong>Ukupno prihod:</strong> {item.ukupnoPrihod.toFixed(2)} KM
+                  <strong>Ukupno prihod:</strong> {(item.ukupnoPrihod !== undefined && item.ukupnoPrihod !== null ? item.ukupnoPrihod.toFixed(2) : "0.00")} KM
                 </div>
-                <div style={{ color: item.neto >= 0 ? "#15803d" : "#dc2626" }}>
-                  <strong>Neto:</strong> {item.neto.toFixed(2)} KM
+                <div style={{ color: (item.neto !== undefined && item.neto !== null && item.neto >= 0) ? "#15803d" : "#dc2626" }}>
+                  <strong>Neto:</strong> {(item.neto !== undefined && item.neto !== null ? item.neto.toFixed(2) : "0.00")} KM
                 </div>
               </div>
             </div>
