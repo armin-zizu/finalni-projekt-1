@@ -742,6 +742,18 @@ export default function ObracunPage() {
     loadCacheAndInit();
   }, [cjenovnik, trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
 
+  // Automatsko spremanje draft obračuna kada se promijene podaci (samo za aktivan datum)
+  useEffect(() => {
+    if (!isDatumAktivan(trenutniDatum) || !isCacheLoaded) return;
+    
+    // Debounce automatsko spremanje (spremi nakon 2 sekunde neaktivnosti)
+    const timeoutId = setTimeout(() => {
+      autoSaveDraft();
+    }, 2000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [artikli, rashodi, prihodi, isAzuriran, hasUlaz, trenutniDatum, isCacheLoaded]);
+
   // Uklonjen treći useEffect jer duplicira logiku drugog useEffect-a
   // Sva logika za učitavanje cache-a je sada u drugom useEffect-u
 
@@ -813,10 +825,38 @@ export default function ObracunPage() {
     }
   };
 
+  // Funkcija za automatsko spremanje draft obračuna kada se promijene podaci
+  const autoSaveDraft = async () => {
+    if (!isDatumAktivan(trenutniDatum)) return; // Spremi samo za aktivan datum
+    
+    const datumString = formatirajDatum(trenutniDatum);
+    const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+    const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+    const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+    const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+    
+    const draftData = {
+      datum: datumString,
+      ukupnoArtikli,
+      ukupnoRashod,
+      ukupnoPrihod,
+      neto,
+      artikli,
+      rashodi,
+      prihodi,
+      isAzuriran,
+      imaUlaz: hasUlaz,
+    };
+    
+    await saveDraftObracun(datumString, draftData);
+  };
+
   // Funkcija za promjenu datuma
   const handleDatumChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedDate = new Date(e.target.value);
     if (!isNaN(selectedDate.getTime())) {
+      // Spremi draft obračun za trenutni datum prije promjene
+      autoSaveDraft();
       setTrenutniDatum(selectedDate);
     }
   };
