@@ -742,6 +742,7 @@ export default function ObracunPage() {
     loadCacheAndInit();
   }, [cjenovnik, trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
 
+
   // Automatsko spremanje draft obračuna kada se promijene podaci (samo za aktivan datum)
   useEffect(() => {
     if (!isDatumAktivan(trenutniDatum) || !isCacheLoaded) return;
