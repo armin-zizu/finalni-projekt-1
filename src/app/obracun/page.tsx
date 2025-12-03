@@ -416,19 +416,19 @@ export default function ObracunPage() {
       let draftObracun = null;
       if (datumAktivan) {
         draftObracun = await loadDraftObracun(datumString);
-        if (draftObracun) {
+        if (draftObracun && !draftObracun.deleted) {
           console.log("📖 Draft obračun učitano za aktivan datum:", draftObracun);
           // Učitaj podatke iz draft obračuna
-          if (draftObracun.artikli) {
+          if (draftObracun.artikli && draftObracun.artikli.length > 0) {
             setArtikli(draftObracun.artikli);
           }
-          if (draftObracun.rashodi) {
+          if (draftObracun.rashodi && draftObracun.rashodi.length > 0) {
             setRashodi(draftObracun.rashodi);
           }
-          if (draftObracun.prihodi) {
+          if (draftObracun.prihodi && draftObracun.prihodi.length > 0) {
             setPrihodi(draftObracun.prihodi);
           }
-          if (draftObracun.isAzuriran) {
+          if (draftObracun.isAzuriran !== undefined) {
             setIsAzuriran(draftObracun.isAzuriran);
           }
         }
@@ -481,11 +481,37 @@ export default function ObracunPage() {
     if (cjenovnik.length === 0 || !isCacheLoaded) return; // Čekaj da se cache učita
     
     const datumString = formatirajDatum(trenutniDatum);
+    const datumAktivan = isDatumAktivan(trenutniDatum);
     
     // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCacheAndInit = async () => {
       const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
       console.log("🟡 Inicijalizacija artikala, cache:", ulazCache);
+      
+      // Ako je datum aktivan i ima draft obračun sa artiklima, ne inicijaliziraj iz cjenovnika (već je učitano)
+      if (datumAktivan && artikli.length > 0) {
+        console.log("📖 Draft obračun već učitano, preskačem inicijalizaciju iz cjenovnika");
+        // Ako ima draft obračun, samo ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, itd.)
+        // ali zadrži staroPocetnoStanje i sačuvanUlaz iz draft-a
+        const loadCacheForUpdate = async () => {
+          const ulazCache = ulazCacheForDatum;
+          setArtikli(prev => prev.map(artikal => {
+            const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
+            if (cjenovnikItem) {
+              return {
+                ...artikal,
+                cijena: cjenovnikItem.cijena,
+                zestokoKolicina: cjenovnikItem.zestokoKolicina,
+                proizvodnaCijena: cjenovnikItem.proizvodnaCijena,
+                // Zadrži sve ostale podatke iz draft-a (pocetnoStanje, staroPocetnoStanje, sačuvanUlaz, itd.)
+              };
+            }
+            return artikal;
+          }));
+        };
+        loadCacheForUpdate();
+        return;
+      }
       
       // Ako nema postojećih artikala, inicijaliziraj sve iz cjenovnika
       if (artikli.length === 0) {
