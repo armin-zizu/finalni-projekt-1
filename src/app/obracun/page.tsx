@@ -561,10 +561,18 @@ export default function ObracunPage() {
               sačuvanUlaz = pocetnoStanje - cached.staroPocetnoStanje > 0 ? pocetnoStanje - cached.staroPocetnoStanje : undefined;
             }
             
-            // Ako postoji cache sa ulaz, učitaj ga
+            // VAŽNO: Ne učitavaj ulaz iz cache-a ako je artikal već resetovan (ulaz === 0 u state-u)
+            // Ovo osigurava da se ulaz ne duplira nakon ažuriranja
             let ulaz = artikal.ulaz;
-            if (cached && cached.ulaz !== 0) {
-              ulaz = cached.ulaz;
+            // Učitaj ulaz iz cache-a samo ako:
+            // 1. Artikal u state-u nema ulaz (ulaz === 0)
+            // 2. I cache ima ulaz (cached.ulaz !== 0)
+            // 3. I artikal nije već ažuriran (nema staroPocetnoStanje ili je staroPocetnoStanje === pocetnoStanje)
+            if (cached && cached.ulaz !== 0 && artikal.ulaz === 0) {
+              // Provjeri da li je artikal već ažuriran - ako ima staroPocetnoStanje i razlikuje se od pocetnoStanje, ne učitavaj ulaz
+              if (!artikal.staroPocetnoStanje || artikal.staroPocetnoStanje === pocetnoStanje) {
+                ulaz = cached.ulaz;
+              }
             }
             
             if (cached && cached.staroPocetnoStanje !== undefined) {
