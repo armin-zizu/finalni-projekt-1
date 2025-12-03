@@ -226,7 +226,9 @@ export default function ArhivaPage() {
     // U tom slučaju: pocetnoStanje = staroPocetnoStanje, ulaz = pocetnoStanje - staroPocetnoStanje
     const transformedArhiva = sortedArhiva.map((obracun) => {
       let imaUlaz = obracun.imaUlaz ?? false;
-      const transformedArtikli = obracun.artikli.map((artikal) => {
+      // Provjeri da li artikli postoje prije nego što pozoveš .map()
+      const transformedArtikli = (obracun.artikli && Array.isArray(obracun.artikli)) 
+        ? obracun.artikli.map((artikal) => {
         // Ako postoji staroPocetnoStanje i razlikuje se od pocetnoStanje, to znači da je bio ulaz
         if (
           artikal.staroPocetnoStanje !== undefined &&
@@ -247,7 +249,8 @@ export default function ArhivaPage() {
           };
         }
         return artikal;
-      });
+      })
+        : []; // Ako artikli ne postoje, koristi prazan array
       
       return {
         ...obracun,
