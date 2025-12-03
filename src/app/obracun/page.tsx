@@ -605,8 +605,7 @@ export default function ObracunPage() {
     }
     
     // Ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, početno stanje, itd.)
-    // VAŽNO: Zadrži ulaz, staroPocetnoStanje i sačuvanUlaz ako postoje
-    // Također provjeri cache i učitaj sačuvanUlaz ako postoji
+    // VAŽNO: Uvijek provjeri cache i učitaj ulaz ako postoji (osobito nakon refresh-a)
     // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCacheForUpdate = async () => {
       const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
@@ -620,11 +619,13 @@ export default function ObracunPage() {
             const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
             const cached = ulazCache[artikal.naziv];
             
-            // Učitaj ulaz iz cache-a ako postoji (ulaz ostaje vidljiv sve dok se obračun ne sačuva)
+            // PRIORITET: Učitaj ulaz iz cache-a ako postoji (ulaz ostaje vidljiv sve dok se obračun ne sačuva)
+            // Ovo osigurava da se ulaz učitava i nakon refresh-a
             let ulaz = artikal.ulaz;
             if (cached && cached.ulaz !== 0) {
               // Ako cache ima ulaz, učitaj ga (ulaz ostaje vidljiv)
               ulaz = cached.ulaz;
+              console.log(`🟢 Učitavanje ulaz iz cache-a za ${artikal.naziv}: ${ulaz}`);
             }
             
             return {
@@ -646,11 +647,13 @@ export default function ObracunPage() {
           }
           return artikal;
         });
-        console.log("🟢 Ažurirani artikli:", updated.map(a => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, staroPocetnoStanje: a.staroPocetnoStanje })));
+        console.log("🟢 Ažurirani artikli:", updated.map(a => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, ulaz: a.ulaz })));
         return updated;
       });
     };
     
+    // Uvijek pozovi loadCacheForUpdate da se osigura da se ulaz učitava iz cache-a
+    // Ovo je posebno važno nakon refresh-a stranice
     loadCacheForUpdate();
     };
     
