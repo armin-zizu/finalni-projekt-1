@@ -438,33 +438,7 @@ export default function ObracunPage() {
     const loadCacheFirst = async () => {
       setIsCacheLoaded(false);
       
-      // Ako datum nije aktivan, automatski sačuvaj draft obračun kao finalni
-      if (!datumAktivan) {
-        await autoSaveDraftAsFinal(datumString);
-      }
-      
-      // Učitaj draft obračun ako je datum aktivan
-      let draftObracun = null;
-      if (datumAktivan) {
-        draftObracun = await loadDraftObracun(datumString);
-        if (draftObracun && !draftObracun.deleted) {
-          console.log("📖 Draft obračun učitano za aktivan datum:", draftObracun);
-          // Učitaj podatke iz draft obračuna
-          if (draftObracun.artikli && draftObracun.artikli.length > 0) {
-            setArtikli(draftObracun.artikli);
-          }
-          if (draftObracun.rashodi && draftObracun.rashodi.length > 0) {
-            setRashodi(draftObracun.rashodi);
-          }
-          if (draftObracun.prihodi && draftObracun.prihodi.length > 0) {
-            setPrihodi(draftObracun.prihodi);
-          }
-          if (draftObracun.isAzuriran !== undefined) {
-            setIsAzuriran(draftObracun.isAzuriran);
-          }
-        }
-      }
-      
+      // Učitaj ulaz cache za taj datum
       const cache = await loadUlazCacheFromFirestore(datumString);
       console.log("🔵 Cache učitano za datum:", datumString, cache);
       setUlazCacheForDatum(cache);
@@ -693,58 +667,7 @@ export default function ObracunPage() {
     loadCacheAndInit();
   }, [cjenovnik, trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
 
-  // Funkcija za automatsko spremanje draft obračuna kada se promijene podaci
-  const autoSaveDraft = useCallback(async () => {
-    if (!isDatumAktivan(trenutniDatum)) return; // Spremi samo za aktivan datum
-    
-    const datumString = formatirajDatum(trenutniDatum);
-    const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
-    const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
-    const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
-    const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
-    
-    // Provjeri da li obračun ima ulaz
-    const imaUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
-    
-    // Očisti undefined vrijednosti iz artikala prije kreiranja draftData
-    const cleanedArtikli = artikli.map(a => {
-      const cleaned: any = {};
-      Object.keys(a).forEach(key => {
-        const value = (a as any)[key];
-        if (value !== undefined) {
-          cleaned[key] = value;
-        }
-      });
-      return cleaned;
-    });
-    
-    const draftData = {
-      datum: datumString,
-      ukupnoArtikli,
-      ukupnoRashod,
-      ukupnoPrihod,
-      neto,
-      artikli: cleanedArtikli,
-      rashodi,
-      prihodi,
-      isAzuriran,
-      imaUlaz: imaUlaz,
-    };
-    
-    await saveDraftObracun(datumString, draftData);
-  }, [artikli, rashodi, prihodi, isAzuriran, hasUlazInCache, trenutniDatum]);
-
-  // Automatsko spremanje draft obračuna kada se promijene podaci (samo za aktivan datum)
-  useEffect(() => {
-    if (!isDatumAktivan(trenutniDatum) || !isCacheLoaded) return;
-    
-    // Debounce automatsko spremanje (spremi nakon 2 sekunde neaktivnosti)
-    const timeoutId = setTimeout(() => {
-      autoSaveDraft();
-    }, 2000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [autoSaveDraft, trenutniDatum, isCacheLoaded]);
+  // Draft obračun je uklonjen - koristimo samo cache za ulaz vrijednosti
 
   // Uklonjen treći useEffect jer duplicira logiku drugog useEffect-a
   // Sva logika za učitavanje cache-a je sada u drugom useEffect-u
@@ -1082,41 +1005,6 @@ export default function ObracunPage() {
     setHasUlazInCache(true);
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
-    
-    // Spremi draft obračun u Firestore (samo ako je datum aktivan)
-    if (isDatumAktivan(trenutniDatum)) {
-      const ukupnoArtikli = updated.reduce((sum, a) => sum + a.vrijednostKM, 0);
-      const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
-      const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
-      const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
-      
-      // Očisti undefined vrijednosti iz artikala prije kreiranja draftData
-      const cleanedArtikli = updated.map(a => {
-        const cleaned: any = {};
-        Object.keys(a).forEach(key => {
-          const value = (a as any)[key];
-          if (value !== undefined) {
-            cleaned[key] = value;
-          }
-        });
-        return cleaned;
-      });
-      
-      const draftData = {
-        datum: datumString,
-        ukupnoArtikli,
-        ukupnoRashod,
-        ukupnoPrihod,
-        neto,
-        artikli: cleanedArtikli,
-        rashodi,
-        prihodi,
-        isAzuriran: true,
-        imaUlaz: true,
-      };
-      
-      await saveDraftObracun(datumString, draftData);
-    }
     
     alert("Ulaz je sačuvan! Vrijednosti će ostati vidljive sve dok ne sačuvate obračun.");
   };
