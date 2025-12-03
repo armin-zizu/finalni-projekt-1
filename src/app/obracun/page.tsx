@@ -768,13 +768,25 @@ export default function ObracunPage() {
     // Provjeri da li obračun ima ulaz
     const imaUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
     
+    // Očisti undefined vrijednosti iz artikala prije kreiranja draftData
+    const cleanedArtikli = artikli.map(a => {
+      const cleaned: any = {};
+      Object.keys(a).forEach(key => {
+        const value = (a as any)[key];
+        if (value !== undefined) {
+          cleaned[key] = value;
+        }
+      });
+      return cleaned;
+    });
+    
     const draftData = {
       datum: datumString,
       ukupnoArtikli,
       ukupnoRashod,
       ukupnoPrihod,
       neto,
-      artikli,
+      artikli: cleanedArtikli,
       rashodi,
       prihodi,
       isAzuriran,
@@ -1186,13 +1198,25 @@ export default function ObracunPage() {
       const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
       const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
       
+      // Očisti undefined vrijednosti iz artikala prije kreiranja draftData
+      const cleanedArtikli = updated.map(a => {
+        const cleaned: any = {};
+        Object.keys(a).forEach(key => {
+          const value = (a as any)[key];
+          if (value !== undefined) {
+            cleaned[key] = value;
+          }
+        });
+        return cleaned;
+      });
+      
       const draftData = {
         datum: datumString,
         ukupnoArtikli,
         ukupnoRashod,
         ukupnoPrihod,
         neto,
-        artikli: updated,
+        artikli: cleanedArtikli,
         rashodi,
         prihodi,
         isAzuriran: true,
