@@ -226,6 +226,7 @@ export default function ObracunPage() {
   const [resetKey, setResetKey] = useState<number>(0); // Key za reset input polja
   const [isOwner, setIsOwner] = useState<boolean>(false); // Provjera da li je korisnik vlasnik
   const [hasUlazInCache, setHasUlazInCache] = useState<boolean>(false); // Provjera da li postoji ulaz u cache-u
+  const [isUlazLocked, setIsUlazLocked] = useState<boolean>(false); // Provjera da li su ulazi zaključani
   
   // Postavke za malu zalihu
   const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
@@ -473,6 +474,11 @@ export default function ObracunPage() {
         return (cached && cached.ulaz !== 0) || (cached && cached.staroPocetnoStanje !== undefined);
       });
       setHasUlazInCache(imaUlazUCache);
+      
+      // Ako postoji ulaz u cache-u, zaključaj ulaze
+      if (imaUlazUCache) {
+        setIsUlazLocked(true);
+      }
       
       setIsCacheLoaded(true);
       console.log("🟢 Cache učitan, isCacheLoaded = true");
@@ -980,8 +986,9 @@ export default function ObracunPage() {
     setHasUlazInCache(true);
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
+    setIsUlazLocked(true); // Zaključaj ulaze nakon ažuriranja
     
-    alert("Ulaz je sačuvan! Vrijednosti će ostati vidljive sve dok ne sačuvate obračun.");
+    alert("Ulaz je sačuvan i zaključan! Kliknite 'Uredi' ako želite promijeniti vrijednosti.");
   };
 
   // Provjeri da li obračun ima ulaz (trenutni ulaz, sačuvan ulaz, ili u cache-u)
