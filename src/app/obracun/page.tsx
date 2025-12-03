@@ -1150,11 +1150,10 @@ export default function ObracunPage() {
       })
     );
 
-    // Ažuriraj artikle u formi - postavi novo početno stanje i resetiraj ulaz (isto kao u handleSaveObracun)
+    // Ažuriraj artikle u formi - postavi novo početno stanje ali ZADRŽI ulaz (ne resetiraj)
+    // Ulaz će ostati vidljiv sve dok se obračun ne sačuva
     const updated = artikli.map((a) => {
       if (a.ulaz !== 0) {
-        const staroPocetnoStanje = a.staroPocetnoStanje ?? a.pocetnoStanje;
-        const sačuvanUlaz = a.ulaz; // Sačuvaj ulaz prije resetiranja
         const novoPocetnoStanje = a.naziv.toLowerCase().includes("kafa")
           ? 0
           : a.pocetnoStanje + a.ulaz;
@@ -1162,39 +1161,31 @@ export default function ObracunPage() {
         return {
           ...a,
           pocetnoStanje: novoPocetnoStanje,
-          ulaz: 0, // Resetiraj ulaz na 0 da se obriše iz input polja
-          ukupno: novoPocetnoStanje,
+          ulaz: a.ulaz, // ZADRŽI ulaz - ne resetiraj ga!
+          ukupno: novoPocetnoStanje + a.ulaz, // Ukupno = novo početno stanje + ulaz (jer ulaz ostaje)
           utroseno: 0, // Resetiraj utrošeno jer se početno stanje promijenilo
           vrijednostKM: 0, // Resetiraj vrijednost
           krajnjeStanje: 0, // Resetiraj krajnje stanje
           isKrajnjeSet: false, // Resetiraj flag
-          staroPocetnoStanje: staroPocetnoStanje, // Sačuvaj staro stanje da se prikaže zagrada
-          sačuvanUlaz: sačuvanUlaz, // Sačuvaj ulaz za prikaz u arhivi
+          // Ne postavljaj staroPocetnoStanje - ne prikazujemo zagrade
         };
       }
-      // Za artikle bez ulaza, resetiraj ulaz na 0 ali zadrži staroPocetnoStanje ako postoji
-      return {
-        ...a,
-        ulaz: 0,
-      };
+      // Za artikle bez ulaza, zadrži sve kako je
+      return a;
     });
-    
-    // Povećaj reset key PRIJE nego što se artikli ažuriraju da se input polja odmah resetiraju
-    setResetKey((prev) => prev + 1);
     
     setArtikli(updated);
     
-    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje treba ostati)
+    // Ažuriraj cache sa novim podacima - sačuvaj ulaz (ne resetiraj ga)
     const existingCache2 = await loadUlazCacheFromFirestore(datumString);
     let ulazCache2: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = existingCache2;
     
-    // Ažuriraj cache sa novim podacima (ulaz je sada 0, ali staroPocetnoStanje i sačuvanUlaz trebaju ostati)
+    // Ažuriraj cache - sačuvaj ulaz jer ostaje vidljiv
     updated.forEach((a) => {
-      if (a.staroPocetnoStanje !== undefined) {
+      if (a.ulaz !== 0) {
         ulazCache2[a.naziv] = {
-          ulaz: 0, // Ulaz je sada 0 jer je ažuriran
-          staroPocetnoStanje: a.staroPocetnoStanje,
-          sačuvanUlaz: a.sačuvanUlaz, // Sačuvaj sačuvanUlaz za prikaz u arhivi
+          ulaz: a.ulaz, // Sačuvaj ulaz jer ostaje vidljiv
+          staroPocetnoStanje: a.pocetnoStanje - a.ulaz, // Staro stanje = novo - ulaz
         };
       }
     });
@@ -2159,18 +2150,7 @@ export default function ObracunPage() {
                 <td style={tdStyle} data-label="Proizvodna Cijena">{a.proizvodnaCijena ? a.proizvodnaCijena.toFixed(2) : "-"}</td>
                 <td style={tdStyle} data-label="Početno stanje">
                   {a.pocetnoStanje}
-                  {(() => {
-                    // Debug log za provjeru
-                    if (a.staroPocetnoStanje !== undefined) {
-                      console.log(`🔍 UI Render - Artikal ${a.naziv}: pocetnoStanje=${a.pocetnoStanje}, staroPocetnoStanje=${a.staroPocetnoStanje}, uslov=${a.staroPocetnoStanje !== a.pocetnoStanje}`);
-                    }
-                    return null;
-                  })()}
-                  {a.staroPocetnoStanje !== undefined && a.staroPocetnoStanje !== a.pocetnoStanje && (
-                    <span style={{ color: "#eab308", marginLeft: "4px", fontSize: "12px" }}>
-                      ({a.staroPocetnoStanje})
-                    </span>
-                  )}
+                  {/* Ne prikazuj zagrade - ulaz ostaje vidljiv u input polju */}
                 </td>
                 <td style={tdStyle} data-label="Ulaz">
                   <input
