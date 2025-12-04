@@ -306,8 +306,14 @@ export default function ObracunPage() {
               }
             }
           },
-          (error) => {
-            console.error("Greška pri osluškivanju postavki za malu zalihu:", error);
+          (error: any) => {
+            // Ignoriraj greške dozvola
+            const errorCode = error?.code || "";
+            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+              console.error("Greška pri osluškivanju postavki za malu zalihu:", error);
+            } else {
+              console.warn("Greška pri real-time listeneru: Missing or insufficient permissions.");
+            }
           }
         );
       }
