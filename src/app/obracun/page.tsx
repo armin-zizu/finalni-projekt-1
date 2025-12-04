@@ -1738,7 +1738,8 @@ export default function ObracunPage() {
               opacity: canEdit ? 1 : 0.5,
               cursor: canEdit ? "pointer" : "not-allowed",
               display: "inline-block",
-              margin: 0
+              marginRight: "8px",
+              marginBottom: "8px"
             }}
             onMouseEnter={(e) => {
               if (canEdit) {
@@ -1907,8 +1908,11 @@ export default function ObracunPage() {
                       background: "#15803d",
                       opacity: (canEdit && !uploadingImages) ? 1 : 0.5,
                       cursor: (canEdit && !uploadingImages) ? "pointer" : "not-allowed",
-                      padding: "6px 12px",
-                      fontSize: "12px"
+                      padding: "8px 16px",
+                      fontSize: "14px",
+                      maxWidth: "160px",
+                      marginRight: "8px",
+                      marginBottom: "8px"
                     }}
                   >
                     {uploadingImages ? `Spremanje... ${Math.round(uploadProgress)}%` : "Sačuvaj slike"}
