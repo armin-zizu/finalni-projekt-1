@@ -1144,6 +1144,16 @@ export default function AdminPage() {
         <p style={{ fontSize: "14px", color: "#6b7280" }}>
           Pregled i upravljanje svim korisnicima i pretplatama
         </p>
+        <div style={{ marginTop: "12px", padding: "12px 16px", background: "#eff6ff", borderRadius: "8px", border: "1px solid #bfdbfe", display: "inline-block" }}>
+          <span style={{ fontSize: "16px", fontWeight: 600, color: "#1e40af" }}>
+            📊 Ukupno prijavljenih korisnika: <strong>{users.length}</strong>
+            {searchTerm && (
+              <span style={{ fontSize: "14px", fontWeight: 400, color: "#3b82f6", marginLeft: "8px" }}>
+                (Filtrirano: {filteredUsers.length})
+              </span>
+            )}
+          </span>
+        </div>
       </div>
 
       {message && (
@@ -2460,6 +2470,9 @@ export default function AdminPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f9fafb", borderBottom: "2px solid #e5e7eb" }}>
+                <th style={{ padding: "12px", textAlign: "center", fontSize: "12px", fontWeight: 600, color: "#6b7280", width: "60px" }}>
+                  RB
+                </th>
                 <th style={{ padding: "12px", textAlign: "left", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
                   Email
                 </th>
@@ -2484,7 +2497,7 @@ export default function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((user) => {
+              {filteredUsers.map((user, index) => {
                 const subscription = subscriptions[user.id];
                 const isActive = subscription?.isActive || false;
                 const isTrial = subscription?.isTrial || false;
@@ -2540,6 +2553,9 @@ export default function AdminPage() {
 
                 return (
                   <tr key={user.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    <td style={{ padding: "12px", fontSize: "14px", color: "#6b7280", textAlign: "center", fontWeight: 600 }}>
+                      {index + 1}
+                    </td>
                     <td style={{ padding: "12px", fontSize: "14px", color: "#1f2937" }}>
                       {user.email || user.id.substring(0, 8) + "..."}
                     </td>
