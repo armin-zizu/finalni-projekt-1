@@ -1920,15 +1920,13 @@ export default function ObracunPage() {
                   <button
                     onClick={() => setInvoiceImages([])}
                     style={{
-                      padding: "6px 12px",
+                      ...buttonStyle,
                       background: "#dc2626",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      fontWeight: 500,
-                      opacity: canEdit ? 1 : 0.5
+                      maxWidth: "160px",
+                      opacity: canEdit ? 1 : 0.5,
+                      cursor: canEdit ? "pointer" : "not-allowed",
+                      marginRight: "8px",
+                      marginBottom: "8px"
                     }}
                     disabled={!canEdit}
                   >
