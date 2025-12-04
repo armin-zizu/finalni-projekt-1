@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { auth, db } from "../../lib/firebase";
-import { collection, getDocs, doc, getDoc, setDoc, updateDoc, Timestamp } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
@@ -652,6 +652,113 @@ export default function AdminPage() {
   };
 
   // Aktiviraj/deaktiviraj pretplatu
+  // Funkcija za trajno brisanje korisnika
+  const deleteUser = async (userId: string) => {
+    if (!selectedUserDetails) return;
+    
+    // Potvrda prije brisanja
+    const confirmed = window.confirm(
+      `Jeste li SIGURNI da želite TRAJNO obrisati korisnika?\n\n` +
+      `Email: ${selectedUserDetails.email || "N/A"}\n` +
+      `App Name: ${selectedUserDetails.appName}\n\n` +
+      `Ova akcija je NEPOVRATNA i obrisat će:\n` +
+      `- Sve obračune korisnika\n` +
+      `- Svu pretplatu i historiju uplata\n` +
+      `- Sve cache podatke\n` +
+      `- Sve draft obračune\n` +
+      `- Sve uređaje korisnika\n` +
+      `- Svi podaci korisnika\n\n` +
+      `Ova akcija se NE MOŽE poništiti!`
+    );
+    
+    if (!confirmed) return;
+    
+    // Dodatna potvrda
+    const doubleConfirmed = window.confirm(
+      `POSLEDNJA POTVRDA!\n\n` +
+      `Jeste li 100% sigurni da želite obrisati korisnika "${selectedUserDetails.appName}"?\n\n` +
+      `Ova akcija je TRAJNA i NEPOVRATNA!`
+    );
+    
+    if (!doubleConfirmed) return;
+    
+    setSaving(true);
+    try {
+      // 1. Obriši sve obračune
+      const obracuniRef = collection(db, "users", userId, "obracuni");
+      const obracuniSnapshot = await getDocs(obracuniRef);
+      for (const docSnapshot of obracuniSnapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+      }
+      
+      // 2. Obriši pretplatu
+      const subscriptionRef = collection(db, "users", userId, "subscription");
+      const subscriptionSnapshot = await getDocs(subscriptionRef);
+      for (const docSnapshot of subscriptionSnapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+      }
+      
+      // 3. Obriši ulaz cache
+      const ulazCacheRef = collection(db, "users", userId, "ulazCache");
+      const ulazCacheSnapshot = await getDocs(ulazCacheRef);
+      for (const docSnapshot of ulazCacheSnapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+      }
+      
+      // 4. Obriši cache
+      const cacheRef = collection(db, "users", userId, "cache");
+      const cacheSnapshot = await getDocs(cacheRef);
+      for (const docSnapshot of cacheSnapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+      }
+      
+      // 5. Obriši draft obračune
+      const draftObracuniRef = collection(db, "users", userId, "draftObracuni");
+      const draftObracuniSnapshot = await getDocs(draftObracuniRef);
+      for (const docSnapshot of draftObracuniSnapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+      }
+      
+      // 6. Obriši uređaje korisnika
+      const devicesRef = collection(db, "devices");
+      const devicesSnapshot = await getDocs(devicesRef);
+      for (const docSnapshot of devicesSnapshot.docs) {
+        const deviceData = docSnapshot.data();
+        if (deviceData.userId === userId) {
+          await deleteDoc(docSnapshot.ref);
+        }
+      }
+      
+      // 7. Obriši glavni dokument korisnika
+      const userRef = doc(db, "users", userId);
+      await deleteDoc(userRef);
+      
+      // 8. Ažuriraj lokalni state
+      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
+      setSubscriptions((prevSubs) => {
+        const newSubs = { ...prevSubs };
+        delete newSubs[userId];
+        return newSubs;
+      });
+      
+      // 9. Zatvori modal
+      setShowDetailsModal(false);
+      setSelectedUserDetails(null);
+      
+      setMessage({ type: "success", text: "Korisnik je uspješno obrisan" });
+      setTimeout(() => setMessage(null), 5000);
+    } catch (error: any) {
+      console.error("Greška pri brisanju korisnika:", error);
+      setMessage({ 
+        type: "error", 
+        text: `Greška pri brisanju korisnika: ${error?.message || "Nepoznata greška"}` 
+      });
+      setTimeout(() => setMessage(null), 5000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const toggleSubscription = async (userId: string, currentStatus: boolean) => {
     try {
       setSaving(true);
@@ -3481,6 +3588,33 @@ export default function AdminPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Opasna zona - Brisanje korisnika */}
+                  <div style={{ marginTop: "24px", marginBottom: "24px", padding: "16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
+                    <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#dc2626", marginBottom: "12px" }}>
+                      ⚠️ Opasna Zona
+                    </h3>
+                    <p style={{ fontSize: "12px", color: "#991b1b", marginBottom: "12px" }}>
+                      Trajno brisanje korisnika će obrisati sve podatke korisnika. Ova akcija je NEPOVRATNA!
+                    </p>
+                    <button
+                      onClick={() => deleteUser(selectedUserDetails.id)}
+                      disabled={saving}
+                      style={{
+                        padding: "10px 20px",
+                        borderRadius: "6px",
+                        border: "none",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        cursor: saving ? "not-allowed" : "pointer",
+                        backgroundColor: "#dc2626",
+                        color: "#fff",
+                        opacity: saving ? 0.6 : 1,
+                      }}
+                    >
+                      {saving ? "Brisanje..." : "🗑️ Trajno Obriši Korisnika"}
+                    </button>
+                  </div>
 
                   <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
                     <button
