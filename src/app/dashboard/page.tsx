@@ -420,6 +420,24 @@ export default function DashboardPage() {
             width: 100% !important;
             margin-left: 0 !important;
             margin-right: 0 !important;
+            box-sizing: border-box !important;
+          }
+          /* Parent div za kartice (Bruto, Rashod, Neto) - osiguraj iste margine */
+          div[style*='display: flex'][style*='gap: 20'][style*='flexWrap'][style*='marginBottom: 30'] {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            gap: 10px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          /* Osiguraj da kartice imaju iste margine kao i ostali elementi */
+          div[style*='display: flex'][style*='gap: 20'][style*='flexWrap'][style*='marginBottom: 30'] > .dashboard-card {
+            width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
           }
           div[style*='background: linear-gradient'][style*='#667eea'] {
             width: 100% !important;
@@ -570,7 +588,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Kartice */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30 }}>
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30, width: "100%", boxSizing: "border-box" }}>
         {[
           {
             label: "Bruto",
