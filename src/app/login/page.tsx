@@ -699,8 +699,9 @@ export default function LoginPage() {
       // Kreiraj početnu strukturu za novog korisnika u Firestore
       let isFirstUser = false;
       try {
+        console.log("🔄 Registracija - Pokrećem initializeUser za:", user.uid, user.email);
         await initializeUser(user.uid, user.email);
-        console.log("Korisnik inicijalizovan u Firestore");
+        console.log("✅ Registracija - Korisnik inicijalizovan u Firestore");
         
         // Provjeri da li je korisnik prvi (isOwner === true)
         const userDocRef = doc(db, "users", user.uid);
@@ -708,10 +709,13 @@ export default function LoginPage() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           isFirstUser = userData.isOwner === true;
-          console.log("Registracija - isOwner:", isFirstUser);
+          console.log("📋 Registracija - Provjera isOwner:", isFirstUser, "userData:", userData);
+        } else {
+          console.warn("⚠️ Registracija - User dokument ne postoji nakon inicijalizacije!");
         }
-      } catch (initError) {
-        console.error("Greška pri inicijalizaciji korisnika (nastavljam):", initError);
+      } catch (initError: any) {
+        console.error("❌ Registracija - Greška pri inicijalizaciji korisnika:", initError);
+        console.error("Error code:", initError?.code, "Error message:", initError?.message);
         // Nastavi sa registracijom čak i ako inicijalizacija ne uspije
       }
 

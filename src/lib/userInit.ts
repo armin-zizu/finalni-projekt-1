@@ -67,10 +67,11 @@ export async function initializeUser(userId: string, email: string | null) {
     }
 
     // Provjeri da li je ovo prvi korisnik u sistemu PRIJE kreiranja dokumenta
+    console.log("🔍 initializeUser - Provjeravam da li je prvi korisnik...");
     const isFirst = await isFirstUser();
     const isOwner = isFirst; // Samo prvi korisnik u sistemu dobija isOwner: true
     
-    console.log("Inicijalizacija korisnika - isFirstUser:", isFirst, "isOwner:", isOwner);
+    console.log("📊 initializeUser - Rezultat provjere:", { isFirst, isOwner, userId, email });
 
     // Kreiraj glavni user dokument sa osnovnim podacima
     await setDoc(userDocRef, {
