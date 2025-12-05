@@ -133,9 +133,18 @@ export default function LoginPage() {
               return;
             }
           } else {
-            // Novi uređaj - ako je vlasnik, automatski kreiraj device dokument sa role = "vlasnik"
-            if (isOwner || isOwnerDevice) {
-              console.log("Login - Vlasnik detektovan, kreiram device dokument sa role = vlasnik");
+            // Novi uređaj - provjeri da li korisnik već ima druge uređaje
+            try {
+              const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
+              const devicesSnapshot = await getDocs(devicesQuery);
+              
+              console.log("Login - Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size, "isOwner:", isOwner);
+              
+              // Opcija 3: Kombinacija (vlasnik + broj uređaja)
+              // 1. Ako je vlasnik i nema device dokumenata → automatski odobri prvi uređaj
+              // 2. Ako je vlasnik ali već ima device dokumente → novi uređaj zahtijeva verifikaciju
+              // 3. Ako nije vlasnik → svaki novi uređaj zahtijeva verifikaciju
+              
               const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
                 ? "Chrome"
                 : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
@@ -146,92 +155,84 @@ export default function LoginPage() {
                 ? "Edge"
                 : "Unknown";
               
-              await setDoc(deviceRef, {
-                userId: user.uid,
-                userEmail: user.email,
-                role: "vlasnik",
-                status: "approved",
-                isBlocked: false,
-                permissions: {
-                  dashboard: true,
-                  obracun: true,
-                  arhiva: true,
-                  cjenovnik: true,
-                  profit: true,
-                  profile: true,
-                  admin: false,
-                },
-                deviceInfo: {
-                  deviceId: deviceId,
-                  browser,
-                  os,
-                  screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                  userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                  firstSeen: Timestamp.fromDate(new Date()),
-                  lastLogin: Timestamp.fromDate(new Date()),
-                },
-                lastLogin: Timestamp.fromDate(new Date()),
-                createdAt: Timestamp.fromDate(new Date()),
-                updatedAt: Timestamp.fromDate(new Date()),
-              }, { merge: true });
-              
-              console.log("Login - Device dokument kreiran za vlasnika sa role = vlasnik");
-            } else {
-              // Novi uređaj - provjeri da li korisnik već ima druge uređaje
-              try {
-                const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
-                const devicesSnapshot = await getDocs(devicesQuery);
+              if (isOwner && devicesSnapshot.empty) {
+                // Vlasnik sa prvim uređajem → automatski odobri
+                console.log("Login - Vlasnik sa prvim uređajem, automatski odobravam");
                 
-                console.log("Login - Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size, "isOwner:", isOwner);
-                
-                // Ako je vlasnik i nema drugih uređaja, automatski odobri (prvi uređaj za vlasnika)
-                if (isOwner && devicesSnapshot.empty) {
-                  console.log("Login - Vlasnik sa prvim uređajem, automatski odobravam");
-                  const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
-                    ? "Chrome"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
-                    ? "Firefox"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
-                    ? "Safari"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
-                    ? "Edge"
-                    : "Unknown";
-                  
-                  await setDoc(deviceRef, {
-                    userId: user.uid,
-                    userEmail: user.email,
-                    role: "vlasnik",
-                    status: "approved",
-                    isBlocked: false,
-                    permissions: {
-                      dashboard: true,
-                      obracun: true,
-                      arhiva: true,
-                      cjenovnik: true,
-                      profit: true,
-                      profile: true,
-                      admin: false,
-                    },
-                    deviceInfo: {
-                      deviceId: deviceId,
-                      browser,
-                      os,
-                      screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                      firstSeen: Timestamp.fromDate(new Date()),
-                      lastLogin: Timestamp.fromDate(new Date()),
-                    },
+                await setDoc(deviceRef, {
+                  userId: user.uid,
+                  userEmail: user.email,
+                  role: "vlasnik",
+                  status: "approved",
+                  isBlocked: false,
+                  permissions: {
+                    dashboard: true,
+                    obracun: true,
+                    arhiva: true,
+                    cjenovnik: true,
+                    profit: true,
+                    profile: true,
+                    admin: false,
+                  },
+                  deviceInfo: {
+                    deviceId: deviceId,
+                    browser,
+                    os,
+                    screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                    firstSeen: Timestamp.fromDate(new Date()),
                     lastLogin: Timestamp.fromDate(new Date()),
-                    createdAt: Timestamp.fromDate(new Date()),
-                    updatedAt: Timestamp.fromDate(new Date()),
-                  }, { merge: true });
-                  
-                  console.log("Login - Device dokument kreiran za vlasnika (prvi uređaj) sa role = vlasnik");
-                } else if (!devicesSnapshot.empty) {
-                  // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju (čak i ako je vlasnik)
-                  console.log("Login - Korisnik već ima druge uređaje, kreiram novi sa statusom 'verifikacija'");
-                  
-                  // Kreiraj novi uređaj sa statusom "verifikacija"
+                  },
+                  lastLogin: Timestamp.fromDate(new Date()),
+                  createdAt: Timestamp.fromDate(new Date()),
+                  updatedAt: Timestamp.fromDate(new Date()),
+                }, { merge: true });
+                
+                console.log("Login - Device dokument kreiran za vlasnika (prvi uređaj) sa role = vlasnik, status = approved");
+              } else {
+                // Vlasnik sa drugim uređajem ILI nije vlasnik → zahtijeva verifikaciju
+                console.log("Login - Novi uređaj zahtijeva verifikaciju", {
+                  isOwner,
+                  hasOtherDevices: !devicesSnapshot.empty,
+                  reason: isOwner ? "Vlasnik već ima druge uređaje" : "Korisnik nije vlasnik"
+                });
+                
+                await setDoc(deviceRef, {
+                  userId: user.uid,
+                  userEmail: user.email,
+                  role: isOwner ? "vlasnik" : null,
+                  status: "verifikacija",
+                  isBlocked: false,
+                  deviceInfo: {
+                    deviceId: deviceId,
+                    browser,
+                    os,
+                    screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                    firstSeen: Timestamp.fromDate(new Date()),
+                    lastLogin: Timestamp.fromDate(new Date()),
+                  },
+                  lastLogin: Timestamp.fromDate(new Date()),
+                  createdAt: Timestamp.fromDate(new Date()),
+                  updatedAt: Timestamp.fromDate(new Date()),
+                });
+
+                console.log("Login - Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
+                setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
+                setLoading(false);
+                return;
+              }
+            } catch (queryError: any) {
+              console.error("Login - Greška pri provjeri drugih uređaja:", queryError);
+              // Ako je greška zbog permisija, pokušaj kreirati uređaj sa verifikacijom ako nije vlasnik
+              if (queryError.code === 'permission-denied') {
+                // Provjeri ponovo da li je vlasnik prije nego što kreiramo sa verifikacijom
+                const userDocRefCheck = doc(db, "users", user.uid);
+                const userDocCheck = await getDoc(userDocRefCheck);
+                const isOwnerCheck = userDocCheck.exists() && userDocCheck.data().isOwner === true;
+                
+                if (!isOwnerCheck) {
+                  console.log("Login - Nemam permisije za query, ali nije vlasnik - kreiram sa verifikacijom");
                   const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
                     ? "Chrome"
                     : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
@@ -274,69 +275,9 @@ export default function LoginPage() {
                     updatedAt: Timestamp.fromDate(new Date()),
                   });
 
-                  console.log("Login - Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
                   setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
                   setLoading(false);
                   return;
-                }
-              } catch (queryError: any) {
-                console.error("Login - Greška pri provjeri drugih uređaja:", queryError);
-                // Ako je greška zbog permisija, možda korisnik nema dozvolu za query
-                // U tom slučaju, pokušaj kreirati uređaj sa verifikacijom ako nije vlasnik
-                if (queryError.code === 'permission-denied') {
-                  // Provjeri ponovo da li je vlasnik prije nego što kreiramo sa verifikacijom
-                  const userDocRefCheck = doc(db, "users", user.uid);
-                  const userDocCheck = await getDoc(userDocRefCheck);
-                  const isOwnerCheck = userDocCheck.exists() && userDocCheck.data().isOwner === true;
-                  
-                  if (!isOwnerCheck) {
-                    console.log("Login - Nemam permisije za query, ali nije vlasnik - kreiram sa verifikacijom");
-                    const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
-                      ? "Chrome"
-                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
-                      ? "Firefox"
-                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
-                      ? "Safari"
-                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
-                      ? "Edge"
-                      : "Unknown";
-
-                    const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
-                      ? "Windows"
-                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
-                      ? "macOS"
-                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
-                      ? "Linux"
-                      : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
-                      ? "Android"
-                      : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
-                      ? "iOS"
-                      : "Unknown";
-
-                    await setDoc(deviceRef, {
-                      userId: user.uid,
-                      userEmail: user.email,
-                      role: null,
-                      status: "verifikacija",
-                      isBlocked: false,
-                      deviceInfo: {
-                        deviceId: deviceId,
-                        browser,
-                        os,
-                        screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                        firstSeen: Timestamp.fromDate(new Date()),
-                        lastLogin: Timestamp.fromDate(new Date()),
-                      },
-                      lastLogin: Timestamp.fromDate(new Date()),
-                      createdAt: Timestamp.fromDate(new Date()),
-                      updatedAt: Timestamp.fromDate(new Date()),
-                    });
-
-                    setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
-                    setLoading(false);
-                    return;
-                  }
                 }
               }
             }
