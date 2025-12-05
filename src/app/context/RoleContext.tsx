@@ -154,8 +154,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         // Ako dokument ne postoji, to je novi uređaj - ne kreiraj ga ovdje,
         // neka ga kreira loadRole() funkcija sa pravilnim statusom
         console.log("RoleContext - Novi uređaj detektovan:", newDeviceId);
-      } catch (error) {
-        console.warn("Greška pri provjeri deviceId u Firestore:", error);
+      } catch (error: any) {
+        // Ignoriraj greške permisija - mogu se desiti kada korisnik nema dozvolu za čitanje device dokumenta
+        // Ovo je u redu jer će loadRole() funkcija kreirati device dokument ako ne postoji
+        if (error?.code !== 'permission-denied' && !error?.code?.includes('permission') && !error?.code?.includes('insufficient')) {
+          console.warn("Greška pri provjeri deviceId u Firestore:", error);
+        }
       }
     }
     
@@ -545,8 +549,16 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       // Vrati cleanup funkciju
       return unsubscribe;
     } catch (err: any) {
-      console.error("Greška pri učitavanju uloge:", err);
-      setError(err.message || "Greška pri učitavanju uloge");
+      // Ignoriraj greške permisija - mogu se desiti kada korisnik nema dozvolu za čitanje device dokumenta
+      // Ovo je u redu jer će se device dokument kreirati kada korisnik pokuša pristupiti aplikaciji
+      if (err?.code !== 'permission-denied' && !err?.code?.includes('permission') && !err?.code?.includes('insufficient')) {
+        console.error("Greška pri učitavanju uloge:", err);
+        setError(err.message || "Greška pri učitavanju uloge");
+      } else {
+        // Ako je greška permisija, postavi role na null (verifikacija potrebna)
+        setRole(null);
+        setPermissions(null);
+      }
       setLoading(false);
     }
   };

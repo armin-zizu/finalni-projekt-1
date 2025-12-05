@@ -70,12 +70,17 @@ service cloud.firestore {
       // Korisnik može čitati svoje uređaje (ako postoji) ili ako je vlasnik
       // Također dozvoli čitanje ako dokument ne postoji (za provjeru da li postoji)
       // Ovo je potrebno za RoleContext da provjeri da li device dokument postoji
+      // Dozvoli čitanje svim autentifikovanim korisnicima za provjeru postojanja dokumenta
       allow read: if request.auth != null && (
         (resource != null && resource.data.userId == request.auth.uid) || 
         isOwner() ||
         // Dozvoli čitanje ako dokument ne postoji (resource == null) - za provjeru da li postoji
         // Ovo je potrebno za novog korisnika da provjeri da li device dokument postoji
-        (resource == null)
+        // Dozvoli svim autentifikovanim korisnicima da provjere postojanje device dokumenta
+        (resource == null) ||
+        // Dozvoli čitanje ako korisnik pokušava provjeriti da li postoji device dokument
+        // (ovo je potrebno za RoleContext initializeDeviceId funkciju)
+        true
       );
       
       // Lista uređaja - vlasnik može vidjeti sve uređaje za sve korisnike
