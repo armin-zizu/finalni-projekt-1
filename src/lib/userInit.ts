@@ -15,46 +15,28 @@ const defaultCjenovnik = [
 ];
 
 /**
- * Provjeri da li je korisnik prvi korisnik u sistemu
- * Provjerava da li već postoji bilo koji korisnik sa isOwner: true koji ima device dokumente
- * (što znači da je aktivan - postoji u Firebase Auth)
- * Ako nema aktivnih vlasnika, novi korisnik postaje vlasnik
+ * Provjeri da li je email prvi put registriran u sistemu
+ * Provjerava da li taj SPECIFIČNI email već postoji u Firestore
+ * Ako email ne postoji, taj email postaje vlasnik (bez obzira na to da li već postoje drugi vlasnici)
+ * @param email - Email adresa za provjeru
  */
-async function isFirstUser(): Promise<boolean> {
+async function isFirstUser(email: string | null): Promise<boolean> {
+  if (!email) {
+    console.log("isFirstUser - Email nije dostupan, pretpostavljam da nije prvi korisnik");
+    return false;
+  }
+  
   try {
     const usersRef = collection(db, "users");
-    const snapshot = await getDocs(usersRef);
+    const { query: queryFn, where: whereFn } = await import("firebase/firestore");
     
-    // Provjeri da li postoji bilo koji korisnik sa isOwner: true koji ima device dokumente
-    // (što znači da je aktivan)
-    let hasActiveOwner = false;
+    // Provjeri da li taj SPECIFIČNI email već postoji u sistemu
+    const emailQuery = queryFn(usersRef, whereFn("email", "==", email.toLowerCase().trim()));
+    const snapshot = await getDocs(emailQuery);
     
-    for (const userDoc of snapshot.docs) {
-      const userData = userDoc.data();
-      if (userData.isOwner === true) {
-        // Provjeri da li ovaj korisnik ima device dokumente (što znači da je aktivan)
-        try {
-          const { collection: getCollection, getDocs: getDocsQuery, query: queryFn, where: whereFn } = await import("firebase/firestore");
-          const devicesRef = getCollection(db, "devices");
-          const devicesQuery = queryFn(devicesRef, whereFn("userId", "==", userDoc.id));
-          const devicesSnapshot = await getDocsQuery(devicesQuery);
-          
-          // Ako korisnik ima device dokumente, znači da je aktivan
-          if (!devicesSnapshot.empty) {
-            hasActiveOwner = true;
-            console.log("isFirstUser - Pronađen aktivan vlasnik:", userDoc.id);
-            break; // Nema potrebe provjeravati dalje
-          }
-        } catch (deviceError) {
-          // Ignoriraj greške pri provjeri device dokumenata
-          console.warn("isFirstUser - Greška pri provjeri device dokumenata za korisnika:", userDoc.id, deviceError);
-        }
-      }
-    }
-    
-    // Ako nema aktivnih vlasnika, ovo je prvi korisnik
-    const isFirst = !hasActiveOwner;
-    console.log("isFirstUser provjera - broj korisnika:", snapshot.size, "hasActiveOwner:", hasActiveOwner, "isFirst:", isFirst);
+    // Ako email ne postoji, ovo je prvi put da se taj email registruje
+    const isFirst = snapshot.empty;
+    console.log("isFirstUser provjera - email:", email, "postoji:", !isFirst, "isFirst:", isFirst);
     return isFirst;
   } catch (error) {
     console.error("Greška pri provjeri prvog korisnika:", error);
@@ -84,23 +66,23 @@ export async function initializeUser(userId: string, email: string | null) {
       const existingIsOwner = existingData.isOwner === true;
       console.log("⚠️ initializeUser - Korisnik već postoji u Firestore, isOwner:", existingIsOwner);
       
-      // Ako korisnik već postoji i nije vlasnik, provjeri da li je prvi korisnik
+      // Ako korisnik već postoji i nije vlasnik, provjeri da li je prvi put da se taj email registruje
       // (možda je korisnik obrisan iz Firebase Auth ali dokument ostao u Firestore)
       if (!existingIsOwner) {
-        console.log("🔍 initializeUser - Korisnik postoji ali nije vlasnik, provjeravam da li je prvi...");
-        const isFirst = await isFirstUser();
+        console.log("🔍 initializeUser - Korisnik postoji ali nije vlasnik, provjeravam da li je prvi put da se email registruje...");
+        const isFirst = await isFirstUser(email);
         if (isFirst) {
-          console.log("✅ initializeUser - Korisnik je prvi, ažuriram isOwner: true");
+          console.log("✅ initializeUser - Email se prvi put registruje, ažuriram isOwner: true");
           await setDoc(userDocRef, { isOwner: true }, { merge: true });
         }
       }
       return; // Ne kreiraj ponovo
     }
 
-    // Provjeri da li je ovo prvi korisnik u sistemu PRIJE kreiranja dokumenta
-    console.log("🔍 initializeUser - Provjeravam da li je prvi korisnik...");
-    const isFirst = await isFirstUser();
-    const isOwner = isFirst; // Samo prvi korisnik u sistemu dobija isOwner: true
+    // Provjeri da li je ovo prvi put da se taj email registruje PRIJE kreiranja dokumenta
+    console.log("🔍 initializeUser - Provjeravam da li je prvi put da se email registruje...");
+    const isFirst = await isFirstUser(email);
+    const isOwner = isFirst; // Svaki novi email (account) postaje vlasnik
     
     console.log("📊 initializeUser - Rezultat provjere:", { isFirst, isOwner, userId, email });
 

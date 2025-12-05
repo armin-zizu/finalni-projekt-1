@@ -68,22 +68,18 @@ export default function LoginPage() {
         }
       }
       
-      // Ako korisnik nije vlasnik, provjeri da li je prvi korisnik u sistemu
-      if (!isOwner) {
+      // Ako korisnik nije vlasnik, provjeri da li je prvi put da se taj email registruje
+      if (!isOwner && user.email) {
         try {
+          // Provjeri da li je prvi put da se taj email registruje
           const usersRef = collection(db, "users");
-          const usersSnapshot = await getDocs(usersRef);
-          let hasOwner = false;
-          usersSnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.isOwner === true) {
-              hasOwner = true;
-            }
-          });
+          const { query: queryFn, where: whereFn } = await import("firebase/firestore");
+          const emailQuery = queryFn(usersRef, whereFn("email", "==", user.email.toLowerCase().trim()));
+          const emailSnapshot = await getDocs(emailQuery);
           
-          // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik
-          if (!hasOwner) {
-            console.log("Login - Prvi korisnik detektovan, postavljam isOwner: true");
+          // Ako email ne postoji u sistemu, ovo je prvi put da se registruje
+          if (emailSnapshot.empty) {
+            console.log("Login - Email se prvi put registruje, postavljam isOwner: true");
             await setDoc(userDocRef, { isOwner: true }, { merge: true });
             isOwner = true;
             userDoc = await getDoc(userDocRef);
