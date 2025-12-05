@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { db } from "../../lib/firestore";
 import { doc, getDoc, setDoc, collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
+import { useRole } from "../context/RoleContext";
 
 export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"email" | "register" | "forgot" | null>(null);
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
   const router = useRouter();
+  const { refreshRole } = useRole();
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -526,8 +528,8 @@ export default function LoginPage() {
       } else {
         // Prikaži grešku samo ako nije invalid-credential (koja se može desiti zbog race condition)
         if (err.code !== "auth/invalid-credential") {
-          setError(err.message || "Greška pri prijavi. Provjeri e-mail i lozinku.");
-        }
+        setError(err.message || "Greška pri prijavi. Provjeri e-mail i lozinku.");
+      }
       }
       setLoading(false);
     }
@@ -561,9 +563,19 @@ export default function LoginPage() {
       console.log("Uspješna registracija:", user.email);
 
       // Kreiraj početnu strukturu za novog korisnika u Firestore
+      let isFirstUser = false;
       try {
         await initializeUser(user.uid, user.email);
         console.log("Korisnik inicijalizovan u Firestore");
+        
+        // Provjeri da li je korisnik prvi (isOwner === true)
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          isFirstUser = userData.isOwner === true;
+          console.log("Registracija - isOwner:", isFirstUser);
+        }
       } catch (initError) {
         console.error("Greška pri inicijalizaciji korisnika (nastavljam):", initError);
         // Nastavi sa registracijom čak i ako inicijalizacija ne uspije
@@ -598,8 +610,24 @@ export default function LoginPage() {
       // Session management se rješava automatski kroz Firebase Auth
       // API route nije potreban za static export
       console.log("Registracija uspješna, čekam provjeru role...");
-      // Ne preusmjeravaj automatski - AppContent će provjeriti role i preusmjeriti ako je potrebno
-      // Prvi uređaj za vlasnika će automatski dobiti role, pa će AppContent preusmjeriti na dashboard
+      
+      // Ako je prvi korisnik, osvježi role i preusmjeri
+      if (isFirstUser) {
+        console.log("Prvi korisnik detektovan, osvježavam role...");
+        // Osvježi role u RoleContext
+        try {
+          await refreshRole();
+          console.log("Role osvježen za prvog korisnika");
+        } catch (refreshError) {
+          console.error("Greška pri osvježavanju role:", refreshError);
+        }
+        // Sačekaj malo da se role postavi
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Preusmjeri na dashboard
+        console.log("Prvi korisnik - preusmjeravam na dashboard");
+        router.push("/dashboard");
+      }
+      // AppContent će također provjeriti role i preusmjeriti ako je potrebno
     } catch (err: any) {
       console.error("Greška pri registraciji:", err);
       if (err.code === "auth/email-already-in-use") {
@@ -689,8 +717,8 @@ export default function LoginPage() {
       {/* Fade overlay - tamni overlay za kontrast */}
       <div style={{
         position: "absolute",
-        top: 0,
-        left: 0,
+      top: 0, 
+      left: 0,
         right: 0,
         bottom: 0,
         backgroundColor: "rgba(0, 0, 0, 0.4)",

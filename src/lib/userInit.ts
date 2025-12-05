@@ -51,8 +51,11 @@ export async function initializeUser(userId: string, email: string | null) {
       return;
     }
 
-    // Svaki novi korisnik (novi email) postaje vlasnik svog profila
-    const isOwner = true;
+    // Provjeri da li je ovo prvi korisnik u sistemu PRIJE kreiranja dokumenta
+    const isFirst = await isFirstUser();
+    const isOwner = isFirst; // Samo prvi korisnik u sistemu dobija isOwner: true
+    
+    console.log("Inicijalizacija korisnika - isFirstUser:", isFirst, "isOwner:", isOwner);
 
     // Kreiraj glavni user dokument sa osnovnim podacima
     await setDoc(userDocRef, {
