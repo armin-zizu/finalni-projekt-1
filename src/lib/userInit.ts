@@ -16,8 +16,9 @@ const defaultCjenovnik = [
 
 /**
  * Provjeri da li je email prvi put registriran u sistemu
- * Provjerava da li taj SPECIFIČNI email već postoji u Firestore
- * Ako email ne postoji, taj email postaje vlasnik (bez obzira na to da li već postoje drugi vlasnici)
+ * Provjerava da li taj SPECIFIČNI email već postoji u Firestore SA AKTIVNIM KORISNIKOM
+ * (korisnik sa device dokumenata = aktivan u Firebase Auth)
+ * Ako email ne postoji sa aktivnim korisnikom, taj email postaje vlasnik
  * @param email - Email adresa za provjeru
  */
 async function isFirstUser(email: string | null): Promise<boolean> {
@@ -30,14 +31,39 @@ async function isFirstUser(email: string | null): Promise<boolean> {
     const usersRef = collection(db, "users");
     const { query: queryFn, where: whereFn } = await import("firebase/firestore");
     
-    // Provjeri da li taj SPECIFIČNI email već postoji u sistemu
+    // Provjeri da li taj SPECIFIČNI email već postoji u Firestore
     const emailQuery = queryFn(usersRef, whereFn("email", "==", email.toLowerCase().trim()));
     const snapshot = await getDocs(emailQuery);
     
-    // Ako email ne postoji, ovo je prvi put da se taj email registruje
-    const isFirst = snapshot.empty;
-    console.log("isFirstUser provjera - email:", email, "postoji:", !isFirst, "isFirst:", isFirst);
-    return isFirst;
+    // Ako email ne postoji u Firestore, ovo je prvi put da se registruje
+    if (snapshot.empty) {
+      console.log("isFirstUser provjera - email:", email, "ne postoji u Firestore, isFirst: true");
+      return true;
+    }
+    
+    // Ako email postoji u Firestore, provjeri da li postoji aktivan korisnik (sa device dokumenata)
+    // Ako nema aktivnog korisnika, ovo je prvi put da se registruje
+    for (const userDoc of snapshot.docs) {
+      const userId = userDoc.id;
+      try {
+        // Provjeri da li korisnik ima device dokumenata (indikator da je aktivan u Firebase Auth)
+        const devicesQuery = queryFn(collection(db, "devices"), whereFn("userId", "==", userId));
+        const devicesSnapshot = await getDocs(devicesQuery);
+        
+        // Ako korisnik ima device dokumenata, znači da je aktivan
+        if (!devicesSnapshot.empty) {
+          console.log("isFirstUser provjera - email:", email, "postoji sa aktivnim korisnikom (ima device dokumenata), isFirst: false");
+          return false;
+        }
+      } catch (deviceError) {
+        // Ako ne možemo provjeriti device dokumente, pretpostavimo da korisnik nije aktivan
+        console.warn("isFirstUser - Greška pri provjeri device dokumenata za korisnika:", userId, deviceError);
+      }
+    }
+    
+    // Ako email postoji u Firestore ali nema aktivnih korisnika, ovo je prvi put da se registruje
+    console.log("isFirstUser provjera - email:", email, "postoji u Firestore ali nema aktivnih korisnika, isFirst: true");
+    return true;
   } catch (error) {
     console.error("Greška pri provjeri prvog korisnika:", error);
     // Ako ne uspije provjera, pretpostavi da nije prvi (sigurnije)
