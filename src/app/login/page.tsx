@@ -627,6 +627,14 @@ export default function LoginPage() {
     setError("");
     try {
       console.log("Pokušavam registraciju s e-mailom:", email);
+      
+      // Provjeri da li je korisnik već prijavljen sa tim emailom
+      if (auth.currentUser && auth.currentUser.email === email) {
+        setError("Već ste prijavljeni sa ovim emailom. Molimo se odjavite prije registracije.");
+        setLoading(false);
+        return;
+      }
+      
       const result = await createUserWithEmailAndPassword(auth, email, password);
       const user = result.user;
       const idToken = await user.getIdToken();
