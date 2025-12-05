@@ -256,6 +256,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 div[style*="padding: 20px"] {
                   padding: 10px; /* Smanji padding na mobilu */
                 }
+                /* Spriječi automatsko zumiranje na input poljima - iOS Safari zumira ako je font-size < 16px */
+                input[type="text"],
+                input[type="number"],
+                input[type="tel"],
+                input[type="email"],
+                input[type="date"],
+                input[type="time"],
+                input[type="datetime-local"],
+                textarea,
+                select {
+                  font-size: 16px !important;
+                }
               }
               @media (min-width: 768px) {
                 main {
