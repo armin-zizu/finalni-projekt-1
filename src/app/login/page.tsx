@@ -674,28 +674,34 @@ export default function LoginPage() {
               lastLogin: Timestamp.fromDate(new Date()),
               createdAt: Timestamp.fromDate(new Date()),
               updatedAt: Timestamp.fromDate(new Date()),
-            });
+            }, { merge: true }); // Koristi merge da ne prebriše ako već postoji
             
-            console.log("Device dokument kreiran za prvog korisnika sa role = vlasnik");
+            console.log("✅ Device dokument kreiran za prvog korisnika sa role = vlasnik, deviceId:", deviceId);
+          } else {
+            console.error("❌ Nije moguće generisati deviceId");
           }
-        } catch (deviceError) {
-          console.error("Greška pri kreiranju device dokumenta za prvog korisnika:", deviceError);
+        } catch (deviceError: any) {
+          console.error("❌ Greška pri kreiranju device dokumenta za prvog korisnika:", deviceError);
+          console.error("Error code:", deviceError?.code, "Error message:", deviceError?.message);
         }
         
         // Osvježi role u RoleContext
         try {
           await refreshRole();
-          console.log("Role osvježen za prvog korisnika");
-        } catch (refreshError) {
-          console.error("Greška pri osvježavanju role:", refreshError);
+          console.log("✅ Role osvježen za prvog korisnika");
+        } catch (refreshError: any) {
+          console.error("❌ Greška pri osvježavanju role:", refreshError);
+          console.error("Error code:", refreshError?.code, "Error message:", refreshError?.message);
         }
         
         // Sačekaj malo da se role postavi
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
         // Preusmjeri na dashboard
-        console.log("Prvi korisnik - preusmjeravam na dashboard");
+        console.log("🚀 Prvi korisnik - preusmjeravam na dashboard");
         router.push("/dashboard");
+      } else {
+        console.log("⚠️ Korisnik nije prvi, čekam verifikaciju...");
       }
       // AppContent će također provjeriti role i preusmjeriti ako je potrebno
     } catch (err: any) {

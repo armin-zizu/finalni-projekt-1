@@ -16,15 +16,27 @@ const defaultCjenovnik = [
 
 /**
  * Provjeri da li je korisnik prvi korisnik u sistemu
+ * Provjerava da li već postoji bilo koji korisnik sa isOwner: true
  */
 async function isFirstUser(): Promise<boolean> {
   try {
     const usersRef = collection(db, "users");
-    // Koristimo jednostavniji query bez orderBy da izbjegnemo potrebu za indexom
+    // Provjeri da li već postoji bilo koji korisnik sa isOwner: true
+    // Ako ne postoji, ovo je prvi korisnik
     const snapshot = await getDocs(usersRef);
-    const isEmpty = snapshot.empty;
-    console.log("isFirstUser provjera - broj korisnika:", snapshot.size, "isEmpty:", isEmpty);
-    return isEmpty; // Ako nema korisnika, ovo je prvi
+    
+    // Provjeri da li postoji bilo koji korisnik sa isOwner: true
+    let hasOwner = false;
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.isOwner === true) {
+        hasOwner = true;
+      }
+    });
+    
+    const isFirst = !hasOwner && snapshot.empty;
+    console.log("isFirstUser provjera - broj korisnika:", snapshot.size, "hasOwner:", hasOwner, "isFirst:", isFirst);
+    return isFirst; // Ako nema korisnika ili nema korisnika sa isOwner: true, ovo je prvi
   } catch (error) {
     console.error("Greška pri provjeri prvog korisnika:", error);
     // Ako ne uspije provjera, pretpostavi da nije prvi (sigurnije)
