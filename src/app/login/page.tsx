@@ -52,8 +52,46 @@ export default function LoginPage() {
 
       // Provjeri da li je korisnik vlasnik
       const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-      const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
+      let userDoc = await getDoc(userDocRef);
+      let isOwner = userDoc.exists() && userDoc.data().isOwner === true;
+      
+      // Ako korisnik ne postoji u Firestore, inicijalizuj ga
+      if (!userDoc.exists()) {
+        console.log("Login - Korisnik ne postoji u Firestore, inicijalizujem...");
+        try {
+          await initializeUser(user.uid, user.email);
+          userDoc = await getDoc(userDocRef);
+          isOwner = userDoc.exists() && userDoc.data().isOwner === true;
+          console.log("Login - Korisnik inicijalizovan, isOwner:", isOwner);
+        } catch (initError) {
+          console.error("Login - Greška pri inicijalizaciji korisnika:", initError);
+        }
+      }
+      
+      // Ako korisnik nije vlasnik, provjeri da li je prvi korisnik u sistemu
+      if (!isOwner) {
+        try {
+          const usersRef = collection(db, "users");
+          const usersSnapshot = await getDocs(usersRef);
+          let hasOwner = false;
+          usersSnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (data.isOwner === true) {
+              hasOwner = true;
+            }
+          });
+          
+          // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik
+          if (!hasOwner) {
+            console.log("Login - Prvi korisnik detektovan, postavljam isOwner: true");
+            await setDoc(userDocRef, { isOwner: true }, { merge: true });
+            isOwner = true;
+            userDoc = await getDoc(userDocRef);
+          }
+        } catch (checkError) {
+          console.error("Login - Greška pri provjeri prvog korisnika:", checkError);
+        }
+      }
 
       // Provjeri status uređaja prije dozvoljavanja pristupa
       try {

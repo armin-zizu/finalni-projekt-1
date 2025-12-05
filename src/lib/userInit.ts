@@ -34,9 +34,10 @@ async function isFirstUser(): Promise<boolean> {
       }
     });
     
-    const isFirst = !hasOwner && snapshot.empty;
+    // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik (ili prvi koji treba biti vlasnik)
+    const isFirst = !hasOwner;
     console.log("isFirstUser provjera - broj korisnika:", snapshot.size, "hasOwner:", hasOwner, "isFirst:", isFirst);
-    return isFirst; // Ako nema korisnika ili nema korisnika sa isOwner: true, ovo je prvi
+    return isFirst; // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik
   } catch (error) {
     console.error("Greška pri provjeri prvog korisnika:", error);
     // Ako ne uspije provjera, pretpostavi da nije prvi (sigurnije)
