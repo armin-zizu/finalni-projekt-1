@@ -1603,6 +1603,18 @@ export default function ObracunPage() {
           background-color: #d97706 !important;
         }
         @media (max-width: 768px) {
+          /* Spriječi automatsko zumiranje na input poljima - iOS Safari zumira ako je font-size < 16px */
+          input[type="text"],
+          input[type="number"],
+          input[type="tel"],
+          input[type="email"],
+          input[type="date"],
+          input[type="time"],
+          input[type="datetime-local"],
+          textarea,
+          select {
+            font-size: 16px !important;
+          }
           div[style*="maxWidth: 1200px"] { padding: 8px; }
           table:first-of-type { display: flex; flex-direction: column; }
           table:first-of-type thead { display: none; }
