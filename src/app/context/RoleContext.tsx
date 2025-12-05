@@ -536,10 +536,26 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             setPermissions(null);
           }
         },
-        (error) => {
-          // Ignoriraj greške permisija - mogu se desiti kada korisnik nema dozvolu
-          if (error.code !== 'permission-denied' && !error.code?.includes('permission') && !error.code?.includes('insufficient')) {
+        (error: any) => {
+          // Ignoriraj greške permisija - mogu se desiti kada korisnik nema dozvolu za čitanje device dokumenta
+          // Ovo je u redu jer će se device dokument kreirati kada korisnik pokuša pristupiti aplikaciji
+          const errorCode = error?.code || error?.message || '';
+          const isPermissionError = 
+            errorCode === 'permission-denied' || 
+            errorCode.includes('permission') || 
+            errorCode.includes('insufficient') ||
+            errorCode.includes('Missing or insufficient permissions') ||
+            error?.message?.includes('permission') ||
+            error?.message?.includes('insufficient');
+          
+          if (!isPermissionError) {
+            // Samo loguj ako nije greška permisija
             console.error("Greška pri real-time listeneru:", error);
+          }
+          // Ako je greška permisija, postavi role na null (verifikacija potrebna)
+          if (isPermissionError) {
+            setRole(null);
+            setPermissions(null);
           }
         }
       );
