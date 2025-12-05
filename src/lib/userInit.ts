@@ -62,10 +62,23 @@ export async function initializeUser(userId: string, email: string | null) {
     const { getDoc } = await import("firebase/firestore");
     const userDoc = await getDoc(userDocRef);
 
-    // Ako korisnik već postoji, ne kreiraj ponovo
+    // Ako korisnik već postoji, provjeri da li je vlasnik
     if (userDoc.exists()) {
-      console.log("Korisnik već postoji u Firestore, preskačem inicijalizaciju");
-      return;
+      const existingData = userDoc.data();
+      const existingIsOwner = existingData.isOwner === true;
+      console.log("⚠️ initializeUser - Korisnik već postoji u Firestore, isOwner:", existingIsOwner);
+      
+      // Ako korisnik već postoji i nije vlasnik, provjeri da li je prvi korisnik
+      // (možda je korisnik obrisan iz Firebase Auth ali dokument ostao u Firestore)
+      if (!existingIsOwner) {
+        console.log("🔍 initializeUser - Korisnik postoji ali nije vlasnik, provjeravam da li je prvi...");
+        const isFirst = await isFirstUser();
+        if (isFirst) {
+          console.log("✅ initializeUser - Korisnik je prvi, ažuriram isOwner: true");
+          await setDoc(userDocRef, { isOwner: true }, { merge: true });
+        }
+      }
+      return; // Ne kreiraj ponovo
     }
 
     // Provjeri da li je ovo prvi korisnik u sistemu PRIJE kreiranja dokumenta
