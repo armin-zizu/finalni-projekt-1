@@ -17,6 +17,8 @@ const defaultCjenovnik = [
 /**
  * Provjeri da li je korisnik prvi korisnik u sistemu
  * Provjerava da li već postoji bilo koji korisnik sa isOwner: true
+ * VAŽNO: Provjerava samo korisnike koji još uvijek postoje u Firestore
+ * (ne provjerava da li postoje u Firebase Auth jer to zahtijeva admin SDK)
  */
 async function isFirstUser(): Promise<boolean> {
   try {
@@ -34,7 +36,7 @@ async function isFirstUser(): Promise<boolean> {
       }
     });
     
-    // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik (ili prvi koji treba biti vlasnik)
+    // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik
     const isFirst = !hasOwner;
     console.log("isFirstUser provjera - broj korisnika:", snapshot.size, "hasOwner:", hasOwner, "isFirst:", isFirst);
     return isFirst; // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik
