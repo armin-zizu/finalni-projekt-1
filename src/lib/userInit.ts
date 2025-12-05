@@ -20,9 +20,11 @@ const defaultCjenovnik = [
 async function isFirstUser(): Promise<boolean> {
   try {
     const usersRef = collection(db, "users");
-    const q = query(usersRef, orderBy("createdAt", "asc"), limit(1));
-    const snapshot = await getDocs(q);
-    return snapshot.empty; // Ako nema korisnika, ovo je prvi
+    // Koristimo jednostavniji query bez orderBy da izbjegnemo potrebu za indexom
+    const snapshot = await getDocs(usersRef);
+    const isEmpty = snapshot.empty;
+    console.log("isFirstUser provjera - broj korisnika:", snapshot.size, "isEmpty:", isEmpty);
+    return isEmpty; // Ako nema korisnika, ovo je prvi
   } catch (error) {
     console.error("Greška pri provjeri prvog korisnika:", error);
     // Ako ne uspije provjera, pretpostavi da nije prvi (sigurnije)

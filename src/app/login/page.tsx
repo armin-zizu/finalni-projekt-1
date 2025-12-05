@@ -611,9 +611,77 @@ export default function LoginPage() {
       // API route nije potreban za static export
       console.log("Registracija uspješna, čekam provjeru role...");
       
-      // Ako je prvi korisnik, osvježi role i preusmjeri
+      // Ako je prvi korisnik, eksplicitno kreiraj device dokument sa role = "vlasnik"
       if (isFirstUser) {
-        console.log("Prvi korisnik detektovan, osvježavam role...");
+        console.log("Prvi korisnik detektovan, kreiram device dokument sa role = vlasnik...");
+        try {
+          // Generiši deviceId
+          const fp = await FingerprintJS.load();
+          const fpResult = await fp.get();
+          const deviceId = fpResult.visitorId;
+          
+          if (deviceId) {
+            const deviceRef = doc(db, "devices", deviceId);
+            
+            // Dohvati device info
+            const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
+              ? "Chrome"
+              : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
+              ? "Firefox"
+              : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
+              ? "Safari"
+              : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
+              ? "Edge"
+              : "Unknown";
+            
+            const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
+              ? "Windows"
+              : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
+              ? "macOS"
+              : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
+              ? "Linux"
+              : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
+              ? "Android"
+              : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
+              ? "iOS"
+              : "Unknown";
+            
+            // Eksplicitno kreiraj device dokument sa role = "vlasnik" za prvog korisnika
+            await setDoc(deviceRef, {
+              userId: user.uid,
+              userEmail: user.email,
+              role: "vlasnik",
+              status: "approved",
+              isBlocked: false,
+              permissions: {
+                dashboard: true,
+                obracun: true,
+                arhiva: true,
+                cjenovnik: true,
+                profit: true,
+                profile: true,
+                admin: false,
+              },
+              deviceInfo: {
+                deviceId: deviceId,
+                browser,
+                os,
+                screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                firstSeen: Timestamp.fromDate(new Date()),
+                lastLogin: Timestamp.fromDate(new Date()),
+              },
+              lastLogin: Timestamp.fromDate(new Date()),
+              createdAt: Timestamp.fromDate(new Date()),
+              updatedAt: Timestamp.fromDate(new Date()),
+            });
+            
+            console.log("Device dokument kreiran za prvog korisnika sa role = vlasnik");
+          }
+        } catch (deviceError) {
+          console.error("Greška pri kreiranju device dokumenta za prvog korisnika:", deviceError);
+        }
+        
         // Osvježi role u RoleContext
         try {
           await refreshRole();
@@ -621,8 +689,10 @@ export default function LoginPage() {
         } catch (refreshError) {
           console.error("Greška pri osvježavanju role:", refreshError);
         }
+        
         // Sačekaj malo da se role postavi
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // Preusmjeri na dashboard
         console.log("Prvi korisnik - preusmjeravam na dashboard");
         router.push("/dashboard");
