@@ -259,10 +259,22 @@ export default function AdminPage() {
                   const data = await response.json();
                   // Ako postoji users array i ima elemenata, korisnik postoji
                   userExistsInAuth = data.users && data.users.length > 0;
+                  if (!userExistsInAuth) {
+                    console.log(`Korisnik ${userId} (${userEmail}) ne postoji u Firebase Auth`);
+                  }
                 } else {
-                  // Ako je greška, pretpostavimo da korisnik ne postoji
-                  console.warn(`Greška pri provjeri Firebase Auth za korisnika ${userId} (${userEmail}):`, response.status);
-                  userExistsInAuth = false;
+                  // Ako je greška, provjeri da li je greška zbog toga što korisnik ne postoji
+                  const errorData = await response.json().catch(() => ({}));
+                  if (errorData.error?.message?.includes("USER_NOT_FOUND") || response.status === 400) {
+                    console.log(`Korisnik ${userId} (${userEmail}) ne postoji u Firebase Auth (USER_NOT_FOUND)`);
+                    userExistsInAuth = false;
+                  } else {
+                    console.warn(`Greška pri provjeri Firebase Auth za korisnika ${userId} (${userEmail}):`, response.status, errorData);
+                    // Ako je neka druga greška, koristimo fallback provjeru
+                    const devicesQuery = query(collection(db, "devices"), where("userId", "==", userId));
+                    const devicesSnapshot = await getDocs(devicesQuery);
+                    userExistsInAuth = !devicesSnapshot.empty;
+                  }
                 }
               } else {
                 // Ako nema API key, koristimo fallback provjeru (device dokumenti)

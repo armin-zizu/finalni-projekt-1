@@ -548,6 +548,18 @@ export default function LoginPage() {
       // Session management se rješava automatski kroz Firebase Auth
       // API route nije potreban za static export
       console.log("Login uspješan, čekam provjeru role...");
+      
+      // Osvježi role u RoleContext
+      try {
+        await refreshRole();
+        console.log("Role osvježen nakon logina");
+      } catch (refreshError) {
+        console.error("Greška pri osvježavanju role:", refreshError);
+      }
+      
+      // Sačekaj malo da se role postavi
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       setLoading(false);
       // Ne preusmjeravaj automatski - AppContent će provjeriti role i preusmjeriti ako je potrebno
       // Ako je role === null, AppContent će blokirati pristup
