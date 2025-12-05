@@ -251,8 +251,21 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
             // Dokument ne postoji, kreiraj ga
             await loadSubscription();
           }
-        }, (error) => {
-          console.error("Greška pri real-time listeneru:", error);
+        }, (error: any) => {
+          // Ignoriraj greške permisija - mogu se desiti kada korisnik nema dozvolu
+          const errorCode = error?.code || error?.message || "";
+          const isPermissionError = 
+            errorCode === "permission-denied" || 
+            errorCode.includes("permission") || 
+            errorCode.includes("insufficient") ||
+            errorCode.includes("Missing or insufficient permissions") ||
+            error?.message?.includes("permission") ||
+            error?.message?.includes("insufficient");
+          
+          if (!isPermissionError) {
+            // Samo loguj ako nije greška permisija
+            console.error("Greška pri real-time listeneru:", error);
+          }
           setLoading(false);
         });
 

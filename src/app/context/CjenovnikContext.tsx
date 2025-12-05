@@ -161,8 +161,18 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
             }
           },
           (error: any) => {
-            const errorCode = error?.code || "";
-            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+            // Ignoriraj greške permisija - mogu se desiti kada korisnik nema dozvolu
+            const errorCode = error?.code || error?.message || "";
+            const isPermissionError = 
+              errorCode === "permission-denied" || 
+              errorCode.includes("permission") || 
+              errorCode.includes("insufficient") ||
+              errorCode.includes("Missing or insufficient permissions") ||
+              error?.message?.includes("permission") ||
+              error?.message?.includes("insufficient");
+            
+            if (!isPermissionError) {
+              // Samo loguj ako nije greška permisija
               console.warn("Greška pri real-time listeneru za cjenovnik:", error);
             }
           }
