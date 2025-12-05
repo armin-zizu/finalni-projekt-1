@@ -137,8 +137,51 @@ export default function LoginPage() {
               return;
             }
           } else {
-            // Novi uređaj - provjeri da li korisnik već ima druge uređaje
-            if (!isOwnerDevice) {
+            // Novi uređaj - ako je vlasnik, automatski kreiraj device dokument sa role = "vlasnik"
+            if (isOwner || isOwnerDevice) {
+              console.log("Login - Vlasnik detektovan, kreiram device dokument sa role = vlasnik");
+              const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
+                ? "Chrome"
+                : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
+                ? "Firefox"
+                : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
+                ? "Safari"
+                : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
+                ? "Edge"
+                : "Unknown";
+              
+              await setDoc(deviceRef, {
+                userId: user.uid,
+                userEmail: user.email,
+                role: "vlasnik",
+                status: "approved",
+                isBlocked: false,
+                permissions: {
+                  dashboard: true,
+                  obracun: true,
+                  arhiva: true,
+                  cjenovnik: true,
+                  profit: true,
+                  profile: true,
+                  admin: false,
+                },
+                deviceInfo: {
+                  deviceId: deviceId,
+                  browser,
+                  os,
+                  screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                  userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                  firstSeen: Timestamp.fromDate(new Date()),
+                  lastLogin: Timestamp.fromDate(new Date()),
+                },
+                lastLogin: Timestamp.fromDate(new Date()),
+                createdAt: Timestamp.fromDate(new Date()),
+                updatedAt: Timestamp.fromDate(new Date()),
+              }, { merge: true });
+              
+              console.log("Login - Device dokument kreiran za vlasnika sa role = vlasnik");
+            } else if (!isOwnerDevice) {
+              // Novi uređaj - provjeri da li korisnik već ima druge uređaje
               try {
                 const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
                 const devicesSnapshot = await getDocs(devicesQuery);
