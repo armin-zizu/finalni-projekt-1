@@ -2323,6 +2323,7 @@ export default function ObracunPage() {
                     <td style={tdStyle}>
                       <input
                         type="number"
+                        inputMode="numeric"
                         value={editPrihod.cijena === 0 ? "" : editPrihod.cijena}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setEditPrihod({ ...editPrihod, cijena: Number(e.target.value) || 0 })}
@@ -2392,6 +2393,7 @@ export default function ObracunPage() {
         />
         <input
           type="number"
+          inputMode="numeric"
           placeholder="Cijena"
           value={newPrihod.cijena === 0 ? "" : newPrihod.cijena}
           onFocus={(e) => e.target.select()}
