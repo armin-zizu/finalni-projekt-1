@@ -288,47 +288,8 @@ export default function LoginPage() {
         // U slučaju greške, dozvoli pristup (fallback) - možda je problem sa permisijama
       }
 
-      // Ako korisnik nije vlasnik, provjeri odobrenje (loginApprovals)
-      if (!isOwner) {
-        const approvalRef = doc(db, "loginApprovals", user.uid);
-        const approvalDoc = await getDoc(approvalRef);
-        
-        console.log("Login - Provjera odobrenja za korisnika:", user.uid);
-        console.log("Login - Dokument postoji:", approvalDoc.exists());
-        
-        if (approvalDoc.exists()) {
-          const approvalData = approvalDoc.data();
-          console.log("Login - Status odobrenja:", approvalData.status);
-          
-          if (approvalData.status === "pending") {
-            setError("Vaš zahtjev za pristup aplikaciji još nije odobren. Molimo sačekajte odobrenje od administratora.");
-            setLoading(false);
-            return;
-          } else if (approvalData.status === "rejected") {
-            setError("Vaš zahtjev za pristup aplikaciji je odbijen. Kontaktirajte administratora za više informacija.");
-            setLoading(false);
-            return;
-          } else if (approvalData.status === "approved") {
-            console.log("Login - Odobrenje je potvrđeno, dozvoljavam pristup");
-            // Nastavi sa login procesom
-          } else {
-            console.log("Login - Nepoznat status:", approvalData.status);
-            setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
-            setLoading(false);
-            return;
-          }
-        } else {
-          // Ako nema dokumenta za odobrenje, blokiraj pristup
-          console.log("Login - Nema dokumenta za odobrenje, blokiram pristup");
-          setError("Nemate odobrenje za pristup aplikaciji. Molimo sačekajte odobrenje od administratora.");
-          setLoading(false);
-          return;
-        }
-      }
-
       // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
-      // KOMENTIRANO ZA TESTIRANJE - omogućava pristup bez provjere uređaja
-      /*
+      // (Provjera je već izvršena gore, ovo je samo za cleanup)
       try {
         // Generiši deviceId (ne čuva se u localStorage - čuva se u Firestore nakon prijave)
         const fp = await FingerprintJS.load();

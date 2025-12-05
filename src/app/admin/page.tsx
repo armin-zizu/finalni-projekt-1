@@ -233,76 +233,28 @@ export default function AdminPage() {
           const userData = userDoc.data();
 
           // Provjeri da li korisnik postoji u Firebase Auth
-          // Koristimo Firebase Auth REST API da provjerimo da li korisnik postoji
+          // Koristimo device dokumente kao indikator da korisnik postoji u Firebase Auth
+          // (device dokumenti se kreiraju samo kada se korisnik prijavi)
           const userEmail = userData.email;
           let userExistsInAuth = false;
           
-          if (userEmail) {
-            try {
-              // Koristimo Firebase Auth REST API sa API key-jem
-              const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-              if (apiKey) {
-                const response = await fetch(
-                  `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      email: [userEmail]
-                    })
-                  }
-                );
-                
-                if (response.ok) {
-                  const data = await response.json();
-                  // Ako postoji users array i ima elemenata, korisnik postoji
-                  userExistsInAuth = data.users && data.users.length > 0;
-                  if (!userExistsInAuth) {
-                    console.log(`Korisnik ${userId} (${userEmail}) ne postoji u Firebase Auth`);
-                  }
-                } else {
-                  // Ako je greška, provjeri da li je greška zbog toga što korisnik ne postoji
-                  const errorData = await response.json().catch(() => ({}));
-                  if (errorData.error?.message?.includes("USER_NOT_FOUND") || response.status === 400) {
-                    console.log(`Korisnik ${userId} (${userEmail}) ne postoji u Firebase Auth (USER_NOT_FOUND)`);
-                    userExistsInAuth = false;
-                  } else {
-                    console.warn(`Greška pri provjeri Firebase Auth za korisnika ${userId} (${userEmail}):`, response.status, errorData);
-                    // Ako je neka druga greška, koristimo fallback provjeru
-                    const devicesQuery = query(collection(db, "devices"), where("userId", "==", userId));
-                    const devicesSnapshot = await getDocs(devicesQuery);
-                    userExistsInAuth = !devicesSnapshot.empty;
-                  }
-                }
-              } else {
-                // Ako nema API key, koristimo fallback provjeru (device dokumenti)
-                console.warn("NEXT_PUBLIC_FIREBASE_API_KEY nije dostupan, koristim fallback provjeru");
-                const devicesQuery = query(collection(db, "devices"), where("userId", "==", userId));
-                const devicesSnapshot = await getDocs(devicesQuery);
-                userExistsInAuth = !devicesSnapshot.empty;
-              }
-            } catch (authCheckError) {
-              console.warn(`Greška pri provjeri Firebase Auth za korisnika ${userId} (${userEmail}):`, authCheckError);
-              // Ako ne možemo provjeriti, koristimo fallback provjeru (device dokumenti)
-              try {
-                const devicesQuery = query(collection(db, "devices"), where("userId", "==", userId));
-                const devicesSnapshot = await getDocs(devicesQuery);
-                userExistsInAuth = !devicesSnapshot.empty;
-              } catch (deviceError) {
-                // Ako ni to ne uspije, pretpostavimo da korisnik ne postoji
-                userExistsInAuth = false;
-              }
+          try {
+            // Provjeri da li korisnik ima device dokumente (indikator da postoji u Firebase Auth)
+            const devicesQuery = query(collection(db, "devices"), where("userId", "==", userId));
+            const devicesSnapshot = await getDocs(devicesQuery);
+            userExistsInAuth = !devicesSnapshot.empty;
+            
+            if (!userExistsInAuth) {
+              console.log(`Preskačem korisnika ${userId} (${userEmail || 'N/A'}) - nema device dokumenata (vjerovatno obrisan iz Firebase Auth)`);
             }
-          } else {
-            // Ako nema email, korisnik vjerovatno ne postoji u Firebase Auth
+          } catch (deviceError) {
+            console.warn(`Greška pri provjeri device dokumenata za korisnika ${userId} (${userEmail}):`, deviceError);
+            // Ako ne možemo provjeriti, pretpostavimo da korisnik ne postoji
             userExistsInAuth = false;
           }
 
-          // Preskoči korisnike koji ne postoje u Firebase Auth
+          // Preskoči korisnike koji ne postoje u Firebase Auth (nemaju device dokumenata)
           if (!userExistsInAuth) {
-            console.log(`Preskačem korisnika ${userId} (${userEmail || 'N/A'}) - ne postoji u Firebase Auth`);
             continue;
           }
 
