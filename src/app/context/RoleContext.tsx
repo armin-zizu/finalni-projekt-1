@@ -537,8 +537,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           }
         },
         (error) => {
-          // Ignoriraj greške permisija za nepostojeće dokumente
-          if (error.code !== 'permission-denied') {
+          // Ignoriraj greške permisija - mogu se desiti kada korisnik nema dozvolu
+          if (error.code !== 'permission-denied' && !error.code?.includes('permission') && !error.code?.includes('insufficient')) {
             console.error("Greška pri real-time listeneru:", error);
           }
         }
