@@ -16,30 +16,46 @@ const defaultCjenovnik = [
 
 /**
  * Provjeri da li je korisnik prvi korisnik u sistemu
- * Provjerava da li već postoji bilo koji korisnik sa isOwner: true
- * VAŽNO: Provjerava samo korisnike koji još uvijek postoje u Firestore
- * (ne provjerava da li postoje u Firebase Auth jer to zahtijeva admin SDK)
+ * Provjerava da li već postoji bilo koji korisnik sa isOwner: true koji ima device dokumente
+ * (što znači da je aktivan - postoji u Firebase Auth)
+ * Ako nema aktivnih vlasnika, novi korisnik postaje vlasnik
  */
 async function isFirstUser(): Promise<boolean> {
   try {
     const usersRef = collection(db, "users");
-    // Provjeri da li već postoji bilo koji korisnik sa isOwner: true
-    // Ako ne postoji, ovo je prvi korisnik
     const snapshot = await getDocs(usersRef);
     
-    // Provjeri da li postoji bilo koji korisnik sa isOwner: true
-    let hasOwner = false;
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.isOwner === true) {
-        hasOwner = true;
-      }
-    });
+    // Provjeri da li postoji bilo koji korisnik sa isOwner: true koji ima device dokumente
+    // (što znači da je aktivan)
+    let hasActiveOwner = false;
     
-    // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik
-    const isFirst = !hasOwner;
-    console.log("isFirstUser provjera - broj korisnika:", snapshot.size, "hasOwner:", hasOwner, "isFirst:", isFirst);
-    return isFirst; // Ako nema korisnika sa isOwner: true, ovo je prvi korisnik
+    for (const userDoc of snapshot.docs) {
+      const userData = userDoc.data();
+      if (userData.isOwner === true) {
+        // Provjeri da li ovaj korisnik ima device dokumente (što znači da je aktivan)
+        try {
+          const { collection: getCollection, getDocs: getDocsQuery, query: queryFn, where: whereFn } = await import("firebase/firestore");
+          const devicesRef = getCollection(db, "devices");
+          const devicesQuery = queryFn(devicesRef, whereFn("userId", "==", userDoc.id));
+          const devicesSnapshot = await getDocsQuery(devicesQuery);
+          
+          // Ako korisnik ima device dokumente, znači da je aktivan
+          if (!devicesSnapshot.empty) {
+            hasActiveOwner = true;
+            console.log("isFirstUser - Pronađen aktivan vlasnik:", userDoc.id);
+            break; // Nema potrebe provjeravati dalje
+          }
+        } catch (deviceError) {
+          // Ignoriraj greške pri provjeri device dokumenata
+          console.warn("isFirstUser - Greška pri provjeri device dokumenata za korisnika:", userDoc.id, deviceError);
+        }
+      }
+    }
+    
+    // Ako nema aktivnih vlasnika, ovo je prvi korisnik
+    const isFirst = !hasActiveOwner;
+    console.log("isFirstUser provjera - broj korisnika:", snapshot.size, "hasActiveOwner:", hasActiveOwner, "isFirst:", isFirst);
+    return isFirst;
   } catch (error) {
     console.error("Greška pri provjeri prvog korisnika:", error);
     // Ako ne uspije provjera, pretpostavi da nije prvi (sigurnije)
