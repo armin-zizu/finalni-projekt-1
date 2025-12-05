@@ -738,23 +738,31 @@ export default function Profile() {
       // Postavi real-time listener
       const approvalsRef = collection(db, "loginApprovals");
       const q = query(approvalsRef, where("status", "==", "pending"));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const approvalsList: any[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          approvalsList.push({
-            id: doc.id,
-            ...data,
-            requestedAt: data.requestedAt?.toDate?.() || null,
+      const unsubscribe = onSnapshot(q, 
+        (snapshot) => {
+          const approvalsList: any[] = [];
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            approvalsList.push({
+              id: doc.id,
+              ...data,
+              requestedAt: data.requestedAt?.toDate?.() || null,
+            });
           });
-        });
-        approvalsList.sort((a, b) => {
-          const aDate = a.requestedAt || new Date(0);
-          const bDate = b.requestedAt || new Date(0);
-          return bDate.getTime() - aDate.getTime();
-        });
-        setLoginApprovals(approvalsList);
-      });
+          approvalsList.sort((a, b) => {
+            const aDate = a.requestedAt || new Date(0);
+            const bDate = b.requestedAt || new Date(0);
+            return bDate.getTime() - aDate.getTime();
+          });
+          setLoginApprovals(approvalsList);
+        },
+        (error) => {
+          // Ignoriraj greške permisija - mogu se desiti kada se korisnik odjavi
+          if (error.code !== 'permission-denied' && !error.code?.includes('permission') && !error.code?.includes('insufficient')) {
+            console.warn("Greška pri real-time listeneru:", error);
+          }
+        }
+      );
       
       return () => unsubscribe();
     }

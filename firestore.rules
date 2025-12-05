@@ -57,6 +57,12 @@ service cloud.firestore {
         // Korisnik može čitati i pisati svoj cache, admin može sve
         allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
+      
+      // Sessions podkolekcija (za sesije korisnika)
+      match /sessions/{sessionId} {
+        // Korisnik može čitati i pisati svoje sesije, admin može sve
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      }
     }
     
     // Devices collection - korisnik može pristupiti samo svojim uređajima, vlasnik može sve
