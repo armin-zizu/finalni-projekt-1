@@ -2134,6 +2134,7 @@ export default function ObracunPage() {
                   <input
                     key={`ulaz-${index}-${resetKey}`}
                     type="number"
+                    inputMode="numeric"
                     value={a.ulaz === 0 ? "" : a.ulaz}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleUlazChange(index, Number(e.target.value) || 0)}
@@ -2154,6 +2155,7 @@ export default function ObracunPage() {
                 }} data-label="Krajnje stanje">
                   <input
                     type="number"
+                    inputMode="numeric"
                     value={a.krajnjeStanje === 0 ? "" : a.krajnjeStanje}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleKrajnjeStanjeChange(index, e.target.value)}
@@ -2201,6 +2203,7 @@ export default function ObracunPage() {
                     <td style={tdStyle}>
                       <input
                         type="number"
+                        inputMode="numeric"
                         value={editRashod.cijena === 0 ? "" : editRashod.cijena}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setEditRashod({ ...editRashod, cijena: Number(e.target.value) || 0 })}
@@ -2270,6 +2273,7 @@ export default function ObracunPage() {
         />
         <input
           type="number"
+          inputMode="numeric"
           placeholder="Cijena"
           value={newRashod.cijena === 0 ? "" : newRashod.cijena}
           onFocus={(e) => e.target.select()}
