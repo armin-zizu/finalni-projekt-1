@@ -596,7 +596,17 @@ export default function LoginPage() {
         return;
       }
       
-      console.error("Greška pri e-mail prijavi:", err);
+      // Prikaži user-friendly poruku za invalid-credential grešku
+      if (err.code === "auth/invalid-credential") {
+        setError("Pogrešan e-mail ili lozinka. Provjeri podatke i pokušaj ponovo.");
+        setLoading(false);
+        return;
+      }
+      
+      // Samo loguj detaljnu grešku u development modu
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Greška pri e-mail prijavi:", err);
+      }
       
       if (err.code === "auth/configuration-not-found") {
         setError("Email/Password autentifikacija nije omogućena u Firebase Console. Otvori: https://console.firebase.google.com/project/zadnji-projekt/authentication/providers i omogući Email/Password sign-in method.");
