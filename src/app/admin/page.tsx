@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { auth, db } from "../../lib/firebase";
-import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, query, where } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, query, where, onSnapshot } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
@@ -154,16 +154,47 @@ export default function AdminPage() {
 
   // Provjeri da li je korisnik admin
   useEffect(() => {
+    let unsubscribeUsers: (() => void) | null = null;
+
     const checkAdmin = async () => {
       const user = auth.currentUser;
       if (!user || user.email !== ADMIN_EMAIL) {
         setIsAdmin(false);
         setLoading(false);
+        // Očisti listener ako postoji
+        if (unsubscribeUsers) {
+          unsubscribeUsers();
+          unsubscribeUsers = null;
+        }
         router.push("/dashboard");
         return;
       }
       setIsAdmin(true);
+      
+      // Učitaj podatke jednom pri inicijalizaciji
       await loadUsers();
+      
+      // Postavi real-time listener za automatsko osvježavanje
+      try {
+        const usersCollection = collection(db, "users");
+        unsubscribeUsers = onSnapshot(
+          usersCollection,
+          async (snapshot) => {
+            // Kada se promijene podaci u Firebase, automatski osvježi listu
+            console.log("🔄 Real-time promjena detektovana u users kolekciji, osvježavam listu korisnika...");
+            await loadUsers();
+          },
+          (error) => {
+            console.error("Greška pri real-time listeneru za users kolekciju:", error);
+            // Ako je greška zbog permisija, ignoriraj je
+            if (error?.code !== 'permission-denied' && !error?.code?.includes('permission') && !error?.code?.includes('insufficient')) {
+              setMessage({ type: "error", text: "Greška pri osvježavanju podataka" });
+            }
+          }
+        );
+      } catch (error) {
+        console.error("Greška pri postavljanju real-time listenera:", error);
+      }
     };
 
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -172,11 +203,21 @@ export default function AdminPage() {
       } else {
         setIsAdmin(false);
         setLoading(false);
+        // Očisti listener ako postoji
+        if (unsubscribeUsers) {
+          unsubscribeUsers();
+          unsubscribeUsers = null;
+        }
         router.push("/login");
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubscribeUsers) {
+        unsubscribeUsers();
+      }
+    };
   }, [router]);
 
   // Ažuriraj state varijable kada se promijeni selectedUserDetails
