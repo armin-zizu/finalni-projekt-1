@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { auth, db } from "../../lib/firebase";
-import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, query, where } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
@@ -232,7 +232,21 @@ export default function AdminPage() {
           const userId = userDoc.id;
           const userData = userDoc.data();
 
-          // Učitaj subscription
+          // Provjeri da li korisnik ima device dokumente (indikator da postoji u Firebase Auth)
+          // Ako korisnik nema device dokumenata, možda je obrisan iz Firebase Auth
+          let hasDevices = false;
+          try {
+            const devicesQuery = query(collection(db, "devices"), where("userId", "==", userId));
+            const devicesSnapshot = await getDocs(devicesQuery);
+            hasDevices = !devicesSnapshot.empty;
+          } catch (deviceError) {
+            console.warn(`Greška pri provjeri device dokumenata za korisnika ${userId}:`, deviceError);
+            // Ako ne možemo provjeriti, pretpostavimo da korisnik postoji
+            hasDevices = true;
+          }
+
+          // Preskoči korisnike koji nemaju device dokumenata (vjerovatno obrisani iz Firebase Auth)
+          // ALI zadrži korisnike koji imaju subscription (možda su aktivni ali nemaju device dokumenata još)
           const subscriptionRef = doc(db, "users", userId, "subscription", "info");
           let subscriptionDoc;
           
@@ -241,6 +255,13 @@ export default function AdminPage() {
           } catch (subError) {
             console.warn(`Greška pri učitavanju subscription za korisnika ${userId}:`, subError);
             // Nastavi sa default subscription
+          }
+
+          // Ako korisnik nema device dokumenata I nema subscription, preskoči ga (vjerovatno obrisan)
+          const hasSubscription = subscriptionDoc && subscriptionDoc.exists();
+          if (!hasDevices && !hasSubscription) {
+            console.log(`Preskačem korisnika ${userId} (${userData.email}) - nema device dokumenata ni subscription (vjerovatno obrisan iz Firebase Auth)`);
+            continue;
           }
 
           let subscription: Subscription = {
