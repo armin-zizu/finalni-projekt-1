@@ -155,46 +155,78 @@ export default function LoginPage() {
                 ? "Edge"
                 : "Unknown";
               
-              if (isOwner && devicesSnapshot.empty) {
-                // Vlasnik sa prvim uređajem → automatski odobri
-                console.log("Login - Vlasnik sa prvim uređajem, automatski odobravam");
-                
-                await setDoc(deviceRef, {
-                  userId: user.uid,
-                  userEmail: user.email,
-                  role: "vlasnik",
-                  status: "approved",
-                  isBlocked: false,
-                  permissions: {
-                    dashboard: true,
-                    obracun: true,
-                    arhiva: true,
-                    cjenovnik: true,
-                    profit: true,
-                    profile: true,
-                    admin: false,
-                  },
-                  deviceInfo: {
-                    deviceId: deviceId,
-                    browser,
-                    os,
-                    screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                    firstSeen: Timestamp.fromDate(new Date()),
+              // Provjeri da li je ovo prvi uređaj za korisnika
+              // Prvi uređaj = nema device dokumenata za ovog korisnika
+              if (devicesSnapshot.empty) {
+                // Prvi uređaj - ako je vlasnik, automatski odobri
+                if (isOwner) {
+                  console.log("Login - Vlasnik sa prvim uređajem, automatski odobravam");
+                  
+                  await setDoc(deviceRef, {
+                    userId: user.uid,
+                    userEmail: user.email,
+                    role: "vlasnik",
+                    status: "approved",
+                    isBlocked: false,
+                    permissions: {
+                      dashboard: true,
+                      obracun: true,
+                      arhiva: true,
+                      cjenovnik: true,
+                      profit: true,
+                      profile: true,
+                      admin: false,
+                    },
+                    deviceInfo: {
+                      deviceId: deviceId,
+                      browser,
+                      os,
+                      screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                      firstSeen: Timestamp.fromDate(new Date()),
+                      lastLogin: Timestamp.fromDate(new Date()),
+                    },
                     lastLogin: Timestamp.fromDate(new Date()),
-                  },
-                  lastLogin: Timestamp.fromDate(new Date()),
-                  createdAt: Timestamp.fromDate(new Date()),
-                  updatedAt: Timestamp.fromDate(new Date()),
-                }, { merge: true });
-                
-                console.log("Login - Device dokument kreiran za vlasnika (prvi uređaj) sa role = vlasnik, status = approved");
+                    createdAt: Timestamp.fromDate(new Date()),
+                    updatedAt: Timestamp.fromDate(new Date()),
+                  }, { merge: true });
+                  
+                  console.log("Login - Device dokument kreiran za vlasnika (prvi uređaj) sa role = vlasnik, status = approved");
+                } else {
+                  // Nije vlasnik, ali je prvi uređaj - zahtijeva verifikaciju
+                  console.log("Login - Nije vlasnik, prvi uređaj zahtijeva verifikaciju");
+                  
+                  await setDoc(deviceRef, {
+                    userId: user.uid,
+                    userEmail: user.email,
+                    role: null,
+                    status: "verifikacija",
+                    isBlocked: false,
+                    deviceInfo: {
+                      deviceId: deviceId,
+                      browser,
+                      os,
+                      screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                      firstSeen: Timestamp.fromDate(new Date()),
+                      lastLogin: Timestamp.fromDate(new Date()),
+                    },
+                    lastLogin: Timestamp.fromDate(new Date()),
+                    createdAt: Timestamp.fromDate(new Date()),
+                    updatedAt: Timestamp.fromDate(new Date()),
+                  });
+
+                  console.log("Login - Device dokument kreiran sa statusom 'verifikacija' (nije vlasnik, prvi uređaj)");
+                  setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
+                  setLoading(false);
+                  return;
+                }
               } else {
-                // Vlasnik sa drugim uređajem ILI nije vlasnik → zahtijeva verifikaciju
-                console.log("Login - Novi uređaj zahtijeva verifikaciju", {
+                // Drugi, treći itd. uređaj - ZAUVIJEK zahtijeva verifikaciju (čak i ako je vlasnik)
+                console.log("Login - Drugi/treći itd. uređaj zahtijeva verifikaciju", {
                   isOwner,
                   hasOtherDevices: !devicesSnapshot.empty,
-                  reason: isOwner ? "Vlasnik već ima druge uređaje" : "Korisnik nije vlasnik"
+                  reason: "Korisnik već ima druge uređaje - novi uređaj mora biti odobren od prvog uređaja"
                 });
                 
                 await setDoc(deviceRef, {
