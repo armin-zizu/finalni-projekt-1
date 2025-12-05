@@ -180,16 +180,59 @@ export default function LoginPage() {
               }, { merge: true });
               
               console.log("Login - Device dokument kreiran za vlasnika sa role = vlasnik");
-            } else if (!isOwnerDevice) {
+            } else {
               // Novi uređaj - provjeri da li korisnik već ima druge uređaje
               try {
                 const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
                 const devicesSnapshot = await getDocs(devicesQuery);
                 
-                console.log("Login - Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size);
+                console.log("Login - Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size, "isOwner:", isOwner);
                 
-                // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
-                if (!devicesSnapshot.empty) {
+                // Ako je vlasnik i nema drugih uređaja, automatski odobri (prvi uređaj za vlasnika)
+                if (isOwner && devicesSnapshot.empty) {
+                  console.log("Login - Vlasnik sa prvim uređajem, automatski odobravam");
+                  const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
+                    ? "Chrome"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
+                    ? "Firefox"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
+                    ? "Safari"
+                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
+                    ? "Edge"
+                    : "Unknown";
+                  
+                  await setDoc(deviceRef, {
+                    userId: user.uid,
+                    userEmail: user.email,
+                    role: "vlasnik",
+                    status: "approved",
+                    isBlocked: false,
+                    permissions: {
+                      dashboard: true,
+                      obracun: true,
+                      arhiva: true,
+                      cjenovnik: true,
+                      profit: true,
+                      profile: true,
+                      admin: false,
+                    },
+                    deviceInfo: {
+                      deviceId: deviceId,
+                      browser,
+                      os,
+                      screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+                      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+                      firstSeen: Timestamp.fromDate(new Date()),
+                      lastLogin: Timestamp.fromDate(new Date()),
+                    },
+                    lastLogin: Timestamp.fromDate(new Date()),
+                    createdAt: Timestamp.fromDate(new Date()),
+                    updatedAt: Timestamp.fromDate(new Date()),
+                  }, { merge: true });
+                  
+                  console.log("Login - Device dokument kreiran za vlasnika (prvi uređaj) sa role = vlasnik");
+                } else if (!devicesSnapshot.empty) {
+                  // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju (čak i ako je vlasnik)
                   console.log("Login - Korisnik već ima druge uređaje, kreiram novi sa statusom 'verifikacija'");
                   
                   // Kreiraj novi uređaj sa statusom "verifikacija"
@@ -702,9 +745,9 @@ export default function LoginPage() {
       // API route nije potreban za static export
       console.log("Registracija uspješna, čekam provjeru role...");
       
-      // Ako je prvi korisnik, eksplicitno kreiraj device dokument sa role = "vlasnik"
+      // Ako je prvi korisnik (vlasnik), eksplicitno kreiraj device dokument sa role = "vlasnik"
       if (isFirstUser) {
-        console.log("Prvi korisnik detektovan, kreiram device dokument sa role = vlasnik...");
+        console.log("✅ Prvi korisnik (vlasnik) detektovan, kreiram device dokument sa role = vlasnik...");
         try {
           // Generiši deviceId
           const fp = await FingerprintJS.load();
@@ -737,7 +780,7 @@ export default function LoginPage() {
               ? "iOS"
               : "Unknown";
             
-            // Eksplicitno kreiraj device dokument sa role = "vlasnik" za prvog korisnika
+            // Eksplicitno kreiraj device dokument sa role = "vlasnik" za prvog korisnika (prvi uređaj)
             await setDoc(deviceRef, {
               userId: user.uid,
               userEmail: user.email,
@@ -765,9 +808,9 @@ export default function LoginPage() {
               lastLogin: Timestamp.fromDate(new Date()),
               createdAt: Timestamp.fromDate(new Date()),
               updatedAt: Timestamp.fromDate(new Date()),
-            }, { merge: true }); // Koristi merge da ne prebriše ako već postoji
+            }, { merge: true });
             
-            console.log("✅ Device dokument kreiran za prvog korisnika sa role = vlasnik, deviceId:", deviceId);
+            console.log("✅ Device dokument kreiran za prvog korisnika (vlasnika) sa role = vlasnik, deviceId:", deviceId);
           } else {
             console.error("❌ Nije moguće generisati deviceId");
           }
@@ -789,10 +832,10 @@ export default function LoginPage() {
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         // Preusmjeri na dashboard
-        console.log("🚀 Prvi korisnik - preusmjeravam na dashboard");
+        console.log("🚀 Prvi korisnik (vlasnik) - preusmjeravam na dashboard");
         router.push("/dashboard");
       } else {
-        console.log("⚠️ Korisnik nije prvi, čekam verifikaciju...");
+        console.log("⚠️ Korisnik nije prvi (vlasnik), čekam verifikaciju...");
       }
       // AppContent će također provjeriti role i preusmjeriti ako je potrebno
     } catch (err: any) {
