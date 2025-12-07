@@ -154,18 +154,11 @@ export default function AdminPage() {
 
   // Provjeri da li je korisnik admin
   useEffect(() => {
-    let unsubscribeUsers: (() => void) | null = null;
-
     const checkAdmin = async () => {
       const user = auth.currentUser;
       if (!user || user.email !== ADMIN_EMAIL) {
         setIsAdmin(false);
         setLoading(false);
-        // Očisti listener ako postoji
-        if (unsubscribeUsers) {
-          unsubscribeUsers();
-          unsubscribeUsers = null;
-        }
         router.push("/dashboard");
         return;
       }
@@ -174,27 +167,9 @@ export default function AdminPage() {
       // Učitaj podatke jednom pri inicijalizaciji
       await loadUsers();
       
-      // Postavi real-time listener za automatsko osvježavanje
-      try {
-        const usersCollection = collection(db, "users");
-        unsubscribeUsers = onSnapshot(
-          usersCollection,
-          async (snapshot) => {
-            // Kada se promijene podaci u Firebase, automatski osvježi listu
-            console.log("🔄 Real-time promjena detektovana u users kolekciji, osvježavam listu korisnika...");
-            await loadUsers();
-          },
-          (error) => {
-            console.error("Greška pri real-time listeneru za users kolekciju:", error);
-            // Ako je greška zbog permisija, ignoriraj je
-            if (error?.code !== 'permission-denied' && !error?.code?.includes('permission') && !error?.code?.includes('insufficient')) {
-              setMessage({ type: "error", text: "Greška pri osvježavanju podataka" });
-            }
-          }
-        );
-      } catch (error) {
-        console.error("Greška pri postavljanju real-time listenera:", error);
-      }
+      // Napomena: Real-time listener više nije potreban jer korisnike učitavamo iz Firebase Auth
+      // koje se ne može pratiti preko Firestore listenera. Admin može osvježiti listu ručno
+      // ili se lista osvježava pri svakom pristupu stranici.
     };
 
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -203,20 +178,12 @@ export default function AdminPage() {
       } else {
         setIsAdmin(false);
         setLoading(false);
-        // Očisti listener ako postoji
-        if (unsubscribeUsers) {
-          unsubscribeUsers();
-          unsubscribeUsers = null;
-        }
         router.push("/login");
       }
     });
 
     return () => {
       unsubscribe();
-      if (unsubscribeUsers) {
-        unsubscribeUsers();
-      }
     };
   }, [router]);
 
@@ -262,179 +229,84 @@ export default function AdminPage() {
       setLoading(true);
       setMessage(null);
       
-      const usersCollection = collection(db, "users");
-      const usersSnapshot = await getDocs(usersCollection);
+      // Uzmi ID token od trenutnog korisnika za autentifikaciju
+      const user = auth.currentUser;
+      if (!user) {
+        setMessage({ type: "error", text: "Niste prijavljeni" });
+        setLoading(false);
+        return;
+      }
+
+      const token = await user.getIdToken();
       
+      // Pozovi API route koji koristi Firebase Admin SDK da lista korisnike iz Auth
+      const response = await fetch('/api/list-users', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Nepoznata greška' }));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const usersWithSubscriptions = data.users || [];
+
+      // Razdvoji korisnike i subscriptions
       const usersList: User[] = [];
       const subscriptionsMap: Record<string, Subscription> = {};
 
-      for (const userDoc of usersSnapshot.docs) {
-        try {
-          const userId = userDoc.id;
-          const userData = userDoc.data();
+      usersWithSubscriptions.forEach((item: any) => {
+        usersList.push({
+          id: item.id,
+          email: item.email,
+          appName: item.appName,
+          createdAt: item.createdAt ? new Date(item.createdAt) : null,
+          lastSignIn: item.lastSignIn ? new Date(item.lastSignIn) : null,
+          imeKorisnika: item.imeKorisnika,
+          brojTelefona: item.brojTelefona,
+          lokacija: item.lokacija,
+        });
 
-          // Provjeri da li korisnik postoji u Firebase Auth
-          // Koristimo device dokumente kao indikator da korisnik postoji u Firebase Auth
-          // (device dokumenti se kreiraju samo kada se korisnik prijavi)
-          const userEmail = userData.email;
-          let userExistsInAuth = false;
-          
-          try {
-            // Provjeri da li korisnik ima device dokumente (indikator da postoji u Firebase Auth)
-            const devicesQuery = query(collection(db, "devices"), where("userId", "==", userId));
-            const devicesSnapshot = await getDocs(devicesQuery);
-            userExistsInAuth = !devicesSnapshot.empty;
-            
-            if (!userExistsInAuth) {
-              console.log(`Preskačem korisnika ${userId} (${userEmail || 'N/A'}) - nema device dokumenata (vjerovatno obrisan iz Firebase Auth)`);
-            }
-          } catch (deviceError) {
-            console.warn(`Greška pri provjeri device dokumenata za korisnika ${userId} (${userEmail}):`, deviceError);
-            // Ako ne možemo provjeriti, pretpostavimo da korisnik ne postoji
-            userExistsInAuth = false;
-          }
-
-          // Preskoči korisnike koji ne postoje u Firebase Auth (nemaju device dokumenata)
-          if (!userExistsInAuth) {
-            continue;
-          }
-
-          // Učitaj subscription
-          const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-          let subscriptionDoc;
-          
-          try {
-            subscriptionDoc = await getDoc(subscriptionRef);
-          } catch (subError) {
-            console.warn(`Greška pri učitavanju subscription za korisnika ${userId}:`, subError);
-            // Nastavi sa default subscription
-          }
-
-          let subscription: Subscription = {
-            isActive: false,
-            monthlyPrice: 12,
-            lastPaymentDate: null,
-            expiryDate: null,
-            graceEndDate: null,
-            trialEndDate: null,
-            paymentHistory: [],
-          };
-
-          if (subscriptionDoc && subscriptionDoc.exists()) {
-            try {
-              const subData = subscriptionDoc.data();
-              const now = new Date();
-              const userCreatedAt = userData.createdAt?.toDate?.() || (userData.createdAt ? new Date(userData.createdAt) : null);
-              
-              // Parse dates
-              const trialEndDate = subData.trialEndDate?.toDate?.() || (subData.trialEndDate ? new Date(subData.trialEndDate) : null);
-              const expiryDate = subData.expiryDate?.toDate?.() || (subData.expiryDate ? new Date(subData.expiryDate) : null);
-              const graceEndDate = subData.graceEndDate?.toDate?.() || (subData.graceEndDate ? new Date(subData.graceEndDate) : null);
-              
-              // Calculate status
-              let isTrial = false;
-              let isGracePeriod = false;
-              let daysRemaining = 0;
-              let daysUntilExpiry = 0;
-              let daysInGrace = 0;
-              
-              // Check trial period (samo ako nema uplate)
-              const hasPayment = subData.lastPaymentDate != null;
-              const explicitIsActive = subData.isActive !== undefined ? subData.isActive : null;
-              
-              if (trialEndDate && now < trialEndDate && !hasPayment && explicitIsActive !== false) {
-                isTrial = true;
-                daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-              } else if (expiryDate) {
-                if (now < expiryDate) {
-                  // Active subscription
-                  daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                } else {
-                  // Expired, check grace period
-                  let calculatedGraceEnd: Date | null = null;
-                  if (graceEndDate) {
-                    calculatedGraceEnd = graceEndDate;
-                  } else if (expiryDate) {
-                    // Kreiraj grace period (5 dana od isteka pretplate) samo ako nije eksplicitno postavljen
-                    calculatedGraceEnd = new Date(expiryDate);
-                    calculatedGraceEnd.setDate(calculatedGraceEnd.getDate() + 5);
-                  }
-                  
-                  if (calculatedGraceEnd && now < calculatedGraceEnd) {
-                    // Prikaži grace period čak i ako je isActive = false, ali samo ako postoji graceEndDate u budućnosti
-                    isGracePeriod = true;
-                    daysInGrace = Math.ceil((calculatedGraceEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                  }
-                }
-              } else if (graceEndDate) {
-                // Ako nema expiryDate ali postoji graceEndDate, provjeri grace period
-                if (graceEndDate && now < graceEndDate) {
-                  isGracePeriod = true;
-                  daysInGrace = Math.ceil((graceEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                }
-              }
-              
-              // Uzmi isActive direktno iz Firebase podataka
-              const isActiveFromFirebase = subData.isActive === true;
-              
-              subscription = {
-                isActive: isActiveFromFirebase,
-                monthlyPrice: subData.monthlyPrice || 12,
-                lastPaymentDate: subData.lastPaymentDate?.toDate?.() || (subData.lastPaymentDate ? new Date(subData.lastPaymentDate) : null),
-                expiryDate: expiryDate,
-                graceEndDate: graceEndDate,
-                trialEndDate: trialEndDate,
-                paymentHistory: (subData.paymentHistory || []).map((p: any) => ({
-                  date: p.date?.toDate?.() || (p.date ? new Date(p.date) : new Date()),
-                  amount: p.amount || 0,
-                  note: p.note || "",
-                  validUntil: p.validUntil?.toDate?.() || (p.validUntil ? new Date(p.validUntil) : undefined),
-                })),
-                isTrial,
-                isPremium: hasPayment && !isTrial && (isActiveFromFirebase || isGracePeriod),
-                isGracePeriod,
-                daysRemaining,
-                daysUntilExpiry,
-                daysInGrace,
-                paymentPendingVerification: subData.paymentPendingVerification || false,
-                paymentRequestedAt: subData.paymentRequestedAt?.toDate?.() || (subData.paymentRequestedAt ? new Date(subData.paymentRequestedAt) : null),
-                paymentRequestedAmount: subData.paymentRequestedAmount || 0,
-                paymentRequestedMonths: subData.paymentRequestedMonths || 0,
-                paymentReferenceNumber: subData.paymentReferenceNumber || null,
-              };
-            } catch (parseError) {
-              console.warn(`Greška pri parsiranju subscription podataka za korisnika ${userId}:`, parseError);
-            }
-          }
-
-          // Email je već učitano gore (userEmail varijabla)
-          // Ako nije dostupan, prikazat će se kao "N/A"
-          
-          usersList.push({
-            id: userId,
-            email: userEmail || null,
-            appName: userData.appName || "N/A",
-            createdAt: userData.createdAt?.toDate?.() || (userData.createdAt ? new Date(userData.createdAt) : null),
-            lastSignIn: userData.lastSignIn?.toDate?.() || (userData.lastSignIn ? new Date(userData.lastSignIn) : null),
-            imeKorisnika: userData.imeKorisnika || undefined,
-            brojTelefona: userData.brojTelefona || undefined,
-            lokacija: userData.lokacija || undefined,
-          });
-
-          subscriptionsMap[userId] = subscription;
-        } catch (userError) {
-          console.warn(`Greška pri obradi korisnika ${userDoc.id}:`, userError);
-          // Nastavi sa sljedećim korisnikom
-          continue;
-        }
-      }
+        // Konvertuj subscription podatke
+        const sub = item.subscription || {};
+        subscriptionsMap[item.id] = {
+          isActive: sub.isActive || false,
+          monthlyPrice: sub.monthlyPrice || 12,
+          lastPaymentDate: sub.lastPaymentDate ? new Date(sub.lastPaymentDate) : null,
+          expiryDate: sub.expiryDate ? new Date(sub.expiryDate) : null,
+          graceEndDate: sub.graceEndDate ? new Date(sub.graceEndDate) : null,
+          trialEndDate: sub.trialEndDate ? new Date(sub.trialEndDate) : null,
+          paymentHistory: (sub.paymentHistory || []).map((p: any) => ({
+            date: p.date ? new Date(p.date) : new Date(),
+            amount: p.amount || 0,
+            note: p.note || "",
+            validUntil: p.validUntil ? new Date(p.validUntil) : undefined,
+          })),
+          isTrial: sub.isTrial || false,
+          isPremium: sub.isPremium || false,
+          isGracePeriod: sub.isGracePeriod || false,
+          daysRemaining: sub.daysRemaining || 0,
+          daysUntilExpiry: sub.daysUntilExpiry || 0,
+          daysInGrace: sub.daysInGrace || 0,
+          paymentPendingVerification: sub.paymentPendingVerification || false,
+          paymentRequestedAt: sub.paymentRequestedAt ? new Date(sub.paymentRequestedAt) : null,
+          paymentRequestedAmount: sub.paymentRequestedAmount || 0,
+          paymentRequestedMonths: sub.paymentRequestedMonths || 0,
+          paymentReferenceNumber: sub.paymentReferenceNumber || null,
+        };
+      });
 
       setUsers(usersList);
       setSubscriptions(subscriptionsMap);
       setLoading(false);
       
       if (usersList.length === 0) {
-        setMessage({ type: "error", text: "Nema korisnika u bazi podataka" });
+        setMessage({ type: "error", text: "Nema korisnika u Firebase Auth" });
       }
     } catch (error: any) {
       console.error("Greška pri učitavanju korisnika:", error);
