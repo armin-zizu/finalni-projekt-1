@@ -397,21 +397,38 @@ export default function DashboardPage() {
         @media (max-width: 768px) {
           div[style*='padding: 30px'] { padding: 10px; }
           h1 { font-size: 18px; margin-bottom: 16px !important; }
-          div[style*='fontSize: 36'] { font-size: 24px !important; }
-          div[style*='fontSize: 28'] { font-size: 20px !important; }
-          /* Ime aplikacije - mobilni stil */
-          .app-name-header {
-            padding: 10px 12px !important;
-            margin-bottom: 16px !important;
+          div[style*='fontSize: 36'] { font-size: 14px !important; }
+          div[style*='fontSize: 28'] { font-size: 18px !important; }
+          /* Ime aplikacije - mobilni stil - pojačan selector */
+          div.app-name-header {
+            padding: 8px 10px !important;
+            margin-bottom: 12px !important;
           }
-          .app-name-title {
-            font-size: 16px !important;
+          h1.app-name-title,
+          div.app-name-header h1,
+          div[class*="app-name-header"] h1,
+          .app-name-header .app-name-title {
+            font-size: 14px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             line-height: 1.3 !important;
             max-width: 100% !important;
             display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            letter-spacing: 0 !important;
+          }
+          /* Override inline stilove sa fontSize: 36 - još jači selektor */
+          div[style*="fontSize: 36"] h1.app-name-title,
+          div[style*="fontSize: 36"].app-name-title,
+          .app-name-header h1[style*="fontSize: 36"],
+          .app-name-header h1[style*="fontSize"] {
+            font-size: 14px !important;
+          }
+          /* Override svi h1 elementi unutar app-name-header */
+          .app-name-header h1 {
+            font-size: 14px !important;
           }
           .decorative-circle-1,
           .decorative-circle-2 {
