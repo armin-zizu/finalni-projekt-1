@@ -345,7 +345,7 @@ export default function ProfitPage() {
         return;
       }
 
-      const parsed: Obracun[] = mergedArhiva
+      const parsed: Obracun[] = firestoreArhiva
         .map((item: any) => ({
           ...item,
           prihodi: item.prihodi ?? [],
@@ -838,24 +838,37 @@ export default function ProfitPage() {
         overflow: "hidden", 
         boxSizing: "border-box" 
       }}>
-        <ResponsiveContainer width="100%" height="100%" minHeight={280}>
-          <LineChart data={chartData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis 
-              dataKey="datum" 
-              tick={{ fill: "#6b7280", fontSize: 11 }} 
-              angle={-45}
-              textAnchor="end"
-              height={60}
-            />
-            <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-            <Line type="monotone" dataKey="bruto" name="Bruto" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        {chartData && chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%" minHeight={280}>
+            <LineChart data={chartData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="datum" 
+                tick={{ fill: "#6b7280", fontSize: 11 }} 
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
+              <Line type="monotone" dataKey="bruto" name="Bruto" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div style={{ 
+            display: "flex", 
+            justifyContent: "center", 
+            alignItems: "center", 
+            height: "100%",
+            color: "#6b7280",
+            fontSize: "14px"
+          }}>
+            Nema podataka za prikaz
+          </div>
+        )}
       </div>
 
       {/* ---- Ukupno odmah ispod charta ---- */}
@@ -908,7 +921,8 @@ export default function ProfitPage() {
         }}
       >
         <ResponsiveContainer width="100%" height="100%" minHeight={280}>
-          <LineChart data={selectedArtiklData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+          {selectedArtiklData && selectedArtiklData.length > 0 ? (
+            <LineChart data={selectedArtiklData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis 
               dataKey="datum" 
@@ -923,6 +937,18 @@ export default function ProfitPage() {
             <Line type="monotone" dataKey="bruto" name="Bruto artikal" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="neto" name="Neto artikal" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
           </LineChart>
+          ) : (
+            <div style={{ 
+              display: "flex", 
+              justifyContent: "center", 
+              alignItems: "center", 
+              height: "100%",
+              color: "#6b7280",
+              fontSize: "14px"
+            }}>
+              Nema podataka za prikaz
+            </div>
+          )}
         </ResponsiveContainer>
       </div>
 

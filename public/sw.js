@@ -1,6 +1,6 @@
 // Service Worker za PWA sa automatskim ažuriranjem
 // Verzija se automatski ažurira pri svakom deploy-u
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.2';
 const CACHE_NAME = `office-app-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `office-app-runtime-${CACHE_VERSION}`;
 
@@ -70,24 +70,57 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Preskoči Next.js JavaScript bundle-ove i chart biblioteke - učitaj iz mreže
+  // Ovo osigurava da se chart-ovi pravilno učitavaju
+  if (
+    event.request.url.includes('/_next/static/chunks/') ||
+    event.request.url.includes('/_next/static/css/') ||
+    event.request.url.includes('recharts') ||
+    event.request.url.includes('chart.js') ||
+    event.request.destination === 'script' ||
+    event.request.destination === 'style'
+  ) {
+    // Za JavaScript i CSS fajlove, koristi network-first strategiju
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Spremi u runtime cache za offline pristup (samo GET zahtevi)
+          if (response && response.status === 200 && event.request.method === 'GET') {
+            const responseClone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Ako fetch ne uspije, probaj iz cache-a
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
         // Ako postoji u cache-u, vrati ga
         if (cachedResponse) {
-          // U pozadini provjeri da li postoji nova verzija
-          fetch(event.request)
-            .then((response) => {
-              if (response && response.status === 200) {
-                const responseClone = response.clone();
-                caches.open(RUNTIME_CACHE).then((cache) => {
-                  cache.put(event.request, responseClone);
-                });
-              }
-            })
-            .catch(() => {
-              // Ignoriraj greške pri background fetch-u
-            });
+          // U pozadini provjeri da li postoji nova verzija (samo GET zahtevi)
+          if (event.request.method === 'GET') {
+            fetch(event.request)
+              .then((response) => {
+                if (response && response.status === 200) {
+                  const responseClone = response.clone();
+                  caches.open(RUNTIME_CACHE).then((cache) => {
+                    cache.put(event.request, responseClone);
+                  });
+                }
+              })
+              .catch(() => {
+                // Ignoriraj greške pri background fetch-u
+              });
+          }
           return cachedResponse;
         }
 
@@ -99,13 +132,13 @@ self.addEventListener('fetch', (event) => {
               return response;
             }
 
-            // Kloniraj odgovor
-            const responseToCache = response.clone();
-
-            // Spremi u runtime cache
-            caches.open(RUNTIME_CACHE).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+            // Kloniraj odgovor i spremi u runtime cache (samo GET zahtevi)
+            if (event.request.method === 'GET') {
+              const responseToCache = response.clone();
+              caches.open(RUNTIME_CACHE).then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+            }
 
             return response;
           })

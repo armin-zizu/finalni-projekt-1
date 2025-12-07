@@ -5,6 +5,7 @@ import { auth, sendPasswordResetEmail, signOut, sendEmailVerification } from "..
 import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole, UserRole, PagePermission } from "../context/RoleContext";
+import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import { db } from "../../lib/firestore";
@@ -113,6 +114,9 @@ export default function Profile() {
   const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
   const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
+  const [arhivaCount, setArhivaCount] = useState<number>(0);
+  const [loadingArhivaCount, setLoadingArhivaCount] = useState<boolean>(false);
+  const { cjenovnik } = useCjenovnik();
   const router = useRouter();
 
   // Sinhronizuj localAppName sa appName iz contexta
@@ -775,6 +779,29 @@ export default function Profile() {
     }
   }, [isOwner]);
 
+  // Učitaj broj obračuna iz arhive
+  const loadArhivaCount = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      setLoadingArhivaCount(true);
+      const obracuniRef = collection(db, "users", user.uid, "obracuni");
+      const querySnapshot = await getDocs(obracuniRef);
+      setArhivaCount(querySnapshot.size);
+    } catch (error) {
+      console.error("Greška pri učitavanju broja obračuna:", error);
+      setArhivaCount(0);
+    } finally {
+      setLoadingArhivaCount(false);
+    }
+  };
+
+  // Učitaj broj obračuna kada se komponenta učita
+  useEffect(() => {
+    loadArhivaCount();
+  }, []);
+
 
   const handleDeleteSession = (id: string) => {
     if (window.confirm("Jeste li sigurni da želite obrisati ovu sesiju?")) {
@@ -1389,21 +1416,17 @@ export default function Profile() {
           <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Ukupno obračuna</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
-              {(() => {
-                // Učitaj iz Firestore - koristi state ili direktno iz Firestore
-                // Za sada prikaži 0, može se dodati state za arhiva count
-                return 0; // TODO: Dodati state za arhiva count iz Firestore
-              })()}
+              {loadingArhivaCount ? (
+                <span style={{ fontSize: "16px", color: "#6b7280" }}>Učitavanje...</span>
+              ) : (
+                arhivaCount
+              )}
             </p>
           </div>
           <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Artikala u cjenovniku</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
-              {(() => {
-                // Učitaj iz Firestore - koristi useCjenovnik hook
-                // Za sada prikaži 0, može se dodati useCjenovnik hook
-                return 0; // TODO: Dodati useCjenovnik hook za cjenovnik count
-              })()}
+              {cjenovnik.length}
             </p>
           </div>
           <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
