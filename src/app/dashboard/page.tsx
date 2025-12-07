@@ -399,6 +399,22 @@ export default function DashboardPage() {
           h1 { font-size: 18px; margin-bottom: 16px !important; }
           div[style*='fontSize: 36'] { font-size: 24px !important; }
           div[style*='fontSize: 28'] { font-size: 20px !important; }
+          /* Ime aplikacije - mobilni stil */
+          .app-name-header {
+            padding: 12px 16px !important;
+            margin-bottom: 20px !important;
+          }
+          .app-name-title {
+            font-size: 20px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            line-height: 1.2 !important;
+          }
+          .decorative-circle-1,
+          .decorative-circle-2 {
+            display: none !important;
+          }
           div[style*='display: flex'][style*='flexWrap'][style*='marginBottom: 30'] { 
             flex-direction: column; 
             gap: 10px; 
@@ -466,7 +482,7 @@ export default function DashboardPage() {
         boxShadow: "0 8px 24px rgba(102, 126, 234, 0.25)",
         position: "relative",
         overflow: "hidden"
-      }}>
+      }} className="app-name-header">
         {/* Dekorativni elementi */}
         <div style={{
           position: "absolute",
@@ -477,7 +493,7 @@ export default function DashboardPage() {
           borderRadius: "50%",
           background: "rgba(255, 255, 255, 0.1)",
           pointerEvents: "none"
-        }} />
+        }} className="decorative-circle-1" />
         <div style={{
           position: "absolute",
           bottom: -30,
@@ -487,7 +503,7 @@ export default function DashboardPage() {
           borderRadius: "50%",
           background: "rgba(255, 255, 255, 0.08)",
           pointerEvents: "none"
-        }} />
+        }} className="decorative-circle-2" />
         
         <h1 style={{ 
           fontSize: 36,
@@ -497,8 +513,11 @@ export default function DashboardPage() {
           textShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
           letterSpacing: "-0.5px",
           position: "relative",
-          zIndex: 1
-        }}>
+          zIndex: 1,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        }} className="app-name-title">
           {appName}
         </h1>
       </div>
@@ -567,24 +586,37 @@ export default function DashboardPage() {
           boxSizing: "border-box",
         }}
       >
-        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-          <LineChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis 
-              dataKey="datum" 
-              tick={{ fill: "#6b7280", fontSize: 11 }} 
-              angle={-45}
-              textAnchor="end"
-              height={60}
-            />
-            <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-            <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        {chartData && chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+            <LineChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="datum" 
+                tick={{ fill: "#6b7280", fontSize: 11 }} 
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
+              <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div style={{ 
+            display: "flex", 
+            justifyContent: "center", 
+            alignItems: "center", 
+            height: "100%",
+            color: "#6b7280",
+            fontSize: "14px"
+          }}>
+            Nema podataka za prikaz
+          </div>
+        )}
       </div>
 
       {/* Kartice */}

@@ -248,7 +248,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#3b82f6" />
         <meta name="description" content="Office Lounge Bar - Aplikacija za upravljanje poslovanjem" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+          <link rel="apple-touch-icon" href="/icon-192x192.svg" />
+          <link rel="apple-touch-icon" sizes="152x152" href="/icon-152x152.svg" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/icon-192x192.svg" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Office App" />

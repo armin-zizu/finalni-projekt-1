@@ -10,18 +10,33 @@ interface BeforeInstallPromptEvent extends Event {
 export default function PWAUpdatePrompt() {
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [showIOSInstall, setShowIOSInstall] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
     // Provjeri da li je aplikacija već instalirana
     if (typeof window !== "undefined") {
+      // Detektuj iOS
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+      const isIOSStandalone = (window.navigator as any).standalone === true;
+      setIsIOS(isIOSDevice);
+      
       // Provjeri da li je PWA instalirana
       const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
-      const isIOSStandalone = (window.navigator as any).standalone === true;
       setIsInstalled(isStandalone || isIOSStandalone);
+      
+      // Prikaži iOS install prompt ako nije instalirana i korisnik je na iOS
+      if (isIOSDevice && !isIOSStandalone && !isStandalone) {
+        // Sačekaj malo da se stranica učita
+        setTimeout(() => {
+          setShowIOSInstall(true);
+        }, 3000); // Prikaži nakon 3 sekunde
+      }
 
       // Registriraj Service Worker
       if ("serviceWorker" in navigator) {
@@ -195,7 +210,7 @@ export default function PWAUpdatePrompt() {
     );
   }
 
-  if (showInstallPrompt && !isInstalled) {
+  if (showInstallPrompt && !isInstalled && !isIOS) {
     return (
       <div
         style={{
@@ -261,6 +276,65 @@ export default function PWAUpdatePrompt() {
             Ne sada
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // iOS Install Instructions
+  if (showIOSInstall && !isInstalled && isIOS) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          backgroundColor: "#10b981",
+          color: "white",
+          padding: "20px 24px",
+          borderRadius: "12px",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+          zIndex: 10000,
+          maxWidth: "90%",
+          width: "400px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+        }}
+      >
+        <div style={{ fontWeight: 600, fontSize: "18px", marginBottom: "8px" }}>
+          📱 Instaliraj aplikaciju
+        </div>
+        <div style={{ fontSize: "14px", opacity: 0.95, lineHeight: "1.6" }}>
+          <div style={{ marginBottom: "12px" }}>
+            <strong>Korak 1:</strong> Klikni na <strong>Share</strong> dugme <span style={{ fontSize: "18px" }}>↗️</span> (dolje u Safari browseru)
+          </div>
+          <div style={{ marginBottom: "12px" }}>
+            <strong>Korak 2:</strong> Izaberi <strong>"Dodaj na početni ekran"</strong>
+          </div>
+          <div>
+            <strong>Korak 3:</strong> Potvrdi instalaciju
+          </div>
+        </div>
+        <button
+          onClick={() => setShowIOSInstall(false)}
+          style={{
+            padding: "10px 16px",
+            backgroundColor: "white",
+            color: "#10b981",
+            border: "none",
+            borderRadius: "8px",
+            fontSize: "14px",
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "opacity 0.2s",
+            marginTop: "8px",
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.opacity = "0.9")}
+          onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+        >
+          Razumijem
+        </button>
       </div>
     );
   }
