@@ -1114,7 +1114,7 @@ export default function Profile() {
                           <td colSpan={7} style={{ ...tdStyle, padding: "16px", background: "#f9fafb" }}>
                             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                               <div>
-                                <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "#1f2937" }}>
+                                <h4 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "12px", color: "#1f2937" }}>
                                   Uredi Ulogu i Dozvole
                                 </h4>
                                 {isEditing ? (
@@ -1364,11 +1364,11 @@ export default function Profile() {
                                   </div>
                                 )}
                               </div>
-                              <div style={{ paddingTop: "12px", borderTop: "1px solid #e5e7eb" }}>
-                                <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "#1f2937" }}>
+                              <div style={{ paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                                <h4 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "12px", color: "#1f2937" }}>
                                   Informacije o uređaju
                                 </h4>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "8px", fontSize: "12px", color: "#6b7280" }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "14px", color: "#6b7280" }}>
                                   <div><strong>Device ID:</strong> {device.id}</div>
                                   <div><strong>Email:</strong> {device.userEmail || "N/A"}</div>
                                   <div><strong>Browser:</strong> {device.deviceInfo?.browser || "N/A"}</div>
