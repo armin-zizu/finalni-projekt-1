@@ -23,6 +23,16 @@ jobs:
         run: npm run build
         env:
           CI: false
+      - name: Verify build output
+        run: |
+          echo "Checking if 'out' directory exists..."
+          if [ -d "out" ]; then
+            echo "✅ Build successful - 'out' directory found"
+            ls -la out | head -20
+          else
+            echo "❌ Build failed - 'out' directory not found"
+            exit 1
+          fi
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
