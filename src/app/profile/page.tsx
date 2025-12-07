@@ -982,12 +982,12 @@ export default function Profile() {
                               onChange={(e) => setDeviceNames({ ...deviceNames, [device.id]: e.target.value })}
                               placeholder="Unesite ime uređaja"
                               style={{
-                                padding: "6px 12px",
+                                padding: "12px 16px",
                                 border: "1px solid #e5e7eb",
-                                borderRadius: "6px",
-                                fontSize: "14px",
+                                borderRadius: "8px",
+                                fontSize: "16px",
                                 width: "100%",
-                                maxWidth: "200px",
+                                minHeight: "44px",
                               }}
                             />
                           ) : (
@@ -1118,9 +1118,23 @@ export default function Profile() {
                                   Uredi Ulogu i Dozvole
                                 </h4>
                                 {isEditing ? (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "12px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                                  <div style={{ 
+                                    display: "flex", 
+                                    flexDirection: "column", 
+                                    gap: "16px", 
+                                    padding: "16px", 
+                                    background: "#fff", 
+                                    borderRadius: "8px", 
+                                    border: "1px solid #e5e7eb" 
+                                  }}>
                                     <div>
-                                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px", color: "#374151" }}>
+                                      <label style={{ 
+                                        display: "block", 
+                                        fontSize: "16px", 
+                                        fontWeight: 600, 
+                                        marginBottom: "8px", 
+                                        color: "#374151" 
+                                      }}>
                                         Uloga:
                                       </label>
                                       <select
@@ -1141,15 +1155,17 @@ export default function Profile() {
                                           }
                                         }}
                                         style={{
-                                          padding: "8px 12px",
+                                          padding: "12px 16px",
                                           border: "1px solid #e5e7eb",
-                                          borderRadius: "6px",
-                                          fontSize: "14px",
+                                          borderRadius: "8px",
+                                          fontSize: "16px",
                                           backgroundColor: "#fff",
                                           color: "#1f2937",
                                           cursor: "pointer",
                                           width: "100%",
-                                          maxWidth: "300px",
+                                          minHeight: "44px",
+                                          WebkitAppearance: "none",
+                                          appearance: "none",
                                         }}
                                       >
                                         <option value="">Nedodijeljena</option>
@@ -1159,12 +1175,45 @@ export default function Profile() {
                                     </div>
                                     {(selectedRole[device.id] || device.role) === "konobar" && (
                                       <div>
-                                        <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "8px", color: "#374151" }}>
+                                        <label style={{ 
+                                          display: "block", 
+                                          fontSize: "16px", 
+                                          fontWeight: 600, 
+                                          marginBottom: "12px", 
+                                          color: "#374151" 
+                                        }}>
                                           Dozvole za stranice:
                                         </label>
-                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", padding: "12px", background: "#f9fafb", borderRadius: "6px", border: "1px solid #e5e7eb" }}>
+                                        <div style={{ 
+                                          display: "flex", 
+                                          flexDirection: "column",
+                                          gap: "12px", 
+                                          padding: "16px", 
+                                          background: "#f9fafb", 
+                                          borderRadius: "8px", 
+                                          border: "1px solid #e5e7eb" 
+                                        }}>
                                           {["dashboard", "obracun", "arhiva", "cjenovnik", "profit", "profile"].map((page) => (
-                                            <label key={page} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", cursor: "pointer" }}>
+                                            <label 
+                                              key={page} 
+                                              style={{ 
+                                                display: "flex", 
+                                                alignItems: "center", 
+                                                gap: "12px", 
+                                                fontSize: "16px", 
+                                                cursor: "pointer",
+                                                padding: "8px",
+                                                borderRadius: "6px",
+                                                minHeight: "44px",
+                                                transition: "background-color 0.2s"
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = "#f3f4f6";
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = "transparent";
+                                              }}
+                                            >
                                               <input
                                                 type="checkbox"
                                                 checked={editingPermissions[page as keyof PagePermission] || false}
@@ -1174,20 +1223,34 @@ export default function Profile() {
                                                     [page]: e.target.checked,
                                                   });
                                                 }}
-                                                style={{ cursor: "pointer" }}
+                                                style={{ 
+                                                  cursor: "pointer",
+                                                  width: "24px",
+                                                  height: "24px",
+                                                  minWidth: "24px",
+                                                  minHeight: "24px",
+                                                  accentColor: "#3b82f6"
+                                                }}
                                               />
-                                              {page === "dashboard" ? "Radna površina" :
-                                               page === "obracun" ? "Obračun" :
-                                               page === "arhiva" ? "Arhiva" :
-                                               page === "cjenovnik" ? "Cjenovnik" :
-                                               page === "profit" ? "Profit" :
-                                               "Profil"}
+                                              <span style={{ userSelect: "none" }}>
+                                                {page === "dashboard" ? "Radna površina" :
+                                                 page === "obracun" ? "Obračun" :
+                                                 page === "arhiva" ? "Arhiva" :
+                                                 page === "cjenovnik" ? "Cjenovnik" :
+                                                 page === "profit" ? "Profit" :
+                                                 "Profil"}
+                                              </span>
                                             </label>
                                           ))}
                                         </div>
                                       </div>
                                     )}
-                                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                    <div style={{ 
+                                      display: "flex", 
+                                      flexDirection: "column",
+                                      gap: "12px", 
+                                      width: "100%" 
+                                    }}>
                                       <button
                                         onClick={async () => {
                                           const roleToSave = selectedRole[device.id] || device.role;
@@ -1203,27 +1266,53 @@ export default function Profile() {
                                           setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
                                           setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
                                         }}
-                                        style={{ ...buttonStyle, background: "#16a34a", fontSize: "13px", padding: "8px 16px" }}
+                                        style={{ 
+                                          ...buttonStyle, 
+                                          background: "#16a34a", 
+                                          fontSize: "16px", 
+                                          padding: "14px 20px",
+                                          minHeight: "48px",
+                                          width: "100%",
+                                          fontWeight: 600
+                                        }}
                                       >
                                         Spremi
                                       </button>
-                                      <button
-                                        onClick={() => {
-                                          setEditingDeviceId(null);
-                                          setEditingPermissions({});
-                                          setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
-                                          setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
-                                        }}
-                                        style={{ ...buttonStyle, background: "#6b7280", fontSize: "13px", padding: "8px 16px" }}
-                                      >
-                                        Odustani
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteDevice(device.id)}
-                                        style={{ ...buttonStyle, background: "#dc2626", fontSize: "13px", padding: "8px 16px" }}
-                                      >
-                                        Izbriši login
-                                      </button>
+                                      <div style={{ display: "flex", gap: "12px", width: "100%" }}>
+                                        <button
+                                          onClick={() => {
+                                            setEditingDeviceId(null);
+                                            setEditingPermissions({});
+                                            setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
+                                            setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
+                                          }}
+                                          style={{ 
+                                            ...buttonStyle, 
+                                            background: "#6b7280", 
+                                            fontSize: "16px", 
+                                            padding: "14px 20px",
+                                            minHeight: "48px",
+                                            flex: 1,
+                                            fontWeight: 600
+                                          }}
+                                        >
+                                          Odustani
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteDevice(device.id)}
+                                          style={{ 
+                                            ...buttonStyle, 
+                                            background: "#dc2626", 
+                                            fontSize: "16px", 
+                                            padding: "14px 20px",
+                                            minHeight: "48px",
+                                            flex: 1,
+                                            fontWeight: 600
+                                          }}
+                                        >
+                                          Izbriši
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                                 ) : (
