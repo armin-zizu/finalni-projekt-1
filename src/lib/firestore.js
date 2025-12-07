@@ -1,5 +1,5 @@
 // lib/firestore.js
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, doc, setDoc, serverTimestamp, collection, getDocs, onSnapshot } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -11,6 +11,26 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+// Inicijalizuj Firebase samo ako su environment varijable dostupne
+let app = null;
+const hasValidConfig = firebaseConfig.apiKey && 
+                       firebaseConfig.authDomain && 
+                       firebaseConfig.projectId;
+
+if (hasValidConfig) {
+  try {
+    if (getApps().length === 0) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApps()[0];
+    }
+  } catch (error) {
+    // Ignoriraj greške tokom build-a
+    if (typeof window !== 'undefined') {
+      console.error('Firestore initialization error:', error);
+    }
+  }
+}
+
+export const db = app ? getFirestore(app) : null;
 export { doc, setDoc, serverTimestamp, collection, getDocs, onSnapshot };

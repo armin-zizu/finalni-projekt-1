@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, sendEmailVerification, updateEmail } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -13,14 +13,36 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Provjera konfiguracije
-if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
-  throw new Error('Missing Firebase configuration. Check .env.local for NEXT_PUBLIC_ variables.');
+// Inicijalizuj Firebase samo ako su environment varijable dostupne
+let app: any = null;
+let auth: any = null;
+let db: any = null;
+let storage: any = null;
+
+// Proveri da li su sve potrebne vrednosti dostupne
+const hasValidConfig = firebaseConfig.apiKey && 
+                       firebaseConfig.authDomain && 
+                       firebaseConfig.projectId &&
+                       firebaseConfig.apiKey !== 'dummy-key-for-build';
+
+if (hasValidConfig) {
+  try {
+    if (getApps().length === 0) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApps()[0];
+    }
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+  } catch (error) {
+    // Ignoriraj greške tokom build-a
+    if (typeof window !== 'undefined') {
+      console.error('Firebase initialization error:', error);
+    }
+  }
 }
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export { auth, db, storage };
 
 export { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, sendEmailVerification, updateEmail };
