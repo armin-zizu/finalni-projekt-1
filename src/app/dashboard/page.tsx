@@ -92,11 +92,16 @@ export default function DashboardPage() {
   // Detekcija mobilnog uređaja
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      console.log('Dashboard - Screen width:', window.innerWidth, 'isMobile:', mobile);
     };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    // Proveri odmah i na resize
+    if (typeof window !== 'undefined') {
+      checkMobile();
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    }
   }, []);
 
   // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
