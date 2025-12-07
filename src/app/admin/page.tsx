@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { auth, db } from "../../lib/firebase";
 import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, query, where, onSnapshot } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, User as FirebaseUser } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -172,7 +172,7 @@ export default function AdminPage() {
       // ili se lista osvježava pri svakom pristupu stranici.
     };
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user: FirebaseUser | null) => {
       if (user) {
         checkAdmin();
       } else {
