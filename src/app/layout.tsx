@@ -11,6 +11,7 @@ import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import { auth, db } from "../lib/firebase";
 import { usePathname, useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
+import { User } from "firebase/auth";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 // Komponenta koja provjerava role i blokira pristup ako je potrebno
@@ -131,7 +132,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user: User | null) => {
       const authenticated = !!user;
       
       if (authenticated && user) {
