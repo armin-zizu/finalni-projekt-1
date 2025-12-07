@@ -84,9 +84,20 @@ export default function DashboardPage() {
   const [arhiva, setArhiva] = useState<ArhiviraniObracun[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const router = useRouter();
   const { cjenovnik } = useCjenovnik();
   const { appName } = useAppName();
+
+  // Detekcija mobilnog uređaja
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
   const loadArhiva = useCallback(async () => {
@@ -494,8 +505,8 @@ export default function DashboardPage() {
       {/* Ime aplikacije - poboljšan dizajn */}
       <div style={{ 
         textAlign: "center", 
-        marginBottom: 40,
-        padding: "24px 32px",
+        marginBottom: isMobile ? 12 : 40,
+        padding: isMobile ? "8px 10px" : "24px 32px",
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
         borderRadius: "16px",
         boxShadow: "0 8px 24px rgba(102, 126, 234, 0.25)",
@@ -503,39 +514,45 @@ export default function DashboardPage() {
         overflow: "hidden"
       }} className="app-name-header">
         {/* Dekorativni elementi */}
-        <div style={{
-          position: "absolute",
-          top: -50,
-          right: -50,
-          width: 200,
-          height: 200,
-          borderRadius: "50%",
-          background: "rgba(255, 255, 255, 0.1)",
-          pointerEvents: "none"
-        }} className="decorative-circle-1" />
-        <div style={{
-          position: "absolute",
-          bottom: -30,
-          left: -30,
-          width: 150,
-          height: 150,
-          borderRadius: "50%",
-          background: "rgba(255, 255, 255, 0.08)",
-          pointerEvents: "none"
-        }} className="decorative-circle-2" />
+        {!isMobile && (
+          <>
+            <div style={{
+              position: "absolute",
+              top: -50,
+              right: -50,
+              width: 200,
+              height: 200,
+              borderRadius: "50%",
+              background: "rgba(255, 255, 255, 0.1)",
+              pointerEvents: "none"
+            }} className="decorative-circle-1" />
+            <div style={{
+              position: "absolute",
+              bottom: -30,
+              left: -30,
+              width: 150,
+              height: 150,
+              borderRadius: "50%",
+              background: "rgba(255, 255, 255, 0.08)",
+              pointerEvents: "none"
+            }} className="decorative-circle-2" />
+          </>
+        )}
         
         <h1 style={{ 
-          fontSize: 36,
+          fontSize: isMobile ? 14 : 36,
           fontWeight: 700, 
           color: "#ffffff",
           margin: 0,
           textShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
-          letterSpacing: "-0.5px",
+          letterSpacing: isMobile ? "0" : "-0.5px",
           position: "relative",
           zIndex: 1,
           whiteSpace: "nowrap",
           overflow: "hidden",
-          textOverflow: "ellipsis"
+          textOverflow: "ellipsis",
+          lineHeight: isMobile ? "1.3" : "1.2",
+          maxWidth: "100%"
         }} className="app-name-title">
           {appName}
         </h1>
