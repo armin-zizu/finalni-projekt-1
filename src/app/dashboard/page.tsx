@@ -89,18 +89,28 @@ export default function DashboardPage() {
   const { cjenovnik } = useCjenovnik();
   const { appName } = useAppName();
 
-  // Detekcija mobilnog uređaja
+  // Detekcija mobilnog uređaja - poboljšana za produkciju
   useEffect(() => {
     const checkMobile = () => {
-      const mobile = window.innerWidth <= 768;
+      if (typeof window === 'undefined') return;
+      // Provjeri i window.innerWidth i screen.width za pouzdanost
+      const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
+      const mobile = width <= 768;
       setIsMobile(mobile);
-      console.log('Dashboard - Screen width:', window.innerWidth, 'isMobile:', mobile);
+      console.log('Dashboard - Screen width:', width, 'isMobile:', mobile);
     };
     // Proveri odmah i na resize
     if (typeof window !== 'undefined') {
+      // Dodaj mali delay za SSR/CSR sync
+      const timer = setTimeout(checkMobile, 0);
       checkMobile();
       window.addEventListener('resize', checkMobile);
-      return () => window.removeEventListener('resize', checkMobile);
+      window.addEventListener('orientationchange', checkMobile);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', checkMobile);
+        window.removeEventListener('orientationchange', checkMobile);
+      };
     }
   }, []);
 
@@ -411,50 +421,90 @@ export default function DashboardPage() {
           box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
         }
         @media (max-width: 768px) {
-          div[style*='padding: 30px'] { padding: 10px; }
-          h1 { font-size: 18px; margin-bottom: 16px !important; }
+          div[style*='padding: 30px'] { padding: 10px !important; }
+          h1 { font-size: 18px !important; margin-bottom: 16px !important; }
           div[style*='fontSize: 36'] { font-size: 14px !important; }
           div[style*='fontSize: 28'] { font-size: 18px !important; }
-          /* Ime aplikacije - mobilni stil - pojačan selector */
-          div.app-name-header {
+          /* Ime aplikacije - mobilni stil - maksimalno pojačan selector za produkciju */
+          div.app-name-header,
+          div[class="app-name-header"],
+          div[class*="app-name-header"],
+          div[style*="app-name-header"] {
             padding: 6px 8px !important;
             margin-bottom: 12px !important;
             width: 100% !important;
+            max-width: 100% !important;
             box-sizing: border-box !important;
+            overflow: hidden !important;
           }
+          /* SVI mogući selektori za h1 naslov - maksimalna specifičnost */
           h1.app-name-title,
           div.app-name-header h1,
+          div[class="app-name-header"] h1,
           div[class*="app-name-header"] h1,
-          .app-name-header .app-name-title {
+          div[style*="app-name-header"] h1,
+          .app-name-header .app-name-title,
+          .app-name-header h1.app-name-title,
+          div.app-name-header > h1,
+          h1[class="app-name-title"],
+          h1[class*="app-name-title"] {
             font-size: 12px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             line-height: 1.2 !important;
             max-width: 100% !important;
+            width: 100% !important;
             display: block !important;
             margin: 0 !important;
             padding: 0 !important;
             letter-spacing: 0 !important;
-            width: 100% !important;
             box-sizing: border-box !important;
             font-weight: 600 !important;
           }
-          /* Override inline stilove sa fontSize: 36 - još jači selektor */
+          /* Override inline stilove - maksimalna specifičnost */
+          div[style*="fontSize"] h1.app-name-title,
           div[style*="fontSize: 36"] h1.app-name-title,
-          div[style*="fontSize: 36"].app-name-title,
           div[style*="fontSize: 14"] h1.app-name-title,
           div[style*="fontSize: 12"] h1.app-name-title,
+          div[style*="fontSize: 36"].app-name-title,
           .app-name-header h1[style*="fontSize: 36"],
           .app-name-header h1[style*="fontSize: 14"],
           .app-name-header h1[style*="fontSize: 12"],
-          .app-name-header h1[style*="fontSize"] {
+          .app-name-header h1[style*="fontSize"],
+          h1.app-name-title[style*="fontSize: 36"],
+          h1.app-name-title[style*="fontSize: 14"],
+          h1.app-name-title[style*="fontSize: 12"] {
             font-size: 12px !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
           }
-          /* Override svi h1 elementi unutar app-name-header */
-          .app-name-header h1 {
+          /* Override svi h1 elementi unutar app-name-header - dodatna sigurnost */
+          .app-name-header h1,
+          div.app-name-header h1,
+          h1.app-name-title,
+          h1[data-mobile="true"],
+          h1.app-name-title[data-mobile="true"],
+          .app-name-header h1[data-mobile="true"] {
             font-size: 12px !important;
             font-weight: 600 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+          }
+          /* Najjači mogući override za inline stilove na mobilnim */
+          h1.app-name-title[style] {
+            font-size: 12px !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
           }
           .decorative-circle-1,
           .decorative-circle-2 {
@@ -574,7 +624,7 @@ export default function DashboardPage() {
           display: "block",
           width: "100%",
           boxSizing: "border-box"
-        }} className="app-name-title">
+        }} className="app-name-title" data-mobile={isMobile}>
           {appName}
         </h1>
       </div>
