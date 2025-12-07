@@ -15,8 +15,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // PWA podrška - Next.js automatski kopira fajlove iz public/ u build output
-  // Service Worker (sw.js) i manifest.json će biti dostupni na root nivou
 };
 
 export default nextConfig;

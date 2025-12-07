@@ -7,7 +7,6 @@ import { SubscriptionProvider } from "./context/SubscriptionContext";
 import { RoleProvider, useRole } from "./context/RoleContext";
 import SubscriptionBanner from "./components/SubscriptionBanner";
 import Sidebar from "./sidebar/Sidebar";
-import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import { auth, db } from "../lib/firebase";
 import { usePathname, useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
@@ -120,7 +119,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
       >
         <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
       </main>
-      <PWAUpdatePrompt />
     </>
   );
 }
@@ -247,11 +245,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
           <meta name="theme-color" content="#3b82f6" />
           <meta name="description" content="Office Lounge Bar - Aplikacija za upravljanje poslovanjem" />
-          <link rel="manifest" href="/manifest.json" />
-          <link rel="apple-touch-icon" href="/icon-192x192.svg" />
-          <meta name="mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-          <meta name="apple-mobile-web-app-title" content="Office App" />
           <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
         </head>
         <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", WebkitTapHighlightColor: "transparent" }}>
@@ -264,7 +257,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </SubscriptionProvider>
             </CjenovnikProvider>
           </AppNameProvider>
-          <PWAUpdatePrompt />
         </body>
       </html>
     );
@@ -277,14 +269,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="theme-color" content="#3b82f6" />
         <meta name="description" content="Office Lounge Bar - Aplikacija za upravljanje poslovanjem" />
-        <link rel="manifest" href="/manifest.json" />
-          <link rel="apple-touch-icon" href="/icon-192x192.svg" />
-          <link rel="apple-touch-icon" sizes="152x152" href="/icon-152x152.svg" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/icon-192x192.svg" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Office App" />
         <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative", WebkitTapHighlightColor: "transparent" }}>
