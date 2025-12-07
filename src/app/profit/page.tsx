@@ -313,11 +313,25 @@ export default function ProfitPage() {
           const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
           firestoreArhiva = querySnapshot.docs.map((doc) => {
             const data = doc.data();
-            return {
+            const obracun = {
               ...data,
+              artikli: data.artikli ?? [],
               prihodi: data.prihodi ?? [],
               rashodi: data.rashodi ?? [],
             } as Obracun;
+            
+            // Debug log za prvi obračun
+            if (querySnapshot.docs.indexOf(doc) === 0) {
+              console.log("Profit - Prvi obračun iz Firestore:", {
+                datum: obracun.datum,
+                artikliCount: obracun.artikli?.length || 0,
+                artikli: obracun.artikli,
+                rashodiCount: obracun.rashodi?.length || 0,
+                prihodiCount: obracun.prihodi?.length || 0,
+              });
+            }
+            
+            return obracun;
           });
           console.log("Profit - Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
         } catch (error: any) {
@@ -348,6 +362,7 @@ export default function ProfitPage() {
       const parsed: Obracun[] = firestoreArhiva
         .map((item: any) => ({
           ...item,
+          artikli: item.artikli ?? [],
           prihodi: item.prihodi ?? [],
           rashodi: item.rashodi ?? [],
         }))
@@ -358,16 +373,30 @@ export default function ProfitPage() {
         });
 
       console.log("Profit - Parsirano obračuna:", parsed.length);
+      console.log("Profit - Prvi obračun detalji:", parsed[0] ? {
+        datum: parsed[0].datum,
+        artikliCount: parsed[0].artikli?.length || 0,
+        artikli: parsed[0].artikli
+      } : "Nema obračuna");
 
-      const profiti: ObracunProfit[] = parsed.map((obracun) => {
-        const artikliProfit: ArtikalProfit[] = obracun.artikli
+      const profiti: ObracunProfit[] = parsed
+        .filter((obracun) => obracun.artikli && obracun.artikli.length > 0)
+        .map((obracun) => {
+        const artikliProfit: ArtikalProfit[] = (obracun.artikli || [])
+          .filter((a) => a && a.naziv) // Filtriraj nevalidne artikle
           .map((a) => {
             const cjenovnikArtikl = cjenovnik.find((c) => c.naziv === a.naziv);
             
+            // Proveri da li artikal ima potrebne podatke
+            if (!a.utroseno || a.utroseno <= 0) {
+              console.warn(`Profit - Artikal "${a.naziv}" nema utrošenu količinu (utroseno: ${a.utroseno})`);
+              return null; // Preskoči artikle bez utrošene količine
+            }
+            
             // Za žestoka pića: količina = utroseno / zestokoKolicina
             // Za ostale artikle: količina = utroseno
-            const kolicina = a.zestokoKolicina 
-              ? a.utroseno / (a.zestokoKolicina || 0.03) 
+            const kolicina = a.zestokoKolicina && a.zestokoKolicina > 0
+              ? a.utroseno / a.zestokoKolicina
               : a.utroseno;
             
             const prodajna = a.cijena || 0;
@@ -375,6 +404,10 @@ export default function ProfitPage() {
             
             if (!cjenovnikArtikl) {
               console.warn(`Profit - Artikal "${a.naziv}" nije pronađen u cjenovniku`);
+            }
+            
+            if (prodajna === 0) {
+              console.warn(`Profit - Artikal "${a.naziv}" nema prodajnu cijenu`);
             }
             
             const bruto = prodajna * kolicina;
@@ -391,12 +424,13 @@ export default function ProfitPage() {
               profit,
               zestokoKolicina: a.zestokoKolicina,
             };
-          });
+          })
+          .filter((a): a is ArtikalProfit => a !== null); // Filtriraj null vrednosti
 
-        const ukupnoRashod = (obracun.rashodi?.reduce((sum, r) => sum + r.cijena, 0) || 0) + 
-                             (obracun.prihodi?.reduce((sum, p) => sum + p.cijena, 0) || 0);
+        const ukupnoRashod = obracun.rashodi?.reduce((sum, r) => sum + r.cijena, 0) || 0;
+        const ukupnoPrihod = obracun.prihodi?.reduce((sum, p) => sum + p.cijena, 0) || 0;
         const ukupnoBruto = artikliProfit.reduce((sum, a) => sum + a.bruto, 0);
-        const ukupnoNeto = artikliProfit.reduce((sum, a) => sum + a.neto, 0) - ukupnoRashod;
+        const ukupnoNeto = artikliProfit.reduce((sum, a) => sum + a.neto, 0) - ukupnoRashod + ukupnoPrihod;
 
         return {
           datum: obracun.datum,
