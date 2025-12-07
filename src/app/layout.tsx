@@ -132,7 +132,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
 
   useEffect(() => {
+    // Timeout za fallback - ako auth state se ne reši za 5 sekundi, preusmjeri na login
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        console.warn("Auth state timeout - preusmjeravanje na login");
+        setIsLoading(false);
+        setIsAuthenticated(false);
+        if (pathname !== "/login") {
+          router.push("/login");
+        }
+      }
+    }, 5000);
+
+    // Proveri da li je auth dostupan
+    if (!auth) {
+      console.error("Firebase auth nije inicijalizovan!");
+      setIsLoading(false);
+      setIsAuthenticated(false);
+      if (pathname !== "/login") {
+        router.push("/login");
+      }
+      clearTimeout(timeoutId);
+      return;
+    }
+
     const unsubscribe = auth.onAuthStateChanged(async (user: User | null) => {
+      clearTimeout(timeoutId); // Očisti timeout ako je auth state rešen
       const authenticated = !!user;
       
       if (authenticated && user) {
@@ -176,8 +201,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       // AppContent će provjeriti role i blokirati pristup ako je potrebno
       // Preusmjeravanje na dashboard će se desiti samo ako je role postavljen (u AppContent)
     });
-    return () => unsubscribe();
-  }, [pathname, router]);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
+  }, [pathname, router, isLoading]);
 
   // Ako se još učitava autentifikacija, prikaži loading ili ništa
   if (isLoading) {

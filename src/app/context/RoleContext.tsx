@@ -616,11 +616,36 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
+    let timeoutId: NodeJS.Timeout | undefined;
     
     const load = async () => {
-      const cleanup = await loadRole();
-      if (cleanup) {
-        unsubscribe = cleanup;
+      // Timeout fallback - ako se učitavanje ne završi za 8 sekundi, postavi loading na false
+      timeoutId = setTimeout(() => {
+        if (loading) {
+          console.warn("RoleContext - Timeout pri učitavanju role, postavljam loading na false");
+          setLoading(false);
+          // Ako nema usera, role je već null
+          if (!user) {
+            setRole(null);
+            setPermissions(null);
+          }
+        }
+      }, 8000);
+      
+      try {
+        const cleanup = await loadRole();
+        if (cleanup) {
+          unsubscribe = cleanup;
+        }
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      } catch (error) {
+        console.error("RoleContext - Greška pri učitavanju role:", error);
+        setLoading(false);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
       }
     };
     
@@ -629,6 +654,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return () => {
       if (unsubscribe) {
         unsubscribe();
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
   }, [user]);
