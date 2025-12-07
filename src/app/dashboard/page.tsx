@@ -401,15 +401,17 @@ export default function DashboardPage() {
           div[style*='fontSize: 28'] { font-size: 20px !important; }
           /* Ime aplikacije - mobilni stil */
           .app-name-header {
-            padding: 12px 16px !important;
-            margin-bottom: 20px !important;
+            padding: 10px 12px !important;
+            margin-bottom: 16px !important;
           }
           .app-name-title {
-            font-size: 20px !important;
+            font-size: 16px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            line-height: 1.2 !important;
+            line-height: 1.3 !important;
+            max-width: 100% !important;
+            display: block !important;
           }
           .decorative-circle-1,
           .decorative-circle-2 {
