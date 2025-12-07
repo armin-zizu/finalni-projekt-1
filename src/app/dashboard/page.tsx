@@ -417,34 +417,44 @@ export default function DashboardPage() {
           div[style*='fontSize: 28'] { font-size: 18px !important; }
           /* Ime aplikacije - mobilni stil - pojačan selector */
           div.app-name-header {
-            padding: 8px 10px !important;
+            padding: 6px 8px !important;
             margin-bottom: 12px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
           }
           h1.app-name-title,
           div.app-name-header h1,
           div[class*="app-name-header"] h1,
           .app-name-header .app-name-title {
-            font-size: 14px !important;
+            font-size: 12px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            line-height: 1.3 !important;
+            line-height: 1.2 !important;
             max-width: 100% !important;
             display: block !important;
             margin: 0 !important;
             padding: 0 !important;
             letter-spacing: 0 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            font-weight: 600 !important;
           }
           /* Override inline stilove sa fontSize: 36 - još jači selektor */
           div[style*="fontSize: 36"] h1.app-name-title,
           div[style*="fontSize: 36"].app-name-title,
+          div[style*="fontSize: 14"] h1.app-name-title,
+          div[style*="fontSize: 12"] h1.app-name-title,
           .app-name-header h1[style*="fontSize: 36"],
+          .app-name-header h1[style*="fontSize: 14"],
+          .app-name-header h1[style*="fontSize: 12"],
           .app-name-header h1[style*="fontSize"] {
-            font-size: 14px !important;
+            font-size: 12px !important;
           }
           /* Override svi h1 elementi unutar app-name-header */
           .app-name-header h1 {
-            font-size: 14px !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
           }
           .decorative-circle-1,
           .decorative-circle-2 {
@@ -511,12 +521,14 @@ export default function DashboardPage() {
       <div style={{ 
         textAlign: "center", 
         marginBottom: isMobile ? 12 : 40,
-        padding: isMobile ? "8px 10px" : "24px 32px",
+        padding: isMobile ? "6px 8px" : "24px 32px",
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        borderRadius: "16px",
+        borderRadius: isMobile ? "12px" : "16px",
         boxShadow: "0 8px 24px rgba(102, 126, 234, 0.25)",
         position: "relative",
-        overflow: "hidden"
+        overflow: "hidden",
+        width: "100%",
+        boxSizing: "border-box"
       }} className="app-name-header">
         {/* Dekorativni elementi */}
         {!isMobile && (
@@ -545,10 +557,11 @@ export default function DashboardPage() {
         )}
         
         <h1 style={{ 
-          fontSize: isMobile ? 14 : 36,
-          fontWeight: 700, 
+          fontSize: isMobile ? 12 : 36,
+          fontWeight: isMobile ? 600 : 700, 
           color: "#ffffff",
           margin: 0,
+          padding: 0,
           textShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
           letterSpacing: isMobile ? "0" : "-0.5px",
           position: "relative",
@@ -556,8 +569,11 @@ export default function DashboardPage() {
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
-          lineHeight: isMobile ? "1.3" : "1.2",
-          maxWidth: "100%"
+          lineHeight: isMobile ? "1.2" : "1.2",
+          maxWidth: "100%",
+          display: "block",
+          width: "100%",
+          boxSizing: "border-box"
         }} className="app-name-title">
           {appName}
         </h1>
