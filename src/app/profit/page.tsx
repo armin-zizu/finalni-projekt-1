@@ -299,59 +299,64 @@ export default function ProfitPage() {
     }
   };
 
-  // ---- funkcija za učitavanje arhive i generisanje profita - HIBRIDNI PRISTUP ----
-  const loadArhiva = useCallback(async () => {
+  // ---- funkcija za učitavanje arhive i generisanje profita - ČEKA NA AUTENTIFIKACIJU ----
+  const loadArhiva = useCallback(async (userId: string) => {
     try {
-      const user = auth.currentUser;
-      const userId = user?.uid;
+      console.log("Profit - Učitavanje arhive za korisnika:", userId);
       
       let firestoreArhiva: Obracun[] = [];
       
-      // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
-      if (user && userId) {
-        try {
-          const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
-          firestoreArhiva = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
-            const obracun = {
-              ...data,
-              artikli: data.artikli ?? [],
-              prihodi: data.prihodi ?? [],
-              rashodi: data.rashodi ?? [],
-            } as Obracun;
-            
-            // Debug log za prvi obračun
-            if (querySnapshot.docs.indexOf(doc) === 0) {
-              console.log("Profit - Prvi obračun iz Firestore:", {
-                datum: obracun.datum,
-                artikliCount: obracun.artikli?.length || 0,
-                artikli: obracun.artikli,
-                rashodiCount: obracun.rashodi?.length || 0,
-                prihodiCount: obracun.prihodi?.length || 0,
-              });
-            }
-            
-            return obracun;
-          });
-          console.log("Profit - Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
-        } catch (error: any) {
-          const errorCode = error?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Profit - Greška pri učitavanju iz Firestore:", error);
+      // UČITAJ IZ FIRESTORE
+      try {
+        const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
+        firestoreArhiva = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          const obracun = {
+            ...data,
+            artikli: data.artikli ?? [],
+            prihodi: data.prihodi ?? [],
+            rashodi: data.rashodi ?? [],
+          } as Obracun;
+          
+          // Debug log za prvi obračun
+          if (querySnapshot.docs.indexOf(doc) === 0) {
+            console.log("Profit - Prvi obračun iz Firestore:", {
+              datum: obracun.datum,
+              artikliCount: obracun.artikli?.length || 0,
+              artikli: obracun.artikli,
+              rashodiCount: obracun.rashodi?.length || 0,
+              prihodiCount: obracun.prihodi?.length || 0,
+            });
           }
+          
+          return obracun;
+        });
+        console.log("Profit - Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
+        
+        if (firestoreArhiva.length === 0) {
+          console.warn("Profit - Nema obračuna u arhivi!");
+          setObracuniProfit([]);
+          return;
         }
+      } catch (error: any) {
+        const errorCode = error?.code || "";
+        console.error("Profit - Greška pri učitavanju iz Firestore:", {
+          error,
+          errorCode,
+          message: error?.message,
+        });
+        
+        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+          console.error("Profit - Ne mogu učitati podatke:", error?.message || "Nepoznata greška");
+        }
+        setObracuniProfit([]);
+        return;
       }
       
       console.log("Profit - Učitavanje arhive:", {
         firestoreCount: firestoreArhiva.length,
         cjenovnikLength: cjenovnik.length,
       });
-
-      if (firestoreArhiva.length === 0) {
-        console.log("Profit - Nema arhive");
-        setObracuniProfit([]);
-        return;
-      }
 
       if (cjenovnik.length === 0) {
         console.log("Profit - Cjenovnik je prazan, čekam učitavanje...");
@@ -441,29 +446,70 @@ export default function ProfitPage() {
         };
       });
 
-      console.log("Profit - Generisano profita:", profiti.length, profiti);
+      console.log("Profit - Generisano profita:", profiti.length);
+      console.log("Profit - Učitavanje završeno:", {
+        brojObračuna: profiti.length,
+        prviObračun: profiti[0]?.datum,
+      });
       setObracuniProfit(profiti);
     } catch (error) {
-      console.error("Profit - Greška pri učitavanju arhive:", error);
+      console.error("Profit - Kritična greška pri učitavanju arhive:", error);
       setObracuniProfit([]);
     }
   }, [cjenovnik]);
 
-  // ---- inicijalno učitavanje + listener za promjene arhive ----
+  // ---- ČEKA NA AUTENTIFIKACIJU PRIJE UČITAVANJA ----
   useEffect(() => {
-    loadArhiva();
-  }, [loadArhiva]);
+    console.log("Profit - Postavljanje auth listenera...");
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      console.log("Profit - Auth state promijenjen:", user ? `Korisnik: ${user.uid}` : "Nema korisnika");
+      
+      if (!user) {
+        console.log("Profit - Nema korisnika, ne učitavam podatke");
+        setObracuniProfit([]);
+        return;
+      }
+
+      // Sačekaj mali delay da se sve inicijalizuje + da cjenovnik bude spreman
+      setTimeout(() => {
+        if (cjenovnik.length > 0) {
+          loadArhiva(user.uid);
+        } else {
+          console.log("Profit - Čekam cjenovnik...");
+        }
+      }, 200);
+    });
+
+    return () => {
+      unsubscribeAuth();
+    };
+  }, [loadArhiva, cjenovnik]);
 
   // Listener za promjene u arhivi
   useEffect(() => {
     const handler = () => {
-      setTimeout(() => {
-        loadArhiva();
-      }, 100);
+      const user = auth.currentUser;
+      if (user && cjenovnik.length > 0) {
+        setTimeout(() => {
+          loadArhiva(user.uid);
+        }, 100);
+      }
     };
     window.addEventListener("arhivaChanged", handler);
     return () => window.removeEventListener("arhivaChanged", handler);
-  }, [loadArhiva]);
+  }, [loadArhiva, cjenovnik]);
+
+  // Učitaj kada se cjenovnik promijeni (ako je korisnik već prijavljen)
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user && cjenovnik.length > 0) {
+      console.log("Profit - Cjenovnik učitan, učitavam arhivu...");
+      setTimeout(() => {
+        loadArhiva(user.uid);
+      }, 100);
+    }
+  }, [cjenovnik, loadArhiva]);
 
   // ---- filtriranje po periodu za glavni grafikon i tablice ----
   useEffect(() => {

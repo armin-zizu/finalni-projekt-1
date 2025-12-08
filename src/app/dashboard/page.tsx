@@ -114,34 +114,42 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
-  const loadArhiva = useCallback(async () => {
+  // Funkcija za učitavanje arhive - ČEKA NA AUTENTIFIKACIJU
+  const loadArhiva = useCallback(async (userId: string) => {
     try {
-      const user = auth.currentUser;
-      const userId = user?.uid;
+      console.log("Dashboard - Učitavanje arhive za korisnika:", userId);
+      setLoading(true);
       
       let firestoreArhiva: ArhiviraniObracun[] = [];
       
-      // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
-      if (user && userId) {
-        try {
-          const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
-          firestoreArhiva = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              ...data,
-              prihodi: data.prihodi ?? [],
-              ukupnoPrihod: data.ukupnoPrihod ?? 0,
-              imaUlaz: data.imaUlaz ?? false,
-              isAzuriran: data.isAzuriran ?? false,
-            } as ArhiviraniObracun;
-          });
-          console.log("Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
-        } catch (error: any) {
-          const errorCode = error?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Greška pri učitavanju iz Firestore:", error);
-          }
+      // UČITAJ IZ FIRESTORE
+      try {
+        const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
+        firestoreArhiva = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            ...data,
+            prihodi: data.prihodi ?? [],
+            ukupnoPrihod: data.ukupnoPrihod ?? 0,
+            imaUlaz: data.imaUlaz ?? false,
+            isAzuriran: data.isAzuriran ?? false,
+          } as ArhiviraniObracun;
+        });
+        console.log("Dashboard - Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
+        
+        if (firestoreArhiva.length === 0) {
+          console.warn("Dashboard - Nema obračuna u arhivi!");
+        }
+      } catch (error: any) {
+        const errorCode = error?.code || "";
+        console.error("Dashboard - Greška pri učitavanju iz Firestore:", {
+          error,
+          errorCode,
+          message: error?.message,
+        });
+        
+        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+          setError("Greška pri učitavanju podataka: " + (error?.message || "Nepoznata greška"));
         }
       }
       
@@ -155,24 +163,52 @@ export default function DashboardPage() {
       setArhiva(sortedArhiva);
       setLoading(false);
       setError(null);
+      
+      console.log("Dashboard - Učitavanje završeno:", {
+        brojObračuna: sortedArhiva.length,
+        prviObračun: sortedArhiva[0]?.datum,
+        poslednjiObračun: sortedArhiva[sortedArhiva.length - 1]?.datum,
+      });
     } catch (error) {
-      console.error("Greška pri učitavanju:", error);
+      console.error("Dashboard - Kritična greška pri učitavanju:", error);
       setError("Greška pri učitavanju podataka.");
       setLoading(false);
     }
   }, []);
 
-  // Učitavanje arhive iz Firestore
+  // ČEKA NA AUTENTIFIKACIJU PRIJE UČITAVANJA
   useEffect(() => {
-    loadArhiva();
+    console.log("Dashboard - Postavljanje auth listenera...");
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      console.log("Dashboard - Auth state promijenjen:", user ? `Korisnik: ${user.uid}` : "Nema korisnika");
+      
+      if (!user) {
+        console.log("Dashboard - Nema korisnika, ne učitavam podatke");
+        setLoading(false);
+        return;
+      }
+
+      // Sačekaj mali delay da se sve inicijalizuje
+      setTimeout(() => {
+        loadArhiva(user.uid);
+      }, 100);
+    });
+
+    return () => {
+      unsubscribeAuth();
+    };
   }, [loadArhiva]);
 
   // Listener za promjene u arhivi
   useEffect(() => {
     const handleArhivaChange = () => {
-      setTimeout(() => {
-        loadArhiva();
-      }, 100);
+      const user = auth.currentUser;
+      if (user) {
+        setTimeout(() => {
+          loadArhiva(user.uid);
+        }, 100);
+      }
     };
 
     window.addEventListener("arhivaChanged", handleArhivaChange);
@@ -180,38 +216,6 @@ export default function DashboardPage() {
       window.removeEventListener("arhivaChanged", handleArhivaChange);
     };
   }, [loadArhiva]);
-
-  // OPCIONALNO: Pokušaj učitati iz Firestore-a (fallback)
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-
-      try {
-        const querySnapshot = await getDocs(collection(db, "users", user.uid, "obracuni"));
-        const firestorePodaci: ArhiviraniObracun[] = [];
-
-        querySnapshot.forEach((doc) => {
-          firestorePodaci.push(doc.data() as ArhiviraniObracun);
-        });
-
-        // Koristi Firestore podatke
-        if (firestorePodaci.length > 0) {
-          firestorePodaci.sort((a, b) => {
-            const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-            const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-            return dateA - dateB;
-          });
-          setArhiva(firestorePodaci);
-          console.log("Učitano iz Firestore-a:", firestorePodaci.length, "obračuna");
-        }
-      } catch (error: any) {
-        // Ignoriraj greške dozvola - koristi localStorage
-        const errorCode = error?.code || "";
-        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-          console.warn("Nije moguće učitati iz Firestore-a (možda nema interneta):", error);
-        }
-        // Ne prikazuj grešku
-      }
     });
 
     return () => {
