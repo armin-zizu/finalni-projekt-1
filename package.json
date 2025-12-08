@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "export": "next build"
+    "export": "next build",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel",
+    "vercel:link": "vercel link"
   },
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
