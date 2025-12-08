@@ -17,6 +17,8 @@ const containerStyle: React.CSSProperties = {
   margin: "0 auto",
   padding: "24px",
   fontFamily: "'Inter', sans-serif",
+  boxSizing: "border-box",
+  width: "100%",
 };
 
 const tableStyle: React.CSSProperties = {
@@ -873,6 +875,81 @@ export default function Profile() {
           div[style*='gap: 8px'] { gap: 8px !important; }
           div[style*='padding: 16px'] { padding: 12px !important; }
           div[style*='padding: 40px'] { padding: 20px !important; }
+          /* Forma za uređivanje uređaja - centriranje i mobilna prilagodba */
+          td[colspan="7"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 8px !important;
+            box-sizing: border-box !important;
+          }
+          td[colspan="7"] > div {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          /* Forma za uređivanje */
+          div[style*="flexDirection: column"][style*="gap: 16px"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 8px !important;
+            box-sizing: border-box !important;
+          }
+          /* Select i input elementi */
+          select, input[type="text"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          /* Div sa dozvolama */
+          div[style*="flexDirection: column"][style*="gap: 12px"][style*="padding: 16px"] {
+            padding: 10px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          /* Checkbox label-ovi */
+          label[style*="display: flex"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          /* Button container */
+          div[style*="display: flex"][style*="gap: 12px"][style*="width: 100%"] {
+            flex-direction: column !important;
+            width: 100% !important;
+          }
+          div[style*="display: flex"][style*="gap: 12px"][style*="width: 100%"] button {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+          }
+          /* Container za uređivanje */
+          div[style*="marginBottom: 32px"][style*="border: 2px"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 10px !important;
+            box-sizing: border-box !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+          }
+          /* Osiguraj da tabela wrapper ne prelazi širinu */
+          .table-wrapper-scroll {
+            width: 100% !important;
+            max-width: 100vw !important;
+            overflow-x: auto !important;
+            box-sizing: border-box !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding: 0 !important;
+          }
+          /* Forma za uređivanje - osiguraj da ne prelazi širinu ekrana */
+          td[colspan] {
+            position: relative !important;
+            width: 100% !important;
+            max-width: 100vw !important;
+            box-sizing: border-box !important;
+            padding-left: 4px !important;
+            padding-right: 4px !important;
+          }
         }
       `}</style>
 

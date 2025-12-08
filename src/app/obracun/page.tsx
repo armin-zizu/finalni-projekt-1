@@ -135,6 +135,7 @@ const containerStyle: React.CSSProperties = {
   margin: "0 auto",
   padding: "16px",
   fontFamily: "'Inter', sans-serif",
+  boxSizing: "border-box",
 };
 
 const buttonStyle: React.CSSProperties = {
@@ -1615,7 +1616,28 @@ export default function ObracunPage() {
           select {
             font-size: 16px !important;
           }
-          div[style*="maxWidth: 1200px"] { padding: 8px; }
+          div[style*="maxWidth: 1200px"] { 
+            padding: 8px !important;
+            margin: 0 auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          /* Osiguraj da je parent container centriran na mobilnom */
+          div[style*="padding: 20px"][style*="width: 100%"] {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+            padding-top: 10px !important;
+            padding-bottom: 10px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          /* Osiguraj da je obracun container centriran */
+          div[style*="maxWidth: 1200px"] {
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
           table:first-of-type { display: flex; flex-direction: column; }
           table:first-of-type thead { display: none; }
           table:first-of-type tbody { display: flex; flex-direction: column; gap: 16px; }
