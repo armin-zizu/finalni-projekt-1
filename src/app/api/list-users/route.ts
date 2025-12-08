@@ -1,42 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { initializeApp, cert, getApps } from "firebase-admin/app";
-
-// Inicijalizuj Firebase Admin samo ako još nije inicijalizovan
-function initializeAdmin() {
-  if (getApps().length > 0) {
-    return; // Već je inicijalizovan
-  }
-
-  // Provjeri da li su environment varijable dostupne
-  if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
-    throw new Error("Firebase Admin environment varijable nisu postavljene");
-  }
-
-  try {
-    initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-      }),
-    });
-  } catch (error: any) {
-    console.error("Greška pri inicijalizaciji Firebase Admin:", error);
-    throw new Error(`Firebase Admin inicijalizacija neuspješna: ${error.message}`);
-  }
-}
+import { getApps } from "firebase-admin/app";
 
 export async function GET(request: NextRequest) {
   try {
-    // Inicijalizuj Firebase Admin ako nije već
-    try {
-      initializeAdmin();
-    } catch (initError: any) {
-      console.error("Greška pri inicijalizaciji Firebase Admin u API route:", initError);
+    // Provjeri da li je Firebase Admin inicijalizovan
+    const apps = getApps();
+    if (apps.length === 0) {
+      // Provjeri da li su environment varijable postavljene
+      if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+        console.error("Firebase Admin environment varijable nisu postavljene na serveru");
+        return NextResponse.json(
+          { error: "Firebase Admin nije konfigurisan. Molimo provjerite da su sljedeće environment varijable postavljene na serveru: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY" },
+          { status: 500 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: `Firebase Admin inicijalizacija neuspješna: ${initError.message}` },
+        { error: "Firebase Admin inicijalizacija neuspješna. Provjerite environment varijable." },
         { status: 500 }
       );
     }
