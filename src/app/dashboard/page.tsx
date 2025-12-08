@@ -633,27 +633,120 @@ export default function DashboardPage() {
       </div>
 
 
-      {/* Range za prvi grafikon - Box stil kao u profit stranici */}
-      <div style={{ 
-        marginBottom: "30px", 
-        background: "#fff", 
-        padding: "16px", 
-        borderRadius: "8px", 
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
-        width: "100%", 
-        maxWidth: "100%", 
-        boxSizing: "border-box" 
-      }}>
-        <h2 style={{ fontSize: "18px", fontWeight: 500, marginBottom: "12px", wordWrap: "break-word" }}>
-          Filter arhive
-        </h2>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
+      {/* Range za prvi grafikon - Box samo na mobilnom */}
+      {isMobile ? (
+        <div style={{ 
+          marginBottom: "16px", 
+          background: "#fff", 
+          padding: "10px 12px", 
+          borderRadius: "8px", 
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+          width: "100%", 
+          maxWidth: "100%", 
+          boxSizing: "border-box" 
+        }}>
+          <h2 style={{ 
+            fontSize: "16px", 
+            fontWeight: 500, 
+            marginBottom: "8px", 
+            wordWrap: "break-word" 
+          }}>
+            Filter arhive
+          </h2>
+          <div style={{ 
+            display: "flex", 
+            gap: 6, 
+            flexWrap: "wrap", 
+            alignItems: "center", 
+            width: "100%" 
+          }}>
+            {[
+              { value: "currentWeek", label: "Trenutna sedmica" },
+              { value: "previousWeek", label: "Prošla sedmica" },
+              { value: "previousMonth", label: "Prošli mjesec" },
+              { value: "custom", label: "Prilagođeni period" },
+            ].map((r, index) => (
+              <button
+                key={r.value}
+                onClick={() => setRange(r.value as any)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                  fontSize: 13,
+                  background: range === r.value ? "#3b82f6" : "#e5e7eb",
+                  color: range === r.value ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                  boxShadow: range === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+                  flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 3px)",
+                  minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 3px)",
+                  maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 3px)",
+                }}
+              >
+                {r.label}
+              </button>
+            ))}
+            {range === "custom" && (
+              <div style={{ 
+                display: "flex", 
+                gap: 6, 
+                alignItems: "center", 
+                width: "100%", 
+                flexWrap: "wrap" 
+              }}>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={{ 
+                    padding: "6px 8px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: 13, 
+                    outline: "none",
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ 
+                  whiteSpace: "nowrap", 
+                  color: "#6b7280",
+                  fontSize: 13
+                }}>
+                  do
+                </span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={{ 
+                    padding: "6px 8px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: 13, 
+                    outline: "none",
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 30, alignItems: "center" }}>
           {[
             { value: "currentWeek", label: "Trenutna sedmica" },
             { value: "previousWeek", label: "Prošla sedmica" },
             { value: "previousMonth", label: "Prošli mjesec" },
             { value: "custom", label: "Prilagođeni period" },
-          ].map((r, index) => (
+          ].map((r) => (
             <button
               key={r.value}
               onClick={() => setRange(r.value as any)}
@@ -668,53 +761,30 @@ export default function DashboardPage() {
                 color: range === r.value ? "#fff" : "#374151",
                 transition: "all 0.2s",
                 boxShadow: range === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 6px)",
-                minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
-                maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
               }}
             >
               {r.label}
             </button>
           ))}
           {range === "custom" && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10 }}>
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                style={{ 
-                  padding: "8px", 
-                  border: "1px solid #e5e7eb", 
-                  borderRadius: "6px", 
-                  fontSize: "14px", 
-                  outline: "none",
-                  flex: "1 1 auto",
-                  minWidth: 0,
-                  maxWidth: "100%",
-                  boxSizing: "border-box"
-                }}
+                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
               />
-              <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>do</span>
+              <span style={{ color: "#6b7280" }}>to</span>
               <input
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                style={{ 
-                  padding: "8px", 
-                  border: "1px solid #e5e7eb", 
-                  borderRadius: "6px", 
-                  fontSize: "14px", 
-                  outline: "none",
-                  flex: "1 1 auto",
-                  minWidth: 0,
-                  maxWidth: "100%",
-                  boxSizing: "border-box"
-                }}
+                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
               />
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* Grafikon ukupne zarade */}
       <div
@@ -810,112 +880,203 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Artikal grafikon - Box stil kao u profit stranici */}
-      <div style={{ 
-        marginBottom: "20px", 
-        background: "#fff", 
-        padding: "16px", 
-        borderRadius: "8px", 
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
-        width: "100%", 
-        maxWidth: "100%", 
-        boxSizing: "border-box" 
-      }}>
-        <div style={{ marginBottom: "12px" }}>
-          <label style={{ fontWeight: 500, fontSize: "18px", display: "block", marginBottom: "8px" }}>
-            Odaberi artikal:
-          </label>
-          <select
-            value={selectedArtikl}
-            onChange={(e) => setSelectedArtikl(e.target.value)}
-            style={{ 
-              padding: "8px 12px", 
-              borderRadius: 6, 
-              border: "1px solid #d1d5db", 
-              fontSize: "14px",
-              width: "100%",
-              maxWidth: "100%",
-              boxSizing: "border-box"
-            }}
-          >
-            <option value="">Odaberi artikal</option>
-            {allArtikli.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </div>
-
-        <h2 style={{ fontSize: "18px", fontWeight: 500, marginBottom: "12px", wordWrap: "break-word" }}>
-          Filter profita po artiklu
-        </h2>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
-          {[
-            { value: "currentWeek", label: "Trenutna sedmica" },
-            { value: "previousWeek", label: "Prošla sedmica" },
-            { value: "previousMonth", label: "Prošli mjesec" },
-            { value: "custom", label: "Prilagođeni period" },
-          ].map((r, index) => (
-            <button
-              key={r.value}
-              onClick={() => setArtiklRange(r.value as any)}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                fontWeight: 500,
-                fontSize: 14,
-                background: artiklRange === r.value ? "#3b82f6" : "#e5e7eb",
-                color: artiklRange === r.value ? "#fff" : "#374151",
-                transition: "all 0.2s",
-                boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 6px)",
-                minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
-                maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
+      {/* Artikal grafikon - Box samo na mobilnom */}
+      {isMobile ? (
+        <div style={{ 
+          marginBottom: "16px", 
+          background: "#fff", 
+          padding: "10px 12px", 
+          borderRadius: "8px", 
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+          width: "100%", 
+          maxWidth: "100%", 
+          boxSizing: "border-box" 
+        }}>
+          <div style={{ marginBottom: "8px" }}>
+            <label style={{ 
+              fontWeight: 500, 
+              fontSize: "16px", 
+              display: "block", 
+              marginBottom: "6px" 
+            }}>
+              Odaberi artikal:
+            </label>
+            <select
+              value={selectedArtikl}
+              onChange={(e) => setSelectedArtikl(e.target.value)}
+              style={{ 
+                padding: "6px 10px", 
+                borderRadius: 6, 
+                border: "1px solid #d1d5db", 
+                fontSize: 13,
+                width: "100%",
+                maxWidth: "100%",
+                boxSizing: "border-box"
               }}
             >
-              {r.label}
-            </button>
-          ))}
-          {artiklRange === "custom" && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", flexWrap: "wrap" }}>
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                style={{ 
-                  padding: "8px", 
-                  border: "1px solid #e5e7eb", 
-                  borderRadius: "6px", 
-                  fontSize: "14px", 
-                  outline: "none",
-                  flex: "1 1 auto",
-                  minWidth: 0,
-                  maxWidth: "100%",
-                  boxSizing: "border-box"
+              <option value="">Odaberi artikal</option>
+              {allArtikli.map((a) => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </div>
+
+          <h2 style={{ 
+            fontSize: "16px", 
+            fontWeight: 500, 
+            marginBottom: "8px", 
+            wordWrap: "break-word" 
+          }}>
+            Filter profita po artiklu
+          </h2>
+          <div style={{ 
+            display: "flex", 
+            gap: 6, 
+            flexWrap: "wrap", 
+            alignItems: "center", 
+            width: "100%" 
+          }}>
+            {[
+              { value: "currentWeek", label: "Trenutna sedmica" },
+              { value: "previousWeek", label: "Prošla sedmica" },
+              { value: "previousMonth", label: "Prošli mjesec" },
+              { value: "custom", label: "Prilagođeni period" },
+            ].map((r, index) => (
+              <button
+                key={r.value}
+                onClick={() => setArtiklRange(r.value as any)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                  fontSize: 13,
+                  background: artiklRange === r.value ? "#3b82f6" : "#e5e7eb",
+                  color: artiklRange === r.value ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                  boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+                  flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 3px)",
+                  minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 3px)",
+                  maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 3px)",
                 }}
-              />
-              <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>do</span>
-              <input
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                style={{ 
-                  padding: "8px", 
-                  border: "1px solid #e5e7eb", 
-                  borderRadius: "6px", 
-                  fontSize: "14px", 
-                  outline: "none",
-                  flex: "1 1 auto",
-                  minWidth: 0,
-                  maxWidth: "100%",
-                  boxSizing: "border-box"
-                }}
-              />
-            </div>
-          )}
+              >
+                {r.label}
+              </button>
+            ))}
+            {artiklRange === "custom" && (
+              <div style={{ 
+                display: "flex", 
+                gap: 6, 
+                alignItems: "center", 
+                width: "100%", 
+                flexWrap: "wrap" 
+              }}>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={{ 
+                    padding: "6px 8px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: 13, 
+                    outline: "none",
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ 
+                  whiteSpace: "nowrap", 
+                  color: "#6b7280",
+                  fontSize: 13
+                }}>
+                  do
+                </span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={{ 
+                    padding: "6px 8px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: 13, 
+                    outline: "none",
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+            <label style={{ marginRight: 10, fontWeight: 500 }}>Odaberi artikal:</label>
+            <select
+              value={selectedArtikl}
+              onChange={(e) => setSelectedArtikl(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db" }}
+            >
+              <option value="">Odaberi artikal</option>
+              {allArtikli.map((a) => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+            {[
+              { value: "currentWeek", label: "Trenutna sedmica" },
+              { value: "previousWeek", label: "Prošla sedmica" },
+              { value: "previousMonth", label: "Prošli mjesec" },
+              { value: "custom", label: "Prilagođeni period" },
+            ].map((r) => (
+              <button
+                key={r.value}
+                onClick={() => setArtiklRange(r.value as any)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                  fontSize: 14,
+                  background: artiklRange === r.value ? "#3b82f6" : "#e5e7eb",
+                  color: artiklRange === r.value ? "#fff" : "#374151",
+                  transition: "all 0.2s",
+                  boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+                }}
+              >
+                {r.label}
+              </button>
+            ))}
+            {artiklRange === "custom" && (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10 }}>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
+                />
+                <span style={{ color: "#6b7280" }}>to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {selectedArtikl && (
         <div

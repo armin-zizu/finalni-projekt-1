@@ -140,10 +140,33 @@ const FilterSection: React.FC<{
   customPeriod: { from: string; to: string };
   setCustomPeriod: (value: { from: string; to: string }) => void;
   label?: string;
-}> = ({ filter, setFilter, customPeriod, setCustomPeriod, label = "Filter arhive" }) => (
-  <div style={{ marginBottom: "20px", background: "#fff", padding: "16px", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
-    <h2 style={{ fontSize: "18px", fontWeight: 500, marginBottom: "12px", wordWrap: "break-word" }}>{label}</h2>
-    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
+  isMobile?: boolean;
+}> = ({ filter, setFilter, customPeriod, setCustomPeriod, label = "Filter arhive", isMobile = false }) => (
+  <div style={{ 
+    marginBottom: isMobile ? "16px" : "20px", 
+    background: "#fff", 
+    padding: isMobile ? "10px 12px" : "16px", 
+    borderRadius: "8px", 
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+    width: "100%", 
+    maxWidth: "100%", 
+    boxSizing: "border-box" 
+  }}>
+    <h2 style={{ 
+      fontSize: isMobile ? "16px" : "18px", 
+      fontWeight: 500, 
+      marginBottom: isMobile ? "8px" : "12px", 
+      wordWrap: "break-word" 
+    }}>
+      {label}
+    </h2>
+    <div style={{ 
+      display: "flex", 
+      gap: isMobile ? 6 : 12, 
+      flexWrap: "wrap", 
+      alignItems: "center", 
+      width: "100%" 
+    }}>
       {["trenutnaSedmica", "proslaSedmica", "prosliMjesec", "custom"].map((f, index) => (
         <button
           key={f}
@@ -152,9 +175,11 @@ const FilterSection: React.FC<{
             ...buttonStyle,
             backgroundColor: filter === f ? "#3b82f6" : "#e5e7eb",
             color: filter === f ? "#fff" : "#374151",
-            flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 6px)",
-            minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
-            maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
+            padding: isMobile ? "6px 12px" : "8px 16px",
+            fontSize: isMobile ? 13 : 14,
+            flex: isMobile && (index === 0 || index === 3) ? "1 1 100%" : isMobile ? "1 1 calc(50% - 3px)" : "1 1 auto",
+            minWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "fit-content",
+            maxWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "none",
           }}
         >
           {f === "trenutnaSedmica" ? "Trenutna sedmica" :
@@ -164,10 +189,34 @@ const FilterSection: React.FC<{
         </button>
       ))}
       {filter === "custom" && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", flexWrap: "wrap" }}>
-          <input type="date" value={customPeriod.from} onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} style={{ ...formInputStyle, flex: "1 1 auto", minWidth: 0, maxWidth: "100%" }} />
-          <span style={{ whiteSpace: "nowrap" }}>do</span>
-          <input type="date" value={customPeriod.to} onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} style={{ ...formInputStyle, flex: "1 1 auto", minWidth: 0, maxWidth: "100%" }} />
+        <div style={{ display: "flex", gap: isMobile ? 6 : 8, alignItems: "center", width: isMobile ? "100%" : "auto", flexWrap: "wrap" }}>
+          <input 
+            type="date" 
+            value={customPeriod.from} 
+            onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
+            style={{ 
+              ...formInputStyle, 
+              flex: isMobile ? "1 1 auto" : "none", 
+              minWidth: 0, 
+              maxWidth: isMobile ? "100%" : "none",
+              padding: isMobile ? "6px 8px" : "8px",
+              fontSize: isMobile ? 13 : 14,
+            }} 
+          />
+          <span style={{ whiteSpace: "nowrap", fontSize: isMobile ? 13 : 14 }}>do</span>
+          <input 
+            type="date" 
+            value={customPeriod.to} 
+            onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
+            style={{ 
+              ...formInputStyle, 
+              flex: isMobile ? "1 1 auto" : "none", 
+              minWidth: 0, 
+              maxWidth: isMobile ? "100%" : "none",
+              padding: isMobile ? "6px 8px" : "8px",
+              fontSize: isMobile ? 13 : 14,
+            }} 
+          />
         </div>
       )}
     </div>
@@ -178,6 +227,7 @@ const FilterSection: React.FC<{
 export default function ProfitPage() {
   const [obracuniProfit, setObracuniProfit] = useState<ObracunProfit[]>([]);
   const [filter, setFilter] = useState<"trenutnaSedmica" | "proslaSedmica" | "prosliMjesec" | "custom">("trenutnaSedmica");
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const [customPeriod, setCustomPeriod] = useState<{ from: string; to: string }>({
     from: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split("T")[0],
     to: new Date().toISOString().split("T")[0],
@@ -217,6 +267,27 @@ export default function ProfitPage() {
 
   const { cjenovnik } = useCjenovnik();
   const pathname = usePathname();
+
+  // Detekcija mobilnog uređaja
+  useEffect(() => {
+    const checkMobile = () => {
+      if (typeof window === 'undefined') return;
+      const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
+      const mobile = width <= 768;
+      setIsMobile(mobile);
+    };
+    if (typeof window !== 'undefined') {
+      const timer = setTimeout(checkMobile, 0);
+      checkMobile();
+      window.addEventListener('resize', checkMobile);
+      window.addEventListener('orientationchange', checkMobile);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', checkMobile);
+        window.removeEventListener('orientationchange', checkMobile);
+      };
+    }
+  }, []);
 
   // Provjera šifre pri učitavanju i pri navigaciji - traži šifru svaki put
   useEffect(() => {
@@ -727,13 +798,6 @@ export default function ProfitPage() {
     );
   };
 
-  // Debug info
-  console.log("Profit - Render:", {
-    obracuniProfitLength: obracuniProfit.length,
-    filteredObracuniLength: filteredObracuni.length,
-    cjenovnikLength: cjenovnik.length,
-    allArtikliLength: allArtikli.length,
-  });
 
   // Ako se još učitava provjera, prikaži loading
   if (isPasswordProtected === null) {
@@ -925,22 +989,6 @@ export default function ProfitPage() {
       `}</style>
       <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24 }}>Profit</h1>
       
-      {/* Debug info - ukloni nakon testiranja */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{ 
-          padding: "12px", 
-          background: "#f3f4f6", 
-          borderRadius: "8px", 
-          marginBottom: "20px",
-          fontSize: "12px",
-          color: "#6b7280"
-        }}>
-          <div>Obračuna u arhivi: {obracuniProfit.length}</div>
-          <div>Filtrirano obračuna: {filteredObracuni.length}</div>
-          <div>Artikala u cjenovniku: {cjenovnik.length}</div>
-          <div>Ukupno artikala: {allArtikli.length}</div>
-        </div>
-      )}
 
       <FilterSection
         filter={filter}
@@ -948,6 +996,7 @@ export default function ProfitPage() {
         customPeriod={customPeriod}
         setCustomPeriod={setCustomPeriod}
         label="Filter ukupnog profita"
+        isMobile={isMobile}
       />
 
       {/* ---- Chart ukupnog profita ---- */}
@@ -1027,6 +1076,7 @@ export default function ProfitPage() {
           customPeriod={customPeriod}
           setCustomPeriod={setCustomPeriod}
           label="Filter profita po artiklu"
+          isMobile={isMobile}
         />
       </div>
 
