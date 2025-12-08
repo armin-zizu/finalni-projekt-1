@@ -85,6 +85,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [chartKey, setChartKey] = useState(0);
   const router = useRouter();
   const { cjenovnik } = useCjenovnik();
   const { appName } = useAppName();
@@ -92,27 +93,57 @@ export default function DashboardPage() {
   // Detekcija mobilnog uređaja - poboljšana za produkciju
   useEffect(() => {
     const checkMobile = () => {
-      if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined') return false;
       // Provjeri i window.innerWidth i screen.width za pouzdanost
       const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
       const mobile = width <= 768;
-      setIsMobile(mobile);
-      console.log('Dashboard - Screen width:', width, 'isMobile:', mobile);
+      return mobile;
     };
+    
     // Proveri odmah i na resize
     if (typeof window !== 'undefined') {
+      const wasMobile = isMobile;
+      const newMobile = checkMobile();
+      
+      if (wasMobile !== newMobile) {
+        setIsMobile(newMobile);
+        setChartKey(prev => prev + 1);
+      } else {
+        setIsMobile(newMobile);
+      }
+      
+      const handleResize = () => {
+        const newMobile = checkMobile();
+        if (newMobile !== isMobile) {
+          setIsMobile(newMobile);
+          setChartKey(prev => prev + 1);
+        }
+      };
+      
+      const handleOrientationChange = () => {
+        setTimeout(() => {
+          const newMobile = checkMobile();
+          setIsMobile(newMobile);
+          setChartKey(prev => prev + 1);
+        }, 100);
+      };
+      
       // Dodaj mali delay za SSR/CSR sync
-      const timer = setTimeout(checkMobile, 0);
-      checkMobile();
-      window.addEventListener('resize', checkMobile);
-      window.addEventListener('orientationchange', checkMobile);
+      const timer = setTimeout(() => {
+        const newMobile = checkMobile();
+        setIsMobile(newMobile);
+      }, 0);
+      
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('orientationchange', handleOrientationChange);
+      
       return () => {
         clearTimeout(timer);
-        window.removeEventListener('resize', checkMobile);
-        window.removeEventListener('orientationchange', checkMobile);
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('orientationchange', handleOrientationChange);
       };
     }
-  }, []);
+  }, [isMobile]);
 
   // Funkcija za učitavanje arhive - ČEKA NA AUTENTIFIKACIJU
   const loadArhiva = useCallback(async (userId: string) => {
@@ -829,8 +860,9 @@ export default function DashboardPage() {
         }}
       >
         {chartData && chartData.length > 0 ? (
-          <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}`} width="100%" height={isMobile ? 280 : 400} minHeight={isMobile ? 280 : 300}>
-            <LineChart data={chartData} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
+          <div style={{ width: "100%", height: isMobile ? 280 : 400, position: "relative" }}>
+            <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -842,11 +874,12 @@ export default function DashboardPage() {
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-              <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
             </LineChart>
           </ResponsiveContainer>
+          </div>
         ) : (
           <div style={{ 
             display: "flex", 
@@ -1122,22 +1155,24 @@ export default function DashboardPage() {
             position: "relative"
           }}
         >
-          <ResponsiveContainer key={`artikl-${isMobile}-${selectedData.length}`} width="100%" height={isMobile ? 280 : 350} minHeight={isMobile ? 280 : 280}>
-            <LineChart data={selectedData} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="datum" 
-                tick={{ fill: "#6b7280", fontSize: 11 }} 
-                angle={-45}
-                textAnchor="end"
-                height={60}
-              />
-              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-              <Line type="monotone" dataKey="utroseno" name="Prodaja" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
+          <div style={{ width: "100%", height: isMobile ? 280 : 350, position: "relative" }}>
+            <ResponsiveContainer key={`artikl-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
+              <LineChart data={selectedData} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="datum" 
+                  tick={{ fill: "#6b7280", fontSize: 11 }} 
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
+                <Line type="monotone" dataKey="utroseno" name="Prodaja" stroke="#f59e0b" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 

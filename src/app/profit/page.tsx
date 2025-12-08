@@ -229,6 +229,7 @@ export default function ProfitPage() {
   const [obracuniProfit, setObracuniProfit] = useState<ObracunProfit[]>([]);
   const [filter, setFilter] = useState<"trenutnaSedmica" | "proslaSedmica" | "prosliMjesec" | "custom">("trenutnaSedmica");
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [chartKey, setChartKey] = useState(0);
   const [customPeriod, setCustomPeriod] = useState<{ from: string; to: string }>({
     from: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split("T")[0],
     to: new Date().toISOString().split("T")[0],
@@ -272,23 +273,55 @@ export default function ProfitPage() {
   // Detekcija mobilnog uređaja
   useEffect(() => {
     const checkMobile = () => {
-      if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined') return false;
       const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
       const mobile = width <= 768;
-      setIsMobile(mobile);
+      return mobile;
     };
+    
     if (typeof window !== 'undefined') {
-      const timer = setTimeout(checkMobile, 0);
+      const wasMobile = isMobile;
+      const newMobile = checkMobile();
+      
+      if (wasMobile !== newMobile) {
+        setIsMobile(newMobile);
+        setChartKey(prev => prev + 1);
+      } else {
+        setIsMobile(newMobile);
+      }
+      
+      const handleResize = () => {
+        const newMobile = checkMobile();
+        if (newMobile !== isMobile) {
+          setIsMobile(newMobile);
+          setChartKey(prev => prev + 1);
+        }
+      };
+      
+      const handleOrientationChange = () => {
+        setTimeout(() => {
+          const newMobile = checkMobile();
+          setIsMobile(newMobile);
+          setChartKey(prev => prev + 1);
+        }, 100);
+      };
+      
+      const timer = setTimeout(() => {
+        const newMobile = checkMobile();
+        setIsMobile(newMobile);
+      }, 0);
+      
       checkMobile();
-      window.addEventListener('resize', checkMobile);
-      window.addEventListener('orientationchange', checkMobile);
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('orientationchange', handleOrientationChange);
+      
       return () => {
         clearTimeout(timer);
-        window.removeEventListener('resize', checkMobile);
-        window.removeEventListener('orientationchange', checkMobile);
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('orientationchange', handleOrientationChange);
       };
     }
-  }, []);
+  }, [isMobile]);
 
   // Provjera šifre pri učitavanju i pri navigaciji - traži šifru svaki put
   useEffect(() => {
@@ -300,6 +333,10 @@ export default function ProfitPage() {
       }
 
       try {
+        if (!db) {
+          console.error("Profit - Firestore db nije inicijalizovan");
+          return;
+        }
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
@@ -333,6 +370,10 @@ export default function ProfitPage() {
     }
 
     try {
+      if (!db) {
+        setPasswordError("Firestore nije inicijalizovan");
+        return;
+      }
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
       const data = userDoc.exists() ? userDoc.data() : {};
@@ -381,6 +422,11 @@ export default function ProfitPage() {
       
       // UČITAJ IZ FIRESTORE
       try {
+        if (!db) {
+          console.error("Profit - Firestore db nije inicijalizovan");
+          setObracuniProfit([]);
+          return;
+        }
         const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
         firestoreArhiva = querySnapshot.docs.map((doc) => {
           const data = doc.data();
@@ -488,14 +534,16 @@ export default function ProfitPage() {
             }
             return isValid;
           })
-          .map((a) => {
-            const cjenovnikArtikl = cjenovnik.find((c) => c.naziv === a.naziv);
-            
+          .filter((a) => {
             // Proveri da li artikal ima potrebne podatke
             if (!a.utroseno || a.utroseno <= 0) {
               console.warn(`Profit - Artikal "${a.naziv}" nema utrošenu količinu (utroseno: ${a.utroseno})`);
-              return null; // Preskoči artikle bez utrošene količine
+              return false; // Preskoči artikle bez utrošene količine
             }
+            return true;
+          })
+          .map((a) => {
+            const cjenovnikArtikl = cjenovnik.find((c) => c.naziv === a.naziv);
             
             // Za žestoka pića: količina = utroseno / zestokoKolicina
             // Za ostale artikle: količina = utroseno
@@ -534,8 +582,7 @@ export default function ProfitPage() {
               profit,
               zestokoKolicina: a.zestokoKolicina,
             };
-          })
-          .filter((a): a is ArtikalProfit => a !== null); // Filtriraj null vrednosti
+          });
 
         console.log(`Profit - Obračun ${obracun.datum} ima ${artikliProfit.length} artikala za prikaz`);
 
@@ -1059,8 +1106,9 @@ export default function ProfitPage() {
         position: "relative"
       }}>
         {chartData && chartData.length > 0 ? (
-          <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}`} width="100%" height={isMobile ? 280 : 300} minHeight={isMobile ? 280 : 280}>
-            <LineChart data={chartData} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
+          <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
+            <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1072,11 +1120,12 @@ export default function ProfitPage() {
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-              <Line type="monotone" dataKey="bruto" name="Bruto" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="bruto" name="Bruto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
             </LineChart>
           </ResponsiveContainer>
+          </div>
         ) : (
           <div style={{ 
             display: "flex", 
@@ -1143,9 +1192,10 @@ export default function ProfitPage() {
         position: "relative"
       }}
       >
-        <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}`} width="100%" height={isMobile ? 280 : 300} minHeight={isMobile ? 280 : 280}>
-          {selectedArtiklData && selectedArtiklData.length > 0 ? (
-            <LineChart data={selectedArtiklData} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
+        <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
+          <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
+            {selectedArtiklData && selectedArtiklData.length > 0 ? (
+              <LineChart data={selectedArtiklData} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis 
               dataKey="datum" 
@@ -1157,8 +1207,8 @@ export default function ProfitPage() {
             <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
             <Tooltip content={<CustomTooltip />} />
             <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-            <Line type="monotone" dataKey="bruto" name="Bruto artikal" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="neto" name="Neto artikal" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="bruto" name="Bruto artikal" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+            <Line type="monotone" dataKey="neto" name="Neto artikal" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
           </LineChart>
           ) : (
             <div style={{ 
@@ -1173,6 +1223,7 @@ export default function ProfitPage() {
             </div>
           )}
         </ResponsiveContainer>
+        </div>
       </div>
 
       <div style={{ ...summaryStyle, marginBottom: 30 }}>
