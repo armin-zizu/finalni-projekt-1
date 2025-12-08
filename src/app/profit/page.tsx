@@ -162,7 +162,7 @@ const FilterSection: React.FC<{
     </h2>
     <div style={{ 
       display: "flex", 
-      gap: isMobile ? 6 : 12, 
+      gap: isMobile ? 4 : 12, 
       flexWrap: "wrap", 
       alignItems: "center", 
       width: "100%" 
@@ -190,7 +190,7 @@ const FilterSection: React.FC<{
         </button>
       ))}
       {filter === "custom" && (
-        <div style={{ display: "flex", gap: isMobile ? 6 : 8, alignItems: "center", width: isMobile ? "100%" : "auto", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: isMobile ? 4 : 8, alignItems: "center", width: isMobile ? "100%" : "auto", flexWrap: "wrap" }}>
           <input 
             type="date" 
             value={customPeriod.from} 
@@ -630,31 +630,45 @@ export default function ProfitPage() {
 
   // ---- filtriranje po periodu za glavni grafikon i tablice ----
   useEffect(() => {
-    const danas = new Date();
+    const today = new Date();
+    const getMonday = (d: Date) => {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      date.setDate(date.getDate() + diff);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
 
     const filtered = obracuniProfit.filter((o) => {
-      const [d, m, y] = o.datum.split(".").map(Number);
-      const datumO = new Date(y, m - 1, d);
+      const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
 
       if (filter === "trenutnaSedmica") {
-        const firstDay = new Date(danas);
-        firstDay.setDate(danas.getDate() - danas.getDay() + 1); // ponedeljak
-        return datumO >= firstDay && datumO <= danas;
+        const monday = getMonday(today);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        return dTime >= monday.getTime() && dTime <= sunday.getTime();
       }
       if (filter === "proslaSedmica") {
-        const firstDayPrev = new Date(danas);
-        firstDayPrev.setDate(danas.getDate() - danas.getDay() - 6); // ponedeljak prošle sedmice
-        const lastDayPrev = new Date(danas);
-        lastDayPrev.setDate(danas.getDate() - danas.getDay()); // nedelja prošle sedmice
-        return datumO >= firstDayPrev && datumO <= lastDayPrev;
+        const lastWeekDate = new Date(today);
+        lastWeekDate.setDate(today.getDate() - 7);
+        const lastWeekMonday = getMonday(lastWeekDate);
+        const lastWeekSunday = new Date(lastWeekMonday);
+        lastWeekSunday.setDate(lastWeekMonday.getDate() + 6);
+        lastWeekSunday.setHours(23, 59, 59, 999);
+        return dTime >= lastWeekMonday.getTime() && dTime <= lastWeekSunday.getTime();
       }
       if (filter === "prosliMjesec") {
-        const firstDayPrevMonth = new Date(danas.getFullYear(), danas.getMonth() - 1, 1);
-        const lastDayPrevMonth = new Date(danas.getFullYear(), danas.getMonth(), 0);
-        return datumO >= firstDayPrevMonth && datumO <= lastDayPrevMonth;
+        const firstDayPrevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastDayPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+        lastDayPrevMonth.setHours(23, 59, 59, 999);
+        return dTime >= firstDayPrevMonth.getTime() && dTime <= lastDayPrevMonth.getTime();
       }
       if (filter === "custom") {
-        return datumO >= new Date(customPeriod.from) && datumO <= new Date(customPeriod.to);
+        const fromTime = new Date(customPeriod.from).getTime();
+        const toTime = new Date(customPeriod.to).getTime();
+        return dTime >= fromTime && dTime <= toTime;
       }
       return true;
     });
@@ -691,27 +705,40 @@ export default function ProfitPage() {
         return dateA - dateB; // Uzlazni redoslijed
       });
 
-    const danas = new Date();
+    const today = new Date();
+    const getMonday = (d: Date) => {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      date.setDate(date.getDate() + diff);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
 
     if (selectedFilter === "trenutnaSedmica") {
-      const firstDay = new Date(danas);
-      firstDay.setDate(danas.getDate() - danas.getDay() + 1); // ponedeljak
+      const monday = getMonday(today);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
       filteredData = filteredData.filter((o) => {
         const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= firstDay.getTime() && dTime <= danas.getTime();
+        return dTime >= monday.getTime() && dTime <= sunday.getTime();
       });
     } else if (selectedFilter === "proslaSedmica") {
-      const firstDayPrev = new Date(danas);
-      firstDayPrev.setDate(danas.getDate() - danas.getDay() - 6); // ponedeljak prošle sedmice
-      const lastDayPrev = new Date(danas);
-      lastDayPrev.setDate(danas.getDate() - danas.getDay()); // nedelja prošle sedmice
+      const lastWeekDate = new Date(today);
+      lastWeekDate.setDate(today.getDate() - 7);
+      const lastWeekMonday = getMonday(lastWeekDate);
+      const lastWeekSunday = new Date(lastWeekMonday);
+      lastWeekSunday.setDate(lastWeekMonday.getDate() + 6);
+      lastWeekSunday.setHours(23, 59, 59, 999);
       filteredData = filteredData.filter((o) => {
         const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= firstDayPrev.getTime() && dTime <= lastDayPrev.getTime();
+        return dTime >= lastWeekMonday.getTime() && dTime <= lastWeekSunday.getTime();
       });
     } else if (selectedFilter === "prosliMjesec") {
-      const firstDayPrevMonth = new Date(danas.getFullYear(), danas.getMonth() - 1, 1);
-      const lastDayPrevMonth = new Date(danas.getFullYear(), danas.getMonth(), 0);
+      const firstDayPrevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastDayPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      lastDayPrevMonth.setHours(23, 59, 59, 999);
       filteredData = filteredData.filter((o) => {
         const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
         return dTime >= firstDayPrevMonth.getTime() && dTime <= lastDayPrevMonth.getTime();

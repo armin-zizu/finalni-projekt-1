@@ -267,7 +267,9 @@ export default function DashboardPage() {
         return dTime >= monday.getTime() && dTime <= sunday.getTime();
       });
     } else if (selectedRange === "previousWeek") {
-      const monday = getMonday(new Date(today.setDate(today.getDate() - 7)));
+      const lastWeekDate = new Date(today);
+      lastWeekDate.setDate(today.getDate() - 7);
+      const monday = getMonday(lastWeekDate);
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
       sunday.setHours(23, 59, 59, 999);
@@ -337,7 +339,9 @@ export default function DashboardPage() {
         return dTime >= monday.getTime() && dTime <= sunday.getTime();
       });
     } else if (selectedRange === "previousWeek") {
-      const monday = getMonday(new Date(today.setDate(today.getDate() - 7)));
+      const lastWeekDate = new Date(today);
+      lastWeekDate.setDate(today.getDate() - 7);
+      const monday = getMonday(lastWeekDate);
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
       sunday.setHours(23, 59, 59, 999);
