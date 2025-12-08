@@ -633,51 +633,86 @@ export default function DashboardPage() {
       </div>
 
 
-      {/* Range za prvi grafikon */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 30, alignItems: "center" }}>
-        {[
-          { value: "currentWeek", label: "Trenutna sedmica" },
-          { value: "previousWeek", label: "Prošla sedmica" },
-          { value: "previousMonth", label: "Prošli mjesec" },
-          { value: "custom", label: "Prilagođeni period" },
-        ].map((r) => (
-          <button
-            key={r.value}
-            onClick={() => setRange(r.value as any)}
-            style={{
-              padding: "8px 16px",
-              borderRadius: 8,
-              border: "none",
-              cursor: "pointer",
-              fontWeight: 500,
-              fontSize: 14,
-              background: range === r.value ? "#3b82f6" : "#e5e7eb",
-              color: range === r.value ? "#fff" : "#374151",
-              transition: "all 0.2s",
-              boxShadow: range === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-            }}
-          >
-            {r.label}
-          </button>
-        ))}
-
-        {range === "custom" && (
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10 }}>
-            <input
-              type="date"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
-            />
-            <span style={{ color: "#6b7280" }}>to</span>
-            <input
-              type="date"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-              style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
-            />
-          </div>
-        )}
+      {/* Range za prvi grafikon - Box stil kao u profit stranici */}
+      <div style={{ 
+        marginBottom: "30px", 
+        background: "#fff", 
+        padding: "16px", 
+        borderRadius: "8px", 
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+        width: "100%", 
+        maxWidth: "100%", 
+        boxSizing: "border-box" 
+      }}>
+        <h2 style={{ fontSize: "18px", fontWeight: 500, marginBottom: "12px", wordWrap: "break-word" }}>
+          Filter arhive
+        </h2>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
+          {[
+            { value: "currentWeek", label: "Trenutna sedmica" },
+            { value: "previousWeek", label: "Prošla sedmica" },
+            { value: "previousMonth", label: "Prošli mjesec" },
+            { value: "custom", label: "Prilagođeni period" },
+          ].map((r) => (
+            <button
+              key={r.value}
+              onClick={() => setRange(r.value as any)}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                fontWeight: 500,
+                fontSize: 14,
+                background: range === r.value ? "#3b82f6" : "#e5e7eb",
+                color: range === r.value ? "#fff" : "#374151",
+                transition: "all 0.2s",
+                boxShadow: range === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+                flex: "1 1 auto",
+                minWidth: "fit-content",
+              }}
+            >
+              {r.label}
+            </button>
+          ))}
+          {range === "custom" && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", flexWrap: "wrap" }}>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                style={{ 
+                  padding: "8px", 
+                  border: "1px solid #e5e7eb", 
+                  borderRadius: "6px", 
+                  fontSize: "14px", 
+                  outline: "none",
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  boxSizing: "border-box"
+                }}
+              />
+              <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>do</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                style={{ 
+                  padding: "8px", 
+                  border: "1px solid #e5e7eb", 
+                  borderRadius: "6px", 
+                  fontSize: "14px", 
+                  outline: "none",
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  boxSizing: "border-box"
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Grafikon ukupne zarade */}
@@ -774,14 +809,33 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Artikal grafikon */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-          <label style={{ marginRight: 10, fontWeight: 500 }}>Odaberi artikal:</label>
+      {/* Artikal grafikon - Box stil kao u profit stranici */}
+      <div style={{ 
+        marginBottom: "20px", 
+        background: "#fff", 
+        padding: "16px", 
+        borderRadius: "8px", 
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+        width: "100%", 
+        maxWidth: "100%", 
+        boxSizing: "border-box" 
+      }}>
+        <div style={{ marginBottom: "12px" }}>
+          <label style={{ fontWeight: 500, fontSize: "18px", display: "block", marginBottom: "8px" }}>
+            Odaberi artikal:
+          </label>
           <select
             value={selectedArtikl}
             onChange={(e) => setSelectedArtikl(e.target.value)}
-            style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db" }}
+            style={{ 
+              padding: "8px 12px", 
+              borderRadius: 6, 
+              border: "1px solid #d1d5db", 
+              fontSize: "14px",
+              width: "100%",
+              maxWidth: "100%",
+              boxSizing: "border-box"
+            }}
           >
             <option value="">Odaberi artikal</option>
             {allArtikli.map((a) => (
@@ -790,7 +844,10 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+        <h2 style={{ fontSize: "18px", fontWeight: 500, marginBottom: "12px", wordWrap: "break-word" }}>
+          Filter profita po artiklu
+        </h2>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
           {[
             { value: "currentWeek", label: "Trenutna sedmica" },
             { value: "previousWeek", label: "Prošla sedmica" },
@@ -811,26 +868,47 @@ export default function DashboardPage() {
                 color: artiklRange === r.value ? "#fff" : "#374151",
                 transition: "all 0.2s",
                 boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+                flex: "1 1 auto",
+                minWidth: "fit-content",
               }}
             >
               {r.label}
             </button>
           ))}
-
           {artiklRange === "custom" && (
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", flexWrap: "wrap" }}>
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
+                style={{ 
+                  padding: "8px", 
+                  border: "1px solid #e5e7eb", 
+                  borderRadius: "6px", 
+                  fontSize: "14px", 
+                  outline: "none",
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  boxSizing: "border-box"
+                }}
               />
-              <span style={{ color: "#6b7280" }}>to</span>
+              <span style={{ whiteSpace: "nowrap", color: "#6b7280" }}>do</span>
               <input
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
+                style={{ 
+                  padding: "8px", 
+                  border: "1px solid #e5e7eb", 
+                  borderRadius: "6px", 
+                  fontSize: "14px", 
+                  outline: "none",
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  boxSizing: "border-box"
+                }}
               />
             </div>
           )}
