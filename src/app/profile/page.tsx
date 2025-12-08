@@ -1233,12 +1233,12 @@ export default function Profile() {
                                                 }}
                                               />
                                               <span style={{ userSelect: "none" }}>
-                                                {page === "dashboard" ? "Radna površina" :
-                                                 page === "obracun" ? "Obračun" :
-                                                 page === "arhiva" ? "Arhiva" :
-                                                 page === "cjenovnik" ? "Cjenovnik" :
-                                                 page === "profit" ? "Profit" :
-                                                 "Profil"}
+                                              {page === "dashboard" ? "Radna površina" :
+                                               page === "obracun" ? "Obračun" :
+                                               page === "arhiva" ? "Arhiva" :
+                                               page === "cjenovnik" ? "Cjenovnik" :
+                                               page === "profit" ? "Profit" :
+                                               "Profil"}
                                               </span>
                                             </label>
                                           ))}
@@ -1279,13 +1279,13 @@ export default function Profile() {
                                         Spremi
                                       </button>
                                       <div style={{ display: "flex", gap: "12px", width: "100%" }}>
-                                        <button
-                                          onClick={() => {
-                                            setEditingDeviceId(null);
-                                            setEditingPermissions({});
-                                            setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
-                                            setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
-                                          }}
+                                      <button
+                                        onClick={() => {
+                                          setEditingDeviceId(null);
+                                          setEditingPermissions({});
+                                          setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
+                                          setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
+                                        }}
                                           style={{ 
                                             ...buttonStyle, 
                                             background: "#6b7280", 
@@ -1295,11 +1295,11 @@ export default function Profile() {
                                             flex: 1,
                                             fontWeight: 600
                                           }}
-                                        >
-                                          Odustani
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteDevice(device.id)}
+                                      >
+                                        Odustani
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteDevice(device.id)}
                                           style={{ 
                                             ...buttonStyle, 
                                             background: "#dc2626", 
@@ -1309,9 +1309,9 @@ export default function Profile() {
                                             flex: 1,
                                             fontWeight: 600
                                           }}
-                                        >
+                                      >
                                           Izbriši
-                                        </button>
+                                      </button>
                                       </div>
                                     </div>
                                   </div>

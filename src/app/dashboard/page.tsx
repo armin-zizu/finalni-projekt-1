@@ -422,16 +422,16 @@ export default function DashboardPage() {
         }
         @media (max-width: 768px) {
           div[style*='padding: 30px'] { padding: 10px !important; }
-          h1 { font-size: 18px !important; margin-bottom: 16px !important; }
-          div[style*='fontSize: 36'] { font-size: 14px !important; }
+          h1 { font-size: 22px !important; margin-bottom: 16px !important; }
+          div[style*='fontSize: 36'] { font-size: 22px !important; }
           div[style*='fontSize: 28'] { font-size: 18px !important; }
           /* Ime aplikacije - mobilni stil - maksimalno pojačan selector za produkciju */
           div.app-name-header,
           div[class="app-name-header"],
           div[class*="app-name-header"],
           div[style*="app-name-header"] {
-            padding: 6px 8px !important;
-            margin-bottom: 12px !important;
+            padding: 12px 16px !important;
+            margin-bottom: 16px !important;
             width: 100% !important;
             max-width: 100% !important;
             box-sizing: border-box !important;
@@ -448,11 +448,11 @@ export default function DashboardPage() {
           div.app-name-header > h1,
           h1[class="app-name-title"],
           h1[class*="app-name-title"] {
-            font-size: 12px !important;
+            font-size: 22px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            line-height: 1.2 !important;
+            line-height: 1.3 !important;
             max-width: 100% !important;
             width: 100% !important;
             display: block !important;
@@ -460,27 +460,31 @@ export default function DashboardPage() {
             padding: 0 !important;
             letter-spacing: 0 !important;
             box-sizing: border-box !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
           }
           /* Override inline stilove - maksimalna specifičnost */
           div[style*="fontSize"] h1.app-name-title,
           div[style*="fontSize: 36"] h1.app-name-title,
+          div[style*="fontSize: 22"] h1.app-name-title,
           div[style*="fontSize: 14"] h1.app-name-title,
           div[style*="fontSize: 12"] h1.app-name-title,
           div[style*="fontSize: 36"].app-name-title,
           .app-name-header h1[style*="fontSize: 36"],
+          .app-name-header h1[style*="fontSize: 22"],
           .app-name-header h1[style*="fontSize: 14"],
           .app-name-header h1[style*="fontSize: 12"],
           .app-name-header h1[style*="fontSize"],
           h1.app-name-title[style*="fontSize: 36"],
+          h1.app-name-title[style*="fontSize: 22"],
           h1.app-name-title[style*="fontSize: 14"],
           h1.app-name-title[style*="fontSize: 12"] {
-            font-size: 12px !important;
+            font-size: 22px !important;
             max-width: 100% !important;
             width: 100% !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             white-space: nowrap !important;
+            font-weight: 700 !important;
           }
           /* Override svi h1 elementi unutar app-name-header - dodatna sigurnost */
           .app-name-header h1,
@@ -489,8 +493,8 @@ export default function DashboardPage() {
           h1[data-mobile="true"],
           h1.app-name-title[data-mobile="true"],
           .app-name-header h1[data-mobile="true"] {
-            font-size: 12px !important;
-            font-weight: 600 !important;
+            font-size: 22px !important;
+            font-weight: 700 !important;
             max-width: 100% !important;
             width: 100% !important;
             overflow: hidden !important;
@@ -499,7 +503,8 @@ export default function DashboardPage() {
           }
           /* Najjači mogući override za inline stilove na mobilnim */
           h1.app-name-title[style] {
-            font-size: 12px !important;
+            font-size: 22px !important;
+            font-weight: 700 !important;
             max-width: 100% !important;
             width: 100% !important;
             overflow: hidden !important;
@@ -570,8 +575,8 @@ export default function DashboardPage() {
       {/* Ime aplikacije - poboljšan dizajn */}
       <div style={{ 
         textAlign: "center", 
-        marginBottom: isMobile ? 12 : 40,
-        padding: isMobile ? "6px 8px" : "24px 32px",
+        marginBottom: isMobile ? 16 : 40,
+        padding: isMobile ? "12px 16px" : "24px 32px",
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
         borderRadius: isMobile ? "12px" : "16px",
         boxShadow: "0 8px 24px rgba(102, 126, 234, 0.25)",
@@ -607,8 +612,8 @@ export default function DashboardPage() {
         )}
         
         <h1 style={{ 
-          fontSize: isMobile ? 12 : 36,
-          fontWeight: isMobile ? 600 : 700, 
+          fontSize: isMobile ? 22 : 36,
+          fontWeight: isMobile ? 700 : 700, 
           color: "#ffffff",
           margin: 0,
           padding: 0,
@@ -619,7 +624,7 @@ export default function DashboardPage() {
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
-          lineHeight: isMobile ? "1.2" : "1.2",
+          lineHeight: isMobile ? "1.3" : "1.2",
           maxWidth: "100%",
           display: "block",
           width: "100%",
