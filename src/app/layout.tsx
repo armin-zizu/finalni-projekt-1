@@ -145,41 +145,59 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           });
         });
 
-        // Ukloni Service Worker
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          registrations.forEach((registration) => {
-            // Prvo update da trigger-uje grešku i zatim unregister
-            registration.update().catch(() => {
-              // Ignoriši grešku update-a
+        // Ukloni Service Worker - više puta za sigurnost
+        const clearServiceWorkers = () => {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            console.log('📋 Layout - Pronađeno Service Worker registracija:', registrations.length);
+            if (registrations.length === 0) {
+              console.log('✅ Layout - Nema Service Worker registracija');
+              return;
+            }
+            registrations.forEach((registration) => {
+              registration.unregister().then((success) => {
+                if (success) {
+                  console.log('✅ Layout - Service Worker uklonjen:', registration.scope);
+                }
+              }).catch((error) => {
+                console.warn('⚠️ Layout - Greška pri uklanjanju Service Workera:', error);
+                setTimeout(() => {
+                  registration.unregister().catch(() => {});
+                }, 1000);
+              });
             });
-            
-            registration.unregister().then((success) => {
-              if (success) {
-                console.log('✅ Service Worker uklonjen');
-              }
-            }).catch((error) => {
-              console.warn('⚠️ Greška pri uklanjanju Service Workera:', error);
-              // Pokušaj ponovo nakon kratkog delay-a
-              setTimeout(() => {
-                registration.unregister().catch(() => {});
-              }, 1000);
-            });
+          }).catch((error) => {
+            console.warn('⚠️ Layout - Greška pri dohvaćanju Service Worker registracija:', error);
           });
-        }).catch((error) => {
-          console.warn('⚠️ Greška pri dohvaćanju Service Worker registracija:', error);
-        });
+        };
+        
+        clearServiceWorkers();
+        setTimeout(clearServiceWorkers, 100);
+        setTimeout(clearServiceWorkers, 500);
+        setTimeout(clearServiceWorkers, 1000);
       }
 
-      // Očisti sve cache-ove (neovisno o Service Worker-u)
-      if ('caches' in window) {
-        caches.keys().then((names) => {
-          names.forEach((name) => {
-            caches.delete(name).then(() => {
-              console.log(`✅ Cache obrisan: ${name}`);
-            }).catch(() => {});
-          });
-        }).catch(() => {});
-      }
+      // Očisti sve cache-ove (neovisno o Service Worker-u) - više puta za sigurnost
+      const clearCaches = () => {
+        if ('caches' in window) {
+          caches.keys().then((names) => {
+            console.log('📋 Layout - Pronađeno cache-ova:', names.length);
+            if (names.length === 0) {
+              console.log('✅ Layout - Nema cache-ova');
+              return;
+            }
+            names.forEach((name) => {
+              caches.delete(name).then(() => {
+                console.log(`✅ Layout - Cache obrisan: ${name}`);
+              }).catch(() => {});
+            });
+          }).catch(() => {});
+        }
+      };
+      
+      clearCaches();
+      setTimeout(clearCaches, 100);
+      setTimeout(clearCaches, 500);
+      setTimeout(clearCaches, 1000);
 
       // Zapamti verziju za buduće provjere
       const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString();
@@ -271,58 +289,104 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
           <meta httpEquiv="Pragma" content="no-cache" />
           <meta httpEquiv="Expires" content="0" />
-          {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
+          {/* Agresivno ukloni Service Worker i cache-ove ODMAH - POBOLJŠANA VERZIJA */}
           <script
             dangerouslySetInnerHTML={{
               __html: `
                 (function() {
-                  // Onemogući Service Worker update PRIJE nego što se bilo što desi
+                  console.log('🚀 Inicijalizacija cache clearing za mobilni...');
+                  
+                  // Blokiraj Service Worker PRIJE nego što se bilo što desi
                   if ('serviceWorker' in navigator) {
-                    // Prekini sve update pokušaje
-                    navigator.serviceWorker.addEventListener('updatefound', function(e) {
-                      console.warn('⚠️ Service Worker update pokušaj blokiran');
-                      e.preventDefault && e.preventDefault();
-                      return false;
-                    }, true);
-                    
-                    // Ukloni Service Worker ODMAH
-                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                      registrations.forEach(function(registration) {
-                        // Pokušaj update da trigger-uje grešku i zatim unregister
-                        registration.update().catch(function() {
-                          // Ignoriši grešku
-                        });
-                        
-                        registration.unregister().then(function() {
-                          console.log('✅ Service Worker uklonjen (inline script)');
-                        }).catch(function() {
-                          // Pokušaj ponovo nakon delay-a
-                          setTimeout(function() {
-                            registration.unregister().catch(function() {});
-                          }, 500);
-                        });
-                      });
-                    }).catch(function() {
-                      // Ignoriši greške
-                    });
-                    
-                    // Blokiraj sve nove registracije
+                    // Blokiraj sve nove registracije ODMAH
                     var originalRegister = navigator.serviceWorker.register;
                     navigator.serviceWorker.register = function() {
                       console.warn('⚠️ Service Worker register blokiran');
                       return Promise.reject(new Error('Service Worker je onemogućen'));
                     };
-                  }
-                  // Obriši sve cache-ove ODMAH
-                  if ('caches' in window) {
-                    caches.keys().then(function(names) {
-                      names.forEach(function(name) {
-                        caches.delete(name).then(function() {
-                          console.log('✅ Cache obrisan (inline script):', name);
-                        }).catch(function() {});
+                    
+                    // Prekini sve update pokušaje
+                    navigator.serviceWorker.addEventListener('updatefound', function(e) {
+                      console.warn('⚠️ Service Worker update pokušaj blokiran');
+                      e.preventDefault && e.preventDefault();
+                      e.stopPropagation && e.stopPropagation();
+                      return false;
+                    }, true);
+                    
+                    // Ukloni Service Worker ODMAH - više puta za sigurnost
+                    function removeServiceWorkers() {
+                      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        console.log('📋 Pronađeno Service Worker registracija:', registrations.length);
+                        if (registrations.length === 0) {
+                          console.log('✅ Nema Service Worker registracija');
+                          return;
+                        }
+                        registrations.forEach(function(registration) {
+                          registration.unregister().then(function(success) {
+                            if (success) {
+                              console.log('✅ Service Worker uklonjen:', registration.scope);
+                            } else {
+                              console.warn('⚠️ Service Worker unregister vratio false');
+                            }
+                          }).catch(function(error) {
+                            console.warn('⚠️ Greška pri uklanjanju Service Workera:', error);
+                            // Pokušaj ponovo nakon delay-a
+                            setTimeout(function() {
+                              registration.unregister().catch(function() {});
+                            }, 500);
+                          });
+                        });
+                      }).catch(function(error) {
+                        console.warn('⚠️ Greška pri dohvaćanju Service Worker registracija:', error);
                       });
-                    }).catch(function() {});
+                    }
+                    
+                    // Ukloni više puta sa različitim delay-ima
+                    removeServiceWorkers();
+                    setTimeout(removeServiceWorkers, 100);
+                    setTimeout(removeServiceWorkers, 500);
+                    setTimeout(removeServiceWorkers, 1000);
                   }
+                  
+                  // Obriši sve cache-ove ODMAH - više puta za sigurnost
+                  function clearAllCaches() {
+                    if ('caches' in window) {
+                      caches.keys().then(function(names) {
+                        console.log('📋 Pronađeno cache-ova:', names.length);
+                        if (names.length === 0) {
+                          console.log('✅ Nema cache-ova');
+                          return;
+                        }
+                        names.forEach(function(name) {
+                          caches.delete(name).then(function(success) {
+                            if (success) {
+                              console.log('✅ Cache obrisan:', name);
+                            }
+                          }).catch(function(error) {
+                            console.warn('⚠️ Greška pri brisanju cache-a:', name, error);
+                          });
+                        });
+                      }).catch(function(error) {
+                        console.warn('⚠️ Greška pri dohvaćanju cache-ova:', error);
+                      });
+                    }
+                  }
+                  
+                  clearAllCaches();
+                  setTimeout(clearAllCaches, 100);
+                  setTimeout(clearAllCaches, 500);
+                  setTimeout(clearAllCaches, 1000);
+                  
+                  // Očisti localStorage i sessionStorage za ovu domenu
+                  try {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    console.log('✅ LocalStorage i SessionStorage očišćeni');
+                  } catch(e) {
+                    console.warn('⚠️ Greška pri brisanju storage-a:', e);
+                  }
+                  
+                  console.log('✅ Cache clearing inicijalizovan');
                 })();
               `,
             }}
