@@ -130,6 +130,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
 
   useEffect(() => {
+    // Ukloni Service Worker ako postoji (za cleanup starih PWA instalacija)
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          registration.unregister().then((success) => {
+            if (success) {
+              console.log('Stari Service Worker je uklonjen');
+            }
+          }).catch((error) => {
+            console.warn('Greška pri uklanjanju Service Workera:', error);
+          });
+        });
+      });
+
+      // Očisti sve cache-ove
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => {
+            caches.delete(name);
+          });
+        });
+      }
+    }
+
     // Timeout za fallback - ako auth state se ne reši za 5 sekundi, preusmjeri na login
     const timeoutId = setTimeout(() => {
       if (isLoading) {
@@ -245,6 +269,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
           <meta name="theme-color" content="#3b82f6" />
           <meta name="description" content="Office Lounge Bar - Aplikacija za upravljanje poslovanjem" />
+          {/* Ukloni Service Worker pri učitavanju */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                      for(let registration of registrations) {
+                        registration.unregister();
+                      }
+                    });
+                    if ('caches' in window) {
+                      caches.keys().then(function(names) {
+                        for (let name of names) {
+                          caches.delete(name);
+                        }
+                      });
+                    }
+                  });
+                }
+              `,
+            }}
+          />
           <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
         </head>
         <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", WebkitTapHighlightColor: "transparent" }}>

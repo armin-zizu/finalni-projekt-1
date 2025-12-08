@@ -15,7 +15,7 @@ interface User {
   id: string;
   email: string | null;
   appName: string;
-  createdAt: Date | null;
+  createdAt: Date | null; 
   lastSignIn: Date | null;
   imeKorisnika?: string;
   brojTelefona?: string;
@@ -154,7 +154,21 @@ export default function AdminPage() {
 
   // Provjeri da li je korisnik admin
   useEffect(() => {
+    // Provjeri da li je auth dostupan prije nego što se koristi
+    if (!auth) {
+      console.error("Firebase auth nije inicijalizovan");
+      setLoading(false);
+      return;
+    }
+
     const checkAdmin = async () => {
+      if (!auth) {
+        console.error("Firebase auth nije inicijalizovan");
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
       const user = auth.currentUser;
       if (!user || user.email !== ADMIN_EMAIL) {
         setIsAdmin(false);
@@ -172,18 +186,26 @@ export default function AdminPage() {
       // ili se lista osvježava pri svakom pristupu stranici.
     };
 
-    const unsubscribe = auth.onAuthStateChanged((user: FirebaseUser | null) => {
-      if (user) {
-        checkAdmin();
-      } else {
-        setIsAdmin(false);
-        setLoading(false);
-        router.push("/login");
-      }
-    });
+    let unsubscribe: (() => void) | null = null;
+    try {
+      unsubscribe = auth.onAuthStateChanged((user: FirebaseUser | null) => {
+        if (user) {
+          checkAdmin();
+        } else {
+          setIsAdmin(false);
+          setLoading(false);
+          router.push("/login");
+        }
+      });
+    } catch (error) {
+      console.error("Greška pri postavljanju auth state listenera:", error);
+      setLoading(false);
+    }
 
     return () => {
-      unsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, [router]);
 
@@ -193,6 +215,15 @@ export default function AdminPage() {
       // Učitaj podatke iz selectedUserDetails ili iz Firestore
       const loadUserInfo = async () => {
         try {
+          // Provjeri da li je db dostupan prije korištenja
+          if (!db) {
+            console.warn("Firebase db nije inicijalizovan, koristim podatke iz selectedUserDetails");
+            setImeKorisnika(selectedUserDetails.imeKorisnika || "");
+            setBrojTelefona(selectedUserDetails.brojTelefona || "");
+            setLokacija(selectedUserDetails.lokacija || "");
+            return;
+          }
+
           const userDoc = await getDoc(doc(db, "users", selectedUserDetails.id));
           if (userDoc.exists()) {
             const userData = userDoc.data();
@@ -229,6 +260,13 @@ export default function AdminPage() {
       setLoading(true);
       setMessage(null);
       
+      // Provjeri da li je auth dostupan
+      if (!auth) {
+        setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
+        setLoading(false);
+        return;
+      }
+
       // Uzmi ID token od trenutnog korisnika za autentifikaciju
       const user = auth.currentUser;
       if (!user) {
@@ -321,6 +359,10 @@ export default function AdminPage() {
   // Ažuriraj premium dane
   const adjustPremiumDays = async (userId: string, days: number) => {
     try {
+      if (!db) {
+        setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
+        return;
+      }
       setSaving(true);
       const subscriptionRef = doc(db, "users", userId, "subscription", "info");
       const subscriptionDoc = await getDoc(subscriptionRef);
@@ -376,6 +418,10 @@ export default function AdminPage() {
   // Postavi korisnika kao vlasnika (isOwner = true)
   const setUserAsOwner = async (userEmail: string) => {
     try {
+      if (!db) {
+        setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
+        return;
+      }
       setSaving(true);
       setMessage(null);
       
@@ -441,6 +487,10 @@ export default function AdminPage() {
   // Ažuriraj trial dane
   const adjustTrialDays = async (userId: string, days: number) => {
     try {
+      if (!db) {
+        setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
+        return;
+      }
       setSaving(true);
       const subscriptionRef = doc(db, "users", userId, "subscription", "info");
       const subscriptionDoc = await getDoc(subscriptionRef);
@@ -618,6 +668,11 @@ export default function AdminPage() {
     
     if (!doubleConfirmed) return;
     
+    if (!db) {
+      setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
+      return;
+    }
+
     setSaving(true);
     try {
       // 1. Obriši sve obračune

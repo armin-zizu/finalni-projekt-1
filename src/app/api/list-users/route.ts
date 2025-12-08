@@ -4,28 +4,42 @@ import { getFirestore } from "firebase-admin/firestore";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 
 // Inicijalizuj Firebase Admin samo ako još nije inicijalizovan
-let adminInitialized = false;
 function initializeAdmin() {
-  if (!getApps().length && !adminInitialized) {
-    try {
-      initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-        }),
-      });
-      adminInitialized = true;
-    } catch (error) {
-      console.error("Greška pri inicijalizaciji Firebase Admin:", error);
-    }
+  if (getApps().length > 0) {
+    return; // Već je inicijalizovan
+  }
+
+  // Provjeri da li su environment varijable dostupne
+  if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+    throw new Error("Firebase Admin environment varijable nisu postavljene");
+  }
+
+  try {
+    initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      }),
+    });
+  } catch (error: any) {
+    console.error("Greška pri inicijalizaciji Firebase Admin:", error);
+    throw new Error(`Firebase Admin inicijalizacija neuspješna: ${error.message}`);
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
     // Inicijalizuj Firebase Admin ako nije već
-    initializeAdmin();
+    try {
+      initializeAdmin();
+    } catch (initError: any) {
+      console.error("Greška pri inicijalizaciji Firebase Admin u API route:", initError);
+      return NextResponse.json(
+        { error: `Firebase Admin inicijalizacija neuspješna: ${initError.message}` },
+        { status: 500 }
+      );
+    }
 
     // Verifikuj admin token iz header-a
     const authHeader = request.headers.get('authorization');
@@ -37,7 +51,16 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split('Bearer ')[1];
-    const adminAuth = getAuth();
+    let adminAuth;
+    try {
+      adminAuth = getAuth();
+    } catch (error: any) {
+      console.error("Greška pri dobijanju Admin Auth instance:", error);
+      return NextResponse.json(
+        { error: `Firebase Admin Auth greška: ${error.message}` },
+        { status: 500 }
+      );
+    }
     
     // Verifikuj token korisnika
     let decodedToken;
