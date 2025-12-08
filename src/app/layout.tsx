@@ -132,28 +132,41 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     // Agresivno ukloni Service Worker i cache-ove (ODMAH, ne čekaj load event)
     if (typeof window !== 'undefined') {
-      // Ukloni Service Worker
+      // Onemogući Service Worker update pokušaje PRIJE nego što se bilo što desi
       if ('serviceWorker' in navigator) {
+        // Prekini sve aktivne Service Worker update-ove
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            registrations.forEach((registration) => {
+              registration.update().catch(() => {
+                // Ignoriši greške - samo pokušaj update da trigger-uje unregister
+              });
+            });
+          });
+        });
+
+        // Ukloni Service Worker
         navigator.serviceWorker.getRegistrations().then((registrations) => {
           registrations.forEach((registration) => {
+            // Prvo update da trigger-uje grešku i zatim unregister
+            registration.update().catch(() => {
+              // Ignoriši grešku update-a
+            });
+            
             registration.unregister().then((success) => {
               if (success) {
                 console.log('✅ Service Worker uklonjen');
-                // Nakon unregister, obriši cache
-                if ('caches' in window) {
-                  caches.keys().then((names) => {
-                    names.forEach((name) => {
-                      caches.delete(name).then(() => {
-                        console.log(`✅ Cache obrisan: ${name}`);
-                      });
-                    });
-                  });
-                }
               }
             }).catch((error) => {
               console.warn('⚠️ Greška pri uklanjanju Service Workera:', error);
+              // Pokušaj ponovo nakon kratkog delay-a
+              setTimeout(() => {
+                registration.unregister().catch(() => {});
+              }, 1000);
             });
           });
+        }).catch((error) => {
+          console.warn('⚠️ Greška pri dohvaćanju Service Worker registracija:', error);
         });
       }
 
@@ -163,9 +176,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           names.forEach((name) => {
             caches.delete(name).then(() => {
               console.log(`✅ Cache obrisan: ${name}`);
-            });
+            }).catch(() => {});
           });
-        });
+        }).catch(() => {});
       }
 
       // Zapamti verziju za buduće provjere
@@ -263,15 +276,42 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             dangerouslySetInnerHTML={{
               __html: `
                 (function() {
-                  // Ukloni Service Worker ODMAH
+                  // Onemogući Service Worker update PRIJE nego što se bilo što desi
                   if ('serviceWorker' in navigator) {
+                    // Prekini sve update pokušaje
+                    navigator.serviceWorker.addEventListener('updatefound', function(e) {
+                      console.warn('⚠️ Service Worker update pokušaj blokiran');
+                      e.preventDefault && e.preventDefault();
+                      return false;
+                    }, true);
+                    
+                    // Ukloni Service Worker ODMAH
                     navigator.serviceWorker.getRegistrations().then(function(registrations) {
                       registrations.forEach(function(registration) {
+                        // Pokušaj update da trigger-uje grešku i zatim unregister
+                        registration.update().catch(function() {
+                          // Ignoriši grešku
+                        });
+                        
                         registration.unregister().then(function() {
                           console.log('✅ Service Worker uklonjen (inline script)');
+                        }).catch(function() {
+                          // Pokušaj ponovo nakon delay-a
+                          setTimeout(function() {
+                            registration.unregister().catch(function() {});
+                          }, 500);
                         });
                       });
+                    }).catch(function() {
+                      // Ignoriši greške
                     });
+                    
+                    // Blokiraj sve nove registracije
+                    var originalRegister = navigator.serviceWorker.register;
+                    navigator.serviceWorker.register = function() {
+                      console.warn('⚠️ Service Worker register blokiran');
+                      return Promise.reject(new Error('Service Worker je onemogućen'));
+                    };
                   }
                   // Obriši sve cache-ove ODMAH
                   if ('caches' in window) {
@@ -279,9 +319,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       names.forEach(function(name) {
                         caches.delete(name).then(function() {
                           console.log('✅ Cache obrisan (inline script):', name);
-                        });
+                        }).catch(function() {});
                       });
-                    });
+                    }).catch(function() {});
                   }
                 })();
               `,
