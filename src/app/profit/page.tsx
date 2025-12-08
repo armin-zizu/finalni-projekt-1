@@ -177,6 +177,7 @@ const FilterSection: React.FC<{
             color: filter === f ? "#fff" : "#374151",
             padding: isMobile ? "6px 12px" : "8px 16px",
             fontSize: isMobile ? 13 : 14,
+            whiteSpace: "nowrap",
             flex: isMobile && (index === 0 || index === 3) ? "1 1 100%" : isMobile ? "1 1 calc(50% - 3px)" : "1 1 auto",
             minWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "fit-content",
             maxWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "none",

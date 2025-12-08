@@ -645,17 +645,9 @@ export default function DashboardPage() {
           maxWidth: "100%", 
           boxSizing: "border-box" 
         }}>
-          <h2 style={{ 
-            fontSize: "16px", 
-            fontWeight: 500, 
-            marginBottom: "8px", 
-            wordWrap: "break-word" 
-          }}>
-            Filter arhive
-          </h2>
           <div style={{ 
             display: "flex", 
-            gap: 6, 
+            gap: 4, 
             flexWrap: "wrap", 
             alignItems: "center", 
             width: "100%" 
@@ -680,9 +672,10 @@ export default function DashboardPage() {
                   color: range === r.value ? "#fff" : "#374151",
                   transition: "all 0.2s",
                   boxShadow: range === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                  flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 3px)",
-                  minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 3px)",
-                  maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 3px)",
+                  whiteSpace: "nowrap",
+                  flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
+                  minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                  maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
                 }}
               >
                 {r.label}
@@ -691,7 +684,7 @@ export default function DashboardPage() {
             {range === "custom" && (
               <div style={{ 
                 display: "flex", 
-                gap: 6, 
+                gap: 4, 
                 alignItems: "center", 
                 width: "100%", 
                 flexWrap: "wrap" 
@@ -931,7 +924,7 @@ export default function DashboardPage() {
           </h2>
           <div style={{ 
             display: "flex", 
-            gap: 6, 
+            gap: 4, 
             flexWrap: "wrap", 
             alignItems: "center", 
             width: "100%" 
@@ -956,9 +949,10 @@ export default function DashboardPage() {
                   color: artiklRange === r.value ? "#fff" : "#374151",
                   transition: "all 0.2s",
                   boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                  flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 3px)",
-                  minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 3px)",
-                  maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 3px)",
+                  whiteSpace: "nowrap",
+                  flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
+                  minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                  maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
                 }}
               >
                 {r.label}
@@ -967,7 +961,7 @@ export default function DashboardPage() {
             {artiklRange === "custom" && (
               <div style={{ 
                 display: "flex", 
-                gap: 6, 
+                gap: 4, 
                 alignItems: "center", 
                 width: "100%", 
                 flexWrap: "wrap" 
