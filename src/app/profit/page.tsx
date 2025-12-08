@@ -384,11 +384,37 @@ export default function ProfitPage() {
         artikli: parsed[0].artikli
       } : "Nema obračuna");
 
+      console.log("Profit - Generisanje profita:", {
+        parsedCount: parsed.length,
+        cjenovnikArtikala: cjenovnik.map(c => ({ naziv: c.naziv, nabavnaCijena: c.nabavnaCijena })),
+      });
+
       const profiti: ObracunProfit[] = parsed
-        .filter((obracun) => obracun.artikli && obracun.artikli.length > 0)
+        .filter((obracun) => {
+          const imaArtikala = obracun.artikli && obracun.artikli.length > 0;
+          if (!imaArtikala) {
+            console.warn(`Profit - Obračun ${obracun.datum} nema artikala`);
+          }
+          return imaArtikala;
+        })
         .map((obracun) => {
+        console.log(`Profit - Procesiranje obračuna ${obracun.datum}:`, {
+          artikliCount: obracun.artikli?.length || 0,
+          artikli: obracun.artikli?.map(a => ({
+            naziv: a.naziv,
+            utroseno: a.utroseno,
+            cijena: a.cijena,
+          })),
+        });
+
         const artikliProfit: ArtikalProfit[] = (obracun.artikli || [])
-          .filter((a) => a && a.naziv) // Filtriraj nevalidne artikle
+          .filter((a) => {
+            const isValid = a && a.naziv;
+            if (!isValid) {
+              console.warn(`Profit - Nevalidan artikal u obračunu ${obracun.datum}:`, a);
+            }
+            return isValid;
+          })
           .map((a) => {
             const cjenovnikArtikl = cjenovnik.find((c) => c.naziv === a.naziv);
             
@@ -408,7 +434,13 @@ export default function ProfitPage() {
             const nabavna = cjenovnikArtikl?.nabavnaCijena || 0;
             
             if (!cjenovnikArtikl) {
-              console.warn(`Profit - Artikal "${a.naziv}" nije pronađen u cjenovniku`);
+              console.warn(`Profit - Artikal "${a.naziv}" nije pronađen u cjenovniku (nabavna cijena će biti 0)`);
+            } else {
+              console.log(`Profit - Artikal "${a.naziv}":`, {
+                nabavnaCijena: nabavna,
+                prodajnaCijena: prodajna,
+                kolicina,
+              });
             }
             
             if (prodajna === 0) {
@@ -432,6 +464,8 @@ export default function ProfitPage() {
           })
           .filter((a): a is ArtikalProfit => a !== null); // Filtriraj null vrednosti
 
+        console.log(`Profit - Obračun ${obracun.datum} ima ${artikliProfit.length} artikala za prikaz`);
+
         const ukupnoRashod = obracun.rashodi?.reduce((sum, r) => sum + r.cijena, 0) || 0;
         const ukupnoPrihod = obracun.prihodi?.reduce((sum, p) => sum + p.cijena, 0) || 0;
         const ukupnoBruto = artikliProfit.reduce((sum, a) => sum + a.bruto, 0);
@@ -444,6 +478,16 @@ export default function ProfitPage() {
           ukupnoNeto,
           ukupnoRashod,
         };
+      });
+
+      console.log("Profit - Generisano profita:", {
+        brojObračuna: profiti.length,
+        obračuni: profiti.map(p => ({
+          datum: p.datum,
+          artikliProfitCount: p.artikliProfit.length,
+          ukupnoBruto: p.ukupnoBruto,
+          ukupnoNeto: p.ukupnoNeto,
+        })),
       });
 
       console.log("Profit - Generisano profita:", profiti.length);
