@@ -130,28 +130,47 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
 
   useEffect(() => {
-    // Ukloni Service Worker ako postoji (za cleanup starih PWA instalacija)
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        registrations.forEach((registration) => {
-          registration.unregister().then((success) => {
-            if (success) {
-              console.log('Stari Service Worker je uklonjen');
-            }
-          }).catch((error) => {
-            console.warn('Greška pri uklanjanju Service Workera:', error);
-          });
-        });
-      });
-
-      // Očisti sve cache-ove
-      if ('caches' in window) {
-        caches.keys().then((names) => {
-          names.forEach((name) => {
-            caches.delete(name);
+    // Agresivno ukloni Service Worker i cache-ove (ODMAH, ne čekaj load event)
+    if (typeof window !== 'undefined') {
+      // Ukloni Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => {
+            registration.unregister().then((success) => {
+              if (success) {
+                console.log('✅ Service Worker uklonjen');
+                // Nakon unregister, obriši cache
+                if ('caches' in window) {
+                  caches.keys().then((names) => {
+                    names.forEach((name) => {
+                      caches.delete(name).then(() => {
+                        console.log(`✅ Cache obrisan: ${name}`);
+                      });
+                    });
+                  });
+                }
+              }
+            }).catch((error) => {
+              console.warn('⚠️ Greška pri uklanjanju Service Workera:', error);
+            });
           });
         });
       }
+
+      // Očisti sve cache-ove (neovisno o Service Worker-u)
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => {
+            caches.delete(name).then(() => {
+              console.log(`✅ Cache obrisan: ${name}`);
+            });
+          });
+        });
+      }
+
+      // Zapamti verziju za buduće provjere
+      const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString();
+      sessionStorage.setItem('appBuildTime', buildTime);
     }
 
     // Timeout za fallback - ako auth state se ne reši za 5 sekundi, preusmjeri na login
@@ -236,26 +255,35 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="bs">
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-          {/* Ukloni Service Worker pri učitavanju */}
+          <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+          <meta httpEquiv="Pragma" content="no-cache" />
+          <meta httpEquiv="Expires" content="0" />
+          {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
           <script
             dangerouslySetInnerHTML={{
               __html: `
-                if ('serviceWorker' in navigator) {
-                  window.addEventListener('load', function() {
+                (function() {
+                  // Ukloni Service Worker ODMAH
+                  if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                      for(let registration of registrations) {
-                        registration.unregister();
-                      }
-                    });
-                    if ('caches' in window) {
-                      caches.keys().then(function(names) {
-                        for (let name of names) {
-                          caches.delete(name);
-                        }
+                      registrations.forEach(function(registration) {
+                        registration.unregister().then(function() {
+                          console.log('✅ Service Worker uklonjen (inline script)');
+                        });
                       });
-                    }
-                  });
-                }
+                    });
+                  }
+                  // Obriši sve cache-ove ODMAH
+                  if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                      names.forEach(function(name) {
+                        caches.delete(name).then(function() {
+                          console.log('✅ Cache obrisan (inline script):', name);
+                        });
+                      });
+                    });
+                  }
+                })();
               `,
             }}
           />
@@ -275,30 +303,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       return (
         <html lang="bs">
           <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-            {/* Ukloni Service Worker pri učitavanju */}
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+          <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+          <meta httpEquiv="Pragma" content="no-cache" />
+          <meta httpEquiv="Expires" content="0" />
+          {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
                   if ('serviceWorker' in navigator) {
-                    window.addEventListener('load', function() {
-                      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                        for(let registration of registrations) {
-                          registration.unregister();
-                        }
-                      });
-                      if ('caches' in window) {
-                        caches.keys().then(function(names) {
-                          for (let name of names) {
-                            caches.delete(name);
-                          }
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                      registrations.forEach(function(registration) {
+                        registration.unregister().then(function() {
+                          console.log('✅ Service Worker uklonjen (inline script)');
                         });
-                      }
+                      });
                     });
                   }
-                `,
-              }}
-            />
+                  if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                      names.forEach(function(name) {
+                        caches.delete(name).then(function() {
+                          console.log('✅ Cache obrisan (inline script):', name);
+                        });
+                      });
+                    });
+                  }
+                })();
+              `,
+            }}
+          />
             <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
           </head>
           <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", WebkitTapHighlightColor: "transparent", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#f4f5f7" }}>
@@ -315,26 +350,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
           <meta name="theme-color" content="#3b82f6" />
           <meta name="description" content="Office Lounge Bar - Aplikacija za upravljanje poslovanjem" />
-          {/* Ukloni Service Worker pri učitavanju */}
+          <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+          <meta httpEquiv="Pragma" content="no-cache" />
+          <meta httpEquiv="Expires" content="0" />
+          {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
           <script
             dangerouslySetInnerHTML={{
               __html: `
-                if ('serviceWorker' in navigator) {
-                  window.addEventListener('load', function() {
+                (function() {
+                  if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                      for(let registration of registrations) {
-                        registration.unregister();
-                      }
-                    });
-                    if ('caches' in window) {
-                      caches.keys().then(function(names) {
-                        for (let name of names) {
-                          caches.delete(name);
-                        }
+                      registrations.forEach(function(registration) {
+                        registration.unregister().then(function() {
+                          console.log('✅ Service Worker uklonjen (inline script)');
+                        });
                       });
-                    }
-                  });
-                }
+                    });
+                  }
+                  if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                      names.forEach(function(name) {
+                        caches.delete(name).then(function() {
+                          console.log('✅ Cache obrisan (inline script):', name);
+                        });
+                      });
+                    });
+                  }
+                })();
               `,
             }}
           />
@@ -362,26 +404,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="theme-color" content="#3b82f6" />
         <meta name="description" content="Office Lounge Bar - Aplikacija za upravljanje poslovanjem" />
-        {/* Ukloni Service Worker pri učitavanju */}
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
+        {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
+              (function() {
+                if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for(let registration of registrations) {
-                      registration.unregister();
-                    }
-                  });
-                  if ('caches' in window) {
-                    caches.keys().then(function(names) {
-                      for (let name of names) {
-                        caches.delete(name);
-                      }
+                    registrations.forEach(function(registration) {
+                      registration.unregister().then(function() {
+                        console.log('✅ Service Worker uklonjen (inline script)');
+                      });
                     });
-                  }
-                });
-              }
+                  });
+                }
+                if ('caches' in window) {
+                  caches.keys().then(function(names) {
+                    names.forEach(function(name) {
+                      caches.delete(name).then(function() {
+                        console.log('✅ Cache obrisan (inline script):', name);
+                      });
+                    });
+                  });
+                }
+              })();
             `,
           }}
         />
