@@ -990,9 +990,25 @@ export default function ProfitPage() {
             max-width: 100% !important;
             overflow: hidden !important;
           }
+          .recharts-wrapper { 
+            width: 100% !important; 
+            height: 280px !important;
+            min-height: 280px !important;
+            position: relative !important;
+          }
           .recharts-surface { 
             width: 100% !important; 
+            height: 100% !important;
             max-width: 100% !important;
+          }
+          .recharts-legend-wrapper {
+            width: 100% !important;
+          }
+          div[style*='height: 300'][style*='backgroundColor: #fff'] {
+            height: 300px !important;
+            min-height: 300px !important;
+            position: relative !important;
+            overflow: visible !important;
           }
           div[style*='gap: 24px'] { 
             flex-direction: column; 
@@ -1031,18 +1047,20 @@ export default function ProfitPage() {
       <div style={{ 
         width: "100%", 
         maxWidth: "100%", 
-        height: 300, 
+        height: isMobile ? 300 : 300, 
+        minHeight: isMobile ? 300 : 300,
         backgroundColor: "#fff",
         borderRadius: 12,
-        padding: 20,
+        padding: isMobile ? 10 : 20,
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
         marginBottom: 20, 
-        overflow: "hidden", 
-        boxSizing: "border-box" 
+        overflow: isMobile ? "visible" : "hidden", 
+        boxSizing: "border-box",
+        position: "relative"
       }}>
         {chartData && chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%" minHeight={280}>
-            <LineChart data={chartData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+          <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}`} width="100%" height={isMobile ? 280 : 300} minHeight={isMobile ? 280 : 280}>
+            <LineChart data={chartData} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1111,21 +1129,23 @@ export default function ProfitPage() {
       {/* ---- Grafikon profita odabranog artikla ---- */}
       <div
         style={{
-          width: "100%",
-          maxWidth: "100%",
-          height: 300,
-          backgroundColor: "#fff",
-          borderRadius: 12,
-          padding: 20,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-          marginBottom: 10,
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
+        width: "100%",
+        maxWidth: "100%",
+        height: isMobile ? 300 : 300,
+        minHeight: isMobile ? 300 : 300,
+        backgroundColor: "#fff",
+        borderRadius: 12,
+        padding: isMobile ? 10 : 20,
+        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+        marginBottom: 10,
+        boxSizing: "border-box",
+        overflow: isMobile ? "visible" : "hidden",
+        position: "relative"
+      }}
       >
-        <ResponsiveContainer width="100%" height="100%" minHeight={280}>
+        <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}`} width="100%" height={isMobile ? 280 : 300} minHeight={isMobile ? 280 : 280}>
           {selectedArtiklData && selectedArtiklData.length > 0 ? (
-            <LineChart data={selectedArtiklData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+            <LineChart data={selectedArtiklData} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis 
               dataKey="datum" 

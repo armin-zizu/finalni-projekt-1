@@ -569,8 +569,35 @@ export default function DashboardPage() {
             margin-left: 0 !important;
             margin-right: 0 !important;
           }
-          .recharts-wrapper { width: 100% !important; }
-          .recharts-surface { width: 100% !important; }
+          .recharts-wrapper { 
+            width: 100% !important; 
+            height: 280px !important;
+            min-height: 280px !important;
+            position: relative !important;
+          }
+          .recharts-surface { 
+            width: 100% !important; 
+            height: 100% !important;
+          }
+          .recharts-legend-wrapper {
+            width: 100% !important;
+          }
+          .chart-container {
+            position: relative !important;
+            overflow: visible !important;
+          }
+          div[style*='height: 300'][style*='backgroundColor: #fff'] {
+            height: 300px !important;
+            min-height: 300px !important;
+            position: relative !important;
+            overflow: visible !important;
+          }
+          div[style*='height: 400'][style*='backgroundColor: #fff'] {
+            height: 350px !important;
+            min-height: 350px !important;
+            position: relative !important;
+            overflow: visible !important;
+          }
         }
       `}</style>
 
@@ -789,19 +816,21 @@ export default function DashboardPage() {
         style={{
           width: "100%",
           maxWidth: "100%",
-          height: 400,
+          height: isMobile ? 300 : 400,
+          minHeight: isMobile ? 300 : 400,
           backgroundColor: "#fff",
           borderRadius: 12,
-          padding: 20,
+          padding: isMobile ? 10 : 20,
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
           marginBottom: 30,
-          overflow: "hidden",
+          overflow: isMobile ? "visible" : "hidden",
           boxSizing: "border-box",
+          position: "relative"
         }}
       >
         {chartData && chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-            <LineChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
+          <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}`} width="100%" height={isMobile ? 280 : 400} minHeight={isMobile ? 280 : 300}>
+            <LineChart data={chartData} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1081,18 +1110,20 @@ export default function DashboardPage() {
           style={{
             width: "100%",
             maxWidth: "100%",
-            height: 300,
+            height: isMobile ? 300 : 350,
+            minHeight: isMobile ? 300 : 350,
             backgroundColor: "#fff",
             borderRadius: 12,
-            padding: 20,
+            padding: isMobile ? 10 : 20,
             boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
             marginBottom: 10,
-            overflow: "hidden",
+            overflow: isMobile ? "visible" : "hidden",
             boxSizing: "border-box",
+            position: "relative"
           }}
         >
-          <ResponsiveContainer width="100%" height="100%" minHeight={280}>
-            <LineChart data={selectedData} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
+          <ResponsiveContainer key={`artikl-${isMobile}-${selectedData.length}`} width="100%" height={isMobile ? 280 : 350} minHeight={isMobile ? 280 : 280}>
+            <LineChart data={selectedData} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
