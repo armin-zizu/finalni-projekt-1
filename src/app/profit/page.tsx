@@ -144,7 +144,7 @@ const FilterSection: React.FC<{
   <div style={{ marginBottom: "20px", background: "#fff", padding: "16px", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
     <h2 style={{ fontSize: "18px", fontWeight: 500, marginBottom: "12px", wordWrap: "break-word" }}>{label}</h2>
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
-      {["trenutnaSedmica", "proslaSedmica", "prosliMjesec", "custom"].map((f) => (
+      {["trenutnaSedmica", "proslaSedmica", "prosliMjesec", "custom"].map((f, index) => (
         <button
           key={f}
           onClick={() => setFilter(f as any)}
@@ -152,8 +152,9 @@ const FilterSection: React.FC<{
             ...buttonStyle,
             backgroundColor: filter === f ? "#3b82f6" : "#e5e7eb",
             color: filter === f ? "#fff" : "#374151",
-            flex: "1 1 auto",
-            minWidth: "fit-content",
+            flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 6px)",
+            minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
+            maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
           }}
         >
           {f === "trenutnaSedmica" ? "Trenutna sedmica" :

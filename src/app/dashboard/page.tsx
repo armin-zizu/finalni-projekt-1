@@ -653,7 +653,7 @@ export default function DashboardPage() {
             { value: "previousWeek", label: "Prošla sedmica" },
             { value: "previousMonth", label: "Prošli mjesec" },
             { value: "custom", label: "Prilagođeni period" },
-          ].map((r) => (
+          ].map((r, index) => (
             <button
               key={r.value}
               onClick={() => setRange(r.value as any)}
@@ -668,8 +668,9 @@ export default function DashboardPage() {
                 color: range === r.value ? "#fff" : "#374151",
                 transition: "all 0.2s",
                 boxShadow: range === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                flex: "1 1 auto",
-                minWidth: "fit-content",
+                flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 6px)",
+                minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
+                maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
               }}
             >
               {r.label}
@@ -853,7 +854,7 @@ export default function DashboardPage() {
             { value: "previousWeek", label: "Prošla sedmica" },
             { value: "previousMonth", label: "Prošli mjesec" },
             { value: "custom", label: "Prilagođeni period" },
-          ].map((r) => (
+          ].map((r, index) => (
             <button
               key={r.value}
               onClick={() => setArtiklRange(r.value as any)}
@@ -868,8 +869,9 @@ export default function DashboardPage() {
                 color: artiklRange === r.value ? "#fff" : "#374151",
                 transition: "all 0.2s",
                 boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                flex: "1 1 auto",
-                minWidth: "fit-content",
+                flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 6px)",
+                minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
+                maxWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 6px)",
               }}
             >
               {r.label}
