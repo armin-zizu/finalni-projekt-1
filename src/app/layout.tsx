@@ -276,6 +276,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="bs">
           <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            {/* Ukloni Service Worker pri učitavanju */}
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', function() {
+                      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        for(let registration of registrations) {
+                          registration.unregister();
+                        }
+                      });
+                      if ('caches' in window) {
+                        caches.keys().then(function(names) {
+                          for (let name of names) {
+                            caches.delete(name);
+                          }
+                        });
+                      }
+                    });
+                  }
+                `,
+              }}
+            />
             <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
           </head>
           <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", WebkitTapHighlightColor: "transparent", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#f4f5f7" }}>
