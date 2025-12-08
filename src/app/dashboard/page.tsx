@@ -216,12 +216,6 @@ export default function DashboardPage() {
       window.removeEventListener("arhivaChanged", handleArhivaChange);
     };
   }, [loadArhiva]);
-    });
-
-    return () => {
-      unsubscribeAuth();
-    };
-  }, []);
 
   // Priprema podataka za grafikon
   const obracuni: Obracun[] = arhiva
