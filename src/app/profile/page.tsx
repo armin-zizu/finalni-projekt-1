@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { auth, sendPasswordResetEmail, signOut, sendEmailVerification } from "../../lib/firebase";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+// TODO: Uklonjen Firebase import - implementirati API pozive
 import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole, UserRole, PagePermission } from "../context/RoleContext";
@@ -9,7 +9,7 @@ import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import { db } from "../../lib/firestore";
-import { doc, setDoc, Timestamp, collection, getDocs, query, where, getDoc, updateDoc, onSnapshot, deleteDoc } from "firebase/firestore";
+// TODO: Uklonjen Firebase import - implementirati API pozive
 import { FaSearch, FaSpinner, FaMobile, FaDesktop } from "react-icons/fa";
 
 const containerStyle: React.CSSProperties = {
@@ -116,6 +116,7 @@ export default function Profile() {
   const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
   const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
+  const editingBoxRef = useRef<HTMLTableCellElement | null>(null);
   const [arhivaCount, setArhivaCount] = useState<number>(0);
   const [loadingArhivaCount, setLoadingArhivaCount] = useState<boolean>(false);
   const { cjenovnik } = useCjenovnik();
@@ -297,6 +298,28 @@ export default function Profile() {
     
     loadSessions();
   }, []);
+
+  // Scroll na editing box kada se otvori (samo na mobilnom)
+  useEffect(() => {
+    if (editingDeviceId && editingBoxRef.current) {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+      if (isMobile) {
+        // Kratak delay da se DOM ažurira
+        setTimeout(() => {
+          const element = editingBoxRef.current;
+          if (element) {
+            // Scrolluj tabelu wrapper na lijevo (scrollTo left: 0) da bi editing box bio vidljiv
+            const tableWrapper = element.closest('.table-wrapper-scroll');
+            if (tableWrapper) {
+              tableWrapper.scrollTo({ left: 0, behavior: 'smooth' });
+            } else {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'start' });
+            }
+          }
+        }, 150);
+      }
+    }
+  }, [editingDeviceId]);
 
   const handleChangeEmail = async () => {
     const user = auth.currentUser;
@@ -945,10 +968,139 @@ export default function Profile() {
           td[colspan] {
             position: relative !important;
             width: 100% !important;
-            max-width: 100vw !important;
+            max-width: 100% !important;
             box-sizing: border-box !important;
-            padding-left: 4px !important;
-            padding-right: 4px !important;
+            padding: 6px !important;
+          }
+          /* Zaključaj horizontalni scroll kada je editing box otvoren na mobilnom */
+          .table-wrapper-scroll:has(.editing-device-box) {
+            scroll-behavior: smooth !important;
+            overflow-x: hidden !important;
+            position: relative !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          /* Blokiraj scroll na body i html dok je editing box otvoren */
+          body:has(.editing-device-box),
+          html:has(.editing-device-box) {
+            overflow-x: hidden !important;
+            width: 100% !important;
+          }
+          /* Osiguraj da editing box bude unutar viewport-a na mobilnom */
+          .editing-device-box {
+            scroll-margin: 0 !important;
+            position: relative !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            left: 0 !important;
+            right: 0 !important;
+            margin: 0 !important;
+            padding: 6px !important;
+            box-sizing: border-box !important;
+            display: block !important;
+          }
+          /* Osiguraj da tabela ne prelazi viewport kada je editing box otvoren */
+          .table-wrapper-scroll:has(.editing-device-box) table {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: auto !important;
+          }
+          /* Osiguraj da parent container ne omogućava scroll */
+          div[style*="maxWidth: 1200px"]:has(.editing-device-box) {
+            overflow-x: hidden !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
+          /* Osiguraj da tr element ne prelazi viewport */
+          tr:has(.editing-device-box) {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          /* Osiguraj da editing box cell preuzme punu širinu */
+          tr:has(.editing-device-box) td {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          /* Editing box - smanji padding i gap na mobilnom */
+          .editing-device-box > div {
+            gap: 6px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .editing-device-box h4 {
+            font-size: 13px !important;
+            margin-bottom: 4px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .editing-device-box > div > div {
+            padding: 6px !important;
+            gap: 6px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .editing-device-box label {
+            font-size: 12px !important;
+            margin-bottom: 3px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .editing-device-box select,
+          .editing-device-box input[type="text"] {
+            padding: 5px 8px !important;
+            font-size: 12px !important;
+            min-height: 30px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .editing-device-box button {
+            padding: 6px 10px !important;
+            font-size: 12px !important;
+            min-height: 32px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .editing-device-box > div > div > div {
+            gap: 4px !important;
+            padding: 6px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .editing-device-box > div > div > div > label {
+            padding: 3px !important;
+            min-height: 28px !important;
+            font-size: 11px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .editing-device-box > div > div > div > label > input[type="checkbox"] {
+            width: 16px !important;
+            height: 16px !important;
+            min-width: 16px !important;
+            min-height: 16px !important;
+          }
+          .editing-device-box > div > div > div > div {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            gap: 4px !important;
+          }
+          .editing-device-box > div > div > div > div > button {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            box-sizing: border-box !important;
           }
         }
       `}</style>
@@ -1188,7 +1340,12 @@ export default function Profile() {
                       </tr>
                       {isEditing && (
                         <tr>
-                          <td colSpan={7} style={{ ...tdStyle, padding: "16px", background: "#f9fafb" }}>
+                          <td 
+                            ref={editingDeviceId === device.id ? editingBoxRef : null}
+                            colSpan={7} 
+                            className="editing-device-box"
+                            style={{ ...tdStyle, padding: "16px", background: "#f9fafb" }}
+                          >
                             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                               <div>
                                 <h4 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "12px", color: "#1f2937" }}>

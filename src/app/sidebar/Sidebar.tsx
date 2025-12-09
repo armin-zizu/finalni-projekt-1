@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { auth } from "../../lib/firebase";
+// TODO: Implementirati API poziv za autentifikaciju
 import { FaTachometerAlt, FaCalculator, FaArchive, FaTags, FaDollarSign, FaUser, FaBars, FaShieldAlt } from "react-icons/fa";
 import { useAppName } from "../context/AppNameContext";
 import { useRole } from "../context/RoleContext";
@@ -18,14 +18,27 @@ const Sidebar = () => {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Provjera autentifikacije
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setIsAuthenticated(!!user);
-      // Provjeri da li je admin
-      const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
-      setIsAdmin(user?.email === ADMIN_EMAIL);
-    });
-    return () => unsubscribe();
+    // TODO: Implementirati provjeru autentifikacije preko API poziva
+    // const checkAuth = async () => {
+    //   try {
+    //     const response = await fetch('/api/auth/me');
+    //     if (response.ok) {
+    //       const user = await response.json();
+    //       setIsAuthenticated(true);
+    //       const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
+    //       setIsAdmin(user.email === ADMIN_EMAIL);
+    //     } else {
+    //       setIsAuthenticated(false);
+    //       setIsAdmin(false);
+    //     }
+    //   } catch (error) {
+    //     setIsAuthenticated(false);
+    //     setIsAdmin(false);
+    //   }
+    // };
+    // checkAuth();
+    setIsAuthenticated(false);
+    setIsAdmin(false);
   }, []);
 
   // Definiši dozvole za svaku ulogu

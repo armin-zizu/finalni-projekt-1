@@ -7,10 +7,7 @@ import { SubscriptionProvider } from "./context/SubscriptionContext";
 import { RoleProvider, useRole } from "./context/RoleContext";
 import SubscriptionBanner from "./components/SubscriptionBanner";
 import Sidebar from "./sidebar/Sidebar";
-import { auth, db } from "../lib/firebase";
 import { usePathname, useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
-import { User } from "firebase/auth";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
 // Komponenta koja provjerava role i blokira pristup ako je potrebno
@@ -68,8 +65,9 @@ function AppContent({ children }: { children: React.ReactNode }) {
             Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.
           </p>
           <button
-            onClick={() => {
-              auth.signOut();
+            onClick={async () => {
+              // TODO: Implementirati API poziv za logout
+              // await fetch('/api/auth/logout', { method: 'POST' });
               router.push("/login");
             }}
             style={{
@@ -204,80 +202,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       sessionStorage.setItem('appBuildTime', buildTime);
     }
 
-    // Timeout za fallback - ako auth state se ne reši za 5 sekundi, preusmjeri na login
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        console.warn("Auth state timeout - preusmjeravanje na login");
+    // TODO: Implementirati provjeru autentifikacije preko API poziva
+    // Za sada, proveri da li postoji JWT token u localStorage/cookie
+    const checkAuth = async () => {
+      try {
+        // TODO: Zamijeniti sa API pozivom
+        // const response = await fetch('/api/auth/me');
+        // const authenticated = response.ok;
+        // setIsAuthenticated(authenticated);
+        setIsAuthenticated(false); // Za sada false dok se ne implementira API
         setIsLoading(false);
+        
+        if (pathname !== "/login") {
+          router.push("/login");
+        }
+      } catch (error) {
+        console.error("Greška pri provjeri autentifikacije:", error);
         setIsAuthenticated(false);
+        setIsLoading(false);
         if (pathname !== "/login") {
           router.push("/login");
         }
       }
-    }, 5000);
-
-    // Proveri da li je auth dostupan
-    if (!auth) {
-      console.error("Firebase auth nije inicijalizovan!");
-      setIsLoading(false);
-      setIsAuthenticated(false);
-      if (pathname !== "/login") {
-        router.push("/login");
-      }
-      clearTimeout(timeoutId);
-      return;
-    }
-
-    const unsubscribe = auth.onAuthStateChanged(async (user: User | null) => {
-      clearTimeout(timeoutId); // Očisti timeout ako je auth state rešen
-      const authenticated = !!user;
-      
-      if (authenticated && user) {
-        // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski dozvoli pristup
-        const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
-          ? "Windows"
-          : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
-          ? "macOS"
-          : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
-          ? "Linux"
-          : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
-          ? "Android"
-          : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
-          ? "iOS"
-          : "Unknown";
-        
-        const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
-        
-        // Provjeri da li je korisnik vlasnik (za informacije)
-        try {
-          const userDocRef = doc(db, "users", user.uid);
-          const userDoc = await getDoc(userDocRef);
-          const isOwner = userDoc.exists() && userDoc.data().isOwner === true;
-
-          // Provjera statusa uređaja se sada radi u RoleContext.tsx
-          // deviceId se generiše i čuva u Firestore kroz RoleContext
-        } catch (error) {
-          console.error("Greška pri provjeri odobrenja:", error);
-          // U slučaju greške, dozvoli pristup (fallback)
-        }
-      }
-      
-      setIsAuthenticated(authenticated);
-      setIsLoading(false);
-
-      // Ako korisnik nije prijavljen i nije na login stranici, preusmjeri na login
-      if (!authenticated && pathname !== "/login") {
-        router.push("/login");
-      }
-      // Ako je korisnik prijavljen i na login stranici, NE preusmjeravaj automatski
-      // AppContent će provjeriti role i blokirati pristup ako je potrebno
-      // Preusmjeravanje na dashboard će se desiti samo ako je role postavljen (u AppContent)
-    });
-    
-    return () => {
-      clearTimeout(timeoutId);
-      unsubscribe();
     };
+    
+    checkAuth();
   }, [pathname, router, isLoading]);
 
   // Ako se još učitava autentifikacija, prikaži loading ili ništa

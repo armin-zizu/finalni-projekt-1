@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "../../lib/firebase";
+// TODO: Uklonjen Firebase import - implementirati API pozive
 import { initializeUser } from "../../lib/userInit";
 import { useRouter } from "next/navigation";
 import { db } from "../../lib/firestore";
-import { doc, getDoc, setDoc, collection, query, where, getDocs, Timestamp } from "firebase/firestore";
+// TODO: Uklonjen Firebase import - implementirati API pozive
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { useRole } from "../context/RoleContext";
 

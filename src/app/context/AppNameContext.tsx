@@ -1,9 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { auth, db } from "../../lib/firebase"; // Ispravljena putanja do lib/firebase.ts (ako je u src/app/lib)
-import { doc, setDoc, getDoc, onSnapshot, Timestamp } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+// TODO: Implementirati API pozive za AppName
 
 interface AppNameContextType {
   appName: string;
@@ -17,99 +15,19 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
   const [appName, setAppName] = useState<string>("Moja Aplikacija");
 
   useEffect(() => {
-    let unsubscribeSnapshot: (() => void) | null = null;
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      // Očisti prethodni snapshot listener ako postoji
-      if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-        unsubscribeSnapshot = null;
-      }
-
-      if (user) {
-        const userId = user.uid;
-        const storageKey = `appName_${userId}`;
-        
-        // 1. POKUŠAJ UČITATI IZ FIRESTORE (primarni izvor)
-        let firestoreAppName: string | null = null;
-        let firestoreUpdatedAt: number | null = null;
-        try {
-          const userDocRef = doc(db, "users", userId);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            firestoreAppName = data.appName || null;
-            if (data.appNameUpdatedAt) {
-              firestoreUpdatedAt = data.appNameUpdatedAt.toMillis ? data.appNameUpdatedAt.toMillis() : null;
-            }
-            if (firestoreAppName) {
-              setAppName(firestoreAppName);
-              console.log("AppName učitano iz Firestore:", firestoreAppName);
-            }
-          }
-        } catch (error: any) {
-          const errorCode = error?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Greška pri učitavanju appName iz Firestore-a:", error);
-          }
-        }
-        
-        // 2. NE UČITAVAJ IZ LOCALSTORAGE - sve je u Firestore
-        // Ako Firestore nema ime, koristi default
-        if (!firestoreAppName) {
-          setAppName("Moja Aplikacija");
-        }
-
-        // Postavi real-time listener za automatsku sinkronizaciju na svim uređajima
-        try {
-          const userDocRefForSnapshot = doc(db, "users", userId);
-          unsubscribeSnapshot = onSnapshot(
-            userDocRefForSnapshot, 
-            (docSnapshot) => {
-              if (docSnapshot.exists()) {
-                const data = docSnapshot.data();
-                const newAppName = data.appName;
-                const newUpdatedAt = data.appNameUpdatedAt ? (data.appNameUpdatedAt.toMillis ? data.appNameUpdatedAt.toMillis() : null) : null;
-                
-                if (newAppName) {
-                  // Uvijek ažuriraj, jer možda je promijenjeno na drugom uređaju
-                  setAppName((currentAppName) => {
-                    if (currentAppName !== newAppName) {
-                      console.log("AppName ažurirano preko real-time listenera:", newAppName);
-                      return newAppName;
-                    }
-                    return currentAppName;
-                  });
-                }
-              }
-            },
-            (error: any) => {
-              // Ignoriraj greške dozvola
-              const errorCode = error?.code || "";
-              if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-                console.warn("Greška u onSnapshot za appName:", error);
-              }
-            }
-          );
-        } catch (error: any) {
-          // Ignoriraj greške dozvola
-          const errorCode = error?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Greška pri postavljanju onSnapshot za appName:", error);
-          }
-        }
-      } else {
-        // Ako korisnik nije prijavljen, koristi default
-        setAppName("Moja Aplikacija");
-      }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-      }
-    };
+    // TODO: Implementirati API poziv za učitavanje appName
+    // const loadAppName = async () => {
+    //   try {
+    //     const response = await fetch('/api/users/app-name');
+    //     if (response.ok) {
+    //       const data = await response.json();
+    //       setAppName(data.appName || "Moja Aplikacija");
+    //     }
+    //   } catch (error) {
+    //     console.error("Greška pri učitavanju appName:", error);
+    //   }
+    // };
+    // loadAppName();
   }, []);
 
   // Uklonjen automatski useEffect koji sprema appName u Firestore
