@@ -16,29 +16,10 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   
-  // Provjeri da li smo na client-side prije korištenja useRole (zbog SSR)
-  const [isMounted, setIsMounted] = useState(false);
-  
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-  
-  // Ne koristi useRole tokom SSR - fallback vrijednosti
-  let role: UserRole | null = null;
-  let roleLoading = true;
-  
-  if (isMounted) {
-    try {
-      const roleContext = useRole();
-      role = roleContext.role;
-      roleLoading = roleContext.loading;
-    } catch (error) {
-      // Context nije dostupan (može se desiti tokom SSR)
-      console.warn('RoleContext not available:', error);
-      role = null;
-      roleLoading = false;
-    }
-  }
+  // Koristi useContext direktno sa fallback vrijednostima (ne može se uslovno pozivati)
+  const roleContext = useContext(RoleContext);
+  const role = roleContext?.role ?? null;
+  const roleLoading = roleContext?.loading ?? true;
 
   // Preusmjeri na dashboard ako je role postavljen i korisnik je na login stranici
   useEffect(() => {

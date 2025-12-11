@@ -46,7 +46,7 @@ interface RoleContextType {
   refreshRole: () => Promise<void>;
 }
 
-const RoleContext = createContext<RoleContextType | undefined>(undefined);
+export const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any>(null);
