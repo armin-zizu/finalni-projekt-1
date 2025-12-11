@@ -38,11 +38,23 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
 
     sql += ' ORDER BY datum DESC';
 
-    console.log('Get obracuni - userId:', userId, 'SQL:', sql, 'params:', queryParams);
+    console.log('Get obracuni - userId:', userId, 'type:', typeof userId, 'SQL:', sql, 'params:', queryParams);
+    
+    try {
+      const result = await query(sql, queryParams);
+      console.log('Get obracuni - result rows:', result.rows.length);
+    } catch (dbError: any) {
+      console.error('Database query error:', {
+        message: dbError.message,
+        code: dbError.code,
+        detail: dbError.detail,
+        userId,
+        userIdType: typeof userId,
+      });
+      throw dbError;
+    }
     
     const result = await query(sql, queryParams);
-
-    console.log('Get obracuni - result rows:', result.rows.length);
 
     const obracuni = result.rows.map((row: any) => ({
       id: row.id,
