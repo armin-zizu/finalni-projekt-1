@@ -1,10 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-// TEMPORARY: Disabled Firebase imports for development
-// import { auth, onAuthStateChanged } from "../../lib/firebase";
-// import { db } from "../../lib/firestore";
-// import { doc, setDoc, getDoc, collection, getDocs, onSnapshot } from "firebase/firestore";
+import { useRole } from "./RoleContext";
+import { getCjenovnik, saveCjenovnik, getObracuni } from "../../lib/api";
 
 // ---- Tip artikla ----
 type ArtiklCijena = {
@@ -45,11 +43,108 @@ const initialCjenovnik: ArtiklCijena[] = [
 
 // ---- Provider ----
 export function CjenovnikProvider({ children }: { children: ReactNode }) {
-  // NE koristi localStorage za početno učitavanje - čekaj da se korisnik prijavi
+  const { user } = useRole();
   const [cjenovnik, setCjenovnik] = useState<ArtiklCijena[]>(initialCjenovnik);
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag za prvo učitavanje
   const [prethodniCjenovnik, setPrethodniCjenovnik] = useState<ArtiklCijena[]>([]); // Prethodno stanje cjenovnika
+
+  // Učitaj cjenovnik iz API-ja
+  useEffect(() => {
+    if (!user?.id) {
+      // Ako nema korisnika, koristi initial cjenovnik
+      setCjenovnik(initialCjenovnik);
+      setIsInitialLoad(false);
+      return;
+    }
+
+    const loadCjenovnik = async () => {
+      try {
+        // Učitaj cjenovnik iz API-ja
+        const apiCjenovnik = await getCjenovnik(user.id);
+        
+        if (apiCjenovnik && apiCjenovnik.length > 0) {
+          // Transformiraj API format u format koji context koristi
+          // API vraća: { id, naziv, cijena, proizvodnaCijena, zestokoKolicina, pocetnoStanje: 0 }
+          // Context očekuje: { naziv, cijena, jeZestoko, zestokoKolicina, proizvodnaCijena, nabavnaCijena, pocetnoStanje, ... }
+          
+          let transformedCjenovnik: ArtiklCijena[] = apiCjenovnik.map((item: any) => ({
+            naziv: item.naziv,
+            cijena: item.cijena,
+            jeZestoko: item.zestokoKolicina ? true : false,
+            zestokoKolicina: item.zestokoKolicina,
+            proizvodnaCijena: item.proizvodnaCijena,
+            nabavnaCijena: item.proizvodnaCijena || 0, // Koristi proizvodnaCijena kao nabavnaCijena ako nije postavljeno
+            pocetnoStanje: item.pocetnoStanje || 0,
+            // Dodatna polja koja možda nedostaju
+            nabavnaCijenaFlase: item.nabavnaCijenaFlase,
+            zapreminaFlase: item.zapreminaFlase,
+          }));
+
+          // Ažuriraj početno stanje iz najnovijeg obračuna
+          try {
+            const obracuni = await getObracuni(user.id);
+            if (obracuni.length > 0) {
+              // Sortiraj po datumu (najnoviji prvo)
+              const sortedObracuni = [...obracuni].sort((a: any, b: any) => {
+                const dateA = new Date(a.datum?.split(".").reverse().join("-") || 0).getTime();
+                const dateB = new Date(b.datum?.split(".").reverse().join("-") || 0).getTime();
+                return dateB - dateA;
+              });
+
+              const najnovijiObracun = sortedObracuni[0];
+              if (najnovijiObracun && najnovijiObracun.artikli && Array.isArray(najnovijiObracun.artikli)) {
+                transformedCjenovnik = transformedCjenovnik.map((item) => {
+                  const artikalIzArhive = najnovijiObracun.artikli.find((a: any) => a.naziv === item.naziv);
+                  if (artikalIzArhive) {
+                    let novoPocetnoStanje = item.pocetnoStanje;
+                    
+                    if (artikalIzArhive.krajnjeStanje !== undefined && artikalIzArhive.krajnjeStanje !== null && artikalIzArhive.krajnjeStanje > 0) {
+                      novoPocetnoStanje = artikalIzArhive.krajnjeStanje;
+                    } else if (artikalIzArhive.ukupno !== undefined && artikalIzArhive.ukupno !== null && artikalIzArhive.ukupno > 0) {
+                      novoPocetnoStanje = artikalIzArhive.ukupno;
+                    } else if (artikalIzArhive.pocetnoStanje !== undefined && artikalIzArhive.pocetnoStanje !== null && artikalIzArhive.pocetnoStanje > 0) {
+                      novoPocetnoStanje = artikalIzArhive.pocetnoStanje;
+                    }
+                    
+                    // Za kafu, uvijek resetuj na 0
+                    if (item.naziv.toLowerCase().includes("kafa")) {
+                      novoPocetnoStanje = 0;
+                    }
+                    
+                    return {
+                      ...item,
+                      pocetnoStanje: novoPocetnoStanje,
+                    };
+                  }
+                  return item;
+                });
+              }
+            }
+          } catch (error) {
+            console.warn("Greška pri učitavanju arhive za ažuriranje cjenovnika:", error);
+          }
+
+          setPrethodniCjenovnik(cjenovnik);
+          setCjenovnik(transformedCjenovnik);
+          console.log("Cjenovnik učitano iz API-ja:", transformedCjenovnik.length, "artikala");
+        } else {
+          // Nema cjenovnik u API-ju - koristi initial
+          setPrethodniCjenovnik(cjenovnik);
+          setCjenovnik(initialCjenovnik);
+          console.log("Cjenovnik postavljen na initial za korisnika:", user.id);
+        }
+        setIsInitialLoad(false);
+      } catch (error) {
+        console.warn("Greška pri učitavanju cjenovnika iz API-ja:", error);
+        // U slučaju greške, koristi initial cjenovnik
+        setCjenovnik(initialCjenovnik);
+        setIsInitialLoad(false);
+      }
+    };
+
+    loadCjenovnik();
+  }, [user?.id]);
 
   // TEMPORARY: Disabled Firebase listeners - comment out to re-enable
   /*
@@ -211,40 +306,37 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // TEMPORARY: Disabled Firebase save - comment out to re-enable
-  /*
-  // Spremi cjenovnik u Firestore - SAMO Firestore, nema localStorage
-  // Ovo se pokreće kada se cjenovnik promijeni (ažuriranje cijena, brisanje, itd.)
-  // NE sprema se kada se prvi put učita iz Firestore (izbjegavanje beskonačne petlje)
+  // Spremi cjenovnik u API - automatski kada se promijeni
   useEffect(() => {
-    const user = auth.currentUser;
-    const userId = user?.uid;
-    
-    if (!userId) return;
+    if (!user?.id) return;
     
     // Ako je prvo učitavanje, ne spremaj (izbjegni beskonačnu petlju)
     if (isInitialLoad) {
       return;
     }
     
-    // SPREMI U FIRESTORE - automatski čim se promijeni
-    const saveToFirestore = async () => {
+    // SPREMI U API - automatski čim se promijeni
+    const saveToAPI = async () => {
       try {
-        const userDocRef = doc(db, "users", userId);
-        await setDoc(userDocRef, { cjenovnik }, { merge: true });
-        console.log("Cjenovnik automatski spremljen u Firestore:", cjenovnik.length, "artikala");
+        // Transformiraj u format koji API očekuje
+        const apiCjenovnik = cjenovnik.map((item) => ({
+          naziv: item.naziv,
+          cijena: item.cijena,
+          proizvodnaCijena: item.proizvodnaCijena,
+          zestokoKolicina: item.zestokoKolicina,
+          // Napomena: pocetnoStanje se ne sprema u cjenovnik tabelu, već se uzima iz obračuna
+        }));
+        
+        await saveCjenovnik(user.id, apiCjenovnik);
+        console.log("Cjenovnik automatski spremljen u API:", cjenovnik.length, "artikala");
       } catch (error: any) {
-        const errorCode = error?.code || "";
-        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-          console.warn("Greška pri spremanju cjenovnika u Firestore:", error);
-        }
+        console.warn("Greška pri spremanju cjenovnika u API:", error);
       }
     };
     
-    // Spremi u Firestore
-    saveToFirestore();
-  }, [cjenovnik, isInitialLoad]);
-  */
+    // Spremi u API
+    saveToAPI();
+  }, [cjenovnik, isInitialLoad, user?.id]);
 
   const addArtikal = (artikal: ArtiklCijena) => {
     // Dodaj u privremeni cjenovnik (pending) - čeka na potvrdu

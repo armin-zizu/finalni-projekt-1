@@ -380,6 +380,54 @@ export async function updateCurrentUser(updates: { appName?: string }) {
 /**
  * Logout user
  */
+/**
+ * Get cjenovnik for user
+ */
+export async function getCjenovnik(userId: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/cjenovnik`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to get cjenovnik');
+  }
+
+  const data = await response.json();
+  return data.cjenovnik || [];
+}
+
+/**
+ * Save cjenovnik for user
+ */
+export async function saveCjenovnik(userId: string, cjenovnik: any[]) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/cjenovnik`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ cjenovnik }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to save cjenovnik');
+  }
+
+  const data = await response.json();
+  return data;
+}
+
 export async function logout() {
   const token = getAuthToken();
   

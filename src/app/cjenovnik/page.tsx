@@ -192,71 +192,15 @@ export default function CjenovnikPage() {
   const [lowStockThresholdOstala, setLowStockThresholdOstala] = useState<string>("10");
   const [savingLowStockSettings, setSavingLowStockSettings] = useState<boolean>(false);
 
-  // Provjera šifre pri učitavanju i pri navigaciji - traži šifru svaki put
+  // TEMPORARY: Password protection disabled - TODO: Migrate to API
   useEffect(() => {
-    const checkPassword = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        setIsPasswordProtected(false);
-        return;
-      }
+    setIsPasswordProtected(false);
+  }, [pathname]);
 
-      try {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          const encryptedPassword = data.cjenovnikPassword;
-          
-          // Ako postoji šifra, traži je svaki put
-          if (encryptedPassword) {
-            setIsPasswordProtected(true);
-          } else {
-            // Ako nema šifre, ne traži je (prvi put)
-            setIsPasswordProtected(false);
-          }
-        } else {
-          setIsPasswordProtected(false);
-        }
-      } catch (error) {
-        console.warn("Greška pri provjeri šifre:", error);
-        setIsPasswordProtected(false);
-      }
-    };
-
-    checkPassword();
-  }, [pathname]); // Provjeri svaki put kada se pathname promijeni
-
-  // Učitaj postavke za malu zalihu iz Firestore
+  // TEMPORARY: Low stock settings disabled - TODO: Migrate to API
   useEffect(() => {
-    const loadLowStockSettings = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      try {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          if (data.lowStockSettings) {
-            setLowStockEnabled(data.lowStockSettings.enabled || false);
-            setLowStockThresholdZestoka(String(data.lowStockSettings.thresholdZestoka || 100));
-            setLowStockThresholdOstala(String(data.lowStockSettings.thresholdOstala || 10));
-          }
-        }
-      } catch (error) {
-        console.error("Greška pri učitavanju postavki za malu zalihu:", error);
-      }
-    };
-
-    loadLowStockSettings();
-    
-    // Osluškuj promjene u autentifikaciji
-    const unsubscribe = onAuthStateChanged(auth, () => {
-      loadLowStockSettings();
-    });
-    
-    return () => unsubscribe();
+    // Low stock settings temporarily disabled during Firebase migration
+    setLowStockEnabled(false);
   }, []);
   
   // Osiguraj da se upozorenja ažuriraju kada se cjenovnik promijeni
@@ -264,79 +208,14 @@ export default function CjenovnikPage() {
     // Ova promjena će automatski triggerati re-render sa novim upozorenjima
   }, [cjenovnik, lowStockEnabled, lowStockThresholdZestoka, lowStockThresholdOstala]);
 
-  // Spremi postavke za malu zalihu u Firestore
+  // TEMPORARY: Low stock settings disabled - TODO: Migrate to API
   const saveLowStockSettings = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    setSavingLowStockSettings(true);
-    try {
-      const userDocRef = doc(db, "users", user.uid);
-      await setDoc(
-        userDocRef,
-        {
-          lowStockSettings: {
-            enabled: lowStockEnabled,
-            thresholdZestoka: parseFloat(lowStockThresholdZestoka) || 100,
-            thresholdOstala: parseFloat(lowStockThresholdOstala) || 10,
-          },
-        },
-        { merge: true }
-      );
-      setError("");
-    } catch (error) {
-      console.error("Greška pri spremanju postavki za malu zalihu:", error);
-      setError("Greška pri spremanju postavki");
-    } finally {
-      setSavingLowStockSettings(false);
-    }
+    setError("Low stock settings trenutno nisu dostupne.");
   };
 
+  // TEMPORARY: Password protection disabled - TODO: Migrate to API
   const handlePasswordSubmit = async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      setPasswordError("Niste prijavljeni");
-      return;
-    }
-
-    try {
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-      const data = userDoc.exists() ? userDoc.data() : {};
-      const encryptedPassword = data.cjenovnikPassword;
-      
-      if (!encryptedPassword) {
-        // Prvi put - postavi šifru
-        if (passwordInput.trim().length >= 4) {
-          // Enkriptuj šifru prije spremanja
-          const encrypted = encrypt(passwordInput);
-          await setDoc(userDocRef, { cjenovnikPassword: encrypted }, { merge: true });
-          setIsPasswordProtected(false);
-          setPasswordInput("");
-          setPasswordError("");
-        } else {
-          setPasswordError("Šifra mora imati najmanje 4 znaka");
-        }
-      } else {
-        // Provjeri šifru - dekriptuj i uporedi
-        try {
-          const decryptedPassword = decrypt(encryptedPassword);
-          if (passwordInput === decryptedPassword) {
-            setIsPasswordProtected(false);
-            setPasswordInput("");
-            setPasswordError("");
-          } else {
-            setPasswordError("Pogrešna šifra!");
-          }
-        } catch (decryptError) {
-          console.error("Greška pri dekripciji šifre:", decryptError);
-          setPasswordError("Greška pri provjeri šifre. Pokušajte ponovo.");
-        }
-      }
-    } catch (error) {
-      console.error("Greška pri spremanju/provjeri šifre:", error);
-      setPasswordError("Greška pri spremanju šifre. Pokušajte ponovo.");
-    }
+    setPasswordError("Password protection trenutno nije dostupno.");
   };
 
   // ---- Automatski izračun nabavne cijene po dozi za žestoka pića ----
