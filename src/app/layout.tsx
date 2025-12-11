@@ -5,8 +5,11 @@ import { AppNameProvider } from "./context/AppNameContext";
 import { CjenovnikProvider } from "./context/CjenovnikContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
 import { RoleProvider, useRole, UserRole, RoleContext } from "./context/RoleContext";
-import SubscriptionBanner from "./components/SubscriptionBanner";
-import Sidebar from "./sidebar/Sidebar";
+import dynamic from "next/dynamic";
+
+// Dynamic import za komponente koje koriste useRole (da izbjegnemo SSR probleme)
+const SubscriptionBanner = dynamic(() => import("./components/SubscriptionBanner"), { ssr: false });
+const Sidebar = dynamic(() => import("./sidebar/Sidebar"), { ssr: false });
 import { usePathname, useRouter } from "next/navigation";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { setAuthToken, getAuthToken } from "../lib/api";
