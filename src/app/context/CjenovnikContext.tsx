@@ -305,6 +305,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       }
     };
   }, []);
+  */
 
   // Spremi cjenovnik u API - automatski kada se promijeni
   useEffect(() => {
