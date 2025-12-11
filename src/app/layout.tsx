@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { AppNameProvider } from "./context/AppNameContext";
 import { CjenovnikProvider } from "./context/CjenovnikContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
-import { RoleProvider, useRole } from "./context/RoleContext";
+import { RoleProvider, useRole, UserRole } from "./context/RoleContext";
 import SubscriptionBanner from "./components/SubscriptionBanner";
 import Sidebar from "./sidebar/Sidebar";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,9 +13,32 @@ import { setAuthToken, getAuthToken } from "../lib/api";
 
 // Komponenta koja provjerava role i blokira pristup ako je potrebno
 function AppContent({ children }: { children: React.ReactNode }) {
-  const { role, loading: roleLoading } = useRole();
   const pathname = usePathname();
   const router = useRouter();
+  
+  // Provjeri da li smo na client-side prije korištenja useRole (zbog SSR)
+  const [isMounted, setIsMounted] = useState(false);
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  // Ne koristi useRole tokom SSR - fallback vrijednosti
+  let role: UserRole | null = null;
+  let roleLoading = true;
+  
+  if (isMounted) {
+    try {
+      const roleContext = useRole();
+      role = roleContext.role;
+      roleLoading = roleContext.loading;
+    } catch (error) {
+      // Context nije dostupan (može se desiti tokom SSR)
+      console.warn('RoleContext not available:', error);
+      role = null;
+      roleLoading = false;
+    }
+  }
 
   // Preusmjeri na dashboard ako je role postavljen i korisnik je na login stranici
   useEffect(() => {
