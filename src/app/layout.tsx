@@ -9,6 +9,7 @@ import SubscriptionBanner from "./components/SubscriptionBanner";
 import Sidebar from "./sidebar/Sidebar";
 import { usePathname, useRouter } from "next/navigation";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
+import { setAuthToken, getAuthToken } from "../lib/api";
 
 // Komponenta koja provjerava role i blokira pristup ako je potrebno
 function AppContent({ children }: { children: React.ReactNode }) {
@@ -122,11 +123,34 @@ function AppContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // TEMPORARY: Bypass authentication for development
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(true); // null = loading
-  const [isLoading, setIsLoading] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  // Sync token from cookie to localStorage on app load
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Provjeri da li token već postoji u localStorage
+    const existingToken = localStorage.getItem('token');
+    if (existingToken) {
+      return; // Token već postoji
+    }
+    
+    // Pokušaj učitati token iz cookie-ja
+    try {
+      const cookies = document.cookie.split(';');
+      const tokenCookie = cookies.find(c => c.trim().startsWith('token='));
+      if (tokenCookie) {
+        const token = tokenCookie.split('=')[1];
+        if (token) {
+          localStorage.setItem('token', token);
+          console.log('Token synced from cookie to localStorage');
+        }
+      }
+    } catch (error) {
+      console.warn('Error syncing token from cookie:', error);
+    }
+  }, []);
 
   // TEMPORARY: Disabled auth check
   /*
@@ -233,222 +257,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   }, [pathname, router, isLoading]);
   */
 
-  // Ako se još učitava autentifikacija, prikaži loading ili ništa
-  if (isLoading) {
-    return (
-      <html lang="bs">
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-          {/* Agresivno ukloni Service Worker i cache-ove ODMAH - POBOLJŠANA VERZIJA */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  console.log('🚀 Inicijalizacija cache clearing za mobilni...');
-                  
-                  // Blokiraj Service Worker PRIJE nego što se bilo što desi
-                  if ('serviceWorker' in navigator) {
-                    // Blokiraj sve nove registracije ODMAH
-                    var originalRegister = navigator.serviceWorker.register;
-                    navigator.serviceWorker.register = function() {
-                      console.warn('⚠️ Service Worker register blokiran');
-                      return Promise.reject(new Error('Service Worker je onemogućen'));
-                    };
-                    
-                    // Prekini sve update pokušaje
-                    navigator.serviceWorker.addEventListener('updatefound', function(e) {
-                      console.warn('⚠️ Service Worker update pokušaj blokiran');
-                      e.preventDefault && e.preventDefault();
-                      e.stopPropagation && e.stopPropagation();
-                      return false;
-                    }, true);
-                    
-                    // Ukloni Service Worker ODMAH - više puta za sigurnost
-                    function removeServiceWorkers() {
-                      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                        console.log('📋 Pronađeno Service Worker registracija:', registrations.length);
-                        if (registrations.length === 0) {
-                          console.log('✅ Nema Service Worker registracija');
-                          return;
-                        }
-                        registrations.forEach(function(registration) {
-                          registration.unregister().then(function(success) {
-                            if (success) {
-                              console.log('✅ Service Worker uklonjen:', registration.scope);
-                            } else {
-                              console.warn('⚠️ Service Worker unregister vratio false');
-                            }
-                          }).catch(function(error) {
-                            console.warn('⚠️ Greška pri uklanjanju Service Workera:', error);
-                            // Pokušaj ponovo nakon delay-a
-                            setTimeout(function() {
-                              registration.unregister().catch(function() {});
-                            }, 500);
-                          });
-                        });
-                      }).catch(function(error) {
-                        console.warn('⚠️ Greška pri dohvaćanju Service Worker registracija:', error);
-                      });
-                    }
-                    
-                    // Ukloni više puta sa različitim delay-ima
-                    removeServiceWorkers();
-                    setTimeout(removeServiceWorkers, 100);
-                    setTimeout(removeServiceWorkers, 500);
-                    setTimeout(removeServiceWorkers, 1000);
-                  }
-                  
-                  // Obriši sve cache-ove ODMAH - više puta za sigurnost
-                  function clearAllCaches() {
-                    if ('caches' in window) {
-                      caches.keys().then(function(names) {
-                        console.log('📋 Pronađeno cache-ova:', names.length);
-                        if (names.length === 0) {
-                          console.log('✅ Nema cache-ova');
-                          return;
-                        }
-                        names.forEach(function(name) {
-                          caches.delete(name).then(function(success) {
-                            if (success) {
-                              console.log('✅ Cache obrisan:', name);
-                            }
-                          }).catch(function(error) {
-                            console.warn('⚠️ Greška pri brisanju cache-a:', name, error);
-                          });
-                        });
-                      }).catch(function(error) {
-                        console.warn('⚠️ Greška pri dohvaćanju cache-ova:', error);
-                      });
-                    }
-                  }
-                  
-                  clearAllCaches();
-                  setTimeout(clearAllCaches, 100);
-                  setTimeout(clearAllCaches, 500);
-                  setTimeout(clearAllCaches, 1000);
-                  
-                  // Očisti localStorage i sessionStorage za ovu domenu
-                  try {
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    console.log('✅ LocalStorage i SessionStorage očišćeni');
-                  } catch(e) {
-                    console.warn('⚠️ Greška pri brisanju storage-a:', e);
-                  }
-                  
-                  console.log('✅ Cache clearing inicijalizovan');
-                })();
-              `,
-            }}
-          />
-          <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
-        </head>
-        <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#f4f5f7", WebkitTapHighlightColor: "transparent" }}>
-          <div style={{ fontSize: "16px", color: "#6b7280" }}>Učitavanje...</div>
-        </body>
-      </html>
-    );
-  }
-
-  // Ako korisnik nije prijavljen, prikaži samo login stranicu (bez sidebara i layouta)
-  if (!isAuthenticated) {
-    // Ako nije na login stranici, preusmjeri na login
-    if (pathname !== "/login") {
-      return (
-        <html lang="bs">
-          <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-          {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                      registrations.forEach(function(registration) {
-                        registration.unregister().then(function() {
-                          console.log('✅ Service Worker uklonjen (inline script)');
-                        });
-                      });
-                    });
-                  }
-                  if ('caches' in window) {
-                    caches.keys().then(function(names) {
-                      names.forEach(function(name) {
-                        caches.delete(name).then(function() {
-                          console.log('✅ Cache obrisan (inline script):', name);
-                        });
-                      });
-                    });
-                  }
-                })();
-              `,
-            }}
-          />
-            <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
-          </head>
-          <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", WebkitTapHighlightColor: "transparent", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#f4f5f7" }}>
-            <div style={{ fontSize: "16px", color: "#6b7280" }}>Preusmjeravanje na login...</div>
-          </body>
-        </html>
-      );
-    }
-    
-    return (
-      <html lang="bs">
-        <head>
-          <title>Knjiga Obračuna - Prijava</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-          <meta name="theme-color" content="#3b82f6" />
-          <meta name="description" content="Office Lounge Bar - Aplikacija za upravljanje poslovanjem" />
-          <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-          <meta httpEquiv="Pragma" content="no-cache" />
-          <meta httpEquiv="Expires" content="0" />
-          {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                      registrations.forEach(function(registration) {
-                        registration.unregister().then(function() {
-                          console.log('✅ Service Worker uklonjen (inline script)');
-                        });
-                      });
-                    });
-                  }
-                  if ('caches' in window) {
-                    caches.keys().then(function(names) {
-                      names.forEach(function(name) {
-                        caches.delete(name).then(function() {
-                          console.log('✅ Cache obrisan (inline script):', name);
-                        });
-                      });
-                    });
-                  }
-                })();
-              `,
-            }}
-          />
-          <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
-        </head>
-        <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", WebkitTapHighlightColor: "transparent" }}>
-          <AppNameProvider>
-            <CjenovnikProvider>
-              <SubscriptionProvider>
-                <RoleProvider>
-                  {children}
-                </RoleProvider>
-              </SubscriptionProvider>
-            </CjenovnikProvider>
-          </AppNameProvider>
-        </body>
-      </html>
-    );
-  }
-
-  // Ako je korisnik prijavljen, prikaži normalnu app sa sidebarom
+  // AppContent provjerava role i odlučuje šta prikazati
   return (
     <html lang="bs">
       <head>

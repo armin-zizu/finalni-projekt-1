@@ -8,17 +8,36 @@ export function getPool(): Pool {
     const connectionString = process.env.DATABASE_URL || 
       `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'office_app'}`;
     
+    // Determine if we should use SSL
+    // Use SSL if: production mode OR remote host (not localhost/127.0.0.1)
+    const isRemote = process.env.DB_HOST && 
+                     !['localhost', '127.0.0.1', '::1'].includes(process.env.DB_HOST);
+    const useSSL = process.env.NODE_ENV === 'production' || isRemote || 
+                   (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost'));
+    
+    // Log connection info (without password)
+    const safeConnectionString = connectionString.replace(/:[^:@]+@/, ':****@');
+    console.log('Initializing database pool:', {
+      hasDATABASE_URL: !!process.env.DATABASE_URL,
+      host: process.env.DB_HOST || 'localhost',
+      useSSL,
+      safeConnectionString,
+    });
+    
     pool = new Pool({
       connectionString,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased from 2000 to 10000 for remote connections
     });
 
     pool.on('error', (err) => {
       console.error('Unexpected error on idle client', err);
-      process.exit(-1);
+      // Don't exit in development, just log
+      if (process.env.NODE_ENV === 'production') {
+        process.exit(-1);
+      }
     });
   }
 
@@ -34,8 +53,17 @@ export async function query(text: string, params?: any[]): Promise<any> {
     const duration = Date.now() - start;
     console.log('Executed query', { text, duration, rows: res.rowCount });
     return res;
-  } catch (error) {
-    console.error('Database query error:', error);
+  } catch (error: any) {
+    console.error('Database query error:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      errno: error.errno,
+      syscall: error.syscall,
+      address: error.address,
+      port: error.port,
+    });
     throw error;
   }
 }

@@ -1,20 +1,40 @@
 // Helper funkcije za API pozive
 
 /**
- * Dohvata token iz cookies ili localStorage
+ * Dohvata token iz localStorage ili cookies
  */
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
   
-  // Prvo pokušaj cookies
-  const cookies = document.cookie.split(';');
-  const tokenCookie = cookies.find(c => c.trim().startsWith('token='));
-  if (tokenCookie) {
-    return tokenCookie.split('=')[1];
+  // Prvo pokušaj localStorage (jer je dostupniji za JavaScript)
+  let token = localStorage.getItem('token');
+  if (token) {
+    return token;
   }
   
-  // Fallback na localStorage
-  return localStorage.getItem('token');
+  // Fallback na cookies (ako nije httpOnly)
+  try {
+    const cookies = document.cookie.split(';');
+    const tokenCookie = cookies.find(c => c.trim().startsWith('token='));
+    if (tokenCookie) {
+      token = tokenCookie.split('=')[1];
+      // Ako token postoji u cookie-ju, spremi ga u localStorage za sljedeći put
+      if (token) {
+        localStorage.setItem('token', token);
+      }
+      return token;
+    }
+  } catch (error) {
+    // Ignoriraj greške pri čitanju cookies
+    console.warn('Error reading cookies:', error);
+  }
+  
+  // Debug logging
+  console.warn('getAuthToken: No token found in localStorage or cookies');
+  console.log('localStorage token:', localStorage.getItem('token'));
+  console.log('Cookies:', document.cookie);
+  
+  return null;
 }
 
 /**
@@ -175,5 +195,155 @@ export async function saveDevice(
 
   const data = await response.json();
   return data.device;
+}
+
+/**
+ * Upload file
+ */
+export async function uploadFile(file: File, fileType: string = 'document', obracunDatum?: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('fileType', fileType);
+  if (obracunDatum) {
+    formData.append('obracunDatum', obracunDatum);
+  }
+
+  const response = await fetch('/api/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to upload file');
+  }
+
+  const data = await response.json();
+  return data.file;
+}
+
+/**
+ * Save obracun
+ */
+export async function saveObracun(
+  userId: string,
+  obracunData: {
+    datum: string;
+    artikli: any[];
+    rashodi: any[];
+    prihodi: any[];
+    ukupnoArtikli: number;
+    ukupnoRashod: number;
+    ukupnoPrihod: number;
+    neto: number;
+    isAzuriran?: boolean;
+    imaUlaz?: boolean;
+    invoiceImages?: string[];
+  }
+) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/obracuni`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(obracunData),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to save obracun');
+  }
+
+  const data = await response.json();
+  return data.obracun;
+}
+
+/**
+ * Get all obracuni for user
+ */
+export async function getObracuni(userId: string, datum?: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  let url = `/api/users/${userId}/obracuni`;
+  if (datum) {
+    url += `?datum=${encodeURIComponent(datum)}`;
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to fetch obracuni');
+  }
+
+  const data = await response.json();
+  return data.obracuni || [];
+}
+
+/**
+ * Update current user (app name, etc.)
+ */
+export async function updateCurrentUser(updates: { appName?: string }) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/users/me', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to update user');
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Logout user
+ */
+export async function logout() {
+  const token = getAuthToken();
+  
+  try {
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: token ? {
+        'Authorization': `Bearer ${token}`,
+      } : {},
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || 'Failed to logout');
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Continue with local cleanup even if API call fails
+  } finally {
+    // Always remove token locally
+    removeAuthToken();
+  }
 }
 

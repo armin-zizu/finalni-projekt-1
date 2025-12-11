@@ -8,6 +8,7 @@ import { useRole, UserRole, PagePermission } from "../context/RoleContext";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
+import { getUserId, updateCurrentUser, logout } from "../../lib/api";
 // TEMPORARY: Disabled Firebase imports for development - using mocks
 // import { db } from "../../lib/firestore";
 // TODO: Uklonjen Firebase import - implementirati API pozive
@@ -126,7 +127,7 @@ export default function Profile() {
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [paymentRequested, setPaymentRequested] = useState(false);
   const [requestingPayment, setRequestingPayment] = useState(false);
-  const { role, assignRole: assignRoleFromContext } = useRole();
+  const { role, assignRole: assignRoleFromContext, user } = useRole();
   const [devices, setDevices] = useState<any[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
@@ -401,37 +402,32 @@ export default function Profile() {
       return;
     }
 
-    const user = auth.currentUser;
-    if (!user) {
+    // Koristi user.id iz RoleContext ili getUserId() kao fallback
+    const userId = user?.id || (await getUserId());
+    if (!userId) {
       setMessage("Morate biti prijavljeni!");
       return;
     }
 
     try {
-      // Spremi direktno u Firestore sa timestamp-om (ovo će automatski triggerati onSnapshot na svim uređajima)
-      const userDocRef = doc(db, "users", user.uid);
-      await setDoc(
-        userDocRef, 
-        { 
-          appName: localAppName.trim(),
-          appNameUpdatedAt: Timestamp.fromDate(new Date())
-        }, 
-        { merge: true }
-      );
+      // Spremi preko API-ja
+
+      await updateCurrentUser({ appName: localAppName.trim() });
       
       // Ažuriraj context
       setAppName(localAppName.trim());
       
-      // NE SPREMAJ U LOCALSTORAGE - sve je u Firestore
-      
       setIsAppNameUpdated(true);
-      setLastUpdatedTime(new Date().toLocaleString("bs-BA", { 
-        day: "2-digit", 
-        month: "2-digit", 
-        year: "numeric", 
-        hour: "2-digit", 
-        minute: "2-digit" 
-      }));
+      // Formatiraj datum samo na klijentu da izbjegnemo hydration mismatch
+      if (typeof window !== 'undefined') {
+        setLastUpdatedTime(new Date().toLocaleString("bs-BA", { 
+          day: "2-digit", 
+          month: "2-digit", 
+          year: "numeric", 
+          hour: "2-digit", 
+          minute: "2-digit" 
+        }));
+      }
       setMessage("Ime aplikacije uspješno spremljeno i sinkronizovano na svim uređajima!");
       // Sakrij poruku nakon 5 sekundi
       setTimeout(() => {
@@ -876,13 +872,23 @@ export default function Profile() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      console.log("Uspješna odjava, preusmjeravam na login");
-      // Session se automatski briše kroz Firebase Auth
-      // API route nije potreban za static export
+      await logout();
+      console.log("Uspješna odjava");
+      // Očisti role state
+      await refreshRole(); // Ovo će postaviti role na null jer nema tokena
+      // Preusmjeri na login
       router.push("/login");
+      // Force refresh da se osigura da je sve očišćeno
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 100);
     } catch (err: any) {
       console.error("Greška pri odjavi:", err);
+      // Ipak preusmjeri na login čak i ako logout API call ne uspije
+      router.push("/login");
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 100);
     }
   };
 
@@ -1157,7 +1163,7 @@ export default function Profile() {
               alignItems: "center",
               gap: "4px"
             }}>
-              ✓ Ažurirano {lastUpdatedTime && `(${lastUpdatedTime})`}
+              ✓ Ažurirano {typeof window !== 'undefined' && lastUpdatedTime && `(${lastUpdatedTime})`}
             </span>
           )}
         </div>

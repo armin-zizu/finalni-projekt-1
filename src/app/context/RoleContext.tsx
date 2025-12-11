@@ -35,6 +35,7 @@ export interface RoleData {
 }
 
 interface RoleContextType {
+  user: any | null; // User object sa id, email, isOwner, etc.
   role: UserRole;
   deviceId: string | null;
   deviceInfo: DeviceInfo | null;
@@ -48,25 +49,12 @@ interface RoleContextType {
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  // TEMPORARY: Mock user for development - bypass auth
-  const [user, setUser] = useState<any>({ 
-    id: 'dev-user-id', 
-    email: 'dev@example.com', 
-    isOwner: true 
-  });
-  const [role, setRole] = useState<UserRole>("vlasnik"); // Set to "vlasnik" to bypass checks
+  const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
-  const [permissions, setPermissions] = useState<PagePermission | null>({
-    dashboard: true,
-    obracun: true,
-    arhiva: true,
-    cjenovnik: true,
-    profit: true,
-    profile: true,
-    admin: false,
-  });
-  const [loading, setLoading] = useState(false); // Set to false to skip loading
+  const [permissions, setPermissions] = useState<PagePermission | null>(null);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
 
   // TEMPORARY: Disabled auth check - comment out to re-enable
@@ -203,7 +191,14 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   // Učitaj ulogu za uređaj
   const loadRole = async () => {
-      if (!user) {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Učitaj user iz API-ja
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        setUser(null);
         setRole(null);
         setDeviceId(null);
         setDeviceInfo(null);
@@ -211,10 +206,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-
-    try {
-      setLoading(true);
-      setError(null);
+      
+      // Postavi user state
+      setUser(currentUser);
+      const user = currentUser; // Koristi lokalnu varijablu za ostatak funkcije
 
       // Učitaj Device ID
       const currentDeviceId = await initializeDeviceId();
@@ -545,33 +540,30 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     await loadRole();
   };
 
-  // TEMPORARY: Disabled loadRole useEffect - comment out to re-enable
-  /*
+  // Učitaj role pri inicijalizaciji i kada se user promijeni
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | undefined;
+    let isMounted = true;
     
     const load = async () => {
       // Timeout fallback - ako se učitavanje ne završi za 8 sekundi, postavi loading na false
       timeoutId = setTimeout(() => {
-        if (loading) {
+        if (isMounted) {
           console.warn("RoleContext - Timeout pri učitavanju role, postavljam loading na false");
           setLoading(false);
-          // Ako nema usera, role je već null
-          if (!user) {
-            setRole(null);
-            setPermissions(null);
-          }
         }
       }, 8000);
       
       try {
         await loadRole();
-        if (timeoutId) {
+        if (timeoutId && isMounted) {
           clearTimeout(timeoutId);
         }
       } catch (error) {
         console.error("RoleContext - Greška pri učitavanju role:", error);
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
@@ -581,16 +573,17 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     load();
 
     return () => {
+      isMounted = false;
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
     };
-  }, [user]);
-  */
+  }, []); // Run only once on mount
 
   return (
     <RoleContext.Provider
       value={{
+        user,
         role,
         deviceId,
         deviceInfo,

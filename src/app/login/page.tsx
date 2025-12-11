@@ -58,8 +58,17 @@ export default function LoginPage() {
         throw new Error("Prijava nije uspjela");
       }
       
-      // Sačuvaj token
+      // Sačuvaj token u localStorage
       setAuthToken(token);
+      console.log("Token sačuvan u localStorage");
+      
+      // Verificiraj da je token sačuvan
+      const savedToken = localStorage.getItem('token');
+      if (!savedToken) {
+        console.error("GREŠKA: Token nije sačuvan u localStorage!");
+      } else {
+        console.log("Token uspješno verificiran u localStorage");
+      }
       
       console.log("Uspješan login:", user.email);
       console.log("User ID:", user.id);
@@ -266,7 +275,7 @@ export default function LoginPage() {
       // API route nije potreban za static export
       console.log("Login uspješan, čekam provjeru role...");
       
-      // Osvježi role u RoleContext
+      // Osvježi role u RoleContext nakon logina
       try {
         await refreshRole();
         console.log("Role osvježen nakon logina");
@@ -274,12 +283,10 @@ export default function LoginPage() {
         console.error("Greška pri osvježavanju role:", refreshError);
       }
       
-      // Sačekaj malo da se role postavi
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       setLoading(false);
-      // Ne preusmjeravaj automatski - AppContent će provjeriti role i preusmjeriti ako je potrebno
-      // Ako je role === null, AppContent će blokirati pristup
+      
+      // AppContent će automatski preusmjeriti na dashboard ako je role postavljen
+      // Ako je role === null (verifikacija potrebna), AppContent će prikazati poruku
     } catch (err: any) {
       console.error("Greška pri e-mail prijavi:", err);
       
@@ -458,16 +465,15 @@ export default function LoginPage() {
           console.error("Error code:", refreshError?.code, "Error message:", refreshError?.message);
         }
         
-        // Sačekaj malo da se role postavi
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        setLoading(false);
         
-        // Preusmjeri na dashboard
-        console.log("🚀 Prvi korisnik (vlasnik) - preusmjeravam na dashboard");
-        router.push("/dashboard");
+        // AppContent će automatski preusmjeriti na dashboard ako je role postavljen
+        console.log("✅ Prvi korisnik (vlasnik) - AppContent će preusmjeriti na dashboard");
       } else {
         console.log("⚠️ Korisnik nije prvi (vlasnik), čekam verifikaciju...");
+        setLoading(false);
       }
-      // AppContent će također provjeriti role i preusmjeriti ako je potrebno
+      // AppContent će provjeriti role i preusmjeriti/prikazati poruku kako je potrebno
     } catch (err: any) {
       console.error("Greška pri registraciji:", err);
       if (err.message?.includes("already exists") || err.message?.includes("već registriran")) {

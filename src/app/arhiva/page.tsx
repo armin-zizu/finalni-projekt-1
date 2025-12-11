@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { getUserId, getObracuni } from "../../lib/api";
+import { useRole } from "../context/RoleContext";
 // TEMPORARY: Disabled Firebase imports for development - using mocks
 // import { auth, onAuthStateChanged } from "../../lib/firebase";
 // import { db, storage } from "../../lib/firebase";
@@ -177,6 +179,7 @@ type DugInfo = {
 
 // ---- Glavna komponenta ----
 export default function ArhivaPage() {
+  const { user } = useRole();
   const [arhiva, setArhiva] = useState<ArhiviraniObracun[]>([]);
   const [editingObracunDatum, setEditingObracunDatum] = useState<string | null>(null);
   const [editedRashodi, setEditedRashodi] = useState<Rashod[]>([]);
@@ -196,39 +199,45 @@ export default function ArhivaPage() {
   const [singleObracunDatum, setSingleObracunDatum] = useState<string | null>(null);
   const obracunRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement | null> }>({});
 
-  // Funkcija za učitavanje arhive - HIBRIDNI PRISTUP
+  // Funkcija za učitavanje arhive - MIGRIRANO NA API
   const loadArhiva = React.useCallback(async () => {
-    const user = auth.currentUser;
-    const userId = user?.uid;
+    // Koristi user.id iz RoleContext umjesto API poziva
+    const userId = user?.id || (await getUserId());
     
     let firestoreArhiva: ArhiviraniObracun[] = [];
     
-    // UČITAJ IZ FIRESTORE (samo izvor)
-    if (user && userId) {
+    // UČITAJ IZ API-JA
+    if (userId) {
       try {
-        const obracuniRef = collection(db, "users", userId, "obracuni");
-        const snapshot = await getDocs(obracuniRef);
-        firestoreArhiva = snapshot.docs.map((doc: any) => {
-          const data = doc.data();
-          const invoiceImages = data.invoiceImages ?? [];
+        const obracuni = await getObracuni(userId);
+        firestoreArhiva = obracuni.map((obracun: any) => {
+          // Parse artikli JSONB ako je string
+          const artikliData = typeof obracun.artikli === 'string' 
+            ? JSON.parse(obracun.artikli) 
+            : obracun.artikli;
+          
+          const invoiceImages = artikliData.invoiceImages ?? [];
           if (invoiceImages.length > 0) {
-            console.log(`Obračun ${doc.id} ima ${invoiceImages.length} slika faktura`);
+            console.log(`Obračun ${obracun.id} ima ${invoiceImages.length} slika faktura`);
           }
+          
           return {
-            ...data,
-            prihodi: data.prihodi ?? [],
-            ukupnoPrihod: data.ukupnoPrihod ?? 0,
-            imaUlaz: data.imaUlaz ?? false,
-            isAzuriran: data.isAzuriran ?? false,
+            datum: obracun.datum,
+            artikli: artikliData.artikli || [],
+            rashodi: artikliData.rashodi || [],
+            prihodi: artikliData.prihodi || [],
+            ukupnoArtikli: artikliData.ukupnoArtikli || 0,
+            ukupnoRashod: artikliData.ukupnoRashod || 0,
+            ukupnoPrihod: artikliData.ukupnoPrihod || 0,
+            neto: artikliData.neto || 0,
+            imaUlaz: artikliData.imaUlaz ?? false,
+            isAzuriran: artikliData.isAzuriran ?? false,
             invoiceImages: invoiceImages,
           } as ArhiviraniObracun;
         });
-        console.log("Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
+        console.log("Učitano iz API-ja:", firestoreArhiva.length, "obračuna");
       } catch (error: any) {
-        const errorCode = error?.code || "";
-        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-          console.warn("Greška pri učitavanju iz Firestore:", error);
-        }
+        console.warn("Greška pri učitavanju iz API-ja:", error);
       }
     }
     

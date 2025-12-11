@@ -41,35 +41,67 @@ export async function POST(req: NextRequest) {
 
     // Check if user already exists
     const existingUser = await query(
-      'SELECT id FROM users WHERE email = $1',
+      'SELECT id, password_hash, role, is_owner FROM users WHERE email = $1',
       [normalizedEmail]
     );
 
-    if (existingUser.rows.length > 0) {
+    // If user exists and has password_hash, reject
+    if (existingUser.rows.length > 0 && existingUser.rows[0].password_hash) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
         { status: 409 }
       );
     }
 
-    // Check if this is the first user (will be owner)
-    const userCount = await query('SELECT COUNT(*) as count FROM users');
-    const isFirstUser = parseInt(userCount.rows[0].count) === 0;
+    // If user exists but has no password_hash, we'll update it instead of creating new
+    const isUpdatingExisting = existingUser.rows.length > 0 && !existingUser.rows[0].password_hash;
+
+    // Check if this is the first user with password (will be owner)
+    const userCount = await query('SELECT COUNT(*) as count FROM users WHERE password_hash IS NOT NULL');
+    const isFirstUserWithPassword = parseInt(userCount.rows[0].count) === 0;
 
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Create user in transaction
+    // Create or update user in transaction
     const result = await transaction(async (client) => {
-      // Insert user
-      const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, is_owner, role)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, email, role, is_owner, permissions, created_at`,
-        [normalizedEmail, passwordHash, isFirstUser, isFirstUser ? 'vlasnik' : null]
-      );
+      let user;
+      
+      if (isUpdatingExisting) {
+        // Update existing user with password_hash
+        const existingUserId = existingUser.rows[0].id;
+        const existingRole = existingUser.rows[0].role;
+        const existingIsOwner = existingUser.rows[0].is_owner;
+        
+        // Set as owner if no role is set (first user scenario)
+        const finalRole = existingRole || (isFirstUserWithPassword ? 'vlasnik' : null);
+        const finalIsOwner = existingIsOwner || isFirstUserWithPassword;
+        
+        const userResult = await client.query(
+          `UPDATE users 
+           SET password_hash = $1, 
+               role = COALESCE(role, $2),
+               is_owner = $3,
+               updated_at = NOW()
+           WHERE id = $4
+           RETURNING id, email, role, is_owner, permissions, created_at`,
+          [passwordHash, finalRole, finalIsOwner, existingUserId]
+        );
+        
+        user = userResult.rows[0];
+      } else {
+        // Insert new user
+        const userResult = await client.query(
+          `INSERT INTO users (email, password_hash, is_owner, role)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id, email, role, is_owner, permissions, created_at`,
+          [normalizedEmail, passwordHash, isFirstUserWithPassword, isFirstUserWithPassword ? 'vlasnik' : null]
+        );
+        
+        user = userResult.rows[0];
+      }
 
-      const user = userResult.rows[0];
+      // const user = userResult.rows[0];
 
       // Initialize default cjenovnik (empty array)
       // This will be handled when cjenovnik is first accessed
@@ -100,7 +132,7 @@ export async function POST(req: NextRequest) {
 
     // Set token in cookie
     response.cookies.set('token', result.token, {
-      httpOnly: true,
+      httpOnly: false, // Allow JavaScript access for client-side API calls
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days

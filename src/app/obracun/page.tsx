@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
+import { getUserId, uploadFile, saveObracun, getObracuni } from "../../lib/api";
 // TEMPORARY: Disabled Firebase imports for development - using mocks
 // import { auth } from "../../lib/firebase";
 // import { db, storage } from "../../lib/firebase";
@@ -233,7 +234,7 @@ const rashodInputStyle: React.CSSProperties = {
 export default function ObracunPage() {
   const { cjenovnik, setCjenovnik } = useCjenovnik();
   const { subscription } = useSubscription();
-  const { role, permissions } = useRole();
+  const { role, permissions, user } = useRole();
   const [artikli, setArtikli] = useState<Artikal[]>([]);
   const [rashodi, setRashodi] = useState<Rashod[]>([]);
   const [prihodi, setPrihodi] = useState<Prihod[]>([]);
@@ -1173,37 +1174,21 @@ export default function ObracunPage() {
   // Provjeri da li obračun ima ulaz (trenutni ulaz, sačuvan ulaz, ili u cache-u)
   const hasUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
 
-  // Funkcija za upload slika faktura
+  // Funkcija za upload slika faktura - MIGRIRANO NA API
   const uploadInvoiceImages = async (datumString: string): Promise<string[]> => {
-    // Ako nema slika, odmah vrati prazan array bez pozivanja Firebase API-ja
+    // Ako nema slika, odmah vrati prazan array
     if (invoiceImages.length === 0) {
       console.log("Nema slika za upload, preskačem");
       return [];
     }
     
-    const user = auth.currentUser;
-    if (!user) {
+    // Koristi user.id iz RoleContext umjesto API poziva
+    const userId = user?.id || (await getUserId());
+    if (!userId) {
       throw new Error("Korisnik nije autentifikovan");
     }
-    
-    const userId = user.uid;
-    
-    // Čekaj da se korisnik potpuno autentifikuje i refresh token
-    // Ovo se poziva samo ako ima slika za upload (već provjereno gore)
-    try {
-      await user.getIdToken(true); // Refresh token
-      console.log("Korisnik autentifikovan:", userId);
-    } catch (authError: any) {
-      // Ako je greška network-related, vrati prazan array umjesto bacanja greške
-      if (authError?.code === 'auth/network-request-failed') {
-        console.warn("Network greška pri autentifikaciji, preskačem upload:", authError);
-        return [];
-      }
-      console.error("Greška pri autentifikaciji:", authError);
-      throw new Error("Greška pri autentifikaciji. Molimo prijavite se ponovo.");
-    }
 
-    // Očisti datum string za Storage putanju (ukloni tačku na kraju ako postoji)
+    // Očisti datum string (ukloni tačku na kraju ako postoji)
     const cleanDatumString = datumString.replace(/\.$/, '');
 
     const uploadedUrls: string[] = [];
@@ -1213,46 +1198,20 @@ export default function ObracunPage() {
     try {
       for (let i = 0; i < invoiceImages.length; i++) {
         const file = invoiceImages[i];
-        const timestamp = Date.now();
-        const fileExtension = file.name.split('.').pop() || 'jpg';
-        const fileName = `${cleanDatumString}_${timestamp}_${i}.${fileExtension}`;
-        const storagePath = `users/${userId}/invoices/${cleanDatumString}/${fileName}`;
-        const storageRef = ref(storage, storagePath);
         
-        console.log("Upload slike na putanju:", storagePath);
+        console.log("Upload slike:", file.name);
         
-        // Dodaj metadata sa contentType
-        const metadata = {
-          contentType: file.type || `image/${fileExtension}`,
-          customMetadata: {
-            uploadedBy: userId,
-            uploadedAt: new Date().toISOString(),
-            datum: datumString,
-          }
-        };
+        // Upload file preko API-ja
+        const uploadedFile = await uploadFile(file, 'invoice', cleanDatumString);
+        uploadedUrls.push(uploadedFile.url);
         
-        await uploadBytes(storageRef, file, metadata);
-        const downloadURL = await getDownloadURL(storageRef);
-        uploadedUrls.push(downloadURL);
-        
-        console.log("Slika uspješno upload-ovana:", downloadURL);
+        console.log("Slika uspješno upload-ovana:", uploadedFile.url);
         
         setUploadProgress(((i + 1) / invoiceImages.length) * 100);
       }
     } catch (error: any) {
       console.error("Greška pri upload-u slika:", error);
-      console.error("Error code:", error.code);
-      console.error("Error message:", error.message);
-      
-      // Detaljnija greška
-      if (error.code === 'storage/unauthorized') {
-        throw new Error("Nemate dozvolu za upload slika. Provjerite Firebase Storage pravila i da li ste prijavljeni.");
-      } else if (error.code === 'storage/canceled') {
-        throw new Error("Upload je otkazan.");
-      } else if (error.code === 'storage/unknown') {
-        throw new Error("Nepoznata greška pri upload-u. Provjerite Firebase Storage pravila i CORS postavke.");
-      }
-      throw error;
+      throw new Error(error.message || "Greška pri upload-u slika. Provjerite da li ste prijavljeni.");
     } finally {
       setUploadingImages(false);
       setUploadProgress(0);
@@ -1377,33 +1336,38 @@ export default function ObracunPage() {
     // NE briši cache - možda će korisnik htjeti vidjeti ulaz u arhivi
     // Cache se automatski ažurira kada se promijeni datum
 
-    const user = auth.currentUser;
-    const userId = user?.uid;
+    // Koristi user.id iz RoleContext umjesto API poziva
+    const userId = user?.id || (await getUserId());
+    if (!userId) {
+      alert("Greška: Niste prijavljeni. Molimo prijavite se ponovo.");
+      return;
+    }
 
     // Upload slika faktura ako postoje nove slike u state-u
     let invoiceImageUrls: string[] = [];
-    if (invoiceImages.length > 0 && user && userId) {
+    if (invoiceImages.length > 0) {
       try {
         invoiceImageUrls = await uploadInvoiceImages(datumString);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Greška pri upload-u slika faktura:", error);
-        alert("Upozorenje: Obračun je sačuvan, ali slike faktura nisu uspješno upload-ovane.");
+        alert("Upozorenje: Obračun je sačuvan, ali slike faktura nisu uspješno upload-ovane. " + (error.message || ""));
       }
     }
     
-    // Učitaj postojeće slike iz Firestore dokumenta (ako su već uploadovane ranije)
+    // Učitaj postojeće slike iz API-ja (ako su već uploadovane ranije)
     let existingInvoiceImages: string[] = [];
-    if (user && userId) {
-      try {
-        const obracunRef = doc(db, "users", userId, "obracuni", datumString);
-        const obracunDoc = await getDoc(obracunRef);
-        if (obracunDoc.exists()) {
-          const existingData = obracunDoc.data();
-          existingInvoiceImages = existingData.invoiceImages || [];
-        }
-      } catch (error) {
-        console.warn("Greška pri učitavanju postojećih slika:", error);
+    try {
+      const existingObracuni = await getObracuni(userId, datumString);
+      if (existingObracuni && existingObracuni.length > 0) {
+        const existingData = existingObracuni[0];
+        // Parse artikli JSONB ako je string
+        const artikliData = typeof existingData.artikli === 'string' 
+          ? JSON.parse(existingData.artikli) 
+          : existingData.artikli;
+        existingInvoiceImages = artikliData.invoiceImages || [];
       }
+    } catch (error) {
+      console.warn("Greška pri učitavanju postojećih slika:", error);
     }
     
     // Kombiniraj postojeće slike sa novim (ako postoje)
@@ -1412,84 +1376,30 @@ export default function ObracunPage() {
       (arhiviraniObracun as any).invoiceImages = allInvoiceImages;
     }
 
-    // HIBRIDNI PRISTUP: Prvo Firestore (primarno), zatim localStorage (cache/offline)
+    // SPREMI PREKO API-JA
     try {
-      // 1. SPREMI U FIRESTORE (primarni izvor - ako postoji korisnik)
-      if (user && userId) {
-        try {
-          // Funkcija za uklanjanje undefined vrijednosti
-          const removeUndefined = (obj: any): any => {
-            if (obj === null || obj === undefined) {
-              return null;
-            }
-            if (Array.isArray(obj)) {
-              return obj.map(removeUndefined);
-            }
-            if (typeof obj === 'object') {
-              const cleaned: any = {};
-              for (const key in obj) {
-                if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
-                  cleaned[key] = removeUndefined(obj[key]);
-                }
-              }
-              return cleaned;
-            }
-            return obj;
-          };
-          
-          const cleanArhiviraniObracun = removeUndefined(arhiviraniObracun);
-          
-          const docRef = doc(db, "users", userId, "obracuni", datumString);
-          await setDoc(docRef, {
-            ...cleanArhiviraniObracun,
-            savedAt: serverTimestamp(),
-          });
-          console.log("Obračun sačuvan u Firestore:", datumString);
-        } catch (firestoreError: any) {
-          // Ignoriraj greške dozvola - spremit ćemo u localStorage
-          const errorCode = firestoreError?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Nije moguće sačuvati u Firestore (možda nema interneta):", firestoreError);
-          } else {
-            console.warn("Greška dozvola pri spremanju u Firestore:", firestoreError);
-          }
-        }
-      } else {
-        console.warn("Nema korisnika, obračun se sprema samo u localStorage");
-      }
-
-      // 2. NE SPREMAJ U LOCALSTORAGE - sve se čuva u Firestore
-      // Arhiva se automatski učitava iz Firestore kroz real-time listener u arhiva/page.tsx
-      if (userId) {
-        console.log("Obračun sačuvan u Firestore:", datumString);
-      } else {
-        console.warn("Nema korisnika, obračun se ne može sačuvati");
-      }
-
+      await saveObracun(userId, {
+        datum: datumString,
+        artikli: arhiviraniObracun.artikli,
+        rashodi: arhiviraniObracun.rashodi,
+        prihodi: arhiviraniObracun.prihodi,
+        ukupnoArtikli: arhiviraniObracun.ukupnoArtikli,
+        ukupnoRashod: arhiviraniObracun.ukupnoRashod,
+        ukupnoPrihod: arhiviraniObracun.ukupnoPrihod,
+        neto: arhiviraniObracun.neto,
+        isAzuriran: arhiviraniObracun.isAzuriran || false,
+        imaUlaz: arhiviraniObracun.imaUlaz || false,
+        invoiceImages: allInvoiceImages.length > 0 ? allInvoiceImages : undefined,
+      });
+      
+      console.log("Obračun sačuvan preko API-ja:", datumString);
+      
       // Resetuj slike faktura nakon uspješnog spremanja
       setInvoiceImages([]);
       setSavedInvoiceImagesCount(0);
-      setHasUlazInCache(false); // Resetuj flag da nema ulaz u cache-u
+      setHasUlazInCache(false); // Resetuj flag da nema ulaz u cache-a
       
-      // Obriši broj sačuvanih slika iz cache-a jer je obračun sačuvan
-      if (user && userId) {
-        try {
-          const cacheRef = doc(db, "users", userId, "cache", datumString);
-          await setDoc(cacheRef, {
-            savedInvoiceImagesCount: 0,
-          }, { merge: true });
-        } catch (error: any) {
-          // Ignoriraj greške dozvola
-          const errorCode = error?.code || "";
-          if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Greška pri brisanju broja sačuvanih slika:", error);
-          }
-        }
-      }
-
       // Ažuriranje cjenovnika (početno stanje za sljedeći dan = krajnje stanje iz ovog dana)
-      // VAŽNO: Ažuriraj cjenovnik PRIJE promjene datuma, da se novi datum učita sa ispravnim početnim stanjem
-      // Kada se sačuva obračun, ulaz se zbraja sa početnim stanjem i postaje novo početno stanje za sljedeći dan
       setCjenovnik((prev) =>
         prev.map((item) => {
           const artikal = artikli.find((a) => a.naziv === item.naziv);
@@ -1501,23 +1411,17 @@ export default function ObracunPage() {
             ulazZaPrikaz = ulazCache[artikal.naziv].ulaz;
           }
           
-          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana (ili početno + ulaz ako nije postavljeno krajnje)
-          // Kada se sačuva obračun, ulaz se zbraja sa početnim stanjem i postaje novo početno stanje za sljedeći dan
+          // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana
           let novoPocetnoStanje: number;
           if (artikal.naziv.toLowerCase().includes("kafa")) {
             novoPocetnoStanje = 0; // Kafa se uvijek resetuje na 0
           } else if (artikal.isKrajnjeSet && artikal.krajnjeStanje > 0) {
-            // Ako je postavljeno krajnje stanje, koristi ga
             novoPocetnoStanje = artikal.krajnjeStanje;
           } else if (ulazZaPrikaz !== 0) {
-            // Ako ima ulaz, početno stanje za sljedeći dan = početno stanje + ulaz
             novoPocetnoStanje = artikal.pocetnoStanje + ulazZaPrikaz;
           } else {
-            // Ako nema ulaz i nije postavljeno krajnje stanje, koristi ukupno
             novoPocetnoStanje = artikal.ukupno;
           }
-          
-          console.log(`Ažuriranje cjenovnika za ${item.naziv}: ${item.pocetnoStanje} -> ${novoPocetnoStanje} (ulaz: ${ulazZaPrikaz}, krajnje: ${artikal.krajnjeStanje}, ukupno: ${artikal.ukupno})`);
           
           return {
             ...item,
@@ -1526,31 +1430,6 @@ export default function ObracunPage() {
         })
       );
       
-      // Obriši draft obračun jer je sada sačuvan u arhivi
-      if (userId) {
-        try {
-          const draftRef = doc(db, "users", userId, "draftObracuni", datumString);
-          await deleteDoc(draftRef);
-          console.log("🗑️ Draft obračun obrisan za datum:", datumString);
-        } catch (error) {
-          console.warn("Greška pri brisanju draft obračuna:", error);
-        }
-      }
-
-      // Obriši ulaz cache za ovaj datum jer je obračun sačuvan
-      // Za naredni dan, vrijednosti iz ulaza se postavljaju na nulu
-      if (userId) {
-        try {
-          const cacheRef = doc(db, "users", userId, "ulazCache", datumString);
-          await deleteDoc(cacheRef);
-          setUlazCacheForDatum({});
-          setHasUlazInCache(false);
-          console.log("🗑️ Ulaz cache obrisan za datum:", datumString);
-        } catch (error) {
-          console.warn("Greška pri brisanju ulaz cache:", error);
-        }
-      }
-
       // Povećaj datum za jedan dan (prebacivanje na novi dan)
       const noviDatum = new Date(trenutniDatum);
       noviDatum.setDate(noviDatum.getDate() + 1);
@@ -1562,21 +1441,19 @@ export default function ObracunPage() {
       setNewPrihod({ naziv: "", cijena: 0 });
       setEditRashodIndex(null);
       setEditPrihodIndex(null);
-      setIsAzuriran(false); // Resetiraj flag nakon spremanja
-      setIsUlazLocked(false); // Otključaj ulaze za novi dan
-      setResetKey((prev) => prev + 1); // Povećaj reset key da se input polja potpuno resetiraju
-      
-      // Eksplicitno resetiraj artikle na prazan niz da se useEffect pokrene i inicijalizira nove artikle
-      // Ovo će osigurati da se artikli odmah resetiraju za novi dan
+      setIsAzuriran(false);
+      setIsUlazLocked(false);
+      setResetKey((prev) => prev + 1);
       setArtikli([]);
 
-      // Emituj događaj (ako koristiš fallback)
+      // Emituj događaj za ažuriranje arhive
       window.dispatchEvent(new Event("arhivaChanged"));
-
+      
       alert("Obračun uspješno sačuvan!");
-    } catch (error) {
-      console.error("Greška pri čuvanju:", error);
-      alert("Greška pri čuvanju. Provjeri konzolu za detalje.");
+      
+    } catch (error: any) {
+      console.error("Greška pri spremanju obračuna:", error);
+      alert("Greška pri spremanju obračuna: " + (error.message || "Nepoznata greška"));
     }
   };
 
