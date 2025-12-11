@@ -5,6 +5,17 @@ let pool: Pool | null = null;
 
 export function getPool(): Pool {
   if (!pool) {
+    // Log all environment variables (without sensitive data)
+    console.log('Database environment check:', {
+      hasDATABASE_URL: !!process.env.DATABASE_URL,
+      DATABASE_URL_length: process.env.DATABASE_URL?.length || 0,
+      DB_USER: process.env.DB_USER || 'not set',
+      DB_HOST: process.env.DB_HOST || 'not set',
+      DB_PORT: process.env.DB_PORT || 'not set',
+      DB_NAME: process.env.DB_NAME || 'not set',
+      NODE_ENV: process.env.NODE_ENV || 'not set',
+    });
+
     const connectionString = process.env.DATABASE_URL || 
       `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'office_app'}`;
     
