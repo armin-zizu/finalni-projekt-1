@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { AppNameProvider } from "./context/AppNameContext";
 import { CjenovnikProvider } from "./context/CjenovnikContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
-import { RoleProvider, useRole, UserRole } from "./context/RoleContext";
+import { RoleProvider, useRole, UserRole, RoleContext } from "./context/RoleContext";
 import SubscriptionBanner from "./components/SubscriptionBanner";
 import Sidebar from "./sidebar/Sidebar";
 import { usePathname, useRouter } from "next/navigation";
