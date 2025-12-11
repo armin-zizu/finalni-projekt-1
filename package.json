@@ -18,7 +18,6 @@
     "import:postgres": "node scripts/import-to-postgresql.js"
   },
   "dependencies": {
-    "@dataconnect/generated": "file:src/dataconnect-generated",
     "@fingerprintjs/fingerprintjs": "^5.0.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/crypto-js": "^4.2.2",
