@@ -1400,8 +1400,8 @@ export default function ObracunPage() {
       setHasUlazInCache(false); // Resetuj flag da nema ulaz u cache-a
       
       // Ažuriranje cjenovnika (početno stanje za sljedeći dan = krajnje stanje iz ovog dana)
-      setCjenovnik((prev: { naziv: string; pocetnoStanje: number; [key: string]: any }[]) =>
-        prev.map((item: { naziv: string; pocetnoStanje: number; [key: string]: any }) => {
+      setCjenovnik((prev) =>
+        prev.map((item) => {
           const artikal = artikli.find((a: Artikal) => a.naziv === item.naziv);
           if (!artikal) return item;
           
