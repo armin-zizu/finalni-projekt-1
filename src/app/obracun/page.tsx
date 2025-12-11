@@ -675,7 +675,7 @@ export default function ObracunPage() {
       
       // Ako nema postojećih artikala, inicijaliziraj sve iz cjenovnika
       if (artikli.length === 0) {
-      const inicijalniArtikli = cjenovnik.map((item) => {
+      const inicijalniArtikli = cjenovnik.map((item: { naziv: string; cijena: number; pocetnoStanje: number; zestokoKolicina?: number; proizvodnaCijena?: number }) => {
         const cached = ulazCache[item.naziv];
         const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
         
@@ -714,7 +714,7 @@ export default function ObracunPage() {
         };
       });
       
-      console.log("🟢 Inicijalni artikli kreirani:", inicijalniArtikli.map(a => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, ulaz: a.ulaz })));
+      console.log("🟢 Inicijalni artikli kreirani:", inicijalniArtikli.map((a: Artikal) => ({ naziv: a.naziv, pocetnoStanje: a.pocetnoStanje, ulaz: a.ulaz })));
       setArtikli(inicijalniArtikli);
       setIsAzuriran(false);
       setResetKey(0);
@@ -729,14 +729,14 @@ export default function ObracunPage() {
     }
     
     // Ako postoje artikli, provjeri da li postoje novi artikli u cjenovniku
-    const postojeciNazivi = new Set(artikli.map(a => a.naziv));
-    const noviArtikli = cjenovnik.filter(item => !postojeciNazivi.has(item.naziv));
+    const postojeciNazivi = new Set(artikli.map((a: Artikal) => a.naziv));
+    const noviArtikli = cjenovnik.filter((item: { naziv: string; cijena: number; pocetnoStanje: number; zestokoKolicina?: number; proizvodnaCijena?: number }) => !postojeciNazivi.has(item.naziv));
     
     // Ako postoje novi artikli, dodaj ih postojećim artiklima
     if (noviArtikli.length > 0) {
-      console.log("Pronađeni novi artikli u cjenovniku:", noviArtikli.map(a => a.naziv));
+      console.log("Pronađeni novi artikli u cjenovniku:", noviArtikli.map((a: { naziv: string }) => a.naziv));
       
-      const noviArtikliZaDodati = noviArtikli.map((item) => {
+      const noviArtikliZaDodati = noviArtikli.map((item: { naziv: string; cijena: number; pocetnoStanje: number; zestokoKolicina?: number; proizvodnaCijena?: number }) => {
         const cached = ulazCache[item.naziv];
         const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
         
@@ -783,9 +783,9 @@ export default function ObracunPage() {
       const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
       console.log("🟡 Ažuriranje postojećih artikala, cache:", ulazCache);
       
-      setArtikli(prev => {
-        const updated = prev.map(artikal => {
-          const cjenovnikItem = cjenovnik.find(item => item.naziv === artikal.naziv);
+      setArtikli((prev: Artikal[]) => {
+        const updated = prev.map((artikal: Artikal) => {
+          const cjenovnikItem = cjenovnik.find((item: { naziv: string; pocetnoStanje: number; zestokoKolicina?: number; proizvodnaCijena?: number }) => item.naziv === artikal.naziv);
           if (cjenovnikItem) {
             // Ažuriraj cijenu i početno stanje iz cjenovnika
             const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
@@ -1400,9 +1400,9 @@ export default function ObracunPage() {
       setHasUlazInCache(false); // Resetuj flag da nema ulaz u cache-a
       
       // Ažuriranje cjenovnika (početno stanje za sljedeći dan = krajnje stanje iz ovog dana)
-      setCjenovnik((prev) =>
-        prev.map((item) => {
-          const artikal = artikli.find((a) => a.naziv === item.naziv);
+      setCjenovnik((prev: { naziv: string; pocetnoStanje: number; [key: string]: any }[]) =>
+        prev.map((item: { naziv: string; pocetnoStanje: number; [key: string]: any }) => {
+          const artikal = artikli.find((a: Artikal) => a.naziv === item.naziv);
           if (!artikal) return item;
           
           // Provjeri da li artikal ima ulaz (trenutni ili iz cache-a)
