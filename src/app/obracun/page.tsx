@@ -954,12 +954,22 @@ export default function ObracunPage() {
   };
 
   const handleKrajnjeStanjeChange = (index: number, value: string) => {
-    setArtikli((prev) =>
-      prev.map((a, i) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:956',message:'handleKrajnjeStanjeChange entry',data:{index,value,valueType:typeof value,valueLength:value.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+    // #endregion
+    setArtikli((prev) => {
+      // #region agent log
+      const prevArtikal = prev[index];
+      fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:958',message:'Before state update',data:{prevKrajnjeStanje:prevArtikal?.krajnjeStanje,prevKrajnjeStanjeType:typeof prevArtikal?.krajnjeStanje,prevIsKrajnjeSet:prevArtikal?.isKrajnjeSet,prevUkupno:prevArtikal?.ukupno},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+      // #endregion
+      return prev.map((a, i) => {
         if (i !== index) return a;
 
         const isSet = value.trim() !== "";
         const broj = isSet ? Number(value) : 0;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:962',message:'After Number conversion',data:{isSet,broj,isNaN:isNaN(broj),valueTrimmed:value.trim()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
 
         if (a.naziv.toLowerCase().includes("kafa")) {
           const utroseno = broj;
@@ -984,8 +994,11 @@ export default function ObracunPage() {
             isKrajnjeSet: isSet,
           };
         }
-      })
-    );
+      });
+    });
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:989',message:'handleKrajnjeStanjeChange exit',data:{index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+    // #endregion
   };
 
   const handleAddRashod = () => {
@@ -2178,9 +2191,25 @@ export default function ObracunPage() {
                   <input
                     type="number"
                     inputMode="numeric"
-                    value={a.krajnjeStanje === 0 ? "" : a.krajnjeStanje}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => handleKrajnjeStanjeChange(index, e.target.value)}
+                    value={(() => {
+                      // #region agent log
+                      const val = a.krajnjeStanje === 0 ? "" : String(a.krajnjeStanje);
+                      fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:2191',message:'Value prop calculation',data:{krajnjeStanje:a.krajnjeStanje,krajnjeStanjeType:typeof a.krajnjeStanje,computedValue:val,computedValueType:typeof val,isKrajnjeSet:a.isKrajnjeSet,index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                      return val;
+                      // #endregion
+                    })()}
+                    onFocus={(e) => {
+                      // #region agent log
+                      fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:2182',message:'Input focus',data:{currentValue:e.target.value,index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                      // #endregion
+                      e.target.select();
+                    }}
+                    onChange={(e) => {
+                      // #region agent log
+                      fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:2183',message:'Input onChange',data:{newValue:e.target.value,newValueType:typeof e.target.value,index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+                      // #endregion
+                      handleKrajnjeStanjeChange(index, e.target.value);
+                    }}
                     style={{ ...inputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed" }}
                     className="no-spin"
                     disabled={!canEdit}

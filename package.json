@@ -13,7 +13,9 @@
     "vercel:link": "vercel link",
     "test:db": "node test-connection.js",
     "setup:server": "bash setup-server.sh",
-    "check:server": "bash check-server.sh"
+    "check:server": "bash check-server.sh",
+    "export:firebase": "node scripts/export-firebase-data.js",
+    "import:postgres": "node scripts/import-to-postgresql.js"
   },
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
@@ -28,6 +30,7 @@
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.0",
     "crypto-js": "^4.2.0",
+    "firebase-admin": "^13.0.0",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^3.0.3",
     "multer": "^2.0.2",

@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS obracuni (
   datum VARCHAR(50) NOT NULL, -- Format: "DD.MM.YYYY"
   artikli JSONB NOT NULL, -- Array artikala sa svim detaljima
   created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, datum)
 );
 
 -- Payments tabela

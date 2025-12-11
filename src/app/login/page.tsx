@@ -37,57 +37,34 @@ export default function LoginPage() {
     setError("");
     try {
       console.log("Pokušavam prijavu s e-mailom:", email);
-      console.log("Firebase Auth Domain:", auth.config?.authDomain || 'N/A');
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      const user = result.user;
+      
+      // API login poziv umjesto Firebase Auth
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json();
+        throw new Error(errorData.error || 'Prijava nije uspjela');
+      }
+
+      const loginData = await loginResponse.json();
+      const user = loginData.user;
       
       // Provjeri da li je prijava uspješna prije nego što nastaviš
       if (!user) {
         throw new Error("Prijava nije uspjela");
       }
       
-      const idToken = await user.getIdToken();
-      console.log("ID Token generisan:", idToken);
       console.log("Uspješan login:", user.email);
+      console.log("User ID:", user.id);
 
-      // Provjeri da li je korisnik vlasnik
-      const userDocRef = doc(db, "users", user.uid);
-      let userDoc = await getDoc(userDocRef);
-      let isOwner = userDoc.exists() && userDoc.data().isOwner === true;
-      
-      // Ako korisnik ne postoji u Firestore, inicijalizuj ga
-      if (!userDoc.exists()) {
-        console.log("Login - Korisnik ne postoji u Firestore, inicijalizujem...");
-        try {
-          await initializeUser(user.uid, user.email);
-          userDoc = await getDoc(userDocRef);
-          isOwner = userDoc.exists() && userDoc.data().isOwner === true;
-          console.log("Login - Korisnik inicijalizovan, isOwner:", isOwner);
-        } catch (initError) {
-          console.error("Login - Greška pri inicijalizaciji korisnika:", initError);
-        }
-      }
-      
-      // Ako korisnik nije vlasnik, provjeri da li je prvi put da se taj email registruje
-      if (!isOwner && user.email) {
-        try {
-          // Provjeri da li je prvi put da se taj email registruje
-          const usersRef = collection(db, "users");
-          const { query: queryFn, where: whereFn } = await import("firebase/firestore");
-          const emailQuery = queryFn(usersRef, whereFn("email", "==", user.email.toLowerCase().trim()));
-          const emailSnapshot = await getDocs(emailQuery);
-          
-          // Ako email ne postoji u sistemu, ovo je prvi put da se registruje
-          if (emailSnapshot.empty) {
-            console.log("Login - Email se prvi put registruje, postavljam isOwner: true");
-            await setDoc(userDocRef, { isOwner: true }, { merge: true });
-            isOwner = true;
-            userDoc = await getDoc(userDocRef);
-          }
-        } catch (checkError) {
-          console.error("Login - Greška pri provjeri prvog korisnika:", checkError);
-        }
-      }
+      // Koristimo podatke iz API odgovora
+      const isOwner = user.isOwner === true;
 
       // Provjeri status uređaja prije dozvoljavanja pristupa
       try {

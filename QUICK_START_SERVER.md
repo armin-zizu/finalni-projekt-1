@@ -13,7 +13,7 @@
 ### Opcija A: Automatski setup (preporučeno)
 
 ```bash
-# Pokrenite setup skriptu
+# Pokrenite setup skript
 bash setup-server.sh
 ```
 
