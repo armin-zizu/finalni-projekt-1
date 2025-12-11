@@ -344,12 +344,41 @@ export async function getObracuni(userId: string, datum?: string) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to fetch obracuni');
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.error('getObracuni error:', errorData);
+    throw new Error(errorData.error || errorData.message || 'Failed to fetch obracuni');
   }
 
   const data = await response.json();
-  return data.obracuni || [];
+  
+  // Transformiraj podatke iz API-ja u format koji dashboard/profit očekuje
+  const transformedObracuni = (data.obracuni || []).map((ob: any) => {
+    // Ako je artikli JSONB string, parsiraj ga
+    let artikliData = ob.artikli;
+    if (typeof artikliData === 'string') {
+      try {
+        artikliData = JSON.parse(artikliData);
+      } catch (e) {
+        console.warn('Failed to parse artikli JSON:', e);
+        artikliData = {};
+      }
+    }
+    
+    return {
+      datum: ob.datum,
+      artikli: artikliData.artikli || [],
+      rashodi: artikliData.rashodi || [],
+      prihodi: artikliData.prihodi || [],
+      ukupnoArtikli: artikliData.ukupnoArtikli || 0,
+      ukupnoRashod: artikliData.ukupnoRashod || 0,
+      ukupnoPrihod: artikliData.ukupnoPrihod || 0,
+      neto: artikliData.neto || 0,
+      isAzuriran: artikliData.isAzuriran || false,
+      imaUlaz: artikliData.imaUlaz || false,
+    };
+  });
+  
+  return transformedObracuni;
 }
 
 /**

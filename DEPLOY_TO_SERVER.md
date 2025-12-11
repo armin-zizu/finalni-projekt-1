@@ -1,42 +1,66 @@
-# Deploy na Hetzner Server - Plan
+# Instrukcije za Deployment na Server
 
-## ✅ Što već imamo:
-- ✅ Login funkcionalnost radi
-- ✅ Database migracije završene (users, devices tabele)
-- ✅ PostgreSQL baza postavljenja i radi
-- ✅ Osnovne API rute funkcionalne
+## Koraci za deployment novih promjena:
 
-## 📋 Plan deploya
+### 1. Povezivanje na server:
+```bash
+ssh root@<server-ip>
+```
 
-### Korak 1: Priprema servera
-- Provjeriti Node.js instalaciju
-- Provjeriti PM2 (process manager) ili instalirati
-- Provjeriti Nginx ili postaviti
-- Provjeriti git setup
+### 2. Idi u direktorij aplikacije:
+```bash
+cd ~/bar-app
+```
 
-### Korak 2: Environment varijable
-- Kreirati `.env.local` ili `.env.production` na serveru
-- Postaviti `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`
+### 3. Pull najnovije promjene sa GitHuba:
+```bash
+git pull origin main
+```
 
-### Korak 3: Deploy aplikacije
-- Clone/pull projekta na server
-- Instalirati dependencies (`npm install`)
-- Build aplikacije (`npm run build`)
-- Pokrenuti sa PM2 (`npm start` ili `pm2 start`)
+### 4. Instaliraj nove dependencies (ako ih ima):
+```bash
+npm install
+```
 
-### Korak 4: Nginx reverse proxy (ako je potrebno)
-- Konfigurirati Nginx da proxy-uje na Next.js port
-- SSL setup (Let's Encrypt)
+### 5. Build aplikacije:
+```bash
+npm run build
+```
 
-## 🎯 Prednosti deploya na server:
-- ✅ Brži razvoj - sve promjene se vide odmah
-- ✅ Realističnije okruženje
-- ✅ Lakše testiranje
-- ✅ Možemo nastaviti migraciju direktno na produkciji
+### 6. Restart PM2 procesa:
+```bash
+pm2 restart office-app
+```
 
-## ⚠️ Napomene:
-- Možda ćemo raditi direktno na produkciji (ali to je OK za development)
-- Možemo koristiti `npm run dev` za development ili `npm run build && npm start` za production
+### 7. Provjeri status:
+```bash
+pm2 status
+pm2 logs office-app --lines 50
+```
 
-Hajde da krenemo!
+## Kompletan niz komandi (jedna po jedna):
+```bash
+cd ~/bar-app
+git pull origin main
+npm install
+npm run build
+pm2 restart office-app
+pm2 logs office-app --lines 50
+```
 
+## Ako se pojavi greška pri build-u:
+- Provjeri logove: `pm2 logs office-app`
+- Provjeri da li su sve environment varijable postavljene: `cat .env.local`
+- Provjeri da li port 3001 nije zauzet: `netstat -tulpn | grep 3001`
+
+## Ako treba zaustaviti aplikaciju:
+```bash
+pm2 stop office-app
+```
+
+## Ako treba potpuno restartovati:
+```bash
+pm2 delete office-app
+pm2 start npm --name "office-app" -- start
+pm2 save
+```
