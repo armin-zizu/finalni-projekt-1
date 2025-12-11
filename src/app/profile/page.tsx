@@ -33,6 +33,11 @@ const deleteDoc = async (...args: any[]) => {};
 const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
 const getDocs = async (...args: any[]) => ({ docs: [] } as any);
 const onSnapshot = (...args: any[]) => () => {};
+// Mock Firebase query functions
+const query = (...args: any[]) => ({ id: 'mock-query' }) as any;
+const where = (...args: any[]) => ({ id: 'mock-where' }) as any;
+const updateDoc = async (...args: any[]) => {};
+const Timestamp = { fromDate: (date: Date) => date } as any;
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",
@@ -629,134 +634,47 @@ export default function Profile() {
   }, [user, role]);
 
   // Učitaj zahtjeve za odobrenje (samo za vlasnika)
+  // TEMPORARY: Disabled - loginApprovals tabela nije kreirana, koristi se device management
   const loadLoginApprovals = async () => {
-    const user = auth.currentUser;
-    if (!isOwner && user?.email !== "gitara.zizu@gmail.com") return;
+    if (!isOwner) return;
     
     try {
       setLoadingApprovals(true);
-      const approvalsRef = collection(db, "loginApprovals");
-      const q = query(approvalsRef, where("status", "==", "pending"));
-      const snapshot = await getDocs(q);
-      
-      const approvalsList: any[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        approvalsList.push({
-          id: doc.id,
-          ...data,
-          requestedAt: data.requestedAt?.toDate?.() || null,
-        });
-      });
-      
-      // Sortiraj po datumu (najnoviji prvo)
-      approvalsList.sort((a, b) => {
-        const aDate = a.requestedAt || new Date(0);
-        const bDate = b.requestedAt || new Date(0);
-        return bDate.getTime() - aDate.getTime();
-      });
-      
-      setLoginApprovals(approvalsList);
+      // TODO: Migrirati na API kada se implementira loginApprovals tabela
+      // Za sada vraćamo praznu listu jer device management se već koristi
+      setLoginApprovals([]);
     } catch (error: any) {
-      // Ignoriraj greške permisija ako nije vlasnik
-      if (error.code === 'permission-denied') {
-        console.warn("Nemam permisije za učitavanje zahtjeva za odobrenje");
-      } else {
-        console.error("Greška pri učitavanju zahtjeva za odobrenje:", error);
-      }
+      console.warn("Login approvals trenutno nisu podržani:", error);
+      setLoginApprovals([]);
     } finally {
       setLoadingApprovals(false);
     }
   };
 
   // Odobri zahtjev
+  // TEMPORARY: Disabled - koristi se device management umjesto loginApprovals
   const approveLoginRequest = async (approvalId: string) => {
-    const user = auth.currentUser;
-    if (!user || (!isOwner && user.email !== "gitara.zizu@gmail.com")) return;
-
-    try {
-      const approvalRef = doc(db, "loginApprovals", approvalId);
-      await updateDoc(approvalRef, {
-        status: "approved",
-        approvedAt: Timestamp.fromDate(new Date()),
-        approvedBy: user.uid,
-      });
-      console.log("Zahtjev odobren za korisnika:", approvalId);
-      
-      // Provjeri da li je status stvarno ažuriran
-      const updatedDoc = await getDoc(approvalRef);
-      if (updatedDoc.exists()) {
-        const updatedData = updatedDoc.data();
-        console.log("Status nakon odobrenja:", updatedData.status);
-      }
-      
-      await loadLoginApprovals();
-      setMessage("Zahtjev uspješno odobren. Korisnik se sada može prijaviti.");
-      setTimeout(() => setMessage(""), 5000);
-    } catch (error) {
-      console.error("Greška pri odobravanju zahtjeva:", error);
-      setMessage("Greška pri odobravanju zahtjeva");
-      setTimeout(() => setMessage(""), 5000);
-    }
+    if (!isOwner) return;
+    // TODO: Migrirati na API kada se implementira loginApprovals tabela
+    setMessage("Login approvals trenutno nisu podržani. Koristi device management za odobravanje uređaja.");
+    setTimeout(() => setMessage(""), 5000);
   };
 
   // Odbij zahtjev
+  // TEMPORARY: Disabled - koristi se device management umjesto loginApprovals
   const rejectLoginRequest = async (approvalId: string) => {
-    const user = auth.currentUser;
-    if (!user || (!isOwner && user.email !== "gitara.zizu@gmail.com")) return;
-
-    try {
-      const approvalRef = doc(db, "loginApprovals", approvalId);
-      await updateDoc(approvalRef, {
-        status: "rejected",
-        rejectedAt: Timestamp.fromDate(new Date()),
-        rejectedBy: user.uid,
-      });
-      await loadLoginApprovals();
-      setMessage("Zahtjev uspješno odbijen");
-      setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
-      console.error("Greška pri odbijanju zahtjeva:", error);
-      setMessage("Greška pri odbijanju zahtjeva");
-      setTimeout(() => setMessage(""), 5000);
-    }
+    if (!isOwner) return;
+    // TODO: Migrirati na API kada se implementira loginApprovals tabela
+    setMessage("Login approvals trenutno nisu podržani. Koristi device management za odobravanje uređaja.");
+    setTimeout(() => setMessage(""), 5000);
   };
 
   // Učitaj zahtjeve kada je korisnik vlasnik
+  // TEMPORARY: Disabled real-time listener - loginApprovals trenutno nisu podržani
   useEffect(() => {
     if (isOwner) {
       loadLoginApprovals();
-      
-      // Postavi real-time listener
-      const approvalsRef = collection(db, "loginApprovals");
-      const q = query(approvalsRef, where("status", "==", "pending"));
-      const unsubscribe = onSnapshot(q, 
-        (snapshot) => {
-          const approvalsList: any[] = [];
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            approvalsList.push({
-              id: doc.id,
-              ...data,
-              requestedAt: data.requestedAt?.toDate?.() || null,
-            });
-          });
-          approvalsList.sort((a, b) => {
-            const aDate = a.requestedAt || new Date(0);
-            const bDate = b.requestedAt || new Date(0);
-            return bDate.getTime() - aDate.getTime();
-          });
-          setLoginApprovals(approvalsList);
-        },
-        (error) => {
-          // Ignoriraj greške permisija - mogu se desiti kada se korisnik odjavi
-          if (error.code !== 'permission-denied' && !error.code?.includes('permission') && !error.code?.includes('insufficient')) {
-            console.warn("Greška pri real-time listeneru:", error);
-          }
-        }
-      );
-      
-      return () => unsubscribe();
+      // TODO: Dodati real-time listener kada se implementira loginApprovals API
     }
   }, [isOwner]);
 
