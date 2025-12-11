@@ -4,6 +4,8 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { usePathname } from "next/navigation";
+import { useRole } from "../context/RoleContext";
+import { getObracuni, getCurrentUser, updateCurrentUser } from "../../lib/api";
 // TEMPORARY: Firebase imports disabled during migration
 // import { auth, onAuthStateChanged } from "../../lib/firebase";
 // import { db } from "../../lib/firestore";
@@ -282,6 +284,7 @@ export default function ProfitPage() {
   const [passwordError, setPasswordError] = useState("");
 
   const { cjenovnik } = useCjenovnik();
+  const { user } = useRole();
   const pathname = usePathname();
 
   // Detekcija mobilnog uređaja
@@ -337,134 +340,38 @@ export default function ProfitPage() {
     }
   }, [isMobile]);
 
-  // Provjera šifre pri učitavanju i pri navigaciji - traži šifru svaki put
+  // TEMPORARY: Password protection disabled - TODO: Migrate to API
   useEffect(() => {
-    const checkPassword = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        setIsPasswordProtected(false);
-        return;
-      }
+    // Password protection temporarily disabled during Firebase migration
+    setIsPasswordProtected(false);
+  }, [pathname]);
 
-      try {
-        if (!db) {
-          console.error("Profit - Firestore db nije inicijalizovan");
-          return;
-        }
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          const encryptedPassword = data.profitPassword;
-          
-          // Ako postoji šifra, traži je svaki put
-          if (encryptedPassword) {
-            setIsPasswordProtected(true);
-          } else {
-            // Ako nema šifre, ne traži je (prvi put)
-            setIsPasswordProtected(false);
-          }
-        } else {
-          setIsPasswordProtected(false);
-        }
-      } catch (error) {
-        console.warn("Greška pri provjeri šifre:", error);
-        setIsPasswordProtected(false);
-      }
-    };
-
-    checkPassword();
-  }, [pathname]); // Provjeri svaki put kada se pathname promijeni
-
+  // TEMPORARY: Password protection disabled - TODO: Migrate to API
   const handlePasswordSubmit = async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      setPasswordError("Niste prijavljeni");
-      return;
-    }
-
-    try {
-      if (!db) {
-        setPasswordError("Firestore nije inicijalizovan");
-        return;
-      }
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-      const data = userDoc.exists() ? userDoc.data() : {};
-      const encryptedPassword = data.profitPassword;
-      
-      if (!encryptedPassword) {
-        // Prvi put - postavi šifru
-        if (passwordInput.trim().length >= 4) {
-          // Enkriptuj šifru prije spremanja
-          const encrypted = encrypt(passwordInput);
-          await setDoc(userDocRef, { profitPassword: encrypted }, { merge: true });
-          setIsPasswordProtected(false);
-          setPasswordInput("");
-          setPasswordError("");
-        } else {
-          setPasswordError("Šifra mora imati najmanje 4 znaka");
-        }
-      } else {
-        // Provjeri šifru - dekriptuj i uporedi
-        try {
-          const decryptedPassword = decrypt(encryptedPassword);
-          if (passwordInput === decryptedPassword) {
-            setIsPasswordProtected(false);
-            setPasswordInput("");
-            setPasswordError("");
-          } else {
-            setPasswordError("Pogrešna šifra!");
-          }
-        } catch (decryptError) {
-          console.error("Greška pri dekripciji šifre:", decryptError);
-          setPasswordError("Greška pri provjeri šifre. Pokušajte ponovo.");
-        }
-      }
-    } catch (error) {
-      console.error("Greška pri spremanju/provjeri šifre:", error);
-      setPasswordError("Greška pri spremanju šifre. Pokušajte ponovo.");
-    }
+    // Password protection temporarily disabled during Firebase migration
+    setPasswordError("Password protection trenutno nije dostupno.");
   };
 
-  // ---- funkcija za učitavanje arhive i generisanje profita - ČEKA NA AUTENTIFIKACIJU ----
+  // ---- funkcija za učitavanje arhive i generisanje profita - KORISTI API ----
   const loadArhiva = useCallback(async (userId: string) => {
     try {
       console.log("Profit - Učitavanje arhive za korisnika:", userId);
       
+      // UČITAJ IZ API-JA
       let firestoreArhiva: Obracun[] = [];
       
-      // UČITAJ IZ FIRESTORE
       try {
-        if (!db) {
-          console.error("Profit - Firestore db nije inicijalizovan");
-          setObracuniProfit([]);
-          return;
-        }
-        const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
-        firestoreArhiva = querySnapshot.docs.map((doc) => {
-          const data = doc.data();
-          const obracun = {
-            ...data,
-            artikli: data.artikli ?? [],
-            prihodi: data.prihodi ?? [],
-            rashodi: data.rashodi ?? [],
-          } as Obracun;
-          
-          // Debug log za prvi obračun
-          if (querySnapshot.docs.indexOf(doc) === 0) {
-            console.log("Profit - Prvi obračun iz Firestore:", {
-              datum: obracun.datum,
-              artikliCount: obracun.artikli?.length || 0,
-              artikli: obracun.artikli,
-              rashodiCount: obracun.rashodi?.length || 0,
-              prihodiCount: obracun.prihodi?.length || 0,
-            });
-          }
-          
-          return obracun;
-        });
-        console.log("Profit - Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
+        const obracuni = await getObracuni(userId);
+        
+        // Transformiraj podatke iz API-ja u format koji profit očekuje
+        firestoreArhiva = obracuni.map((ob: any) => ({
+          ...ob,
+          artikli: ob.artikli ?? [],
+          prihodi: ob.prihodi ?? [],
+          rashodi: ob.rashodi ?? [],
+        } as Obracun));
+        
+        console.log("Profit - Učitano iz API-ja:", firestoreArhiva.length, "obračuna");
         
         if (firestoreArhiva.length === 0) {
           console.warn("Profit - Nema obračuna u arhivi!");
@@ -472,16 +379,10 @@ export default function ProfitPage() {
           return;
         }
       } catch (error: any) {
-        const errorCode = error?.code || "";
-        console.error("Profit - Greška pri učitavanju iz Firestore:", {
+        console.error("Profit - Greška pri učitavanju iz API-ja:", {
           error,
-          errorCode,
           message: error?.message,
         });
-        
-        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-          console.error("Profit - Ne mogu učitati podatke:", error?.message || "Nepoznata greška");
-        }
         setObracuniProfit([]);
         return;
       }
@@ -636,58 +537,37 @@ export default function ProfitPage() {
     }
   }, [cjenovnik]);
 
-  // ---- ČEKA NA AUTENTIFIKACIJU PRIJE UČITAVANJA ----
+  // Učitaj arhivu kada se korisnik učita i cjenovnik je spreman
   useEffect(() => {
-    console.log("Profit - Postavljanje auth listenera...");
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      console.log("Profit - Auth state promijenjen:", user ? `Korisnik: ${user.uid}` : "Nema korisnika");
-      
-      if (!user) {
-        console.log("Profit - Nema korisnika, ne učitavam podatke");
-        setObracuniProfit([]);
-        return;
-      }
+    if (!user?.id) {
+      console.log("Profit - Nema korisnika, ne učitavam podatke");
+      setObracuniProfit([]);
+      return;
+    }
 
-      // Sačekaj mali delay da se sve inicijalizuje + da cjenovnik bude spreman
+    // Sačekaj mali delay da se sve inicijalizuje + da cjenovnik bude spreman
+    if (cjenovnik.length > 0) {
+      console.log("Profit - Korisnik učitan, učitavam arhivu...");
       setTimeout(() => {
-        if (cjenovnik.length > 0) {
-          loadArhiva(user.uid);
-        } else {
-          console.log("Profit - Čekam cjenovnik...");
-        }
+        loadArhiva(user.id);
       }, 200);
-    });
-
-    return () => {
-      unsubscribeAuth();
-    };
-  }, [loadArhiva, cjenovnik]);
+    } else {
+      console.log("Profit - Čekam cjenovnik...");
+    }
+  }, [user?.id, cjenovnik, loadArhiva]);
 
   // Listener za promjene u arhivi
   useEffect(() => {
     const handler = () => {
-      const user = auth.currentUser;
-      if (user && cjenovnik.length > 0) {
+      if (user?.id && cjenovnik.length > 0) {
         setTimeout(() => {
-          loadArhiva(user.uid);
+          loadArhiva(user.id);
         }, 100);
       }
     };
     window.addEventListener("arhivaChanged", handler);
     return () => window.removeEventListener("arhivaChanged", handler);
-  }, [loadArhiva, cjenovnik]);
-
-  // Učitaj kada se cjenovnik promijeni (ako je korisnik već prijavljen)
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (user && cjenovnik.length > 0) {
-      console.log("Profit - Cjenovnik učitan, učitavam arhivu...");
-      setTimeout(() => {
-        loadArhiva(user.uid);
-      }, 100);
-    }
-  }, [cjenovnik, loadArhiva]);
+  }, [user?.id, cjenovnik, loadArhiva]);
 
   // ---- filtriranje po periodu za glavni grafikon i tablice ----
   useEffect(() => {

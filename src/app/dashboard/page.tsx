@@ -19,6 +19,8 @@ import { useRouter } from "next/navigation";
 // import { db } from "../../lib/firestore";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useAppName } from "../context/AppNameContext";
+import { useRole } from "../context/RoleContext";
+import { getObracuni } from "../../lib/api";
 
 // Tipovi preuzeti iz ObracunPage
 type ArhiviraniArtikal = {
@@ -90,6 +92,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { cjenovnik } = useCjenovnik();
   const { appName } = useAppName();
+  const { user } = useRole();
 
   // Detekcija mobilnog uređaja - poboljšana za produkciju
   useEffect(() => {
@@ -146,19 +149,28 @@ export default function DashboardPage() {
     }
   }, [isMobile]);
 
-  // TEMPORARY: Mock loadArhiva for development - uses API instead of Firebase
+  // Učitaj arhivu iz API-ja
   const loadArhiva = useCallback(async (userId: string) => {
     try {
       console.log("Dashboard - Učitavanje arhive za korisnika:", userId);
       setLoading(true);
       
-      // TODO: Load from API instead of Firebase
-      // const response = await fetch(`/api/users/${userId}/obracuni`);
-      // const data = await response.json();
-      // const firestoreArhiva = data.obracuni || [];
+      // Učitaj iz API-ja
+      const obracuni = await getObracuni(userId);
       
-      // TEMPORARY: Empty array for development
-      let firestoreArhiva: ArhiviraniObracun[] = [];
+      // Transformiraj podatke iz API-ja u format koji dashboard očekuje
+      const firestoreArhiva: ArhiviraniObracun[] = obracuni.map((ob: any) => ({
+        datum: ob.datum,
+        ukupnoArtikli: ob.ukupnoArtikli || 0,
+        ukupnoRashod: ob.ukupnoRashod || 0,
+        ukupnoPrihod: ob.ukupnoPrihod || 0,
+        neto: ob.neto || 0,
+        artikli: ob.artikli || [],
+        rashodi: ob.rashodi || [],
+        prihodi: ob.prihodi || [],
+        imaUlaz: ob.imaUlaz || false,
+        isAzuriran: ob.isAzuriran || false,
+      }));
       
       // Sortiraj po datumu (rastući redoslijed za dashboard)
       const sortedArhiva = firestoreArhiva.sort((a, b) => {
@@ -208,12 +220,30 @@ export default function DashboardPage() {
   }, [loadArhiva]);
   */
   
-  // TEMPORARY: Mock user for development
+  // Učitaj arhivu kada se korisnik učita
   useEffect(() => {
-    // Load with mock user ID
-    const mockUserId = 'dev-user-id';
-    loadArhiva(mockUserId);
-  }, [loadArhiva]);
+    if (user?.id) {
+      loadArhiva(user.id);
+    } else {
+      setLoading(false);
+    }
+  }, [user?.id, loadArhiva]);
+  
+  // Listener za promjene u arhivi (kada se doda novi obračun)
+  useEffect(() => {
+    const handleArhivaChange = () => {
+      if (user?.id) {
+        setTimeout(() => {
+          loadArhiva(user.id);
+        }, 100);
+      }
+    };
+
+    window.addEventListener("arhivaChanged", handleArhivaChange);
+    return () => {
+      window.removeEventListener("arhivaChanged", handleArhivaChange);
+    };
+  }, [user?.id, loadArhiva]);
 
   // TEMPORARY: Disabled Firebase listener - comment out to re-enable
   /*
