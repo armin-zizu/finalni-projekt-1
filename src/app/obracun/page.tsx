@@ -4,11 +4,32 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
-import { auth } from "../../lib/firebase";
-import { db, storage } from "../../lib/firebase";
-import { doc, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp, onSnapshot, Timestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
-import { onAuthStateChanged } from "firebase/auth";
+// TEMPORARY: Disabled Firebase imports for development - using mocks
+// import { auth } from "../../lib/firebase";
+// import { db, storage } from "../../lib/firebase";
+// import { doc, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp, onSnapshot, Timestamp } from "firebase/firestore";
+// import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
+// import { onAuthStateChanged } from "firebase/auth";
+
+// TEMPORARY: Mock Firebase objects for development
+const auth = { currentUser: { uid: 'dev-user-id' } } as any;
+const db = {} as any;
+const storage = {} as any;
+const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
+const setDoc = async (...args: any[]) => {};
+const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
+const deleteDoc = async (...args: any[]) => {};
+const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
+const getDocs = async (...args: any[]) => ({ docs: [] } as any);
+const serverTimestamp = (...args: any[]) => new Date();
+const onSnapshot = (...args: any[]) => () => {};
+const Timestamp = { fromDate: (date: Date) => date } as any;
+const ref = (...args: any[]) => ({ fullPath: 'mock/path' }) as any;
+const uploadBytes = async (...args: any[]) => ({ metadata: { fullPath: 'mock/path' } } as any);
+const getDownloadURL = async (...args: any[]) => 'mock-url';
+const listAll = async (...args: any[]) => ({ items: [] } as any);
+const deleteObject = async (...args: any[]) => {};
+const onAuthStateChanged = (...args: any[]) => () => {};
 
 // ---- Tipovi ----
 type Artikal = {
@@ -275,6 +296,8 @@ export default function ObracunPage() {
   // Konobar2 može samo pregledati
   const isReadOnly = role === "konobar" && permissions?.obracun !== true;
   
+  // TEMPORARY: Disabled Firebase listener - comment out to re-enable
+  /*
   // Učitaj postavke za malu zalihu iz Firestore sa real-time osluškivanjem
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
@@ -326,6 +349,14 @@ export default function ObracunPage() {
         unsubscribeSnapshot();
       }
     };
+  }, []);
+  */
+  
+  // TEMPORARY: Set default values for development
+  useEffect(() => {
+    setLowStockEnabled(false);
+    setLowStockThresholdZestoka(100);
+    setLowStockThresholdOstala(10);
   }, []);
 
   // PRVO: Učitaj cache za trenutni datum PRIJE nego što se inicijaliziraju artikli
@@ -449,7 +480,7 @@ export default function ObracunPage() {
       const snapshot = await getDocs(draftCollection);
       const now = new Date();
       
-      snapshot.docs.forEach(async (docSnapshot) => {
+      snapshot.docs.forEach(async (docSnapshot: any) => {
         const data = docSnapshot.data();
         if (data.deleted) {
           // Obriši obrisane draft-ove
@@ -954,22 +985,12 @@ export default function ObracunPage() {
   };
 
   const handleKrajnjeStanjeChange = (index: number, value: string) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:956',message:'handleKrajnjeStanjeChange entry',data:{index,value,valueType:typeof value,valueLength:value.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
-    // #endregion
-    setArtikli((prev) => {
-      // #region agent log
-      const prevArtikal = prev[index];
-      fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:958',message:'Before state update',data:{prevKrajnjeStanje:prevArtikal?.krajnjeStanje,prevKrajnjeStanjeType:typeof prevArtikal?.krajnjeStanje,prevIsKrajnjeSet:prevArtikal?.isKrajnjeSet,prevUkupno:prevArtikal?.ukupno},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
-      // #endregion
-      return prev.map((a, i) => {
+    setArtikli((prev) =>
+      prev.map((a, i) => {
         if (i !== index) return a;
 
         const isSet = value.trim() !== "";
         const broj = isSet ? Number(value) : 0;
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:962',message:'After Number conversion',data:{isSet,broj,isNaN:isNaN(broj),valueTrimmed:value.trim()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
 
         if (a.naziv.toLowerCase().includes("kafa")) {
           const utroseno = broj;
@@ -994,11 +1015,8 @@ export default function ObracunPage() {
             isKrajnjeSet: isSet,
           };
         }
-      });
-    });
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:989',message:'handleKrajnjeStanjeChange exit',data:{index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
-    // #endregion
+      })
+    );
   };
 
   const handleAddRashod = () => {
@@ -2191,25 +2209,9 @@ export default function ObracunPage() {
                   <input
                     type="number"
                     inputMode="numeric"
-                    value={(() => {
-                      // #region agent log
-                      const val = a.krajnjeStanje === 0 ? "" : String(a.krajnjeStanje);
-                      fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:2191',message:'Value prop calculation',data:{krajnjeStanje:a.krajnjeStanje,krajnjeStanjeType:typeof a.krajnjeStanje,computedValue:val,computedValueType:typeof val,isKrajnjeSet:a.isKrajnjeSet,index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-                      return val;
-                      // #endregion
-                    })()}
-                    onFocus={(e) => {
-                      // #region agent log
-                      fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:2182',message:'Input focus',data:{currentValue:e.target.value,index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-                      // #endregion
-                      e.target.select();
-                    }}
-                    onChange={(e) => {
-                      // #region agent log
-                      fetch('http://127.0.0.1:7242/ingest/169c1a0b-9a5c-4225-87f2-42c68fbefad4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:2183',message:'Input onChange',data:{newValue:e.target.value,newValueType:typeof e.target.value,index},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
-                      // #endregion
-                      handleKrajnjeStanjeChange(index, e.target.value);
-                    }}
+                    value={a.krajnjeStanje === 0 ? "" : a.krajnjeStanje}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => handleKrajnjeStanjeChange(index, e.target.value)}
                     style={{ ...inputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed" }}
                     className="no-spin"
                     disabled={!canEdit}

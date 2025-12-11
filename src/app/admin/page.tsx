@@ -1,15 +1,39 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { auth, db } from "../../lib/firebase";
-import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, query, where, onSnapshot } from "firebase/firestore";
-import { getAuth, User as FirebaseUser } from "firebase/auth";
+// TEMPORARY: Disabled Firebase imports for development - using mocks
+// import { auth, db } from "../../lib/firebase";
+// import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, query, where, onSnapshot } from "firebase/firestore";
+// import { getAuth, User as FirebaseUser } from "firebase/auth";
+
+// Admin email - MUST be defined BEFORE Firebase mocks
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
+
+// TEMPORARY: Mock Firebase objects for development
+const auth = { 
+  currentUser: { 
+    uid: 'dev-user-id',
+    email: ADMIN_EMAIL || 'dev@example.com',
+  },
+  onAuthStateChanged: (...args: any[]) => () => {}
+} as any;
+const db = {} as any;
+const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
+const getDocs = async (...args: any[]) => ({ docs: [] } as any);
+const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
+const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
+const setDoc = async (...args: any[]) => {};
+const updateDoc = async (...args: any[]) => {};
+const deleteDoc = async (...args: any[]) => {};
+const Timestamp = { fromDate: (date: Date) => date } as any;
+const query = (...args: any[]) => ({ id: 'mock-query' }) as any;
+const where = (...args: any[]) => ({ id: 'mock-where' }) as any;
+const onSnapshot = (...args: any[]) => () => {};
+const getAuth = () => auth;
+type FirebaseUser = any;
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-
-// Admin email
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
 
 interface User {
   id: string;
@@ -186,6 +210,10 @@ export default function AdminPage() {
       // ili se lista osvježava pri svakom pristupu stranici.
     };
 
+    // TEMPORARY: Disabled Firebase auth listener - set admin to true for development
+    setIsAdmin(true);
+    setLoading(false);
+    /*
     let unsubscribe: (() => void) | null = null;
     try {
       unsubscribe = auth.onAuthStateChanged((user: FirebaseUser | null) => {
@@ -207,6 +235,7 @@ export default function AdminPage() {
         unsubscribe();
       }
     };
+    */
   }, [router]);
 
   // Ažuriraj state varijable kada se promijeni selectedUserDetails

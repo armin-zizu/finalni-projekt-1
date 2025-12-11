@@ -13,21 +13,35 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
 };
 
-// Initialize Firebase
-let app: FirebaseApp;
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
+// Initialize Firebase - TEMPORARY: Disabled during migration to server API
+// TODO: Remove Firebase completely after migration
+let app: FirebaseApp | null = null;
+try {
+  // Only initialize if we have valid config
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+    if (getApps().length === 0) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApps()[0];
+    }
+  }
+} catch (error) {
+  console.warn('Firebase initialization skipped (migration in progress):', error);
 }
 
-// Initialize Firebase services
-export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
-export const storage: FirebaseStorage = getStorage(app);
+// Initialize Firebase services - fallback to mock objects if not initialized
+export const auth: Auth = app ? getAuth(app) : ({} as Auth);
+export const db: Firestore = app ? getFirestore(app) : ({} as Firestore);
+export const storage: FirebaseStorage = app ? getStorage(app) : ({} as FirebaseStorage);
 
-// Export onAuthStateChanged for convenience
-export { onAuthStateChanged } from 'firebase/auth';
+// Export onAuthStateChanged for convenience - TEMPORARY: Mock during migration
+export const onAuthStateChanged = app 
+  ? require('firebase/auth').onAuthStateChanged
+  : (auth: any, callback: (user: any) => void) => {
+      // Mock function that immediately calls callback with null
+      callback(null);
+      return () => {}; // Return unsubscribe function
+    };
 
 // Export default app
 export default app;

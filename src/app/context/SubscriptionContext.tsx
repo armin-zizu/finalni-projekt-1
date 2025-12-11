@@ -1,9 +1,10 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { auth, db } from "../../lib/firebase";
-import { doc, getDoc, setDoc, onSnapshot, Timestamp } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+// TEMPORARY: Disabled Firebase imports for development
+// import { auth, db } from "../../lib/firebase";
+// import { doc, getDoc, setDoc, onSnapshot, Timestamp } from "firebase/firestore";
+// import { onAuthStateChanged } from "firebase/auth";
 
 // Tipovi
 interface Payment {
@@ -167,10 +168,28 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
 }
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  // TEMPORARY: Mock subscription for development - bypass Firebase
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>({
+    isActive: true,
+    isTrial: false,
+    isPremium: true,
+    isGracePeriod: false,
+    trialEndDate: null,
+    expiryDate: null,
+    graceEndDate: null,
+    monthlyPrice: 12,
+    lastPaymentDate: new Date(),
+    daysRemaining: 0,
+    daysUntilExpiry: 365,
+    daysInGrace: 0,
+    paymentHistory: [],
+  });
+  const [loading, setLoading] = useState(false); // Set to false to skip loading
 
   const loadSubscription = async () => {
+    // TEMPORARY: Bypass Firebase
+    return;
+    /*
     const user = auth.currentUser;
     
     if (!user) {
@@ -230,8 +249,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
+    */
   };
 
+  // TEMPORARY: Disabled Firebase listeners - comment out to re-enable
+  /*
   // Real-time listener za promjene
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -283,12 +305,17 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadSubscription();
   }, []);
+  */
 
   const refreshSubscription = async () => {
     await loadSubscription();
   };
 
   const addPayment = async (amount: number, months: number = 1, note?: string) => {
+    // TEMPORARY: Mock function for development
+    console.log("addPayment called (mocked):", { amount, months, note });
+    return;
+    /*
     const user = auth.currentUser;
     if (!user) throw new Error("Korisnik nije prijavljen");
 
@@ -360,9 +387,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       console.error("Greška pri dodavanju uplate:", error);
       throw error;
     }
+    */
   };
 
   const updateMonthlyPrice = async (price: number) => {
+    // TEMPORARY: Mock function for development
+    console.log("updateMonthlyPrice called (mocked):", price);
+    return;
+    /*
     const user = auth.currentUser;
     if (!user) throw new Error("Korisnik nije prijavljen");
 
@@ -380,6 +412,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       console.error("Greška pri ažuriranju cijene:", error);
       throw error;
     }
+    */
   };
 
   return (

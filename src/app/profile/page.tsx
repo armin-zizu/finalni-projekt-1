@@ -8,9 +8,30 @@ import { useRole, UserRole, PagePermission } from "../context/RoleContext";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
-import { db } from "../../lib/firestore";
+// TEMPORARY: Disabled Firebase imports for development - using mocks
+// import { db } from "../../lib/firestore";
 // TODO: Uklonjen Firebase import - implementirati API pozive
 import { FaSearch, FaSpinner, FaMobile, FaDesktop } from "react-icons/fa";
+
+// TEMPORARY: Mock Firebase objects for development
+const auth = { 
+  currentUser: { 
+    uid: 'dev-user-id',
+    email: 'dev@example.com',
+    metadata: {
+      creationTime: new Date().toISOString(),
+      lastSignInTime: new Date().toISOString(),
+    }
+  } 
+} as any;
+const db = {} as any;
+const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
+const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
+const setDoc = async (...args: any[]) => {};
+const deleteDoc = async (...args: any[]) => {};
+const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
+const getDocs = async (...args: any[]) => ({ docs: [] } as any);
+const onSnapshot = (...args: any[]) => () => {};
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",

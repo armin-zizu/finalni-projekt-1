@@ -1,10 +1,27 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { auth, onAuthStateChanged } from "../../lib/firebase";
-import { db, storage } from "../../lib/firebase";
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// TEMPORARY: Disabled Firebase imports for development - using mocks
+// import { auth, onAuthStateChanged } from "../../lib/firebase";
+// import { db, storage } from "../../lib/firebase";
+// import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
+// import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
+// TEMPORARY: Mock Firebase objects for development
+const auth = { currentUser: { uid: 'dev-user-id' } } as any;
+const db = {} as any;
+const storage = {} as any;
+const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
+const getDocs = async (...args: any[]) => ({ docs: [] } as any);
+const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
+const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
+const setDoc = async (...args: any[]) => {};
+const deleteDoc = async (...args: any[]) => {};
+const onSnapshot = (...args: any[]) => () => {};
+const ref = (...args: any[]) => ({ fullPath: 'mock/path' }) as any;
+const uploadBytes = async (...args: any[]) => ({ metadata: { fullPath: 'mock/path' } } as any);
+const getDownloadURL = async (...args: any[]) => 'mock-url';
+const onAuthStateChanged = (...args: any[]) => () => {};
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
@@ -191,7 +208,7 @@ export default function ArhivaPage() {
       try {
         const obracuniRef = collection(db, "users", userId, "obracuni");
         const snapshot = await getDocs(obracuniRef);
-        firestoreArhiva = snapshot.docs.map((doc) => {
+        firestoreArhiva = snapshot.docs.map((doc: any) => {
           const data = doc.data();
           const invoiceImages = data.invoiceImages ?? [];
           if (invoiceImages.length > 0) {
@@ -282,6 +299,8 @@ export default function ArhivaPage() {
     loadArhiva();
   }, [loadArhiva]);
 
+  // TEMPORARY: Disabled Firebase real-time listener - comment out to re-enable
+  /*
   // Real-time listener za Firestore promjene
   useEffect(() => {
     const user = auth.currentUser;
@@ -309,6 +328,7 @@ export default function ArhivaPage() {
     
     return () => unsubscribe();
   }, [loadArhiva]);
+  */
 
   // Listener za promjene u arhivi (samo za vanjske promjene, ne za interne)
   useEffect(() => {

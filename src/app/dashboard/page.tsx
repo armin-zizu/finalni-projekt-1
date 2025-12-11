@@ -12,10 +12,11 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FaArrowUp, FaArrowDown, FaDollarSign } from "react-icons/fa";
-import { auth, onAuthStateChanged } from "../../lib/firebase";
+// TEMPORARY: Disabled Firebase imports for development
+// import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { useRouter } from "next/navigation";
-import { getDocs, collection, onSnapshot } from "firebase/firestore";
-import { db } from "../../lib/firestore";
+// import { getDocs, collection, onSnapshot } from "firebase/firestore";
+// import { db } from "../../lib/firestore";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useAppName } from "../context/AppNameContext";
 
@@ -145,44 +146,19 @@ export default function DashboardPage() {
     }
   }, [isMobile]);
 
-  // Funkcija za učitavanje arhive - ČEKA NA AUTENTIFIKACIJU
+  // TEMPORARY: Mock loadArhiva for development - uses API instead of Firebase
   const loadArhiva = useCallback(async (userId: string) => {
     try {
       console.log("Dashboard - Učitavanje arhive za korisnika:", userId);
       setLoading(true);
       
-      let firestoreArhiva: ArhiviraniObracun[] = [];
+      // TODO: Load from API instead of Firebase
+      // const response = await fetch(`/api/users/${userId}/obracuni`);
+      // const data = await response.json();
+      // const firestoreArhiva = data.obracuni || [];
       
-      // UČITAJ IZ FIRESTORE
-      try {
-        const querySnapshot = await getDocs(collection(db, "users", userId, "obracuni"));
-        firestoreArhiva = querySnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            ...data,
-            prihodi: data.prihodi ?? [],
-            ukupnoPrihod: data.ukupnoPrihod ?? 0,
-            imaUlaz: data.imaUlaz ?? false,
-            isAzuriran: data.isAzuriran ?? false,
-          } as ArhiviraniObracun;
-        });
-        console.log("Dashboard - Učitano iz Firestore:", firestoreArhiva.length, "obračuna");
-        
-        if (firestoreArhiva.length === 0) {
-          console.warn("Dashboard - Nema obračuna u arhivi!");
-        }
-      } catch (error: any) {
-        const errorCode = error?.code || "";
-        console.error("Dashboard - Greška pri učitavanju iz Firestore:", {
-          error,
-          errorCode,
-          message: error?.message,
-        });
-        
-        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-          setError("Greška pri učitavanju podataka: " + (error?.message || "Nepoznata greška"));
-        }
-      }
+      // TEMPORARY: Empty array for development
+      let firestoreArhiva: ArhiviraniObracun[] = [];
       
       // Sortiraj po datumu (rastući redoslijed za dashboard)
       const sortedArhiva = firestoreArhiva.sort((a, b) => {
@@ -197,8 +173,6 @@ export default function DashboardPage() {
       
       console.log("Dashboard - Učitavanje završeno:", {
         brojObračuna: sortedArhiva.length,
-        prviObračun: sortedArhiva[0]?.datum,
-        poslednjiObračun: sortedArhiva[sortedArhiva.length - 1]?.datum,
       });
     } catch (error) {
       console.error("Dashboard - Kritična greška pri učitavanju:", error);
@@ -207,6 +181,8 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // TEMPORARY: Disabled Firebase auth listener - comment out to re-enable
+  /*
   // ČEKA NA AUTENTIFIKACIJU PRIJE UČITAVANJA
   useEffect(() => {
     console.log("Dashboard - Postavljanje auth listenera...");
@@ -230,7 +206,17 @@ export default function DashboardPage() {
       unsubscribeAuth();
     };
   }, [loadArhiva]);
+  */
+  
+  // TEMPORARY: Mock user for development
+  useEffect(() => {
+    // Load with mock user ID
+    const mockUserId = 'dev-user-id';
+    loadArhiva(mockUserId);
+  }, [loadArhiva]);
 
+  // TEMPORARY: Disabled Firebase listener - comment out to re-enable
+  /*
   // Listener za promjene u arhivi
   useEffect(() => {
     const handleArhivaChange = () => {
@@ -247,6 +233,7 @@ export default function DashboardPage() {
       window.removeEventListener("arhivaChanged", handleArhivaChange);
     };
   }, [loadArhiva]);
+  */
 
   // Priprema podataka za grafikon
   const obracuni: Obracun[] = arhiva

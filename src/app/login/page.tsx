@@ -1,13 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-// TODO: Uklonjen Firebase import - implementirati API pozive
-import { initializeUser } from "../../lib/userInit";
 import { useRouter } from "next/navigation";
-import { db } from "../../lib/firestore";
-// TODO: Uklonjen Firebase import - implementirati API pozive
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { useRole } from "../context/RoleContext";
+import { setAuthToken, getDeviceByDeviceId, saveDevice, getUserDevices } from "../../lib/api";
 
 export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"email" | "register" | "forgot" | null>(null);
@@ -54,11 +51,15 @@ export default function LoginPage() {
 
       const loginData = await loginResponse.json();
       const user = loginData.user;
+      const token = loginData.token;
       
       // Provjeri da li je prijava uspješna prije nego što nastaviš
-      if (!user) {
+      if (!user || !token) {
         throw new Error("Prijava nije uspjela");
       }
+      
+      // Sačuvaj token
+      setAuthToken(token);
       
       console.log("Uspješan login:", user.email);
       console.log("User ID:", user.id);
@@ -68,16 +69,13 @@ export default function LoginPage() {
 
       // Provjeri status uređaja prije dozvoljavanja pristupa
       try {
-        // Generiši deviceId (ne čuva se u localStorage - čuva se u Firestore nakon prijave)
+        // Generiši deviceId
         const fp = await FingerprintJS.load();
         const result = await fp.get();
         const deviceId = result.visitorId;
 
         if (deviceId) {
-          const deviceRef = doc(db, "devices", deviceId);
-          const deviceDoc = await getDoc(deviceRef);
-          
-          // Provjeri da li je vlasnik sa specifičnim emailom i OS-om
+          // Dohvati device info
           const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
             ? "Windows"
             : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
@@ -90,12 +88,34 @@ export default function LoginPage() {
             ? "iOS"
             : "Unknown";
           
+          const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
+            ? "Chrome"
+            : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
+            ? "Firefox"
+            : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
+            ? "Safari"
+            : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
+            ? "Edge"
+            : "Unknown";
+
+          const deviceInfo = {
+            deviceId: deviceId,
+            browser,
+            os,
+            screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+            firstSeen: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+          };
+
           const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
           
-          if (deviceDoc.exists()) {
-            const deviceData = deviceDoc.data();
-            const isBlocked = deviceData.isBlocked === true;
-            const status = deviceData.status || (deviceData.role === null ? "verifikacija" : "approved");
+          // Provjeri postojeći uređaj preko API-ja
+          const existingDevice = await getDeviceByDeviceId(user.id, deviceId);
+          
+          if (existingDevice) {
+            const isBlocked = existingDevice.isBlocked === true;
+            const status = existingDevice.status || (existingDevice.role === null ? "verifikacija" : "approved");
             const needsVerification = status === "verifikacija";
             
             console.log("Login - Provjera statusa uređaja:", { deviceId, status, isBlocked, needsVerification, isOwnerDevice });
@@ -109,39 +129,29 @@ export default function LoginPage() {
               setLoading(false);
               return;
             }
+
+            // Ažuriraj lastLogin
+            await saveDevice(user.id, {
+              deviceId,
+              deviceInfo: { ...deviceInfo, firstSeen: existingDevice.deviceInfo?.firstSeen || deviceInfo.firstSeen },
+            });
           } else {
             // Novi uređaj - provjeri da li korisnik već ima druge uređaje
             try {
-              const devicesQuery = query(collection(db, "devices"), where("userId", "==", user.uid));
-              const devicesSnapshot = await getDocs(devicesQuery);
+              const userDevices = await getUserDevices(user.id);
               
-              console.log("Login - Provjera drugih uređaja - broj uređaja:", devicesSnapshot.size, "isOwner:", isOwner);
-              
-              // Opcija 3: Kombinacija (vlasnik + broj uređaja)
-              // 1. Ako je vlasnik i nema device dokumenata → automatski odobri prvi uređaj
-              // 2. Ako je vlasnik ali već ima device dokumente → novi uređaj zahtijeva verifikaciju
-              // 3. Ako nije vlasnik → svaki novi uređaj zahtijeva verifikaciju
-              
-              const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
-                ? "Chrome"
-                : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
-                ? "Firefox"
-                : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
-                ? "Safari"
-                : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
-                ? "Edge"
-                : "Unknown";
+              console.log("Login - Provjera drugih uređaja - broj uređaja:", userDevices.length, "isOwner:", isOwner);
               
               // Provjeri da li je ovo prvi uređaj za korisnika
-              // Prvi uređaj = nema device dokumenata za ovog korisnika
-              if (devicesSnapshot.empty) {
+              if (userDevices.length === 0) {
                 // Prvi uređaj - ako je vlasnik, automatski odobri
                 if (isOwner) {
                   console.log("Login - Vlasnik sa prvim uređajem, automatski odobravam");
                   
-                  await setDoc(deviceRef, {
-                    userId: user.uid,
-                    userEmail: user.email,
+                  await saveDevice(user.id, {
+                    deviceId,
+                    deviceName: `${browser} on ${os}`,
+                    deviceInfo,
                     role: "vlasnik",
                     status: "approved",
                     isBlocked: false,
@@ -154,46 +164,23 @@ export default function LoginPage() {
                       profile: true,
                       admin: false,
                     },
-                    deviceInfo: {
-                      deviceId: deviceId,
-                      browser,
-                      os,
-                      screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                      firstSeen: Timestamp.fromDate(new Date()),
-                      lastLogin: Timestamp.fromDate(new Date()),
-                    },
-                    lastLogin: Timestamp.fromDate(new Date()),
-                    createdAt: Timestamp.fromDate(new Date()),
-                    updatedAt: Timestamp.fromDate(new Date()),
-                  }, { merge: true });
+                  });
                   
-                  console.log("Login - Device dokument kreiran za vlasnika (prvi uređaj) sa role = vlasnik, status = approved");
+                  console.log("Login - Device kreiran za vlasnika (prvi uređaj) sa role = vlasnik, status = approved");
                 } else {
                   // Nije vlasnik, ali je prvi uređaj - zahtijeva verifikaciju
                   console.log("Login - Nije vlasnik, prvi uređaj zahtijeva verifikaciju");
                   
-                  await setDoc(deviceRef, {
-                    userId: user.uid,
-                    userEmail: user.email,
+                  await saveDevice(user.id, {
+                    deviceId,
+                    deviceName: `${browser} on ${os}`,
+                    deviceInfo,
                     role: null,
                     status: "verifikacija",
                     isBlocked: false,
-                    deviceInfo: {
-                      deviceId: deviceId,
-                      browser,
-                      os,
-                      screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                      firstSeen: Timestamp.fromDate(new Date()),
-                      lastLogin: Timestamp.fromDate(new Date()),
-                    },
-                    lastLogin: Timestamp.fromDate(new Date()),
-                    createdAt: Timestamp.fromDate(new Date()),
-                    updatedAt: Timestamp.fromDate(new Date()),
                   });
 
-                  console.log("Login - Device dokument kreiran sa statusom 'verifikacija' (nije vlasnik, prvi uređaj)");
+                  console.log("Login - Device kreiran sa statusom 'verifikacija' (nije vlasnik, prvi uređaj)");
                   setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
                   setLoading(false);
                   return;
@@ -202,28 +189,17 @@ export default function LoginPage() {
                 // Drugi, treći itd. uređaj - ZAUVIJEK zahtijeva verifikaciju (čak i ako je vlasnik)
                 console.log("Login - Drugi/treći itd. uređaj zahtijeva verifikaciju", {
                   isOwner,
-                  hasOtherDevices: !devicesSnapshot.empty,
+                  hasOtherDevices: userDevices.length > 0,
                   reason: "Korisnik već ima druge uređaje - novi uređaj mora biti odobren od prvog uređaja"
                 });
                 
-                await setDoc(deviceRef, {
-                  userId: user.uid,
-                  userEmail: user.email,
+                await saveDevice(user.id, {
+                  deviceId,
+                  deviceName: `${browser} on ${os}`,
+                  deviceInfo,
                   role: isOwner ? "vlasnik" : null,
                   status: "verifikacija",
                   isBlocked: false,
-                  deviceInfo: {
-                    deviceId: deviceId,
-                    browser,
-                    os,
-                    screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                    firstSeen: Timestamp.fromDate(new Date()),
-                    lastLogin: Timestamp.fromDate(new Date()),
-                  },
-                  lastLogin: Timestamp.fromDate(new Date()),
-                  createdAt: Timestamp.fromDate(new Date()),
-                  updatedAt: Timestamp.fromDate(new Date()),
                 });
 
                 console.log("Login - Novi uređaj kreiran sa statusom 'verifikacija', prikazujem poruku");
@@ -232,61 +208,24 @@ export default function LoginPage() {
                 return;
               }
             } catch (queryError: any) {
-              console.error("Login - Greška pri provjeri drugih uređaja:", queryError);
-              // Ako je greška zbog permisija, pokušaj kreirati uređaj sa verifikacijom ako nije vlasnik
-              if (queryError.code === 'permission-denied') {
-                // Provjeri ponovo da li je vlasnik prije nego što kreiramo sa verifikacijom
-                const userDocRefCheck = doc(db, "users", user.uid);
-                const userDocCheck = await getDoc(userDocRefCheck);
-                const isOwnerCheck = userDocCheck.exists() && userDocCheck.data().isOwner === true;
-                
-                if (!isOwnerCheck) {
-                  console.log("Login - Nemam permisije za query, ali nije vlasnik - kreiram sa verifikacijom");
-                  const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
-                    ? "Chrome"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
-                    ? "Firefox"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
-                    ? "Safari"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
-                    ? "Edge"
-                    : "Unknown";
-
-                  const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
-                    ? "Windows"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
-                    ? "macOS"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
-                    ? "Linux"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
-                    ? "Android"
-                    : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
-                    ? "iOS"
-                    : "Unknown";
-
-                  await setDoc(deviceRef, {
-                    userId: user.uid,
-                    userEmail: user.email,
+              console.error("Login - Greška pri provjeri/kreiranju uređaja:", queryError);
+              // Ako nije vlasnik i ima grešku, kreiraj sa verifikacijom
+              if (!isOwner) {
+                try {
+                  await saveDevice(user.id, {
+                    deviceId,
+                    deviceName: `${browser} on ${os}`,
+                    deviceInfo,
                     role: null,
                     status: "verifikacija",
                     isBlocked: false,
-                    deviceInfo: {
-                      deviceId: deviceId,
-                      browser,
-                      os,
-                      screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                      firstSeen: Timestamp.fromDate(new Date()),
-                      lastLogin: Timestamp.fromDate(new Date()),
-                    },
-                    lastLogin: Timestamp.fromDate(new Date()),
-                    createdAt: Timestamp.fromDate(new Date()),
-                    updatedAt: Timestamp.fromDate(new Date()),
                   });
 
                   setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
                   setLoading(false);
                   return;
+                } catch (saveError) {
+                  console.error("Login - Greška pri kreiranju uređaja sa verifikacijom:", saveError);
                 }
               }
             }
@@ -342,55 +281,15 @@ export default function LoginPage() {
       // Ne preusmjeravaj automatski - AppContent će provjeriti role i preusmjeriti ako je potrebno
       // Ako je role === null, AppContent će blokirati pristup
     } catch (err: any) {
-      // Ignoriraj grešku ako je korisnik već prijavljen (može se desiti zbog race condition)
-      if (auth.currentUser && auth.currentUser.email === email) {
-        console.log("Korisnik je već prijavljen, čekam provjeru role...");
-        setLoading(false);
-        // Ne preusmjeravaj automatski - AppContent će provjeriti role
-        return;
-      }
+      console.error("Greška pri e-mail prijavi:", err);
       
-      // Ignoriraj invalid-credential grešku ako je korisnik već prijavljen
-      if (err.code === "auth/invalid-credential" && auth.currentUser) {
-        console.log("Greška ignorirana - korisnik je već prijavljen");
-        setLoading(false);
-        // Ne preusmjeravaj automatski - AppContent će provjeriti role
-        return;
-      }
-      
-      // Ignoriraj grešku ako je korisnik već prijavljen (race condition)
-      if (auth.currentUser) {
-        console.log("Korisnik je već prijavljen, ignoriranje greške");
-        setLoading(false);
-        // Ne preusmjeravaj automatski - AppContent će provjeriti role
-        return;
-      }
-      
-      // Prikaži user-friendly poruku za invalid-credential grešku
-      if (err.code === "auth/invalid-credential") {
+      // Prikaži user-friendly poruku
+      if (err.message?.includes("Invalid email or password") || err.message?.includes("Prijava nije uspjela")) {
         setError("Pogrešan e-mail ili lozinka. Provjeri podatke i pokušaj ponovo.");
-        setLoading(false);
-        return;
-      }
-      
-      // Samo loguj detaljnu grešku u development modu
-      if (process.env.NODE_ENV === 'development') {
-        console.error("Greška pri e-mail prijavi:", err);
-      }
-      
-      if (err.code === "auth/configuration-not-found") {
-        setError("Email/Password autentifikacija nije omogućena u Firebase Console. Otvori: https://console.firebase.google.com/project/zadnji-projekt/authentication/providers i omogući Email/Password sign-in method.");
-      } else if (err.code === "auth/user-not-found") {
+      } else if (err.message?.includes("User not found")) {
         setError("Korisnik s ovim e-mailom ne postoji. Registriraj se.");
-      } else if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-        setError("Pogrešna lozinka. Pokušaj ponovo.");
-      } else if (err.code === "auth/too-many-requests") {
-        setError("Previše pokušaja. Pokušaj ponovo kasnije.");
       } else {
-        // Prikaži grešku samo ako nije invalid-credential (koja se može desiti zbog race condition)
-        if (err.code !== "auth/invalid-credential") {
         setError(err.message || "Greška pri prijavi. Provjeri e-mail i lozinku.");
-      }
       }
       setLoading(false);
     }
@@ -418,41 +317,36 @@ export default function LoginPage() {
     try {
       console.log("Pokušavam registraciju s e-mailom:", email);
       
-      // Provjeri da li je korisnik već prijavljen sa tim emailom
-      if (auth.currentUser && auth.currentUser.email === email) {
-        setError("Već ste prijavljeni sa ovim emailom. Molimo se odjavite prije registracije.");
-        setLoading(false);
-        return;
-      }
-      
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-      const user = result.user;
-      const idToken = await user.getIdToken();
-      console.log("ID Token generisan:", idToken);
-      console.log("Uspješna registracija:", user.email);
+      // API register poziv
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, confirmPassword }),
+      });
 
-      // Kreiraj početnu strukturu za novog korisnika u Firestore
-      let isFirstUser = false;
-      try {
-        console.log("🔄 Registracija - Pokrećem initializeUser za:", user.uid, user.email);
-        await initializeUser(user.uid, user.email);
-        console.log("✅ Registracija - Korisnik inicijalizovan u Firestore");
-        
-        // Provjeri da li je korisnik prvi (isOwner === true)
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          isFirstUser = userData.isOwner === true;
-          console.log("📋 Registracija - Provjera isOwner:", isFirstUser, "userData:", userData);
-        } else {
-          console.warn("⚠️ Registracija - User dokument ne postoji nakon inicijalizacije!");
-        }
-      } catch (initError: any) {
-        console.error("❌ Registracija - Greška pri inicijalizaciji korisnika:", initError);
-        console.error("Error code:", initError?.code, "Error message:", initError?.message);
-        // Nastavi sa registracijom čak i ako inicijalizacija ne uspije
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json();
+        throw new Error(errorData.error || 'Registracija nije uspjela');
       }
+
+      const registerData = await registerResponse.json();
+      const user = registerData.user;
+      const token = registerData.token;
+
+      if (!user || !token) {
+        throw new Error("Registracija nije uspjela");
+      }
+
+      // Sačuvaj token
+      setAuthToken(token);
+
+      console.log("Uspješna registracija:", user.email);
+      console.log("User ID:", user.id);
+
+      // API automatski postavlja prvi korisnik kao vlasnik
+      const isFirstUser = user.isOwner === true;
 
       // Dohvati IP adresu i lokaciju pri registraciji
       try {
@@ -494,8 +388,6 @@ export default function LoginPage() {
           const deviceId = fpResult.visitorId;
           
           if (deviceId) {
-            const deviceRef = doc(db, "devices", deviceId);
-            
             // Dohvati device info
             const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
               ? "Chrome"
@@ -518,11 +410,22 @@ export default function LoginPage() {
               : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
               ? "iOS"
               : "Unknown";
+
+            const deviceInfo = {
+              deviceId: deviceId,
+              browser,
+              os,
+              screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
+              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+              firstSeen: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+            };
             
-            // Eksplicitno kreiraj device dokument sa role = "vlasnik" za prvog korisnika (prvi uređaj)
-            await setDoc(deviceRef, {
-              userId: user.uid,
-              userEmail: user.email,
+            // Kreiraj device dokument sa role = "vlasnik" za prvog korisnika (prvi uređaj)
+            await saveDevice(user.id, {
+              deviceId,
+              deviceName: `${browser} on ${os}`,
+              deviceInfo,
               role: "vlasnik",
               status: "approved",
               isBlocked: false,
@@ -535,21 +438,9 @@ export default function LoginPage() {
                 profile: true,
                 admin: false,
               },
-              deviceInfo: {
-                deviceId: deviceId,
-                browser,
-                os,
-                screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-                userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                firstSeen: Timestamp.fromDate(new Date()),
-                lastLogin: Timestamp.fromDate(new Date()),
-              },
-              lastLogin: Timestamp.fromDate(new Date()),
-              createdAt: Timestamp.fromDate(new Date()),
-              updatedAt: Timestamp.fromDate(new Date()),
-            }, { merge: true });
+            });
             
-            console.log("✅ Device dokument kreiran za prvog korisnika (vlasnika) sa role = vlasnik, deviceId:", deviceId);
+            console.log("✅ Device kreiran za prvog korisnika (vlasnika) sa role = vlasnik, deviceId:", deviceId);
           } else {
             console.error("❌ Nije moguće generisati deviceId");
           }
@@ -579,7 +470,7 @@ export default function LoginPage() {
       // AppContent će također provjeriti role i preusmjeriti ako je potrebno
     } catch (err: any) {
       console.error("Greška pri registraciji:", err);
-      if (err.code === "auth/email-already-in-use") {
+      if (err.message?.includes("already exists") || err.message?.includes("već registriran")) {
         setError("Ovaj e-mail je već registriran. Pokušaj se prijaviti.");
       } else {
         setError(err.message || "Greška pri registraciji. Pokušaj ponovo.");
@@ -601,8 +492,9 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      await sendPasswordResetEmail(auth, email);
-      setMessage("Link za reset lozinke poslan na vaš e-mail!");
+      // TODO: Implementirati API endpoint za password reset
+      // await fetch('/api/auth/reset-password', { ... });
+      setMessage("Funkcionalnost resetovanja lozinke još nije implementirana. Kontaktirajte administratora.");
     } catch (err: any) {
       console.error("Greška pri resetu lozinke:", err);
       setError(err.message || "Greška pri slanju linka za reset. Pokušaj ponovo.");

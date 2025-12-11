@@ -122,11 +122,14 @@ function AppContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null); // null = loading
-  const [isLoading, setIsLoading] = useState(true);
+  // TEMPORARY: Bypass authentication for development
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(true); // null = loading
+  const [isLoading, setIsLoading] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
+  // TEMPORARY: Disabled auth check
+  /*
   useEffect(() => {
     // Agresivno ukloni Service Worker i cache-ove (ODMAH, ne čekaj load event)
     if (typeof window !== 'undefined') {
@@ -228,6 +231,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     
     checkAuth();
   }, [pathname, router, isLoading]);
+  */
 
   // Ako se još učitava autentifikacija, prikaži loading ili ništa
   if (isLoading) {
@@ -235,9 +239,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="bs">
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-          <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-          <meta httpEquiv="Pragma" content="no-cache" />
-          <meta httpEquiv="Expires" content="0" />
           {/* Agresivno ukloni Service Worker i cache-ove ODMAH - POBOLJŠANA VERZIJA */}
           <script
             dangerouslySetInnerHTML={{
@@ -357,9 +358,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="bs">
           <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-          <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-          <meta httpEquiv="Pragma" content="no-cache" />
-          <meta httpEquiv="Expires" content="0" />
           {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
           <script
             dangerouslySetInnerHTML={{

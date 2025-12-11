@@ -1,9 +1,10 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { auth, onAuthStateChanged } from "../../lib/firebase";
-import { db } from "../../lib/firestore";
-import { doc, setDoc, getDoc, collection, getDocs, onSnapshot } from "firebase/firestore";
+// TEMPORARY: Disabled Firebase imports for development
+// import { auth, onAuthStateChanged } from "../../lib/firebase";
+// import { db } from "../../lib/firestore";
+// import { doc, setDoc, getDoc, collection, getDocs, onSnapshot } from "firebase/firestore";
 
 // ---- Tip artikla ----
 type ArtiklCijena = {
@@ -50,6 +51,8 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag za prvo učitavanje
   const [prethodniCjenovnik, setPrethodniCjenovnik] = useState<ArtiklCijena[]>([]); // Prethodno stanje cjenovnika
 
+  // TEMPORARY: Disabled Firebase listeners - comment out to re-enable
+  /*
   // Učitaj cjenovnik iz Firestore (primarno) i localStorage (cache) - HIBRIDNI PRISTUP sa real-time sinkronizacijom
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
@@ -208,6 +211,8 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // TEMPORARY: Disabled Firebase save - comment out to re-enable
+  /*
   // Spremi cjenovnik u Firestore - SAMO Firestore, nema localStorage
   // Ovo se pokreće kada se cjenovnik promijeni (ažuriranje cijena, brisanje, itd.)
   // NE sprema se kada se prvi put učita iz Firestore (izbjegavanje beskonačne petlje)
@@ -239,6 +244,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     // Spremi u Firestore
     saveToFirestore();
   }, [cjenovnik, isInitialLoad]);
+  */
 
   const addArtikal = (artikal: ArtiklCijena) => {
     // Dodaj u privremeni cjenovnik (pending) - čeka na potvrdu

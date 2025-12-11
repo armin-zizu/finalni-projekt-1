@@ -14,31 +14,35 @@ const Sidebar = () => {
   const { appName } = useAppName();
   const { role, permissions } = useRole();
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  // TEMPORARY: Set to true for development - bypass auth
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(true);
 
   useEffect(() => {
+    // TEMPORARY: Set authenticated to true for development - bypass auth check
+    setIsAuthenticated(true);
+    setIsAdmin(true); // Set admin to true so admin page is visible
+    /*
     // TODO: Implementirati provjeru autentifikacije preko API poziva
-    // const checkAuth = async () => {
-    //   try {
-    //     const response = await fetch('/api/auth/me');
-    //     if (response.ok) {
-    //       const user = await response.json();
-    //       setIsAuthenticated(true);
-    //       const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
-    //       setIsAdmin(user.email === ADMIN_EMAIL);
-    //     } else {
-    //       setIsAuthenticated(false);
-    //       setIsAdmin(false);
-    //     }
-    //   } catch (error) {
-    //     setIsAuthenticated(false);
-    //     setIsAdmin(false);
-    //   }
-    // };
-    // checkAuth();
-    setIsAuthenticated(false);
-    setIsAdmin(false);
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const user = await response.json();
+          setIsAuthenticated(true);
+          const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
+          setIsAdmin(user.email === ADMIN_EMAIL);
+        } else {
+          setIsAuthenticated(false);
+          setIsAdmin(false);
+        }
+      } catch (error) {
+        setIsAuthenticated(false);
+        setIsAdmin(false);
+      }
+    };
+    checkAuth();
+    */
   }, []);
 
   // Definiši dozvole za svaku ulogu
