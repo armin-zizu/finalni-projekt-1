@@ -198,6 +198,63 @@ export async function saveDevice(
 }
 
 /**
+ * Update device (role, status, isBlocked, deviceName)
+ */
+export async function updateDevice(
+  userId: string,
+  deviceId: string,
+  deviceData: {
+    deviceName?: string;
+    role?: string | null;
+    permissions?: any;
+    isBlocked?: boolean;
+    status?: string;
+  }
+) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/devices/${deviceId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(deviceData),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to update device');
+  }
+
+  const data = await response.json();
+  return data.device;
+}
+
+/**
+ * Delete device
+ */
+export async function deleteDevice(userId: string, deviceId: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/devices/${deviceId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to delete device');
+  }
+
+  return true;
+}
+
+/**
  * Upload file
  */
 export async function uploadFile(file: File, fileType: string = 'document', obracunDatum?: string) {

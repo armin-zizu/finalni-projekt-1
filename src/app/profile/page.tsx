@@ -8,7 +8,7 @@ import { useRole, UserRole, PagePermission } from "../context/RoleContext";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
-import { getUserId, updateCurrentUser, logout } from "../../lib/api";
+import { getUserId, updateCurrentUser, logout, getUserDevices, updateDevice, deleteDevice, saveDevice } from "../../lib/api";
 // TEMPORARY: Disabled Firebase imports for development - using mocks
 // import { db } from "../../lib/firestore";
 // TODO: Uklonjen Firebase import - implementirati API pozive
@@ -443,44 +443,37 @@ export default function Profile() {
 
   // Učitaj uređaje za trenutnog korisnika
   const loadDevices = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!user?.id) return;
 
     try {
       setLoadingDevices(true);
-      // Učitaj sve uređaje koji pripadaju ovom korisniku
-      const devicesCollection = collection(db, "devices");
-      const q = query(devicesCollection, where("userId", "==", user.uid));
-      const devicesSnapshot = await getDocs(q);
+      const devicesList = await getUserDevices(user.id);
       
-      const devicesList: any[] = [];
-      devicesSnapshot.forEach((doc) => {
-        const data = doc.data();
-        devicesList.push({
-          id: doc.id,
-          ...data,
-          deviceId: doc.id,
-          status: data.status || (data.role === null ? "verifikacija" : "approved"),
-          isBlocked: data.isBlocked === true,
-          deviceName: data.deviceName || "",
-          deviceInfo: {
-            ...data.deviceInfo,
-            firstSeen: data.deviceInfo?.firstSeen?.toDate?.() || null,
-            lastLogin: data.deviceInfo?.lastLogin?.toDate?.() || null,
-          },
-          lastLogin: data.lastLogin?.toDate?.() || null,
-          assignedAt: data.assignedAt?.toDate?.() || null,
-        });
-      });
+      // Transformiraj format za kompatibilnost
+      const transformedDevices = devicesList.map((device: any) => ({
+        id: device.id,
+        ...device,
+        deviceId: device.deviceId,
+        status: device.status || (device.role === null ? "verifikacija" : "approved"),
+        isBlocked: device.isBlocked === false ? false : true,
+        deviceName: device.deviceName || "",
+        deviceInfo: {
+          ...device.deviceInfo,
+          firstSeen: device.deviceInfo?.firstSeen ? new Date(device.deviceInfo.firstSeen) : null,
+          lastLogin: device.deviceInfo?.lastLogin ? new Date(device.deviceInfo.lastLogin) : null,
+        },
+        lastLogin: device.lastLogin ? new Date(device.lastLogin) : null,
+        assignedAt: device.createdAt ? new Date(device.createdAt) : null,
+      }));
       
       // Sortiraj po posljednjoj prijavi (najnoviji prvo)
-      devicesList.sort((a, b) => {
+      transformedDevices.sort((a, b) => {
         const aDate = a.lastLogin || a.deviceInfo?.firstSeen || new Date(0);
         const bDate = b.lastLogin || b.deviceInfo?.firstSeen || new Date(0);
         return bDate.getTime() - aDate.getTime();
       });
       
-      setDevices(devicesList);
+      setDevices(transformedDevices);
     } catch (error) {
       console.error("Greška pri učitavanju uređaja:", error);
     } finally {
@@ -490,11 +483,15 @@ export default function Profile() {
 
   // Dodijeli ulogu uređaju
   const handleAssignRole = async (deviceId: string, newRole: UserRole, permissions?: PagePermission) => {
-    const user = auth.currentUser;
-    if (!user || !isOwner) return;
+    if (!user?.id || !isOwner) return;
 
     try {
       setSavingRole(true);
+      await updateDevice(user.id, deviceId, {
+        role: newRole || null,
+        permissions: permissions || {},
+        status: newRole ? 'approved' : 'pending',
+      });
       await assignRoleFromContext(deviceId, newRole, permissions);
       await loadDevices();
       setEditingDeviceId(null);
@@ -523,36 +520,26 @@ export default function Profile() {
 
   // Odobri novi uređaj
   const handleApproveDevice = async (deviceId: string) => {
-    const user = auth.currentUser;
-    if (!user || !isOwner) return;
+    if (!user?.id || !isOwner) return;
 
     try {
       setSavingRole(true);
-      const deviceRef = doc(db, "devices", deviceId);
-      
       // Automatski postavi kao konobar (ne vlasnik)
       const deviceRole: UserRole = "konobar";
       
-      await setDoc(
-        deviceRef,
-        {
-          role: deviceRole,
-          status: "approved",
-          approvedAt: Timestamp.fromDate(new Date()),
-          approvedBy: user.uid,
-          permissions: {
-            dashboard: false,
-            obracun: false,
-            arhiva: false,
-            cjenovnik: false,
-            profit: false,
-            profile: false,
-            admin: false,
-          },
-          updatedAt: Timestamp.fromDate(new Date()),
+      await updateDevice(user.id, deviceId, {
+        role: deviceRole,
+        status: "approved",
+        permissions: {
+          dashboard: false,
+          obracun: false,
+          arhiva: false,
+          cjenovnik: false,
+          profit: false,
+          profile: false,
+          admin: false,
         },
-        { merge: true }
-      );
+      });
       await loadDevices();
       setMessage("Uređaj uspješno odobren kao konobar");
       setTimeout(() => setMessage(""), 3000);
@@ -567,22 +554,14 @@ export default function Profile() {
 
   // Blokiraj/odblokiraj uređaj
   const handleToggleBlockDevice = async (deviceId: string, currentBlocked: boolean) => {
-    const user = auth.currentUser;
-    if (!user || !isOwner) return;
+    if (!user?.id || !isOwner) return;
 
     try {
       setSavingRole(true);
-      const deviceRef = doc(db, "devices", deviceId);
-      await setDoc(
-        deviceRef,
-        {
-          isBlocked: !currentBlocked,
-          blockedAt: !currentBlocked ? Timestamp.fromDate(new Date()) : null,
-          blockedBy: !currentBlocked ? user.uid : null,
-          updatedAt: Timestamp.fromDate(new Date()),
-        },
-        { merge: true }
-      );
+      await updateDevice(user.id, deviceId, {
+        isBlocked: !currentBlocked,
+        status: !currentBlocked ? 'blocked' : 'approved',
+      });
       await loadDevices();
       setMessage(`Uređaj ${!currentBlocked ? "blokiran" : "odblokiran"}`);
       setTimeout(() => setMessage(""), 3000);
@@ -597,8 +576,7 @@ export default function Profile() {
 
   // Izbriši uređaj (login)
   const handleDeleteDevice = async (deviceId: string) => {
-    const user = auth.currentUser;
-    if (!user || !isOwner) return;
+    if (!user?.id || !isOwner) return;
 
     if (!window.confirm("Jeste li sigurni da želite izbrisati ovaj login? Korisnik će morati ponovo zatražiti pristup.")) {
       return;
@@ -606,8 +584,7 @@ export default function Profile() {
 
     try {
       setSavingRole(true);
-      const deviceRef = doc(db, "devices", deviceId);
-      await deleteDoc(deviceRef);
+      await deleteDevice(user.id, deviceId);
       await loadDevices();
       setMessage("Login uspješno izbrisan");
       setTimeout(() => setMessage(""), 3000);
@@ -622,20 +599,13 @@ export default function Profile() {
 
   // Spremi ime uređaja
   const handleSaveDeviceName = async (deviceId: string, deviceName: string) => {
-    const user = auth.currentUser;
-    if (!user || !isOwner) return;
+    if (!user?.id || !isOwner) return;
 
     try {
       setSavingRole(true);
-      const deviceRef = doc(db, "devices", deviceId);
-      await setDoc(
-        deviceRef,
-        {
-          deviceName: deviceName.trim() || "",
-          updatedAt: Timestamp.fromDate(new Date()),
-        },
-        { merge: true }
-      );
+      await updateDevice(user.id, deviceId, {
+        deviceName: deviceName.trim() || "",
+      });
       await loadDevices();
       setMessage("Ime uređaja uspješno spremljeno");
       setTimeout(() => setMessage(""), 3000);
@@ -648,39 +618,15 @@ export default function Profile() {
     }
   };
 
-  // Provjeri da li je korisnik vlasnik
+  // Provjeri da li je korisnik vlasnik - koristi user.isOwner iz RoleContext
   useEffect(() => {
-    const checkOwner = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        setIsOwner(false);
-        return;
-      }
-      
-      try {
-        // Provjeri email direktno
-        if (user.email === "gitara.zizu@gmail.com") {
-          setIsOwner(true);
-          return;
-        }
-        
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const isOwnerValue = userData.isOwner === true;
-          setIsOwner(isOwnerValue);
-          console.log("Profile - Provjera vlasnika:", { email: user.email, isOwner: isOwnerValue, role: role });
-        } else {
-          setIsOwner(false);
-        }
-      } catch (error) {
-        console.error("Greška pri provjeri vlasnika:", error);
-        setIsOwner(false);
-      }
-    };
-    checkOwner();
-  }, [role]);
+    if (user) {
+      setIsOwner(user.isOwner === true);
+      console.log("Profile - Provjera vlasnika:", { email: user.email, isOwner: user.isOwner, role: role });
+    } else {
+      setIsOwner(false);
+    }
+  }, [user, role]);
 
   // Učitaj zahtjeve za odobrenje (samo za vlasnika)
   const loadLoginApprovals = async () => {
