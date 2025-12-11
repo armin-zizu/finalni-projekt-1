@@ -1,10 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-// TEMPORARY: Disabled Firebase imports for development
-// import { auth, db } from "../../lib/firebase";
-// import { doc, getDoc, setDoc, onSnapshot, Timestamp } from "firebase/firestore";
-// import { onAuthStateChanged } from "firebase/auth";
+import { useRole } from "./RoleContext";
+// TODO: Create subscription API endpoints and migrate from mock data
 
 // Tipovi
 interface Payment {
@@ -168,7 +166,10 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
 }
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  // TEMPORARY: Mock subscription for development - bypass Firebase
+  const { user } = useRole();
+  
+  // TODO: Migrate to API - currently using mock data
+  // Subscription API endpoints need to be created: /api/users/[userId]/subscription
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>({
     isActive: true,
     isTrial: false,
@@ -184,7 +185,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     daysInGrace: 0,
     paymentHistory: [],
   });
-  const [loading, setLoading] = useState(false); // Set to false to skip loading
+  const [loading, setLoading] = useState(false);
 
   const loadSubscription = async () => {
     // TEMPORARY: Bypass Firebase
