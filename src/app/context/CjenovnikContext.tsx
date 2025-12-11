@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useRole } from "./RoleContext";
+import { RoleContext } from "./RoleContext";
 import { getCjenovnik, saveCjenovnik, getObracuni } from "../../lib/api";
 
 // ---- Tip artikla ----
@@ -43,7 +43,9 @@ const initialCjenovnik: ArtiklCijena[] = [
 
 // ---- Provider ----
 export function CjenovnikProvider({ children }: { children: ReactNode }) {
-  const { user } = useRole();
+  // Koristi useContext direktno sa fallback-om za SSR
+  const roleContext = useContext(RoleContext);
+  const user = roleContext?.user ?? null;
   const [cjenovnik, setCjenovnik] = useState<ArtiklCijena[]>(initialCjenovnik);
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag za prvo učitavanje

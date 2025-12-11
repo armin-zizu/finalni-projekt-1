@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useRole } from "./RoleContext";
+import { RoleContext } from "./RoleContext";
 // TODO: Create subscription API endpoints and migrate from mock data
 
 // Tipovi
@@ -166,7 +166,9 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
 }
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const { user } = useRole();
+  // Koristi useContext direktno sa fallback-om za SSR
+  const roleContext = useContext(RoleContext);
+  const user = roleContext?.user ?? null;
   
   // TODO: Migrate to API - currently using mock data
   // Subscription API endpoints need to be created: /api/users/[userId]/subscription
