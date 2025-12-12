@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:prod": "dotenv -e .env.local -- next start -p 3001",
     "lint": "eslint",
     "export": "next build",
     "deploy": "vercel --prod",
