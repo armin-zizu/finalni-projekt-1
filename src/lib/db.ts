@@ -1,4 +1,12 @@
 import { Pool, PoolClient } from 'pg';
+import * as dotenv from 'dotenv';
+import { resolve } from 'path';
+
+// Load .env.local file explicitly (for PM2 and production)
+// Next.js loads it in dev, but PM2 doesn't in production
+if (typeof window === 'undefined') {
+  dotenv.config({ path: resolve(process.cwd(), '.env.local') });
+}
 
 // Database connection pool
 let pool: Pool | null = null;
