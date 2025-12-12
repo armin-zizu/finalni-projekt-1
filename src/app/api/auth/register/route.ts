@@ -5,6 +5,15 @@ import { generateToken } from '@/lib/jwt';
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if JWT_SECRET is configured
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not configured');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
     const { email, password, confirmPassword } = body;
 
