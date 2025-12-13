@@ -117,7 +117,8 @@ export default function LoginPage() {
             lastLogin: new Date().toISOString(),
           };
 
-          const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+          // Automatski postavi kao owner ako je gitara.zizu@gmail.com (bez OS provjere)
+          const isOwnerDevice = user.email === "gitara.zizu@gmail.com" || isOwner;
           
           // Provjeri postojeći uređaj preko API-ja
           const existingDevice = await getDeviceByDeviceId(user.id, deviceId);

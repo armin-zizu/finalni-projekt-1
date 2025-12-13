@@ -219,22 +219,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       const info = getDeviceInfo(currentDeviceId);
       setDeviceInfo(info);
 
-      // Provjeri da li je vlasnik sa specifičnim emailom i OS-om - automatski postavi kao vlasnik
-      const os = info.os || (typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
-        ? "Windows"
-        : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
-        ? "macOS"
-        : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
-        ? "Linux"
-        : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
-        ? "Android"
-        : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
-        ? "iOS"
-        : "Unknown");
+      // Provjeri da li je vlasnik sa specifičnim emailom - automatski postavi kao vlasnik (bez OS provjere)
+      const isOwnerDevice = user.email === "gitara.zizu@gmail.com" || user.isOwner === true;
       
-      const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
-      
-      // Ako je vlasnik sa specifičnim emailom i OS-om, automatski postavi kao vlasnik i preskoči sve provjere
+      // Ako je vlasnik sa specifičnim emailom ili je već postavljen kao owner, automatski postavi kao vlasnik i preskoči sve provjere
       if (isOwnerDevice) {
         console.log("RoleContext - Detektovan vlasnik sa specifičnim emailom i OS-om, automatski postavljam kao vlasnik");
         
@@ -360,20 +348,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         // Provjeri da li je korisnik vlasnik (iz user objekta)
         const isOwnerFromUserDoc = user.isOwner === true;
         
-        // Provjeri da li je vlasnik sa specifičnim emailom i OS-om
-        const os = info.os || (navigator.userAgent.includes("Windows")
-          ? "Windows"
-          : navigator.userAgent.includes("Mac")
-          ? "macOS"
-          : navigator.userAgent.includes("Linux")
-          ? "Linux"
-          : navigator.userAgent.includes("Android")
-          ? "Android"
-          : navigator.userAgent.includes("iOS")
-          ? "iOS"
-          : "Unknown");
-        
-        const isOwnerDevice = user.email === "gitara.zizu@gmail.com" && os === "Windows";
+        // Provjeri da li je vlasnik sa specifičnim emailom (bez OS provjere)
+        const isOwnerDevice = user.email === "gitara.zizu@gmail.com" || user.isOwner === true;
         
         // Provjeri da li korisnik već ima druge uređaje (prije kreiranja novog)
         try {
