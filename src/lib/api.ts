@@ -332,10 +332,14 @@ export async function getObracuni(userId: string, datum?: string) {
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
+  // Note: userId in URL is now ignored by API - API uses JWT token userId instead
+  // But we still pass it for consistency and logging
   let url = `/api/users/${userId}/obracuni`;
   if (datum) {
     url += `?datum=${encodeURIComponent(datum)}`;
   }
+
+  console.log('getObracuni - userId from param:', userId, 'URL:', url);
 
   const response = await fetch(url, {
     headers: {
@@ -345,7 +349,13 @@ export async function getObracuni(userId: string, datum?: string) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    console.error('getObracuni error:', errorData);
+    console.error('getObracuni error:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorData,
+      userId,
+      url,
+    });
     throw new Error(errorData.error || errorData.message || 'Failed to fetch obracuni');
   }
 

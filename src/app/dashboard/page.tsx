@@ -230,8 +230,10 @@ export default function DashboardPage() {
   // Učitaj arhivu kada se korisnik učita
   useEffect(() => {
     if (user?.id) {
+      console.log("Dashboard - User ID za učitavanje arhive:", user.id, "type:", typeof user.id);
       loadArhiva(user.id);
     } else {
+      console.warn("Dashboard - User ID nije dostupan, ne učitavam arhivu");
       setLoading(false);
     }
   }, [user?.id, loadArhiva]);
