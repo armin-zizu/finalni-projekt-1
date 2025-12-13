@@ -523,30 +523,43 @@ export default function Profile() {
     await handleAssignRole(deviceId, deviceRole, editingPermissions);
   };
 
-  // Odobri novi uređaj
-  const handleApproveDevice = async (deviceId: string) => {
+  // Odobri novi uređaj - omogući vlasniku da bira ulogu
+  const handleApproveDevice = async (deviceId: string, preferredRole: UserRole = "konobar") => {
     if (!user?.id || !isOwner) return;
 
     try {
       setSavingRole(true);
-      // Automatski postavi kao konobar (ne vlasnik)
-      const deviceRole: UserRole = "konobar";
+      
+      // Ako vlasnik želi postaviti kao vlasnika, dozvoli to
+      const deviceRole: UserRole = preferredRole || "konobar";
+      
+      // Default dozvole za konobara (sve osim admina)
+      const defaultPermissions = deviceRole === "vlasnik" ? {
+        dashboard: true,
+        obracun: true,
+        arhiva: true,
+        cjenovnik: true,
+        profit: true,
+        profile: true,
+        admin: false,
+      } : {
+        // Za konobara - default dozvole (može se promijeniti kasnije kroz "Uredi")
+        dashboard: true,
+        obracun: true,
+        arhiva: true,
+        cjenovnik: true,
+        profit: true,
+        profile: true,
+        admin: false,
+      };
       
       await updateDevice(user.id, deviceId, {
         role: deviceRole,
         status: "approved",
-        permissions: {
-          dashboard: false,
-          obracun: false,
-          arhiva: false,
-          cjenovnik: false,
-          profit: false,
-          profile: false,
-          admin: false,
-        },
+        permissions: defaultPermissions,
       });
       await loadDevices();
-      setMessage("Uređaj uspješno odobren kao konobar");
+      setMessage(`Uređaj uspješno odobren kao ${deviceRole === "vlasnik" ? "vlasnik" : "konobar"}`);
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Greška pri odobravanju uređaja:", error);
