@@ -1,11 +1,32 @@
 import { Pool, PoolClient } from 'pg';
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';
+import { existsSync } from 'fs';
 
 // Load .env.local file explicitly (for PM2 and production)
 // Next.js loads it in dev, but PM2 doesn't in production
 if (typeof window === 'undefined') {
-  dotenv.config({ path: resolve(process.cwd(), '.env.local') });
+  const envPath = resolve(process.cwd(), '.env.local');
+  const envExists = existsSync(envPath);
+  
+  console.log('[db.ts] Loading .env.local:', {
+    path: envPath,
+    exists: envExists,
+    cwd: process.cwd(),
+  });
+  
+  if (envExists) {
+    const result = dotenv.config({ path: envPath });
+    if (result.error) {
+      console.error('[db.ts] Error loading .env.local:', result.error.message);
+    } else {
+      console.log('[db.ts] ✅ .env.local loaded successfully');
+      console.log('[db.ts] DATABASE_URL loaded:', !!process.env.DATABASE_URL);
+      console.log('[db.ts] JWT_SECRET loaded:', !!process.env.JWT_SECRET);
+    }
+  } else {
+    console.warn('[db.ts] ⚠️ .env.local file not found at:', envPath);
+  }
 }
 
 // Database connection pool
