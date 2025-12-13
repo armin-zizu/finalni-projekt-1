@@ -21,24 +21,41 @@ if (typeof window === 'undefined') {
     const fileContent = fs.readFileSync(envPath, 'utf8');
     const lines = fileContent.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'));
     console.log('[db.ts] File has', lines.length, 'non-empty, non-comment lines');
-    console.log('[db.ts] First few lines:', lines.slice(0, 3));
     
-    const result = dotenv.config({ path: envPath });
-    if (result.error) {
-      console.error('[db.ts] Error loading .env.local:', result.error.message);
-    } else {
-      console.log('[db.ts] ✅ .env.local loaded successfully');
-      console.log('[db.ts] Parsed variables:', Object.keys(result.parsed || {}));
-      console.log('[db.ts] DATABASE_URL in parsed:', !!result.parsed?.DATABASE_URL);
-      console.log('[db.ts] DATABASE_URL in process.env:', !!process.env.DATABASE_URL);
-      console.log('[db.ts] JWT_SECRET loaded:', !!process.env.JWT_SECRET);
+    // Try to load with dotenv first
+    const result = dotenv.config({ path: envPath, override: false });
+    
+    // If dotenv didn't parse anything (injecting 0), manually parse the file
+    if (!result.parsed || Object.keys(result.parsed).length === 0) {
+      console.warn('[db.ts] ⚠️ dotenv injected 0 variables, manually parsing file');
       
-      // Check if DATABASE_URL exists in parsed result but not in process.env
-      if (result.parsed?.DATABASE_URL && !process.env.DATABASE_URL) {
-        console.warn('[db.ts] ⚠️ DATABASE_URL parsed but not in process.env - manually setting');
-        process.env.DATABASE_URL = result.parsed.DATABASE_URL;
-      }
+      // Manually parse .env.local file
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const match = trimmed.match(/^([^=]+)=(.*)$/);
+          if (match) {
+            const key = match[1].trim();
+            let value = match[2].trim();
+            // Remove quotes if present
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+              value = value.slice(1, -1);
+            }
+            // Only set if not already in process.env
+            if (!process.env[key]) {
+              process.env[key] = value;
+              console.log('[db.ts] Manually set:', key, '=', value.substring(0, 20) + (value.length > 20 ? '...' : ''));
+            }
+          }
+        }
+      });
+    } else {
+      console.log('[db.ts] ✅ .env.local loaded successfully via dotenv');
+      console.log('[db.ts] Parsed variables:', Object.keys(result.parsed || {}));
     }
+    
+    console.log('[db.ts] Final check - DATABASE_URL:', process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.length + ' chars)' : 'NOT SET');
+    console.log('[db.ts] Final check - JWT_SECRET:', process.env.JWT_SECRET ? 'SET (' + process.env.JWT_SECRET.length + ' chars)' : 'NOT SET');
   } else {
     console.warn('[db.ts] ⚠️ .env.local file not found at:', envPath);
   }
