@@ -12,10 +12,17 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    const userId = params.userId;
+    // Use userId from JWT token (UUID) instead of URL params
+    // This ensures we always use the correct UUID format
+    const userId = req.user.userId;
+    const requestedUserId = params.userId;
+
+    console.log('Get obracuni - JWT userId:', userId, 'Requested userId:', requestedUserId);
 
     // Check if user can access these obracuni
-    if (req.user.userId !== userId && !req.user.isOwner) {
+    // Allow access if userId matches or user is owner
+    if (userId !== requestedUserId && !req.user.isOwner) {
+      console.warn('Get obracuni - Access denied:', { userId, requestedUserId, isOwner: req.user.isOwner });
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -40,21 +47,26 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
 
     console.log('Get obracuni - userId:', userId, 'type:', typeof userId, 'SQL:', sql, 'params:', queryParams);
     
+    let result;
     try {
-      const result = await query(sql, queryParams);
+      result = await query(sql, queryParams);
       console.log('Get obracuni - result rows:', result.rows.length);
     } catch (dbError: any) {
       console.error('Database query error:', {
         message: dbError.message,
         code: dbError.code,
         detail: dbError.detail,
+        hint: dbError.hint,
         userId,
         userIdType: typeof userId,
+        sql: sql,
+        params: queryParams,
       });
-      throw dbError;
+      return NextResponse.json(
+        { error: 'Database query failed', message: dbError.message, details: dbError.detail || dbError.hint },
+        { status: 500 }
+      );
     }
-    
-    const result = await query(sql, queryParams);
 
     const obracuni = result.rows.map((row: any) => ({
       id: row.id,
@@ -84,10 +96,12 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       );
     }
 
-    const userId = params.userId;
+    // Use userId from JWT token (UUID) instead of URL params
+    const userId = req.user.userId;
+    const requestedUserId = params.userId;
 
     // Check if user can modify obracuni
-    if (req.user.userId !== userId && !req.user.isOwner) {
+    if (userId !== requestedUserId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -157,10 +171,12 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
       );
     }
 
-    const userId = params.userId;
+    // Use userId from JWT token (UUID) instead of URL params
+    const userId = req.user.userId;
+    const requestedUserId = params.userId;
 
     // Check if user can delete obracuni
-    if (req.user.userId !== userId && !req.user.isOwner) {
+    if (userId !== requestedUserId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
