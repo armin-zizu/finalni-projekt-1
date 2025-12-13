@@ -1205,12 +1205,28 @@ export default function Profile() {
                         </td>
                         <td style={tdStyle}>
                           {needsVerification ? (
-                            <button
-                              onClick={() => handleApproveDevice(device.id)}
-                              style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "4px 8px" }}
-                            >
-                              Odobri
-                            </button>
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <button
+                                onClick={() => handleApproveDevice(device.id, "konobar")}
+                                style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "6px 12px" }}
+                                title="Odobri kao konobar"
+                              >
+                                ✓ Odobri (Konobar)
+                              </button>
+                              {isOwner && (
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm("Jeste li sigurni da želite odobriti ovaj uređaj kao VLASNIK? Vlasnik ima pun pristup svemu.")) {
+                                      handleApproveDevice(device.id, "vlasnik");
+                                    }
+                                  }}
+                                  style={{ ...buttonStyle, background: "#2563eb", fontSize: "12px", padding: "6px 12px" }}
+                                  title="Odobri kao vlasnik (pun pristup)"
+                                >
+                                  ✓ Odobri (Vlasnik)
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             <button
                               onClick={() => {
