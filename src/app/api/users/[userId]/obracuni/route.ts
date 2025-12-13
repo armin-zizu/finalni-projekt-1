@@ -33,9 +33,19 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
     const { searchParams } = new URL(req.url);
     const datum = searchParams.get('datum');
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.error('Get obracuni - Invalid UUID format:', userId);
+      return NextResponse.json(
+        { error: 'Invalid user ID format', userId: userId },
+        { status: 400 }
+      );
+    }
+
     let sql = `SELECT id, datum, artikli, created_at, updated_at
                FROM obracuni
-               WHERE user_id = $1`;
+               WHERE user_id = $1::uuid`;
     const queryParams: any[] = [userId];
 
     if (datum) {
@@ -50,7 +60,7 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
     let result;
     try {
       result = await query(sql, queryParams);
-      console.log('Get obracuni - result rows:', result.rows.length);
+      console.log('Get obracuni - result rows:', result.rows.length, 'first row sample:', result.rows[0] ? { id: result.rows[0].id, datum: result.rows[0].datum } : null);
     } catch (dbError: any) {
       console.error('Database query error:', {
         message: dbError.message,
@@ -61,6 +71,7 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
         userIdType: typeof userId,
         sql: sql,
         params: queryParams,
+        stack: dbError.stack,
       });
       return NextResponse.json(
         { error: 'Database query failed', message: dbError.message, details: dbError.detail || dbError.hint },
@@ -132,10 +143,20 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       invoiceImages: invoiceImages || [],
     };
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.error('Save obracun - Invalid UUID format:', userId);
+      return NextResponse.json(
+        { error: 'Invalid user ID format', userId: userId },
+        { status: 400 }
+      );
+    }
+
     // Upsert obracun
     const result = await query(
       `INSERT INTO obracuni (user_id, datum, artikli)
-       VALUES ($1, $2, $3)
+       VALUES ($1::uuid, $2, $3)
        ON CONFLICT (user_id, datum) DO UPDATE
        SET artikli = EXCLUDED.artikli,
            updated_at = NOW()
@@ -193,8 +214,18 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
       );
     }
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.error('Delete obracun - Invalid UUID format:', userId);
+      return NextResponse.json(
+        { error: 'Invalid user ID format', userId: userId },
+        { status: 400 }
+      );
+    }
+
     await query(
-      'DELETE FROM obracuni WHERE user_id = $1 AND datum = $2',
+      'DELETE FROM obracuni WHERE user_id = $1::uuid AND datum = $2',
       [userId, datum]
     );
 
