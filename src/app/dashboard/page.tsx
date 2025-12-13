@@ -185,6 +185,13 @@ export default function DashboardPage() {
       
       console.log("Dashboard - Učitavanje završeno:", {
         brojObračuna: sortedArhiva.length,
+        primjerObracuna: sortedArhiva.length > 0 ? {
+          datum: sortedArhiva[0].datum,
+          ukupnoArtikli: sortedArhiva[0].ukupnoArtikli,
+          ukupnoRashod: sortedArhiva[0].ukupnoRashod,
+          neto: sortedArhiva[0].neto,
+          brojArtikala: sortedArhiva[0].artikli?.length || 0,
+        } : null,
       });
     } catch (error) {
       console.error("Dashboard - Kritična greška pri učitavanju:", error);
@@ -268,12 +275,17 @@ export default function DashboardPage() {
   // Priprema podataka za grafikon
   const obracuni: Obracun[] = arhiva
     .map((o) => {
-      const ukupnoPrihodi = o.prihodi?.reduce((sum, p) => sum + p.cijena, 0) || 0;
+      const ukupnoPrihodi = Array.isArray(o.prihodi) 
+        ? o.prihodi.reduce((sum: number, p: any) => sum + (Number(p.cijena) || 0), 0) 
+        : 0;
+      const ukupnoArtikli = Number(o.ukupnoArtikli) || 0;
+      const ukupnoRashod = Number(o.ukupnoRashod) || 0;
+      
       return {
         datum: o.datum,
-        artikli: o.ukupnoArtikli + ukupnoPrihodi,
-        rashod: o.ukupnoRashod,
-        neto: (o.ukupnoArtikli + ukupnoPrihodi) - o.ukupnoRashod,
+        artikli: ukupnoArtikli + ukupnoPrihodi,
+        rashod: ukupnoRashod,
+        neto: (ukupnoArtikli + ukupnoPrihodi) - ukupnoRashod,
       };
     })
     .sort((a, b) => {
@@ -281,6 +293,17 @@ export default function DashboardPage() {
       const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
       return dateA - dateB;
     });
+  
+  // Debug logiranje
+  if (obracuni.length > 0) {
+    console.log("Dashboard - Priprema podataka za grafikon:", {
+      ukupanBrojObracuna: obracuni.length,
+      primjerPodataka: obracuni[0],
+      chartDataLength: obracuni.length,
+    });
+  } else {
+    console.warn("Dashboard - Nema obračuna za grafikon!");
+  }
 
   // Dobivanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive
   const artikliIzArhive = [...new Set(arhiva.flatMap((o) => (o.artikli && Array.isArray(o.artikli)) ? o.artikli.map((a) => a.naziv) : []))];
@@ -424,11 +447,20 @@ export default function DashboardPage() {
   const chartData = aggregateData(obracuni, range);
   const selectedData = selectedArtikl ? aggregateArtiklData(selectedArtikl, artiklRange) : [];
 
+  // Debug logiranje za chart podatke
+  if (chartData.length > 0) {
+    console.log("Dashboard - Chart podaci:", {
+      brojPodataka: chartData.length,
+      primjer: chartData[0],
+      range: range,
+    });
+  }
+
   // Ukupne vrijednosti
-  const totalBruto = chartData.reduce((sum, o) => sum + Number(o.artikli), 0);
-  const totalRashod = chartData.reduce((sum, o) => sum + Number(o.rashod), 0);
-  const totalNeto = chartData.reduce((sum, o) => sum + Number(o.neto), 0);
-  const totalArtikl = selectedData.reduce((sum, o) => sum + Number(o.utroseno), 0);
+  const totalBruto = chartData.reduce((sum, o) => sum + Number(o.artikli || 0), 0);
+  const totalRashod = chartData.reduce((sum, o) => sum + Number(o.rashod || 0), 0);
+  const totalNeto = chartData.reduce((sum, o) => sum + Number(o.neto || 0), 0);
+  const totalArtikl = selectedData.reduce((sum, o) => sum + Number(o.utroseno || 0), 0);
 
   const growth = (current: number, previous: number) =>
     previous === 0 ? "0" : (((current - previous) / previous) * 100).toFixed(1);
