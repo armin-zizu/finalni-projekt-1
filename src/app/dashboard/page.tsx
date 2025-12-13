@@ -155,21 +155,21 @@ export default function DashboardPage() {
       console.log("Dashboard - Učitavanje arhive za korisnika:", userId);
       setLoading(true);
       
-      // Učitaj iz API-ja
+      // Učitaj iz API-ja - API već vraća transformirane podatke
       const obracuni = await getObracuni(userId);
       
-      // Transformiraj podatke iz API-ja u format koji dashboard očekuje
+      // API već vraća podatke u ispravnom formatu, samo provjeri da su arrayi
       const firestoreArhiva: ArhiviraniObracun[] = obracuni.map((ob: any) => ({
         datum: ob.datum,
-        ukupnoArtikli: ob.ukupnoArtikli || 0,
-        ukupnoRashod: ob.ukupnoRashod || 0,
-        ukupnoPrihod: ob.ukupnoPrihod || 0,
-        neto: ob.neto || 0,
-        artikli: ob.artikli || [],
-        rashodi: ob.rashodi || [],
-        prihodi: ob.prihodi || [],
-        imaUlaz: ob.imaUlaz || false,
-        isAzuriran: ob.isAzuriran || false,
+        ukupnoArtikli: Number(ob.ukupnoArtikli) || 0,
+        ukupnoRashod: Number(ob.ukupnoRashod) || 0,
+        ukupnoPrihod: Number(ob.ukupnoPrihod) || 0,
+        neto: Number(ob.neto) || 0,
+        artikli: Array.isArray(ob.artikli) ? ob.artikli : [],
+        rashodi: Array.isArray(ob.rashodi) ? ob.rashodi : [],
+        prihodi: Array.isArray(ob.prihodi) ? ob.prihodi : [],
+        imaUlaz: ob.imaUlaz === true || ob.imaUlaz === 'true',
+        isAzuriran: ob.isAzuriran === true || ob.isAzuriran === 'true',
       }));
       
       // Sortiraj po datumu (rastući redoslijed za dashboard)

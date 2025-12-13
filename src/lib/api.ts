@@ -364,17 +364,24 @@ export async function getObracuni(userId: string, datum?: string) {
       }
     }
     
+    // Osiguraj da artikli, rashodi i prihodi su arrayi
+    const artikli = Array.isArray(artikliData?.artikli) ? artikliData.artikli : [];
+    const rashodi = Array.isArray(artikliData?.rashodi) ? artikliData.rashodi : [];
+    const prihodi = Array.isArray(artikliData?.prihodi) ? artikliData.prihodi : [];
+    
     return {
+      id: ob.id,
       datum: ob.datum,
-      artikli: artikliData.artikli || [],
-      rashodi: artikliData.rashodi || [],
-      prihodi: artikliData.prihodi || [],
-      ukupnoArtikli: artikliData.ukupnoArtikli || 0,
-      ukupnoRashod: artikliData.ukupnoRashod || 0,
-      ukupnoPrihod: artikliData.ukupnoPrihod || 0,
-      neto: artikliData.neto || 0,
-      isAzuriran: artikliData.isAzuriran || false,
-      imaUlaz: artikliData.imaUlaz || false,
+      artikli: artikli,
+      rashodi: rashodi,
+      prihodi: prihodi,
+      ukupnoArtikli: Number(artikliData?.ukupnoArtikli) || 0,
+      ukupnoRashod: Number(artikliData?.ukupnoRashod) || 0,
+      ukupnoPrihod: Number(artikliData?.ukupnoPrihod) || 0,
+      neto: Number(artikliData?.neto) || 0,
+      isAzuriran: artikliData?.isAzuriran === true || artikliData?.isAzuriran === 'true',
+      imaUlaz: artikliData?.imaUlaz === true || artikliData?.imaUlaz === 'true',
+      invoiceImages: Array.isArray(artikliData?.invoiceImages) ? artikliData.invoiceImages : [],
     };
   });
   
