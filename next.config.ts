@@ -13,12 +13,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Increase build timeout
-  staticPageGenerationTimeout: 120,
-  // Optimize build - reduce memory usage
-  experimental: {
-    optimizePackageImports: ['chart.js', 'react-chartjs-2'],
-  },
 };
 
 export default nextConfig;
