@@ -12,11 +12,15 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    const userId = params.userId;
+    // Use userId from JWT token instead of URL params
+    const userId = req.user.userId;
     const deviceId = params.deviceId;
+    const requestedUserId = params.userId;
+
+    console.log('Update device - JWT userId:', userId, 'Requested userId:', requestedUserId, 'deviceId:', deviceId);
 
     // Check if user can modify devices
-    if (req.user.userId !== userId && !req.user.isOwner) {
+    if (userId !== requestedUserId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -62,6 +66,13 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
     updateFields.push(`updated_at = NOW()`);
     updateValues.push(userId, deviceId);
 
+    console.log('Update device query:', {
+      userId,
+      deviceId,
+      updateFields: updateFields.join(', '),
+      paramCount: updateValues.length
+    });
+
     const result = await query(
       `UPDATE devices
        SET ${updateFields.join(', ')}
@@ -69,6 +80,8 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
        RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
       updateValues
     );
+
+    console.log('Update device result:', { rows: result.rows.length, found: result.rows.length > 0 });
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -114,11 +127,13 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
       );
     }
 
-    const userId = params.userId;
+    // Use userId from JWT token instead of URL params
+    const userId = req.user.userId;
     const deviceId = params.deviceId;
+    const requestedUserId = params.userId;
 
     // Check if user can delete devices
-    if (req.user.userId !== userId && !req.user.isOwner) {
+    if (userId !== requestedUserId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
