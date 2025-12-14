@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Optimize build performance
+  swcMinify: true,
+  // Increase build timeout
+  staticPageGenerationTimeout: 120,
 };
 
 export default nextConfig;
