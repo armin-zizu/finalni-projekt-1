@@ -6,6 +6,15 @@ import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { useRole } from "../context/RoleContext";
 import { setAuthToken, getDeviceByDeviceId, saveDevice, getUserDevices } from "../../lib/api";
 
+// Background slike za slider (koristi Unsplash ili placeholder)
+const backgroundImages = [
+  "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1920&q=80",
+  "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=1920&q=80",
+  "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80",
+  "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1920&q=80",
+  "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80",
+];
+
 export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"email" | "register" | "forgot" | null>(null);
   const [email, setEmail] = useState<string>("");
@@ -14,8 +23,18 @@ export default function LoginPage() {
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
+  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const router = useRouter();
   const { refreshRole } = useRole();
+
+  // Automatski slider za pozadinske slike
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
+    }, 5000); // Promijeni sliku svakih 5 sekundi
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -531,32 +550,33 @@ export default function LoginPage() {
       position: "relative",
       overflow: "hidden"
     }}>
-      {/* Animirana gradient pozadina */}
-      <div className="animated-background" style={{
+      {/* Background image slider */}
+      <div className="background-slider" style={{
         position: "absolute",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        background: "linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #4facfe, #00f2fe)",
-        backgroundSize: "400% 400%",
-        animation: "gradientShift 15s ease infinite",
-        zIndex: 0
-      }} />
-      
-      {/* Floating orbs/čestice */}
-      <div className="floating-orbs">
-        {[...Array(6)].map((_, i) => (
+        zIndex: 0,
+        overflow: "hidden"
+      }}>
+        {backgroundImages.map((image, index) => (
           <div
-            key={i}
-            className={`floating-orb orb-${i + 1}`}
+            key={index}
+            className={`background-slide ${index === currentImageIndex ? 'active' : ''}`}
             style={{
               position: "absolute",
-              borderRadius: "50%",
-              background: `rgba(255, 255, 255, ${0.1 + i * 0.05})`,
-              filter: "blur(40px)",
-              animation: `float${i + 1} ${15 + i * 2}s ease-in-out infinite`,
-              zIndex: 1
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundImage: `url(${image})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              opacity: index === currentImageIndex ? 1 : 0,
+              transition: "opacity 2s ease-in-out",
+              zIndex: index === currentImageIndex ? 1 : 0,
             }}
           />
         ))}
@@ -587,155 +607,18 @@ export default function LoginPage() {
         backdropFilter: "blur(10px)"
       }}>
         <style jsx>{`
-          @keyframes gradientShift {
-            0% {
-              background-position: 0% 50%;
-            }
-            50% {
-              background-position: 100% 50%;
-            }
-            100% {
-              background-position: 0% 50%;
-            }
+          .background-slider {
+            width: 100%;
+            height: 100%;
           }
           
-          @keyframes float1 {
-            0%, 100% {
-              transform: translate(0, 0) scale(1);
-              opacity: 0.3;
-            }
-            33% {
-              transform: translate(30px, -30px) scale(1.1);
-              opacity: 0.5;
-            }
-            66% {
-              transform: translate(-20px, 20px) scale(0.9);
-              opacity: 0.4;
-            }
+          .background-slide {
+            width: 100%;
+            height: 100%;
           }
           
-          @keyframes float2 {
-            0%, 100% {
-              transform: translate(0, 0) scale(1);
-              opacity: 0.25;
-            }
-            33% {
-              transform: translate(-40px, 40px) scale(1.2);
-              opacity: 0.45;
-            }
-            66% {
-              transform: translate(30px, -20px) scale(0.8);
-              opacity: 0.35;
-            }
-          }
-          
-          @keyframes float3 {
-            0%, 100% {
-              transform: translate(0, 0) scale(1);
-              opacity: 0.2;
-            }
-            50% {
-              transform: translate(50px, 50px) scale(1.3);
-              opacity: 0.4;
-            }
-          }
-          
-          @keyframes float4 {
-            0%, 100% {
-              transform: translate(0, 0) scale(1);
-              opacity: 0.3;
-            }
-            25% {
-              transform: translate(-30px, -50px) scale(1.1);
-              opacity: 0.5;
-            }
-            75% {
-              transform: translate(40px, 30px) scale(0.9);
-              opacity: 0.35;
-            }
-          }
-          
-          @keyframes float5 {
-            0%, 100% {
-              transform: translate(0, 0) scale(1);
-              opacity: 0.25;
-            }
-            40% {
-              transform: translate(60px, -40px) scale(1.2);
-              opacity: 0.45;
-            }
-            80% {
-              transform: translate(-50px, 60px) scale(0.85);
-              opacity: 0.3;
-            }
-          }
-          
-          @keyframes float6 {
-            0%, 100% {
-              transform: translate(0, 0) scale(1);
-              opacity: 0.2;
-            }
-            30% {
-              transform: translate(-60px, 30px) scale(1.15);
-              opacity: 0.4;
-            }
-            70% {
-              transform: translate(50px, -50px) scale(0.95);
-              opacity: 0.3;
-            }
-          }
-          
-          .floating-orb.orb-1 {
-            width: 300px;
-            height: 300px;
-            top: 10%;
-            left: 10%;
-          }
-          
-          .floating-orb.orb-2 {
-            width: 250px;
-            height: 250px;
-            top: 60%;
-            right: 15%;
-          }
-          
-          .floating-orb.orb-3 {
-            width: 200px;
-            height: 200px;
-            bottom: 20%;
-            left: 20%;
-          }
-          
-          .floating-orb.orb-4 {
-            width: 350px;
-            height: 350px;
-            top: 30%;
-            right: 30%;
-          }
-          
-          .floating-orb.orb-5 {
-            width: 180px;
-            height: 180px;
-            bottom: 40%;
-            right: 10%;
-          }
-          
-          .floating-orb.orb-6 {
-            width: 280px;
-            height: 280px;
-            top: 70%;
-            left: 50%;
-          }
-          
-          @media (max-width: 768px) {
-            .floating-orb {
-              width: 150px !important;
-              height: 150px !important;
-            }
-            .floating-orb.orb-4 {
-              width: 200px !important;
-              height: 200px !important;
-            }
+          .background-slide.active {
+            opacity: 1 !important;
           }
           
           @media (max-width: 768px) {

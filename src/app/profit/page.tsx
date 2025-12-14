@@ -975,15 +975,6 @@ export default function ProfitPage() {
       <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24 }}>Profit</h1>
       
 
-      <FilterSection
-        filter={filter}
-        setFilter={setFilter}
-        customPeriod={customPeriod}
-        setCustomPeriod={setCustomPeriod}
-        label="Filter ukupnog profita"
-        isMobile={isMobile}
-      />
-
       {/* ---- Chart ukupnog profita ---- */}
       <div style={{ 
         width: "100%", 
@@ -1032,13 +1023,6 @@ export default function ProfitPage() {
             Nema podataka za prikaz
           </div>
         )}
-      </div>
-
-      {/* ---- Ukupno odmah ispod charta ---- */}
-      <div style={{ ...summaryStyle, background: "#e5e7eb", marginBottom: 30 }}>
-        <div style={summaryItemStyle("#ef4444")}>Ukupno rashod: {ukupnoPeriod.rashod.toFixed(2)} KM</div>
-        <div style={summaryItemStyle("#3b82f6")}>Ukupno bruto: {ukupnoPeriod.bruto.toFixed(2)} KM</div>
-        <div style={summaryItemStyle("#10b981")}>Ukupno neto: {ukupnoPeriod.neto.toFixed(2)} KM</div>
       </div>
 
       {/* ---- Odabir artikla i filter za grafikon profita po artiklu ---- */}
