@@ -196,18 +196,11 @@ export default function AdminPage() {
     }
   }, [selectedUserDetails?.id]); // Osiguraj da se pokrene kada se promijeni ID korisnika
 
-  // Učitaj sve korisnike
+  // Učitaj sve korisnike sa servera (iz PostgreSQL baze)
   const loadUsers = async () => {
     try {
       setLoading(true);
       setMessage(null);
-      
-      // Provjeri da li je auth dostupan
-      if (!auth) {
-        setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
-        setLoading(false);
-        return;
-      }
 
       // Uzmi token za autentifikaciju
       const token = getAuthToken();
@@ -217,7 +210,7 @@ export default function AdminPage() {
         return;
       }
       
-      // Pozovi API route koji koristi Firebase Admin SDK da lista korisnike iz Auth
+      // Pozovi API route koji vraća sve korisnike iz PostgreSQL baze
       const response = await fetch('/api/list-users', {
         method: 'GET',
         headers: {
@@ -313,70 +306,28 @@ export default function AdminPage() {
     }
   };
 
-  // Postavi korisnika kao vlasnika (isOwner = true)
+  // Postavi korisnika kao vlasnika (isOwner = true) - migrirano na API
   const setUserAsOwner = async (userEmail: string) => {
     try {
-      if (!db) {
-        setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
-        return;
-      }
-      setSaving(true);
-      setMessage(null);
-      
-      // Pronađi korisnika po emailu
-      const usersCollection = collection(db, "users");
-      const usersSnapshot = await getDocs(usersCollection);
-      
-      let foundUser = null;
-      for (const userDoc of usersSnapshot.docs) {
-        const userData = userDoc.data();
-        if (userData.email === userEmail) {
-          foundUser = { id: userDoc.id, ...userData };
-          break;
-        }
-      }
-      
-      if (!foundUser) {
+      // Pronađi korisnika po emailu iz trenutne liste korisnika
+      const user = users.find(u => u.email === userEmail);
+      if (!user) {
         setMessage({ type: "error", text: `Korisnik sa emailom ${userEmail} nije pronađen` });
         return;
       }
       
-      // Ažuriraj isOwner na true
-      const userDocRef = doc(db, "users", foundUser.id);
-      await updateDoc(userDocRef, {
-        isOwner: true,
-      });
+      setSaving(true);
+      setMessage(null);
       
-      // Ažuriraj sve device dokumente za ovog korisnika da imaju role "vlasnik"
-      const devicesCollection = collection(db, "devices");
-      const devicesSnapshot = await getDocs(devicesCollection);
-      
-      for (const deviceDoc of devicesSnapshot.docs) {
-        const deviceData = deviceDoc.data();
-        if (deviceData.userId === foundUser.id) {
-          const deviceRef = doc(db, "devices", deviceDoc.id);
-          await updateDoc(deviceRef, {
-            role: "vlasnik",
-            status: "approved",
-            permissions: {
-              dashboard: true,
-              obracun: true,
-              arhiva: true,
-              cjenovnik: true,
-              profit: true,
-              profile: true,
-              admin: false,
-            },
-          });
-        }
-      }
+      // Koristi API funkciju za postavljanje korisnika kao vlasnika
+      await adminSetUserAsOwner(user.id);
       
       await loadUsers();
       setMessage({ type: "success", text: `Korisnik ${userEmail} je postavljen kao vlasnik` });
       setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri postavljanju korisnika kao vlasnika:", error);
-      setMessage({ type: "error", text: "Greška pri postavljanju korisnika kao vlasnika" });
+      setMessage({ type: "error", text: error.message || "Greška pri postavljanju korisnika kao vlasnika" });
     } finally {
       setSaving(false);
     }

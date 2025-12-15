@@ -99,10 +99,33 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     // Check if user is admin
     const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
     
-    // Get user from database to check admin status
+    // Resolve userId to UUID if needed (it might be non-UUID like "admin-user")
+    let userId: string = req.user.userId;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // If userId is not a UUID, try to find user by email
+    if (!uuidRegex.test(userId)) {
+      console.log('List users - Non-UUID userId detected, looking up by email:', userId);
+      const userLookup = await query(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+        [userId]
+      );
+      if (userLookup.rows.length > 0) {
+        userId = userLookup.rows[0].id;
+        console.log('List users - Found UUID for user:', userId);
+      } else {
+        console.error('List users - User not found:', req.user.userId);
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
+    }
+    
+    // Get user from database to check admin status (userId is now guaranteed to be a valid UUID string)
     const currentUserResult = await query(
-      `SELECT email, is_owner, role FROM users WHERE id = $1`,
-      [req.user.userId]
+      `SELECT email, is_owner, role FROM users WHERE id = $1::uuid`,
+      [userId]
     );
 
     if (currentUserResult.rows.length === 0) {
@@ -130,8 +153,9 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     );
 
     // Get last login for each user from devices table
+    // Convert user_id UUID to text for consistent key lookup
     const lastLoginResult = await query(
-      `SELECT user_id, MAX(last_login) as last_login
+      `SELECT user_id::text as user_id, MAX(last_login) as last_login
        FROM devices
        WHERE last_login IS NOT NULL
        GROUP BY user_id`
@@ -139,14 +163,15 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
 
     const lastLoginMap: Record<string, Date> = {};
     lastLoginResult.rows.forEach((row: any) => {
-      if (row.last_login) {
+      if (row.last_login && row.user_id) {
         lastLoginMap[row.user_id] = new Date(row.last_login);
       }
     });
 
     // Get all subscriptions
+    // Convert user_id UUID to text for consistent key lookup
     const subscriptionsResult = await query(
-      `SELECT user_id, status, start_date, end_date, monthly_price, 
+      `SELECT user_id::text as user_id, status, start_date, end_date, monthly_price, 
               trial_end_date, grace_end_date, last_payment_date, is_active, 
               subscription_data
        FROM subscriptions`
@@ -154,29 +179,35 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
 
     const subscriptionsMap: Record<string, any> = {};
     subscriptionsResult.rows.forEach((row: any) => {
-      subscriptionsMap[row.user_id] = row;
+      if (row.user_id) {
+        subscriptionsMap[row.user_id] = row;
+      }
     });
 
     // Get all payments grouped by user
+    // Convert user_id UUID to text for consistent key lookup
     const paymentsResult = await query(
-      `SELECT user_id, id, amount, note, date, valid_until, created_at
+      `SELECT user_id::text as user_id, id, amount, note, date, valid_until, created_at
        FROM payments
        ORDER BY date DESC`
     );
 
     const paymentsMap: Record<string, any[]> = {};
     paymentsResult.rows.forEach((row: any) => {
-      if (!paymentsMap[row.user_id]) {
-        paymentsMap[row.user_id] = [];
+      if (row.user_id) {
+        if (!paymentsMap[row.user_id]) {
+          paymentsMap[row.user_id] = [];
+        }
+        paymentsMap[row.user_id].push(row);
       }
-      paymentsMap[row.user_id].push(row);
     });
 
     // Build response with users and their subscriptions
     const usersWithData = await Promise.all(
       usersResult.rows.map(async (user: any) => {
         try {
-          const userId = user.id;
+          // Convert UUID to string for consistent key lookup in maps
+          const userId = user.id.toString();
           const subscription = subscriptionsMap[userId] || null;
           const payments = paymentsMap[userId] || [];
           const userCreatedAt = user.created_at ? new Date(user.created_at) : null;
@@ -202,12 +233,13 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
         } catch (error) {
           console.error(`Error processing user ${user.id}:`, error);
           // Return basic user data if processing fails
+          const userIdStr = user.id.toString();
           return {
-            id: user.id,
+            id: userIdStr,
             email: user.email,
             appName: user.app_name || "N/A",
             createdAt: user.created_at ? new Date(user.created_at) : null,
-            lastSignIn: lastLoginMap[user.id] || null,
+            lastSignIn: lastLoginMap[userIdStr] || null,
             subscription: {
               isActive: false,
               monthlyPrice: 12,

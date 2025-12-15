@@ -12,10 +12,63 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    const userId = params.userId;
+    let userId = params.userId;
 
-    // Check if user can access devices
-    if (req.user.userId !== userId && !req.user.isOwner) {
+    // If userId is not a UUID, try to find the actual UUID from database
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!uuidRegex.test(userId)) {
+      console.log('Get devices - Non-UUID userId detected, looking up in database:', userId);
+      try {
+        // First try to find by id (in case it's an old ID format)
+        let userResult = await query(
+          'SELECT id FROM users WHERE id = $1 LIMIT 1',
+          [userId]
+        );
+        
+        // If not found by id, try to find by email
+        if (userResult.rows.length === 0) {
+          userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+        }
+        
+        if (userResult.rows.length > 0) {
+          userId = userResult.rows[0].id;
+          console.log('Get devices - Found UUID for user:', userId);
+        } else {
+          console.error('Get devices - User not found:', userId);
+          return NextResponse.json(
+            { error: 'User not found. Invalid user ID format.', userId: params.userId },
+            { status: 404 }
+          );
+        }
+      } catch (lookupError: any) {
+        console.error('Get devices - Error looking up user:', lookupError);
+        return NextResponse.json(
+          { error: 'Failed to resolve user ID', message: lookupError.message },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Check if user can access devices (compare with resolved UUID)
+    const requestUserId = req.user.userId;
+    const uuidRegex2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let requestUserIdResolved = requestUserId;
+    
+    if (!uuidRegex2.test(requestUserId)) {
+      const userResult = await query(
+        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        [requestUserId]
+      );
+      if (userResult.rows.length > 0) {
+        requestUserIdResolved = userResult.rows[0].id;
+      }
+    }
+    
+    if (requestUserIdResolved !== userId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -64,10 +117,63 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       );
     }
 
-    const userId = params.userId;
+    let userId = params.userId;
 
-    // Check if user can modify devices
-    if (req.user.userId !== userId && !req.user.isOwner) {
+    // If userId is not a UUID, try to find the actual UUID from database
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!uuidRegex.test(userId)) {
+      console.log('Save device - Non-UUID userId detected, looking up in database:', userId);
+      try {
+        // First try to find by id (in case it's an old ID format)
+        let userResult = await query(
+          'SELECT id FROM users WHERE id = $1 LIMIT 1',
+          [userId]
+        );
+        
+        // If not found by id, try to find by email
+        if (userResult.rows.length === 0) {
+          userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+        }
+        
+        if (userResult.rows.length > 0) {
+          userId = userResult.rows[0].id;
+          console.log('Save device - Found UUID for user:', userId);
+        } else {
+          console.error('Save device - User not found:', userId);
+          return NextResponse.json(
+            { error: 'User not found. Invalid user ID format.', userId: params.userId },
+            { status: 404 }
+          );
+        }
+      } catch (lookupError: any) {
+        console.error('Save device - Error looking up user:', lookupError);
+        return NextResponse.json(
+          { error: 'Failed to resolve user ID', message: lookupError.message },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Check if user can modify devices (compare with resolved UUID)
+    const requestUserId = req.user.userId;
+    const uuidRegex2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let requestUserIdResolved = requestUserId;
+    
+    if (!uuidRegex2.test(requestUserId)) {
+      const userResult = await query(
+        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        [requestUserId]
+      );
+      if (userResult.rows.length > 0) {
+        requestUserIdResolved = userResult.rows[0].id;
+      }
+    }
+    
+    if (requestUserIdResolved !== userId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }

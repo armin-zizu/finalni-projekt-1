@@ -19,10 +19,19 @@ async function handler(req: AuthRequest): Promise<NextResponse> {
     if (!uuidRegex.test(userId)) {
       console.log('Get current user - Non-UUID userId detected, looking up in database:', userId);
       try {
-        const userResult = await query(
-          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+        // First try to find by id (in case it's an old ID format)
+        let userResult = await query(
+          'SELECT id FROM users WHERE id = $1 LIMIT 1',
           [userId]
         );
+        
+        // If not found by id, try to find by email
+        if (userResult.rows.length === 0) {
+          userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+        }
         
         if (userResult.rows.length > 0) {
           userId = userResult.rows[0].id;
@@ -97,10 +106,19 @@ async function putHandler(req: AuthRequest): Promise<NextResponse> {
     if (!uuidRegex.test(userId)) {
       console.log('Update user - Non-UUID userId detected, looking up in database:', userId);
       try {
-        const userResult = await query(
-          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+        // First try to find by id (in case it's an old ID format)
+        let userResult = await query(
+          'SELECT id FROM users WHERE id = $1 LIMIT 1',
           [userId]
         );
+        
+        // If not found by id, try to find by email
+        if (userResult.rows.length === 0) {
+          userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+        }
         
         if (userResult.rows.length > 0) {
           userId = userResult.rows[0].id;

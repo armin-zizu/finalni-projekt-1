@@ -275,13 +275,29 @@ export default function ObracunPage() {
   const canEditSubscription = subscription && (subscription.isActive || subscription.isTrial || subscription.isGracePeriod);
   
   // Provjeri da li korisnik može editovati na osnovu uloge
-  // Ako role je null ali korisnik ima aktivan subscription ili je vlasnik (isOwner), dozvoli pristup
-  const canEdit = canEditSubscription && (
-    role === "vlasnik" || 
-    isOwner || 
-    (role === "konobar" && permissions?.obracun === true) ||
-    (role === null && canEditSubscription) // Novi korisnici sa aktivnim subscription mogu koristiti obracun
+  // Vlasnik (isOwner ili role === "vlasnik") uvek može editovati, bez obzira na subscription
+  const canEdit = isOwner || role === "vlasnik" || (
+    canEditSubscription && (
+      (role === "konobar" && permissions?.obracun === true) ||
+      (role === null && canEditSubscription) // Novi korisnici sa aktivnim subscription mogu koristiti obracun
+    )
   );
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('ObracunPage - canEdit debug:', {
+      canEdit,
+      isOwner,
+      role,
+      permissions,
+      canEditSubscription,
+      subscription: subscription ? {
+        isActive: subscription.isActive,
+        isTrial: subscription.isTrial,
+        isGracePeriod: subscription.isGracePeriod
+      } : null
+    });
+  }, [canEdit, isOwner, role, permissions, canEditSubscription, subscription]);
   
   // Konobar2 može samo pregledati
   const isReadOnly = role === "konobar" && permissions?.obracun !== true;

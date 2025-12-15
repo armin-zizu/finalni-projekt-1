@@ -12,14 +12,38 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    // Use userId from JWT token instead of URL params
-    const userId = req.user.userId;
+    // Resolve userId from JWT token to UUID if needed
+    let userId = req.user.userId;
     const deviceId = params.deviceId;
-    const requestedUserId = params.userId;
+    let requestedUserId = params.userId;
 
-    console.log('Update device - JWT userId:', userId, 'Requested userId:', requestedUserId, 'deviceId:', deviceId);
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // Resolve JWT userId to UUID if needed
+    if (!uuidRegex.test(userId)) {
+      const userResult = await query(
+        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        [userId]
+      );
+      if (userResult.rows.length > 0) {
+        userId = userResult.rows[0].id;
+      }
+    }
+    
+    // Resolve requested userId to UUID if needed
+    if (!uuidRegex.test(requestedUserId)) {
+      const userResult = await query(
+        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        [requestedUserId]
+      );
+      if (userResult.rows.length > 0) {
+        requestedUserId = userResult.rows[0].id;
+      }
+    }
 
-    // Check if user can modify devices
+    console.log('Update device - JWT userId:', req.user.userId, '-> resolved:', userId, 'Requested userId:', params.userId, '-> resolved:', requestedUserId, 'deviceId:', deviceId);
+
+    // Check if user can modify devices (compare resolved UUIDs)
     if (userId !== requestedUserId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
@@ -30,7 +54,7 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
     const body = await req.json();
     const { deviceName, role, permissions, isBlocked, status } = body;
 
-    // Update device
+    // Update device - use resolved userId (UUID)
     const updateFields: string[] = [];
     const updateValues: any[] = [];
     let paramIndex = 1;
@@ -64,7 +88,7 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
     }
 
     updateFields.push(`updated_at = NOW()`);
-    updateValues.push(userId, deviceId);
+    updateValues.push(userId, deviceId); // Use resolved UUID
 
     console.log('Update device query:', {
       userId,
@@ -127,12 +151,36 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
       );
     }
 
-    // Use userId from JWT token instead of URL params
-    const userId = req.user.userId;
+    // Resolve userId from JWT token to UUID if needed
+    let userId = req.user.userId;
     const deviceId = params.deviceId;
-    const requestedUserId = params.userId;
+    let requestedUserId = params.userId;
 
-    // Check if user can delete devices
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // Resolve JWT userId to UUID if needed
+    if (!uuidRegex.test(userId)) {
+      const userResult = await query(
+        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        [userId]
+      );
+      if (userResult.rows.length > 0) {
+        userId = userResult.rows[0].id;
+      }
+    }
+    
+    // Resolve requested userId to UUID if needed
+    if (!uuidRegex.test(requestedUserId)) {
+      const userResult = await query(
+        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        [requestedUserId]
+      );
+      if (userResult.rows.length > 0) {
+        requestedUserId = userResult.rows[0].id;
+      }
+    }
+
+    // Check if user can delete devices (compare resolved UUIDs)
     if (userId !== requestedUserId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
@@ -142,7 +190,7 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
 
     await query(
       'DELETE FROM devices WHERE user_id = $1 AND device_id = $2',
-      [userId, deviceId]
+      [userId, deviceId] // Use resolved UUID
     );
 
     return NextResponse.json({ success: true, message: 'Device deleted' });

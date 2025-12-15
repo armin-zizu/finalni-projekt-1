@@ -32,9 +32,24 @@ pm2 save
 
 ## Pull najnovije promjene i restart:
 ```bash
+# Prvo pronađi putanju aplikacije (obično je ~/office-app ili ~/bar-app)
+cd ~/office-app
+# ili
 cd ~/bar-app
+
+# Pull najnovije promjene
 git pull origin main
+
+# Instaliraj nove zavisnosti (ako ima)
+npm install
+
+# Build aplikaciju
 npm run build
+
+# Restart PM2 procesa
 pm2 restart office-app
+
+# Proveri logove (prvo 50 linija)
+pm2 logs office-app --lines 50
 ```
 
