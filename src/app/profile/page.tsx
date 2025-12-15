@@ -145,26 +145,7 @@ export default function Profile() {
     }
   }, [user]);
 
-  // Sessions functionality removed - device management now handles this
-      if (!user) return;
-      
-      setEmail(user.email || "N/A"); // Postavi trenutni e-mail
-      
-      // Učitaj sesije iz Firestore
-      let existingSessions: any[] = [];
-      let activeSession: any = null;
-      
-      try {
-        const sessionsRef = collection(db, "users", user.uid, "sessions");
-        const sessionsSnapshot = await getDocs(sessionsRef);
-        existingSessions = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        activeSession = existingSessions.find(s => s.userEmail === user.email && s.status === "Aktivna");
-      } catch (error) {
-        console.warn("Greška pri učitavanju sesija iz Firestore:", error);
-      }
-      
-      const fetchIPAndLocation = async () => {
-        let ipInfo = {
+  // Scroll na editing box kada se otvori (samo na mobilnom)
           ip: "N/A",
           location: "Nepoznata lokacija",
           isp: "N/A"
@@ -300,10 +281,6 @@ export default function Profile() {
           setSessions(existingSessions);
         }
       }
-    };
-    
-    loadSessions();
-  }, []);
 
   // Scroll na editing box kada se otvori (samo na mobilnom)
   useEffect(() => {
