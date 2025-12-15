@@ -239,6 +239,8 @@ export async function deleteDevice(userId: string, deviceId: string) {
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
+  console.log('deleteDevice API poziv:', { userId, deviceId, url: `/api/users/${userId}/devices/${deviceId}` });
+
   const response = await fetch(`/api/users/${userId}/devices/${deviceId}`, {
     method: 'DELETE',
     headers: {
@@ -247,11 +249,20 @@ export async function deleteDevice(userId: string, deviceId: string) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to delete device');
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.error('deleteDevice API greška:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorData,
+      userId,
+      deviceId
+    });
+    throw new Error(errorData.error || errorData.message || 'Failed to delete device');
   }
 
-  return true;
+  const result = await response.json().catch(() => ({ success: true }));
+  console.log('deleteDevice API uspjeh:', result);
+  return result;
 }
 
 /**

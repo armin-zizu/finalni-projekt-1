@@ -12,23 +12,83 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    const userId = params.userId;
+    let userId = params.userId;
 
-    // Check if user can access this cjenovnik
-    if (req.user.userId !== userId && !req.user.isOwner) {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+    // Resolve userId to UUID if needed
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.log('📖 Resolving userId to UUID:', userId);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      let userResult;
+      
+      if (emailRegex.test(userId)) {
+        userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      } else {
+        // For non-email, non-UUID values like "admin-user", try to find by id::text or email from JWT
+        const jwtUserId = req.user.userId;
+        if (emailRegex.test(jwtUserId)) {
+          userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [jwtUserId]
+          );
+        } else {
+          userResult = await query(
+            'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+        }
+      }
+      
+      if (userResult.rows.length > 0) {
+        userId = userResult.rows[0].id;
+        console.log('✅ Resolved userId to UUID:', userId);
+      } else {
+        console.log('❌ Could not resolve userId to UUID:', userId);
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
     }
 
+    // Check if user can access this cjenovnik (owner can access all, others only their own)
+    // For non-owners, check if the resolved userId matches the JWT userId (after resolving JWT userId too)
+    if (!req.user.isOwner) {
+      let jwtUserId = req.user.userId;
+      if (!uuidRegex.test(jwtUserId)) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailRegex.test(jwtUserId)) {
+          const jwtUserResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [jwtUserId]
+          );
+          if (jwtUserResult.rows.length > 0) {
+            jwtUserId = jwtUserResult.rows[0].id;
+          }
+        }
+      }
+      if (jwtUserId !== userId) {
+        return NextResponse.json(
+          { error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+    }
+
+    console.log('📖 Getting cjenovnik for user:', userId);
+    
     const result = await query(
       `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, created_at, updated_at
        FROM cjenovnik
-       WHERE user_id = $1
+       WHERE user_id = $1::uuid
        ORDER BY naziv ASC`,
       [userId]
     );
+
+    console.log('📋 Database returned', result.rows.length, 'rows for user:', userId, 'Items:', result.rows.map((r: any) => r.naziv));
 
     const cjenovnik = result.rows.map(row => ({
       id: row.id,
@@ -61,14 +121,70 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       );
     }
 
-    const userId = params.userId;
+    let userId = params.userId;
 
-    // Check if user can modify this cjenovnik
-    if (req.user.userId !== userId && !req.user.isOwner) {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+    // Resolve userId to UUID if needed
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.log('💾 Resolving userId to UUID for save:', userId);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      let userResult;
+      
+      if (emailRegex.test(userId)) {
+        userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      } else {
+        // For non-email, non-UUID values like "admin-user", try to find by email from JWT
+        const jwtUserId = req.user.userId;
+        if (emailRegex.test(jwtUserId)) {
+          userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [jwtUserId]
+          );
+        } else {
+          userResult = await query(
+            'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+        }
+      }
+      
+      if (userResult.rows.length > 0) {
+        userId = userResult.rows[0].id;
+        console.log('✅ Resolved userId to UUID for save:', userId);
+      } else {
+        console.log('❌ Could not resolve userId to UUID for save:', userId);
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Check if user can modify this cjenovnik (owner can modify all, others only their own)
+    // For non-owners, check if the resolved userId matches the JWT userId (after resolving JWT userId too)
+    if (!req.user.isOwner) {
+      let jwtUserId = req.user.userId;
+      if (!uuidRegex.test(jwtUserId)) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailRegex.test(jwtUserId)) {
+          const jwtUserResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [jwtUserId]
+          );
+          if (jwtUserResult.rows.length > 0) {
+            jwtUserId = jwtUserResult.rows[0].id;
+          }
+        }
+      }
+      if (jwtUserId !== userId) {
+        return NextResponse.json(
+          { error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
     }
 
     const body = await req.json();
@@ -81,13 +197,16 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       );
     }
 
+    console.log('💾 Saving cjenovnik for user:', userId, 'Items count:', cjenovnik.length, 'Items:', cjenovnik.map((i: any) => i.naziv));
+    
     // Delete existing cjenovnik for this user
-    await query('DELETE FROM cjenovnik WHERE user_id = $1', [userId]);
+    await query('DELETE FROM cjenovnik WHERE user_id = $1::uuid', [userId]);
+    console.log('🗑️ Deleted existing cjenovnik for user:', userId);
 
     // Insert new cjenovnik items
     if (cjenovnik.length > 0) {
       const values = cjenovnik.map((item: any, index: number) => {
-        const baseIndex = index * 4;
+        const baseIndex = index * 5; // 5 vrijednosti po artiklu
         return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5})`;
       }).join(', ');
 
@@ -96,6 +215,8 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
         queryParams.push(userId, item.naziv, item.cijena, item.proizvodnaCijena || null, item.zestokoKolicina || null);
       });
 
+      console.log('📝 Inserting cjenovnik items, params count:', queryParams.length, 'expected:', cjenovnik.length * 5);
+      
       await query(
         `INSERT INTO cjenovnik (user_id, naziv, cijena, proizvodna_cijena, zestoko_kolicina)
          VALUES ${values}
@@ -106,6 +227,10 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
              updated_at = NOW()`,
         queryParams
       );
+      
+      console.log('✅ Successfully inserted/updated cjenovnik items');
+    } else {
+      console.log('⚠️ No cjenovnik items to insert (empty array)');
     }
 
     return NextResponse.json({ success: true, message: 'Cjenovnik updated' });

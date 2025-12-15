@@ -99,24 +99,37 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     // Check if user is admin
     const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
     
-    // Resolve userId to UUID if needed (it might be non-UUID like "admin-user")
+    // Resolve userId to UUID if needed (it might be non-UUID like "admin-user" from old tokens)
     let userId: string = req.user.userId;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
-    // If userId is not a UUID, try to find user by email
+    // If userId is not a UUID, try to find user by email or id
     if (!uuidRegex.test(userId)) {
-      console.log('List users - Non-UUID userId detected, looking up by email:', userId);
-      const userLookup = await query(
-        'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-        [userId]
-      );
+      console.log('List users - Non-UUID userId detected, looking up user:', userId);
+      
+      // Try to find by email if it looks like an email, otherwise try by id as fallback
+      let userLookup;
+      if (emailRegex.test(userId)) {
+        userLookup = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      } else {
+        // Try by id first (for backward compatibility), then by email
+        userLookup = await query(
+          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      }
+      
       if (userLookup.rows.length > 0) {
         userId = userLookup.rows[0].id;
-        console.log('List users - Found UUID for user:', userId);
+        console.log('List users - Found UUID for user:', userId, 'from:', req.user.userId);
       } else {
         console.error('List users - User not found:', req.user.userId);
         return NextResponse.json(
-          { error: 'User not found' },
+          { error: 'User not found. Please log out and log in again to refresh your token.' },
           { status: 404 }
         );
       }

@@ -154,23 +154,36 @@ export default function DashboardPage() {
     try {
       console.log("Dashboard - Učitavanje arhive za korisnika:", userId);
       setLoading(true);
+      setError(null);
       
       // Učitaj iz API-ja - API već vraća transformirane podatke
       const obracuni = await getObracuni(userId);
+      console.log("Dashboard - API vratio obračune:", obracuni?.length || 0, "obračuna");
+      
+      // Ako API ne vrati array, postavi prazan array (ne postavi grešku)
+      if (!Array.isArray(obracuni)) {
+        console.warn("Dashboard - API nije vratio array, postavljam prazan array:", typeof obracuni);
+        setArhiva([]);
+        setLoading(false);
+        setError(null); // Ne postavljaj grešku, samo prikaži prazan dashboard
+        return;
+      }
       
       // API već vraća podatke u ispravnom formatu, samo provjeri da su arrayi
-      const firestoreArhiva: ArhiviraniObracun[] = obracuni.map((ob: any) => ({
-        datum: ob.datum,
-        ukupnoArtikli: Number(ob.ukupnoArtikli) || 0,
-        ukupnoRashod: Number(ob.ukupnoRashod) || 0,
-        ukupnoPrihod: Number(ob.ukupnoPrihod) || 0,
-        neto: Number(ob.neto) || 0,
-        artikli: Array.isArray(ob.artikli) ? ob.artikli : [],
-        rashodi: Array.isArray(ob.rashodi) ? ob.rashodi : [],
-        prihodi: Array.isArray(ob.prihodi) ? ob.prihodi : [],
-        imaUlaz: ob.imaUlaz === true || ob.imaUlaz === 'true',
-        isAzuriran: ob.isAzuriran === true || ob.isAzuriran === 'true',
-      }));
+      const firestoreArhiva: ArhiviraniObracun[] = obracuni.map((ob: any) => {
+        return {
+          datum: ob.datum || "",
+          ukupnoArtikli: Number(ob.ukupnoArtikli) || 0,
+          ukupnoRashod: Number(ob.ukupnoRashod) || 0,
+          ukupnoPrihod: Number(ob.ukupnoPrihod) || 0,
+          neto: Number(ob.neto) || 0,
+          artikli: Array.isArray(ob.artikli) ? ob.artikli : [],
+          rashodi: Array.isArray(ob.rashodi) ? ob.rashodi : [],
+          prihodi: Array.isArray(ob.prihodi) ? ob.prihodi : [],
+          imaUlaz: ob.imaUlaz === true || ob.imaUlaz === 'true',
+          isAzuriran: ob.isAzuriran === true || ob.isAzuriran === 'true',
+        };
+      });
       
       // Sortiraj po datumu (rastući redoslijed za dashboard)
       const sortedArhiva = firestoreArhiva.sort((a, b) => {
@@ -185,18 +198,17 @@ export default function DashboardPage() {
       
       console.log("Dashboard - Učitavanje završeno:", {
         brojObračuna: sortedArhiva.length,
-        primjerObracuna: sortedArhiva.length > 0 ? {
-          datum: sortedArhiva[0].datum,
-          ukupnoArtikli: sortedArhiva[0].ukupnoArtikli,
-          ukupnoRashod: sortedArhiva[0].ukupnoRashod,
-          neto: sortedArhiva[0].neto,
-          brojArtikala: sortedArhiva[0].artikli?.length || 0,
-        } : null,
+        imaPodataka: sortedArhiva.length > 0
       });
-    } catch (error) {
-      console.error("Dashboard - Kritična greška pri učitavanju:", error);
-      setError("Greška pri učitavanju podataka.");
+    } catch (error: any) {
+      console.error("Dashboard - Greška pri učitavanju (prikazujem prazan dashboard):", {
+        error,
+        message: error?.message
+      });
+      // Ne postavljaj grešku - prikaži prazan dashboard umesto error poruke
+      setError(null);
       setLoading(false);
+      setArhiva([]); // Postavi prazan array da se stranica renderuje
     }
   }, []);
 
@@ -489,16 +501,41 @@ export default function DashboardPage() {
     return null;
   };
 
-  if (loading) {
-    return <div style={{ textAlign: "center", padding: 20 }}>Učitavanje podataka...</div>;
-  }
+  // Ne blokiraj renderovanje - dashboard se uvek prikazuje
+  // if (loading) {
+  //   return <div style={{ textAlign: "center", padding: 20 }}>Učitavanje podataka...</div>;
+  // }
 
-  if (error) {
-    return <div style={{ textAlign: "center", padding: 20, color: "red" }}>{error}</div>;
-  }
+  // if (error) {
+  //   return <div style={{ textAlign: "center", padding: 20, color: "red" }}>{error}</div>;
+  // }
 
   return (
     <div style={{ padding: 30, fontFamily: "'Inter', sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
+      {/* Loading indikator - prikaži samo tokom učitavanja ako nema podataka */}
+      {loading && arhiva.length === 0 && (
+        <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>
+          <div style={{ fontSize: 18, marginBottom: 10 }}>Učitavanje podataka...</div>
+        </div>
+      )}
+      
+      {/* Error poruka - prikaži samo ako postoji (ne blokira renderovanje) */}
+      {error && (
+        <div style={{ 
+          textAlign: "center", 
+          padding: 16, 
+          marginBottom: 20,
+          backgroundColor: "#fee2e2", 
+          color: "#dc2626", 
+          borderRadius: 8,
+          border: "1px solid #fecaca"
+        }}>
+          {error}
+        </div>
+      )}
+      
+      {/* Dashboard sadržaj - uvek prikaži, čak i ako je prazan */}
+      <>
       <style jsx>{`
         .dashboard-card:hover {
           transform: translateY(-3px);
@@ -910,10 +947,9 @@ export default function DashboardPage() {
           position: "relative"
         }}
       >
-        {chartData && chartData.length > 0 ? (
-          <div style={{ width: "100%", height: isMobile ? 280 : 400, position: "relative" }}>
-            <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
+        <div style={{ width: "100%", height: isMobile ? 280 : 400, position: "relative" }}>
+          <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
+            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -930,19 +966,7 @@ export default function DashboardPage() {
               <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
             </LineChart>
           </ResponsiveContainer>
-          </div>
-        ) : (
-          <div style={{ 
-            display: "flex", 
-            justifyContent: "center", 
-            alignItems: "center", 
-            height: "100%",
-            color: "#6b7280",
-            fontSize: "14px"
-          }}>
-            Nema podataka za prikaz
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Kartice */}
@@ -1189,49 +1213,48 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {selectedArtikl && (
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "100%",
-            height: isMobile ? 300 : 350,
-            minHeight: isMobile ? 300 : 350,
-            backgroundColor: "#fff",
-            borderRadius: 12,
-            padding: isMobile ? 10 : 20,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-            marginBottom: 10,
-            overflow: isMobile ? "visible" : "hidden",
-            boxSizing: "border-box",
-            position: "relative"
-          }}
-        >
-          <div style={{ width: "100%", height: isMobile ? 280 : 350, position: "relative" }}>
-            <ResponsiveContainer key={`artikl-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-              <LineChart data={selectedData} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="datum" 
-                  tick={{ fill: "#6b7280", fontSize: 11 }} 
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-                <Line type="monotone" dataKey="utroseno" name="Prodaja" stroke="#f59e0b" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          height: isMobile ? 300 : 350,
+          minHeight: isMobile ? 300 : 350,
+          backgroundColor: "#fff",
+          borderRadius: 12,
+          padding: isMobile ? 10 : 20,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+          marginBottom: 10,
+          overflow: isMobile ? "visible" : "hidden",
+          boxSizing: "border-box",
+          position: "relative"
+        }}
+      >
+        <div style={{ width: "100%", height: isMobile ? 280 : 350, position: "relative" }}>
+          <ResponsiveContainer key={`artikl-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
+            <LineChart data={selectedData && selectedData.length > 0 ? selectedData : []} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="datum" 
+                tick={{ fill: "#6b7280", fontSize: 11 }} 
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
+              <Line type="monotone" dataKey="utroseno" name="Prodaja" stroke="#f59e0b" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-      )}
+      </div>
 
       {selectedArtikl && (
         <div style={{ fontWeight: 600, fontSize: 16 }}>
           Ukupno prodano: {totalArtikl.toFixed(2)} ({selectedArtikl})
         </div>
       )}
+      </>
     </div>
   );
 }

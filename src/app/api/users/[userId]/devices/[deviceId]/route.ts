@@ -21,21 +21,45 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
     
     // Resolve JWT userId to UUID if needed
     if (!uuidRegex.test(userId)) {
-      const userResult = await query(
-        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
-        [userId]
-      );
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      let userResult;
+      if (emailRegex.test(userId)) {
+        userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      } else {
+        userResult = await query(
+          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      }
       if (userResult.rows.length > 0) {
         userId = userResult.rows[0].id;
+      } else {
+        console.error('Update device - JWT userId not found:', req.user.userId);
+        return NextResponse.json(
+          { error: 'User not found. Please log out and log in again.' },
+          { status: 404 }
+        );
       }
     }
     
     // Resolve requested userId to UUID if needed
     if (!uuidRegex.test(requestedUserId)) {
-      const userResult = await query(
-        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
-        [requestedUserId]
-      );
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      let userResult;
+      if (emailRegex.test(requestedUserId)) {
+        userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [requestedUserId]
+        );
+      } else {
+        userResult = await query(
+          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+          [requestedUserId]
+        );
+      }
       if (userResult.rows.length > 0) {
         requestedUserId = userResult.rows[0].id;
       }
@@ -157,47 +181,166 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
     let requestedUserId = params.userId;
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
     // Resolve JWT userId to UUID if needed
     if (!uuidRegex.test(userId)) {
-      const userResult = await query(
-        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
-        [userId]
-      );
+      let userResult;
+      if (emailRegex.test(userId)) {
+        userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      } else {
+        userResult = await query(
+          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      }
       if (userResult.rows.length > 0) {
         userId = userResult.rows[0].id;
+      } else {
+        console.error('Delete device - JWT userId not found:', req.user.userId);
+        return NextResponse.json(
+          { error: 'User not found. Please log out and log in again.' },
+          { status: 404 }
+        );
       }
     }
     
     // Resolve requested userId to UUID if needed
+    let requestedUserIdResolved = requestedUserId;
     if (!uuidRegex.test(requestedUserId)) {
-      const userResult = await query(
-        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
-        [requestedUserId]
-      );
+      let userResult;
+      if (emailRegex.test(requestedUserId)) {
+        userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [requestedUserId]
+        );
+      } else {
+        // For non-email, non-UUID values like "admin-user", try to find by email from JWT
+        userResult = await query(
+          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+          [requestedUserId]
+        );
+      }
       if (userResult.rows.length > 0) {
-        requestedUserId = userResult.rows[0].id;
+        requestedUserIdResolved = userResult.rows[0].id;
+      } else {
+        // If requestedUserId can't be resolved and user is owner, use the resolved JWT userId
+        // This allows owner to delete devices when URL has "admin-user" or other non-existent user ID
+        if (req.user.isOwner) {
+          console.log('Delete device - Could not resolve requestedUserId, but user is owner. Using JWT userId:', requestedUserId, '->', userId);
+          requestedUserIdResolved = userId;
+        } else {
+          console.error('Delete device - Could not resolve requestedUserId and user is not owner:', requestedUserId);
+          return NextResponse.json(
+            { error: 'User not found' },
+            { status: 404 }
+          );
+        }
       }
     }
 
     // Check if user can delete devices (compare resolved UUIDs)
-    if (userId !== requestedUserId && !req.user.isOwner) {
+    // Owner može brisati bilo koji uređaj; ostali samo svoje
+    if (userId !== requestedUserIdResolved && !req.user.isOwner) {
+      console.warn('Delete device - Forbidden:', { userId, requestedUserIdResolved, isOwner: req.user.isOwner });
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
       );
     }
 
-    await query(
-      'DELETE FROM devices WHERE user_id = $1 AND device_id = $2',
-      [userId, deviceId] // Use resolved UUID
-    );
+    // Ako je owner, dozvoli brisanje bez obzira na requestedUserId (briši po device_id)
+    // Inače briši samo svoje (po user_id i device_id)
+    const userIdForDelete = req.user.isOwner ? null : requestedUserIdResolved;
+
+    // Validate deviceId
+    if (!deviceId || typeof deviceId !== 'string' || deviceId.trim().length === 0) {
+      console.error('Delete device - Invalid deviceId:', deviceId);
+      return NextResponse.json(
+        { error: 'Invalid device ID' },
+        { status: 400 }
+      );
+    }
+
+    // Ako nije owner, userIdForDelete mora biti validan UUID
+    if (!req.user.isOwner) {
+      if (!userIdForDelete || !uuidRegex.test(userIdForDelete)) {
+        console.error('Delete device - userIdForDelete is not a valid UUID:', userIdForDelete);
+        return NextResponse.json(
+          { error: 'Invalid user ID format' },
+          { status: 400 }
+        );
+      }
+    }
+
+    console.log('Delete device - Attempting to delete:', {
+      userId,
+      userIdForDelete,
+      deviceId,
+      requestedUserId: params.userId,
+      resolvedRequestedUserId: requestedUserIdResolved,
+      jwtUserId: req.user.userId,
+      isOwner: req.user.isOwner
+    });
+
+    let deleteResult;
+    try {
+      if (req.user.isOwner) {
+        // Owner briše po device_id (bez user_id uslova)
+        deleteResult = await query(
+          'DELETE FROM devices WHERE device_id = $1 RETURNING id',
+          [deviceId.trim()]
+        );
+      } else {
+        // Ostali brišu samo svoje uređaje
+        deleteResult = await query(
+          'DELETE FROM devices WHERE user_id = $1::uuid AND device_id = $2 RETURNING id',
+          [userIdForDelete, deviceId.trim()] // Use resolved UUID and trimmed deviceId
+        );
+      }
+    } catch (sqlError: any) {
+      console.error('Delete device - SQL error:', {
+        message: sqlError.message,
+        code: sqlError.code,
+        detail: sqlError.detail,
+        hint: sqlError.hint,
+        userIdForDelete,
+        deviceId,
+        userIdForDeleteType: typeof userIdForDelete,
+        deviceIdType: typeof deviceId
+      });
+      throw sqlError;
+    }
+    
+    console.log('Delete device - Result:', {
+      rowsDeleted: deleteResult.rows.length,
+      deletedId: deleteResult.rows[0]?.id
+    });
+    
+    if (deleteResult.rows.length === 0) {
+      console.warn('Delete device - Device not found:', { userId, deviceId });
+      return NextResponse.json(
+        { error: 'Device not found' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ success: true, message: 'Device deleted' });
   } catch (error: any) {
-    console.error('Delete device error:', error);
+    console.error('Delete device error:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack,
+      userId: params.userId,
+      deviceId: params.deviceId
+    });
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      { error: 'Internal server error', message: error.message, detail: error.detail || error.hint },
       { status: 500 }
     );
   }

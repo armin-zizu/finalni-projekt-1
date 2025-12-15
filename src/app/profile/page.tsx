@@ -281,8 +281,12 @@ export default function Profile() {
   };
 
   // Dodijeli ulogu uređaju
-  const handleAssignRole = async (deviceId: string, newRole: UserRole, permissions?: PagePermission) => {
+  // device može biti device objekat ili deviceId string (za backward compatibility)
+  const handleAssignRole = async (deviceOrId: any, newRole: UserRole, permissions?: PagePermission) => {
     if (!user?.id || !isOwner) return;
+
+    // Ako je prosleđen objekat, uzmi deviceId, inače koristi prosleđeni string
+    const deviceId = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId.deviceId || deviceOrId.id);
 
     try {
       setSavingRole(true);
@@ -313,13 +317,17 @@ export default function Profile() {
   };
 
   // Spremi dozvole
-  const handleSavePermissions = async (deviceId: string, deviceRole: UserRole) => {
-    await handleAssignRole(deviceId, deviceRole, editingPermissions);
+  const handleSavePermissions = async (deviceOrId: any, deviceRole: UserRole) => {
+    await handleAssignRole(deviceOrId, deviceRole, editingPermissions);
   };
 
   // Odobri novi uređaj - omogući vlasniku da bira ulogu
-  const handleApproveDevice = async (deviceId: string, preferredRole: UserRole = "konobar") => {
+  // device može biti device objekat ili deviceId string (za backward compatibility)
+  const handleApproveDevice = async (deviceOrId: any, preferredRole: UserRole = "konobar") => {
     if (!user?.id || !isOwner) return;
+
+    // Ako je prosleđen objekat, uzmi deviceId, inače koristi prosleđeni string
+    const deviceId = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId.deviceId || deviceOrId.id);
 
     try {
       setSavingRole(true);
@@ -365,8 +373,12 @@ export default function Profile() {
   };
 
   // Blokiraj/odblokiraj uređaj
-  const handleToggleBlockDevice = async (deviceId: string, currentBlocked: boolean) => {
+  // device može biti device objekat ili deviceId string (za backward compatibility)
+  const handleToggleBlockDevice = async (deviceOrId: any, currentBlocked: boolean) => {
     if (!user?.id || !isOwner) return;
+
+    // Ako je prosleđen objekat, uzmi deviceId, inače koristi prosleđeni string
+    const deviceId = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId.deviceId || deviceOrId.id);
 
     try {
       setSavingRole(true);
@@ -387,22 +399,79 @@ export default function Profile() {
   };
 
   // Izbriši uređaj (login)
-  const handleDeleteDevice = async (deviceId: string) => {
-    if (!user?.id || !isOwner) return;
+  const handleDeleteDevice = async (device: any) => {
+    console.log("handleDeleteDevice pozvan sa device:", device);
+    
+    if (!user?.id) {
+      console.error("Greška: user.id nije pronađen");
+      setMessage("Greška: Korisnik nije pronađen. Pokušajte ponovo.");
+      setTimeout(() => setMessage(""), 5000);
+      return;
+    }
+    
+    if (!isOwner) {
+      console.error("Greška: Korisnik nije vlasnik");
+      setMessage("Greška: Samo vlasnik može brisati uređaje.");
+      setTimeout(() => setMessage(""), 5000);
+      return;
+    }
+
+    // API endpoint očekuje deviceId (fingerprint ID), ne id (primary key iz baze)
+    // deviceId je fingerprint ID koji se koristi u WHERE device_id = $2
+    const deviceIdToDelete = device.deviceId;
+    
+    console.log("deviceIdToDelete:", deviceIdToDelete, "device objekat:", {
+      id: device.id,
+      deviceId: device.deviceId,
+      deviceName: device.deviceName,
+      fullDevice: device
+    });
+    
+    if (!deviceIdToDelete) {
+      console.error("Greška: deviceId (fingerprint) nije pronađen za uređaj:", device);
+      setMessage("Greška: Device ID nije pronađen. Pokušajte ponovo.");
+      setTimeout(() => setMessage(""), 5000);
+      return;
+    }
 
     if (!window.confirm("Jeste li sigurni da želite izbrisati ovaj login? Korisnik će morati ponovo zatražiti pristup.")) {
+      console.log("Korisnik je otkazao brisanje");
       return;
     }
 
     try {
       setSavingRole(true);
-      await deleteDevice(user.id, deviceId);
+      console.log("Pokušavam da obrišem uređaj:", { 
+        userId: user.id, 
+        deviceId: deviceIdToDelete, 
+        deviceDbId: device.id,
+        deviceName: device.deviceName
+      });
+      
+      const result = await deleteDevice(user.id, deviceIdToDelete);
+      console.log("Uređaj uspješno obrisan, rezultat:", result);
+      
+      // Zatvori editing box
+      setEditingDeviceId(null);
+      setEditingPermissions({});
+      setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
+      setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
+      
+      // Osveži listu uređaja
       await loadDevices();
+      
       setMessage("Login uspješno izbrisan");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
-      console.error("Greška pri brisanju login-a:", error);
-      setMessage("Greška pri brisanju login-a");
+      console.error("Greška pri brisanju login-a - detalji:", {
+        error,
+        message: error instanceof Error ? error.message : 'Nepoznata greška',
+        stack: error instanceof Error ? error.stack : undefined,
+        userId: user.id,
+        deviceId: deviceIdToDelete
+      });
+      const errorMessage = error instanceof Error ? error.message : 'Nepoznata greška';
+      setMessage(`Greška pri brisanju login-a: ${errorMessage}`);
       setTimeout(() => setMessage(""), 5000);
     } finally {
       setSavingRole(false);
@@ -410,8 +479,12 @@ export default function Profile() {
   };
 
   // Spremi ime uređaja
-  const handleSaveDeviceName = async (deviceId: string, deviceName: string) => {
+  // device može biti device objekat ili deviceId string (za backward compatibility)
+  const handleSaveDeviceName = async (deviceOrId: any, deviceName: string) => {
     if (!user?.id || !isOwner) return;
+
+    // Ako je prosleđen objekat, uzmi deviceId, inače koristi prosleđeni string
+    const deviceId = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId.deviceId || deviceOrId.id);
 
     try {
       setSavingRole(true);
@@ -981,7 +1054,7 @@ export default function Profile() {
                           {needsVerification ? (
                             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                               <button
-                                onClick={() => handleApproveDevice(device.id, "konobar")}
+                                onClick={() => handleApproveDevice(device, "konobar")}
                                 style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "6px 12px" }}
                                 title="Odobri kao konobar"
                               >
@@ -991,7 +1064,7 @@ export default function Profile() {
                                 <button
                                   onClick={() => {
                                     if (window.confirm("Jeste li sigurni da želite odobriti ovaj uređaj kao VLASNIK? Vlasnik ima pun pristup svemu.")) {
-                                      handleApproveDevice(device.id, "vlasnik");
+                                      handleApproveDevice(device, "vlasnik");
                                     }
                                   }}
                                   style={{ ...buttonStyle, background: "#2563eb", fontSize: "12px", padding: "6px 12px" }}
@@ -1017,7 +1090,7 @@ export default function Profile() {
                         </td>
                         <td style={tdStyle}>
                           <button
-                            onClick={() => handleToggleBlockDevice(device.id, isBlocked)}
+                            onClick={() => handleToggleBlockDevice(device, isBlocked)}
                             disabled={savingRole || needsVerification}
                             style={{
                               ...buttonStyle,
@@ -1183,13 +1256,13 @@ export default function Profile() {
                                         onClick={async () => {
                                           const roleToSave = selectedRole[device.id] || device.role;
                                           if (roleToSave === "konobar") {
-                                            await handleSavePermissions(device.id, roleToSave);
+                                            await handleSavePermissions(device, roleToSave);
                                           } else {
-                                            await handleAssignRole(device.id, roleToSave);
+                                            await handleAssignRole(device, roleToSave);
                                           }
                                           // Spremi ime uređaja ako je promijenjeno
                                           if (deviceNames[device.id] !== undefined && deviceNames[device.id] !== device.deviceName) {
-                                            await handleSaveDeviceName(device.id, deviceNames[device.id]);
+                                            await handleSaveDeviceName(device, deviceNames[device.id]);
                                           }
                                           setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
                                           setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
@@ -1227,7 +1300,7 @@ export default function Profile() {
                                         Odustani
                                       </button>
                                       <button
-                                        onClick={() => handleDeleteDevice(device.id)}
+                                        onClick={() => handleDeleteDevice(device)}
                                           style={{ 
                                             ...buttonStyle, 
                                             background: "#dc2626", 
@@ -2269,7 +2342,7 @@ export default function Profile() {
                         <td style={tdStyle}>
                           <select
                             value={device.role || ""}
-                            onChange={(e) => handleAssignRole(device.id, e.target.value as UserRole || null)}
+                            onChange={(e) => handleAssignRole(device, e.target.value as UserRole || null)}
                             disabled={savingRole}
                             style={{
                               padding: "6px 12px",

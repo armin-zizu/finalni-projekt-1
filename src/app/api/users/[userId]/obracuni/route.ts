@@ -30,16 +30,19 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
     if (!uuidRegex.test(userId)) {
       console.log('Get obracuni - Non-UUID userId detected, looking up in database:', userId);
       try {
-        // First try to find by id (in case it's an old ID format)
-        let userResult = await query(
-          'SELECT id FROM users WHERE id = $1 LIMIT 1',
-          [userId]
-        );
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         
-        // If not found by id, try to find by email
-        if (userResult.rows.length === 0) {
+        // Try to find by id::text first (for backward compatibility), then by email if it looks like email
+        let userResult;
+        if (emailRegex.test(userId)) {
           userResult = await query(
             'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+        } else {
+          // Try by id::text first, then by email as fallback
+          userResult = await query(
+            'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
             [userId]
           );
         }

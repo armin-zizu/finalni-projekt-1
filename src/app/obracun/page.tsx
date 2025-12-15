@@ -518,7 +518,8 @@ export default function ObracunPage() {
       if (draftData) {
         // Ako postoji draft, učitaj podatke iz draft-a
         console.log("📖 Učitavam draft obračun:", datumString);
-        setArtikli(draftData.artikli || []);
+        const draftArtikli = draftData.artikli || [];
+        setArtikli(draftArtikli);
         setRashodi(draftData.rashodi || []);
         setPrihodi(draftData.prihodi || []);
         setIsAzuriran(draftData.isAzuriran || false);
@@ -532,9 +533,12 @@ export default function ObracunPage() {
           setSavedInvoiceImagesCount(draftData.savedInvoiceImagesCount || draftData.invoiceImages.length);
         }
         
+        // Provjeri da li postoje novi artikli u cjenovniku koji nisu u draft-u
+        // i dodaj ih (ovo će se izvršiti u drugom useEffect-u nakon što se cjenovnik učita)
         setIsCacheLoaded(true);
         console.log("🟢 Draft obračun učitan, isCacheLoaded = true");
-        return; // Ne nastavljaj dalje, draft je učitan
+        // Nastavi da se izvršava drugi useEffect koji će dodati nove artikle iz cjenovnika
+        return; // Vrati se da ne izvršava inicijalizaciju praznog cache-a
       }
       
       // Nema draft-a - inicijaliziraj prazan cache
@@ -663,8 +667,61 @@ export default function ObracunPage() {
         };
       });
       
-      // Dodaj nove artikle postojećim
-      setArtikli(prev => [...prev, ...noviArtikliZaDodati]);
+      // Dodaj nove artikle postojećim i automatski sačuvaj draft
+      setArtikli(prev => {
+        const updated = [...prev, ...noviArtikliZaDodati];
+        
+        // Automatski sačuvaj draft sa novim artiklima nakon što se state ažurira
+        setTimeout(async () => {
+          try {
+            const datumString = formatirajDatum(trenutniDatum);
+            const userId = user?.id || (await getUserId());
+            if (!userId) {
+              console.warn("Korisnik nije autentifikovan, ne mogu spremiti draft");
+              return;
+            }
+            
+            const ukupnoArtikli = updated.reduce((sum, a) => sum + a.vrijednostKM, 0);
+            const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+            const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+            const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+            const imaUlaz = updated.some((a) => a.ulaz !== 0);
+            
+            // Učitaj postojeće slike iz draft-a (ako već postoji)
+            let existingInvoiceImages: string[] = [];
+            try {
+              const existingDraft = await getDraftObracun(userId, datumString);
+              if (existingDraft && existingDraft.invoiceImages) {
+                existingInvoiceImages = existingDraft.invoiceImages;
+              }
+            } catch (error) {
+              // Ignoriraj greške - draft možda ne postoji
+            }
+            
+            // Sačuvaj draft sa novim artiklima
+            await saveObracun(userId, {
+              datum: datumString,
+              artikli: updated,
+              rashodi: rashodi,
+              prihodi: prihodi,
+              ukupnoArtikli: ukupnoArtikli,
+              ukupnoRashod: ukupnoRashod,
+              ukupnoPrihod: ukupnoPrihod,
+              neto: neto,
+              imaUlaz: imaUlaz,
+              isAzuriran: isAzuriran,
+              invoiceImages: existingInvoiceImages.length > 0 ? existingInvoiceImages : undefined,
+              isDraft: true,
+            });
+            
+            console.log("💾 Draft automatski sačuvan sa novim artiklima:", noviArtikli.map((a: { naziv: string }) => a.naziv));
+          } catch (error) {
+            console.warn("Greška pri automatskom čuvanju draft-a sa novim artiklima:", error);
+          }
+        }, 300); // Kratko kašnjenje da se state ažurira
+        
+        return updated;
+      });
     }
     
     // Ažuriraj postojeće artikle sa novim podacima iz cjenovnika (cijene, početno stanje, itd.)

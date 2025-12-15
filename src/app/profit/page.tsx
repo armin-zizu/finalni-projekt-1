@@ -990,10 +990,9 @@ export default function ProfitPage() {
         boxSizing: "border-box",
         position: "relative"
       }}>
-        {chartData && chartData.length > 0 ? (
-          <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
-            <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
+        <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
+          <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
+            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1010,19 +1009,7 @@ export default function ProfitPage() {
               <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
             </LineChart>
           </ResponsiveContainer>
-          </div>
-        ) : (
-          <div style={{ 
-            display: "flex", 
-            justifyContent: "center", 
-            alignItems: "center", 
-            height: "100%",
-            color: "#6b7280",
-            fontSize: "14px"
-          }}>
-            Nema podataka za prikaz
-          </div>
-        )}
+        </div>
       </div>
 
       {/* ---- Odabir artikla i filter za grafikon profita po artiklu ---- */}
@@ -1072,35 +1059,22 @@ export default function ProfitPage() {
       >
         <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
           <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            {selectedArtiklData && selectedArtiklData.length > 0 ? (
-              <LineChart data={selectedArtiklData} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis 
-              dataKey="datum" 
-              tick={{ fill: "#6b7280", fontSize: 11 }} 
-              angle={-45}
-              textAnchor="end"
-              height={60}
-            />
-            <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-            <Line type="monotone" dataKey="bruto" name="Bruto artikal" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-            <Line type="monotone" dataKey="neto" name="Neto artikal" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-          </LineChart>
-          ) : (
-            <div style={{ 
-              display: "flex", 
-              justifyContent: "center", 
-              alignItems: "center", 
-              height: "100%",
-              color: "#6b7280",
-              fontSize: "14px"
-            }}>
-              Nema podataka za prikaz
-            </div>
-          )}
-        </ResponsiveContainer>
+            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="datum" 
+                tick={{ fill: "#6b7280", fontSize: 11 }} 
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
+              <Line type="monotone" dataKey="bruto" name="Bruto artikal" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="neto" name="Neto artikal" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

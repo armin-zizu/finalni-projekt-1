@@ -63,7 +63,9 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     const loadCjenovnik = async () => {
       try {
         // Učitaj cjenovnik iz API-ja
+        console.log("📥 Učitavam cjenovnik iz API-ja za korisnika:", user.id);
         const apiCjenovnik = await getCjenovnik(user.id);
+        console.log("📦 API vratio cjenovnik:", apiCjenovnik?.length || 0, "artikala:", apiCjenovnik?.map((a: any) => a.naziv) || []);
         
         if (apiCjenovnik && apiCjenovnik.length > 0) {
           // Transformiraj API format u format koji context koristi
@@ -84,9 +86,13 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
           }));
 
           // Ažuriraj početno stanje iz najnovijeg obračuna
+          // Ovo je opcionalno - ako ne uspe, koristi početno stanje iz cjenovnika
           try {
-            const obracuni = await getObracuni(user.id);
-            if (obracuni.length > 0) {
+            const obracuni = await getObracuni(user.id).catch((error) => {
+              console.warn("Greška pri učitavanju obracuni za ažuriranje početnog stanja (ignoriramo):", error);
+              return []; // Vrati prazan array ako ne uspe
+            });
+            if (obracuni && obracuni.length > 0) {
               // Sortiraj po datumu (najnoviji prvo)
               const sortedObracuni = [...obracuni].sort((a: any, b: any) => {
                 const dateA = new Date(a.datum?.split(".").reverse().join("-") || 0).getTime();
@@ -343,14 +349,56 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
 
   const addArtikal = (artikal: ArtiklCijena) => {
     // Dodaj u privremeni cjenovnik (pending) - čeka na potvrdu
-    setPendingCjenovnik((prev) => [...prev, artikal]);
+    setPendingCjenovnik((prev) => {
+      if (prev.some((a) => a.naziv.toLowerCase() === artikal.naziv.toLowerCase())) {
+        return prev;
+      }
+      if (cjenovnik.some((a) => a.naziv.toLowerCase() === artikal.naziv.toLowerCase())) {
+        return prev;
+      }
+      return [...prev, artikal];
+    });
   };
 
-  const updateCjenovnik = () => {
+  const updateCjenovnik = async () => {
     // Potvrdi promjene - dodaj pending artikle u glavni cjenovnik
-    // useEffect će automatski spremiti u Firestore kada se cjenovnik promijeni
-    setCjenovnik((prev) => [...prev, ...pendingCjenovnik]);
-    setPendingCjenovnik([]); // Očisti privremeni cjenovnik
+    // Izračunaj novi cjenovnik pre nego što ažuriramo state
+    const noviArtikli = pendingCjenovnik.filter(
+      (pending) => !cjenovnik.some((existing) => existing.naziv.toLowerCase() === pending.naziv.toLowerCase())
+    );
+    if (noviArtikli.length === 0) {
+      console.log("ℹ️ Nema novih artikala za dodavanje");
+      return; // Nema ništa za dodati
+    }
+    
+    const noviCjenovnik = [...cjenovnik, ...noviArtikli];
+    
+    // Eksplicitno sačuvaj u API PRVO pre nego što ažuriramo state
+    if (!user?.id) {
+      console.error("❌ Korisnik nije autentifikovan, ne mogu spremiti cjenovnik");
+      throw new Error("Korisnik nije autentifikovan");
+    }
+    
+    try {
+      // Transformiraj u format koji API očekuje
+      const apiCjenovnik = noviCjenovnik.map((item) => ({
+        naziv: item.naziv,
+        cijena: item.cijena,
+        proizvodnaCijena: item.proizvodnaCijena,
+        zestokoKolicina: item.zestokoKolicina,
+      }));
+      
+      console.log("💾 Spremanje cjenovnika u API - userId:", user.id, "artikala:", apiCjenovnik.length, "nazivi:", apiCjenovnik.map((a: any) => a.naziv));
+      await saveCjenovnik(user.id, apiCjenovnik);
+      console.log("✅ Cjenovnik uspješno sačuvan u API:", noviCjenovnik.length, "artikala");
+      
+      // Ako je uspješno sačuvano, ažuriraj state
+      setCjenovnik(noviCjenovnik);
+      setPendingCjenovnik([]); // Očisti privremeni cjenovnik
+    } catch (error: any) {
+      console.error("❌ Greška pri čuvanju cjenovnika u API:", error);
+      throw error; // Re-throw da se korisnik obavesti o grešci
+    }
   };
 
   return (
