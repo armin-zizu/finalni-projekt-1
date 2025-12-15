@@ -40,26 +40,41 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
     if (!uuidRegex.test(userId)) {
       console.log('Get obracuni - Non-UUID userId detected, looking up in database:', userId);
       try {
-        // Try to find user by email (in case userId is actually an email or special identifier)
-        const userResult = await query(
-          'SELECT id FROM users WHERE email = $1 OR id::text = $1 LIMIT 1',
+        // Try to find user by email first (most common case)
+        let userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
           [userId]
         );
         
-        if (userResult.rows.length > 0) {
-          userId = userResult.rows[0].id;
-          console.log('Get obracuni - Found UUID for user:', userId);
-        } else {
-          console.error('Get obracuni - User not found:', userId);
+        // If not found by email, return error - we don't support non-UUID IDs anymore
+        if (userResult.rows.length === 0) {
+          console.error('Get obracuni - User not found by email:', userId);
           return NextResponse.json(
-            { error: 'User not found', userId: userId },
+            { 
+              error: 'User not found. Invalid user ID format. Please log out and log in again.', 
+              userId: jwtUserId 
+            },
             { status: 404 }
           );
         }
+        
+        userId = userResult.rows[0].id;
+        console.log('Get obracuni - Found UUID for user:', userId, 'from email:', jwtUserId);
       } catch (lookupError: any) {
-        console.error('Get obracuni - Error looking up user:', lookupError);
+        console.error('Get obracuni - Error looking up user:', {
+          error: lookupError.message,
+          code: lookupError.code,
+          detail: lookupError.detail,
+          hint: lookupError.hint,
+          userId: jwtUserId,
+          stack: lookupError.stack
+        });
         return NextResponse.json(
-          { error: 'Failed to resolve user ID', message: lookupError.message },
+          { 
+            error: 'Failed to resolve user ID', 
+            message: lookupError.message,
+            detail: lookupError.detail || lookupError.hint || 'Please check server logs for more details'
+          },
           { status: 500 }
         );
       }
@@ -208,7 +223,7 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       console.log('Save obracun - Non-UUID userId detected, looking up in database:', userId);
       try {
         const userResult = await query(
-          'SELECT id FROM users WHERE email = $1 OR id::text = $1 LIMIT 1',
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
           [userId]
         );
         
@@ -218,7 +233,7 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
         } else {
           console.error('Save obracun - User not found:', userId);
           return NextResponse.json(
-            { error: 'User not found', userId: userId },
+            { error: 'User not found. Invalid user ID format.', userId: jwtUserId },
             { status: 404 }
           );
         }
@@ -323,7 +338,7 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
       console.log('Delete obracun - Non-UUID userId detected, looking up in database:', userId);
       try {
         const userResult = await query(
-          'SELECT id FROM users WHERE email = $1 OR id::text = $1 LIMIT 1',
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
           [userId]
         );
         
@@ -333,7 +348,7 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
         } else {
           console.error('Delete obracun - User not found:', userId);
           return NextResponse.json(
-            { error: 'User not found', userId: userId },
+            { error: 'User not found. Invalid user ID format.', userId: jwtUserId },
             { status: 404 }
           );
         }
