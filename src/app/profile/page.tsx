@@ -146,7 +146,6 @@ export default function Profile() {
   }, [user]);
 
   // Scroll na editing box kada se otvori (samo na mobilnom)
-          ip: "N/A",
           location: "Nepoznata lokacija",
           isp: "N/A"
         };
