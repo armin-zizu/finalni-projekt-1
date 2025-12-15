@@ -12,17 +12,16 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    // Use userId from JWT token (UUID) instead of URL params
-    // This ensures we always use the correct UUID format
-    const userId = req.user.userId;
+    // Use userId from JWT token instead of URL params
+    const jwtUserId = req.user.userId;
     const requestedUserId = params.userId;
 
-    console.log('Get obracuni - JWT userId:', userId, 'Requested userId:', requestedUserId);
+    console.log('Get obracuni - JWT userId:', jwtUserId, 'Requested userId:', requestedUserId);
 
     // Check if user can access these obracuni
     // Allow access if userId matches or user is owner
-    if (userId !== requestedUserId && !req.user.isOwner) {
-      console.warn('Get obracuni - Access denied:', { userId, requestedUserId, isOwner: req.user.isOwner });
+    if (jwtUserId !== requestedUserId && !req.user.isOwner) {
+      console.warn('Get obracuni - Access denied:', { jwtUserId, requestedUserId, isOwner: req.user.isOwner });
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -34,14 +33,36 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
     const datum = searchParams.get('datum');
     const isDraft = searchParams.get('is_draft'); // Optional: filter by draft status
 
-    // Validate UUID format
+    // If userId is not a UUID, try to find the actual UUID from database
+    let userId = jwtUserId;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
     if (!uuidRegex.test(userId)) {
-      console.error('Get obracuni - Invalid UUID format:', userId);
-      return NextResponse.json(
-        { error: 'Invalid user ID format', userId: userId },
-        { status: 400 }
-      );
+      console.log('Get obracuni - Non-UUID userId detected, looking up in database:', userId);
+      try {
+        // Try to find user by email (in case userId is actually an email or special identifier)
+        const userResult = await query(
+          'SELECT id FROM users WHERE email = $1 OR id::text = $1 LIMIT 1',
+          [userId]
+        );
+        
+        if (userResult.rows.length > 0) {
+          userId = userResult.rows[0].id;
+          console.log('Get obracuni - Found UUID for user:', userId);
+        } else {
+          console.error('Get obracuni - User not found:', userId);
+          return NextResponse.json(
+            { error: 'User not found', userId: userId },
+            { status: 404 }
+          );
+        }
+      } catch (lookupError: any) {
+        console.error('Get obracuni - Error looking up user:', lookupError);
+        return NextResponse.json(
+          { error: 'Failed to resolve user ID', message: lookupError.message },
+          { status: 500 }
+        );
+      }
     }
 
     // Automatski briši draftove starije od 24h
@@ -143,12 +164,12 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       );
     }
 
-    // Use userId from JWT token (UUID) instead of URL params
-    const userId = req.user.userId;
+    // Use userId from JWT token instead of URL params
+    const jwtUserId = req.user.userId;
     const requestedUserId = params.userId;
 
     // Check if user can modify obracuni
-    if (userId !== requestedUserId && !req.user.isOwner) {
+    if (jwtUserId !== requestedUserId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -179,14 +200,35 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       invoiceImages: invoiceImages || [],
     };
 
-    // Validate UUID format
+    // If userId is not a UUID, try to find the actual UUID from database
+    let userId = jwtUserId;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
     if (!uuidRegex.test(userId)) {
-      console.error('Save obracun - Invalid UUID format:', userId);
-      return NextResponse.json(
-        { error: 'Invalid user ID format', userId: userId },
-        { status: 400 }
-      );
+      console.log('Save obracun - Non-UUID userId detected, looking up in database:', userId);
+      try {
+        const userResult = await query(
+          'SELECT id FROM users WHERE email = $1 OR id::text = $1 LIMIT 1',
+          [userId]
+        );
+        
+        if (userResult.rows.length > 0) {
+          userId = userResult.rows[0].id;
+          console.log('Save obracun - Found UUID for user:', userId);
+        } else {
+          console.error('Save obracun - User not found:', userId);
+          return NextResponse.json(
+            { error: 'User not found', userId: userId },
+            { status: 404 }
+          );
+        }
+      } catch (lookupError: any) {
+        console.error('Save obracun - Error looking up user:', lookupError);
+        return NextResponse.json(
+          { error: 'Failed to resolve user ID', message: lookupError.message },
+          { status: 500 }
+        );
+      }
     }
 
     // Determine if this is a draft or final obracun
@@ -251,12 +293,12 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
       );
     }
 
-    // Use userId from JWT token (UUID) instead of URL params
-    const userId = req.user.userId;
+    // Use userId from JWT token instead of URL params
+    const jwtUserId = req.user.userId;
     const requestedUserId = params.userId;
 
     // Check if user can delete obracuni
-    if (userId !== requestedUserId && !req.user.isOwner) {
+    if (jwtUserId !== requestedUserId && !req.user.isOwner) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -273,14 +315,35 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
       );
     }
 
-    // Validate UUID format
+    // If userId is not a UUID, try to find the actual UUID from database
+    let userId = jwtUserId;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
     if (!uuidRegex.test(userId)) {
-      console.error('Delete obracun - Invalid UUID format:', userId);
-      return NextResponse.json(
-        { error: 'Invalid user ID format', userId: userId },
-        { status: 400 }
-      );
+      console.log('Delete obracun - Non-UUID userId detected, looking up in database:', userId);
+      try {
+        const userResult = await query(
+          'SELECT id FROM users WHERE email = $1 OR id::text = $1 LIMIT 1',
+          [userId]
+        );
+        
+        if (userResult.rows.length > 0) {
+          userId = userResult.rows[0].id;
+          console.log('Delete obracun - Found UUID for user:', userId);
+        } else {
+          console.error('Delete obracun - User not found:', userId);
+          return NextResponse.json(
+            { error: 'User not found', userId: userId },
+            { status: 404 }
+          );
+        }
+      } catch (lookupError: any) {
+        console.error('Delete obracun - Error looking up user:', lookupError);
+        return NextResponse.json(
+          { error: 'Failed to resolve user ID', message: lookupError.message },
+          { status: 500 }
+        );
+      }
     }
 
     await query(
