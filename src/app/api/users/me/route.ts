@@ -11,7 +11,37 @@ async function handler(req: AuthRequest): Promise<NextResponse> {
       );
     }
 
-    const userId = req.user.userId;
+    let userId = req.user.userId;
+
+    // If userId is not a UUID, try to find the actual UUID from database
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!uuidRegex.test(userId)) {
+      console.log('Get current user - Non-UUID userId detected, looking up in database:', userId);
+      try {
+        const userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+        
+        if (userResult.rows.length > 0) {
+          userId = userResult.rows[0].id;
+          console.log('Get current user - Found UUID for user:', userId);
+        } else {
+          console.error('Get current user - User not found:', userId);
+          return NextResponse.json(
+            { error: 'User not found. Invalid user ID format.', userId: req.user.userId },
+            { status: 404 }
+          );
+        }
+      } catch (lookupError: any) {
+        console.error('Get current user - Error looking up user:', lookupError);
+        return NextResponse.json(
+          { error: 'Failed to resolve user ID', message: lookupError.message },
+          { status: 500 }
+        );
+      }
+    }
 
     // Get user from database
     const result = await query(
@@ -59,7 +89,38 @@ async function putHandler(req: AuthRequest): Promise<NextResponse> {
       );
     }
 
-    const userId = req.user.userId;
+    let userId = req.user.userId;
+    
+    // If userId is not a UUID, try to find the actual UUID from database
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!uuidRegex.test(userId)) {
+      console.log('Update user - Non-UUID userId detected, looking up in database:', userId);
+      try {
+        const userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+        
+        if (userResult.rows.length > 0) {
+          userId = userResult.rows[0].id;
+          console.log('Update user - Found UUID for user:', userId);
+        } else {
+          console.error('Update user - User not found:', userId);
+          return NextResponse.json(
+            { error: 'User not found. Invalid user ID format.', userId: req.user.userId },
+            { status: 404 }
+          );
+        }
+      } catch (lookupError: any) {
+        console.error('Update user - Error looking up user:', lookupError);
+        return NextResponse.json(
+          { error: 'Failed to resolve user ID', message: lookupError.message },
+          { status: 500 }
+        );
+      }
+    }
+
     const body = await req.json();
     const { appName } = body;
 
