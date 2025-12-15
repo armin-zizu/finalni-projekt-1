@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { RoleContext } from "./RoleContext";
-// TODO: Create subscription API endpoints and migrate from mock data
+import { getSubscription, updateSubscription, addPaymentToSubscription } from "../../lib/api";
 
 // Tipovi
 interface Payment {
@@ -61,7 +61,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
   
   // Ako postoji trialEndDate u podacima, koristi ga
   if (data.trialEndDate) {
-    trialEndDate = data.trialEndDate.toDate ? data.trialEndDate.toDate() : new Date(data.trialEndDate);
+    trialEndDate = data.trialEndDate instanceof Date ? data.trialEndDate : new Date(data.trialEndDate);
   } else if (userCreatedAt && explicitIsActive !== false) {
     // Ako nema trialEndDate i korisnik nije eksplicitno deaktiviran, kreiraj ga na osnovu datuma registracije (15 dana)
     trialEndDate = new Date(userCreatedAt);
@@ -80,7 +80,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
   } else {
     // Nije u trial periodu, provjeri pretplatu
     if (data.expiryDate) {
-      expiryDate = data.expiryDate.toDate ? data.expiryDate.toDate() : new Date(data.expiryDate);
+      expiryDate = data.expiryDate instanceof Date ? data.expiryDate : new Date(data.expiryDate);
       
       if (expiryDate && now < expiryDate) {
         // Pretplata je aktivna (po datumu)
@@ -89,7 +89,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
       } else if (expiryDate) {
         // Pretplata je istekla, provjeri grace period
         if (data.graceEndDate) {
-          graceEndDate = data.graceEndDate.toDate ? data.graceEndDate.toDate() : new Date(data.graceEndDate);
+          graceEndDate = data.graceEndDate instanceof Date ? data.graceEndDate : new Date(data.graceEndDate);
         } else {
           // Kreiraj grace period (5 dana od isteka pretplate) samo ako nije eksplicitno postavljen
           graceEndDate = new Date(expiryDate);
@@ -109,7 +109,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
         }
       } else if (data.graceEndDate) {
         // Ako nema expiryDate ali postoji graceEndDate, provjeri grace period
-        graceEndDate = data.graceEndDate.toDate ? data.graceEndDate.toDate() : new Date(data.graceEndDate);
+        graceEndDate = data.graceEndDate instanceof Date ? data.graceEndDate : new Date(data.graceEndDate);
         if (graceEndDate && now < graceEndDate) {
           // U grace periodu
           isGracePeriod = true;
@@ -132,13 +132,8 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     }
   }
 
-  // Parsiraj payment history
-  const paymentHistory: Payment[] = (data.paymentHistory || []).map((p: any) => ({
-    date: p.date?.toDate ? p.date.toDate() : new Date(p.date),
-    amount: p.amount || 0,
-    note: p.note || "",
-    validUntil: p.validUntil?.toDate ? p.validUntil.toDate() : (p.validUntil ? new Date(p.validUntil) : undefined),
-  }));
+  // Payment history is already parsed in loadSubscription, use it directly
+  const paymentHistory: Payment[] = data.paymentHistory || [];
   
   // Provjeri da li je Premium (ima uplatu i nije u trial periodu)
   const isPremium = hasPayment && !isTrial && (isActive || isGracePeriod);
@@ -151,14 +146,14 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     trialEndDate,
     expiryDate,
     graceEndDate,
-    monthlyPrice: 12, // Fiksna cijena - uvijek 12 KM
-    lastPaymentDate: data.lastPaymentDate ? (data.lastPaymentDate.toDate ? data.lastPaymentDate.toDate() : new Date(data.lastPaymentDate)) : null,
+    monthlyPrice: data.monthlyPrice || 12, // Fiksna cijena - uvijek 12 KM
+    lastPaymentDate: data.lastPaymentDate ? (data.lastPaymentDate instanceof Date ? data.lastPaymentDate : new Date(data.lastPaymentDate)) : null,
     daysRemaining,
     daysUntilExpiry,
     daysInGrace,
     paymentHistory,
     paymentPendingVerification: data.paymentPendingVerification || false,
-    paymentRequestedAt: data.paymentRequestedAt ? (data.paymentRequestedAt.toDate ? data.paymentRequestedAt.toDate() : new Date(data.paymentRequestedAt)) : null,
+    paymentRequestedAt: data.paymentRequestedAt ? (data.paymentRequestedAt instanceof Date ? data.paymentRequestedAt : new Date(data.paymentRequestedAt)) : null,
     paymentRequestedAmount: data.paymentRequestedAmount || 0,
     paymentRequestedMonths: data.paymentRequestedMonths || 0,
     paymentReferenceNumber: data.paymentReferenceNumber || null,
@@ -170,252 +165,81 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const roleContext = useContext(RoleContext);
   const user = roleContext?.user ?? null;
   
-  // TODO: Migrate to API - currently using mock data
-  // Subscription API endpoints need to be created: /api/users/[userId]/subscription
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>({
-    isActive: true,
-    isTrial: false,
-    isPremium: true,
-    isGracePeriod: false,
-    trialEndDate: null,
-    expiryDate: null,
-    graceEndDate: null,
-    monthlyPrice: 12,
-    lastPaymentDate: new Date(),
-    daysRemaining: 0,
-    daysUntilExpiry: 365,
-    daysInGrace: 0,
-    paymentHistory: [],
-  });
-  const [loading, setLoading] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const loadSubscription = async () => {
-    // TEMPORARY: Bypass Firebase
-    return;
-    /*
-    const user = auth.currentUser;
-    
-    if (!user) {
+  const loadSubscription = useCallback(async () => {
+    if (!user?.id) {
       setSubscription(null);
       setLoading(false);
       return;
     }
 
     try {
-      const userId = user.uid;
-      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-      const subscriptionDoc = await getDoc(subscriptionRef);
+      setLoading(true);
+      const subscriptionData = await getSubscription(user.id);
 
-      let subscriptionData: any = {};
-      if (subscriptionDoc.exists()) {
-        subscriptionData = subscriptionDoc.data();
-        // Ažuriraj monthlyPrice na 12 ako je stara vrijednost
-        if (subscriptionData.monthlyPrice !== 12) {
-          subscriptionData.monthlyPrice = 12;
-          await setDoc(subscriptionRef, { monthlyPrice: 12 }, { merge: true });
-        }
-      } else {
-        // Kreiraj default pretplatu sa trial periodom
-        const userCreatedAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : new Date();
-        const trialEndDate = new Date(userCreatedAt);
-        trialEndDate.setDate(trialEndDate.getDate() + 15);
+      // Transform payment history
+      const paymentHistory: Payment[] = (subscriptionData.payments || []).map((p: any) => ({
+        date: new Date(p.date),
+        amount: p.amount,
+        note: p.note,
+        validUntil: p.validUntil ? new Date(p.validUntil) : undefined,
+      }));
 
-        subscriptionData = {
-          isActive: true,
-          monthlyPrice: 12,
-          lastPaymentDate: null,
-          expiryDate: null,
-          graceEndDate: null,
-          trialEndDate: Timestamp.fromDate(trialEndDate),
-          paymentHistory: [],
-        };
+      // Prepare data for calculateSubscriptionStatus
+      const dataForCalculation = {
+        isActive: subscriptionData.isActive,
+        monthlyPrice: subscriptionData.monthlyPrice || 12,
+        lastPaymentDate: subscriptionData.lastPaymentDate ? new Date(subscriptionData.lastPaymentDate) : null,
+        expiryDate: subscriptionData.endDate ? new Date(subscriptionData.endDate) : null,
+        graceEndDate: subscriptionData.graceEndDate ? new Date(subscriptionData.graceEndDate) : null,
+        trialEndDate: subscriptionData.trialEndDate ? new Date(subscriptionData.trialEndDate) : null,
+        paymentHistory: paymentHistory,
+      };
 
-        await setDoc(subscriptionRef, subscriptionData);
-        subscriptionData.trialEndDate = trialEndDate;
-      }
-
-      // Dobij datum registracije korisnika
-      const userCreatedAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : null;
-      
-      // Ako nema trialEndDate u podacima, kreiraj ga na osnovu datuma registracije
-      if (!subscriptionData.trialEndDate && userCreatedAt) {
-        const trialEndDate = new Date(userCreatedAt);
-        trialEndDate.setDate(trialEndDate.getDate() + 15);
-        subscriptionData.trialEndDate = trialEndDate;
-      }
-
-      const status = calculateSubscriptionStatus(subscriptionData, userCreatedAt);
+      const userCreatedAt = subscriptionData.userCreatedAt ? new Date(subscriptionData.userCreatedAt) : null;
+      const status = calculateSubscriptionStatus(dataForCalculation, userCreatedAt);
       setSubscription(status);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri učitavanju pretplate:", error);
       setSubscription(null);
     } finally {
       setLoading(false);
     }
-    */
-  };
+  }, [user?.id]);
 
-  // TEMPORARY: Disabled Firebase listeners - comment out to re-enable
-  /*
-  // Real-time listener za promjene
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userId = user.uid;
-        const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-        
-        // Postavi real-time listener
-        const unsubscribe = onSnapshot(subscriptionRef, async (doc) => {
-          if (doc.exists()) {
-            const data = doc.data();
-            const userCreatedAt = user.metadata.creationTime ? new Date(user.metadata.creationTime) : null;
-            const status = calculateSubscriptionStatus(data, userCreatedAt);
-            setSubscription(status);
-            setLoading(false);
-          } else {
-            // Dokument ne postoji, kreiraj ga
-            await loadSubscription();
-          }
-        }, (error: any) => {
-          // Ignoriraj greške permisija - mogu se desiti kada korisnik nema dozvolu
-          const errorCode = error?.code || error?.message || "";
-          const isPermissionError = 
-            errorCode === "permission-denied" || 
-            errorCode.includes("permission") || 
-            errorCode.includes("insufficient") ||
-            errorCode.includes("Missing or insufficient permissions") ||
-            error?.message?.includes("permission") ||
-            error?.message?.includes("insufficient");
-          
-          if (!isPermissionError) {
-            // Samo loguj ako nije greška permisija
-            console.error("Greška pri real-time listeneru:", error);
-          }
-          setLoading(false);
-        });
-
-        return () => unsubscribe();
-      } else {
-        setSubscription(null);
-        setLoading(false);
-      }
-    });
-
-    return () => unsubscribeAuth();
-  }, []);
-
-  // Učitaj subscription pri mount-u
+  // Load subscription when user changes
   useEffect(() => {
     loadSubscription();
-  }, []);
-  */
+  }, [loadSubscription]);
 
   const refreshSubscription = async () => {
     await loadSubscription();
   };
 
   const addPayment = async (amount: number, months: number = 1, note?: string) => {
-    // TEMPORARY: Mock function for development
-    console.log("addPayment called (mocked):", { amount, months, note });
-    return;
-    /*
-    const user = auth.currentUser;
-    if (!user) throw new Error("Korisnik nije prijavljen");
+    if (!user?.id) throw new Error("Korisnik nije prijavljen");
 
     try {
-      const userId = user.uid;
-      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-      const subscriptionDoc = await getDoc(subscriptionRef);
-
-      const now = new Date();
-      let subscriptionData: any = {};
-      if (subscriptionDoc.exists()) {
-        subscriptionData = subscriptionDoc.data();
-      }
-
-      // Pronađi postojeći expiry date
-      let existingExpiryDate: Date | null = null;
-      if (subscriptionData.expiryDate) {
-        existingExpiryDate = subscriptionData.expiryDate.toDate ? subscriptionData.expiryDate.toDate() : new Date(subscriptionData.expiryDate);
-      }
-
-      // Pronađi trial end date
-      let trialEndDate: Date | null = null;
-      if (subscriptionData.trialEndDate) {
-        trialEndDate = subscriptionData.trialEndDate.toDate ? subscriptionData.trialEndDate.toDate() : new Date(subscriptionData.trialEndDate);
-      } else if (user.metadata.creationTime) {
-        trialEndDate = new Date(user.metadata.creationTime);
-        trialEndDate.setDate(trialEndDate.getDate() + 15);
-      }
-
-      // Ako postoji postojeći expiry date i još nije istekao, dodaj nove mjesece na taj datum
-      // Inače, ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
-      // Inače računaj od današnjeg datuma
-      let startDate = now;
-      if (existingExpiryDate && now < existingExpiryDate) {
-        // Postojeća pretplata još nije istekla - dodaj na postojeći expiry date
-        startDate = existingExpiryDate;
-      } else if (trialEndDate && now < trialEndDate) {
-        // Trial period još traje - počni od kraja trial perioda
-        startDate = trialEndDate;
-      }
-
-      // Izračunaj expiry date od start date
-      const newExpiryDate = new Date(startDate);
-      newExpiryDate.setMonth(newExpiryDate.getMonth() + months);
-
-      // Izračunaj validUntil za payment history
-      const validUntil = new Date(newExpiryDate);
-
-      const paymentHistory = subscriptionData.paymentHistory || [];
-      paymentHistory.push({
-        date: Timestamp.fromDate(now),
-        amount,
-        note: note || `Bank Transfer - ${months} ${months === 1 ? 'mjesec' : 'mjeseci'}`,
-        validUntil: Timestamp.fromDate(validUntil),
-      });
-
-      await setDoc(subscriptionRef, {
-        ...subscriptionData,
-        isActive: true,
-        lastPaymentDate: Timestamp.fromDate(now),
-        expiryDate: Timestamp.fromDate(newExpiryDate),
-        graceEndDate: null, // Resetuj grace period
-        paymentHistory,
-        updatedAt: Timestamp.fromDate(now),
-      }, { merge: true });
-
+      await addPaymentToSubscription(user.id, amount, months, note);
       await refreshSubscription();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri dodavanju uplate:", error);
       throw error;
     }
-    */
   };
 
   const updateMonthlyPrice = async (price: number) => {
-    // TEMPORARY: Mock function for development
-    console.log("updateMonthlyPrice called (mocked):", price);
-    return;
-    /*
-    const user = auth.currentUser;
-    if (!user) throw new Error("Korisnik nije prijavljen");
+    if (!user?.id) throw new Error("Korisnik nije prijavljen");
 
     try {
-      const userId = user.uid;
-      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-      
-      await setDoc(subscriptionRef, {
-        monthlyPrice: price,
-        updatedAt: Timestamp.fromDate(new Date()),
-      }, { merge: true });
-
+      await updateSubscription(user.id, { monthlyPrice: price });
       await refreshSubscription();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri ažuriranju cijene:", error);
       throw error;
     }
-    */
   };
 
   return (

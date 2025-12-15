@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
-import { getUserId, uploadFile, saveObracun, getObracuni } from "../../lib/api";
+import { getUserId, uploadFile, saveObracun, getObracuni, getDraftObracun } from "../../lib/api";
 // TEMPORARY: Disabled Firebase imports for development - using mocks
 // import { auth } from "../../lib/firebase";
 // import { db, storage } from "../../lib/firebase";
@@ -262,25 +262,14 @@ export default function ObracunPage() {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [savedInvoiceImagesCount, setSavedInvoiceImagesCount] = useState<number>(0); // Broj sačuvanih slika
 
-  // Provjeri da li je korisnik vlasnik (iz user dokumenta)
+  // Provjeri da li je korisnik vlasnik - koristi user.isOwner iz RoleContext
   useEffect(() => {
-    const checkIsOwner = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        try {
-          const userDocRef = doc(db, "users", user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            setIsOwner(data.isOwner === true);
-          }
-        } catch (error) {
-          console.warn("Greška pri provjeri isOwner:", error);
-        }
-      }
-    };
-    checkIsOwner();
-  }, []);
+    if (user?.isOwner) {
+      setIsOwner(true);
+    } else {
+      setIsOwner(false);
+    }
+  }, [user?.isOwner]);
 
   // Provjeri da li korisnik može editovati (ne može ako grace period istekne)
   const canEditSubscription = subscription && (subscription.isActive || subscription.isTrial || subscription.isGracePeriod);
@@ -396,8 +385,11 @@ export default function ObracunPage() {
 
   // Funkcija za spremanje draft obračuna u Firestore
   const saveDraftObracun = async (datumString: string) => {
-    const user = auth.currentUser;
-    if (!user) return;
+    const userId = user?.id || (await getUserId());
+    if (!userId) {
+      console.warn("Korisnik nije autentifikovan, ne mogu spremiti draft");
+      return;
+    }
     
     try {
       const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
@@ -419,23 +411,23 @@ export default function ObracunPage() {
         }
       }
       
-      // Učitaj postojeće slike iz draft-a (ako već postoje)
+      // Učitaj postojeće slike iz draft-a (ako već postoji)
       let existingInvoiceImages: string[] = [];
       try {
-        const draftRefCheck = doc(db, "users", user.uid, "draftObracuni", datumString);
-        const draftDoc = await getDoc(draftRefCheck);
-        if (draftDoc.exists()) {
-          const existingData = draftDoc.data();
-          existingInvoiceImages = existingData.invoiceImages || [];
+        const existingDraft = await getDraftObracun(userId, datumString);
+        if (existingDraft && existingDraft.invoiceImages) {
+          existingInvoiceImages = existingDraft.invoiceImages;
         }
       } catch (error) {
-        // Ignoriraj greške
+        // Ignoriraj greške - draft možda ne postoji
+        console.warn("Greška pri učitavanju postojećeg draft-a:", error);
       }
       
       // Kombiniraj postojeće slike sa novim
       const allInvoiceImages = [...existingInvoiceImages, ...invoiceImageUrls];
       
-      const draftData = {
+      // Spremi draft obračun preko API-ja
+      await saveObracun(userId, {
         datum: datumString,
         artikli: artikli,
         rashodi: rashodi,
@@ -446,17 +438,11 @@ export default function ObracunPage() {
         neto: neto,
         imaUlaz: imaUlaz,
         isAzuriran: true,
-        invoiceImages: allInvoiceImages,
-        savedInvoiceImagesCount: allInvoiceImages.length,
-        isDraft: true,
-        updatedAt: serverTimestamp(),
-      };
+        invoiceImages: allInvoiceImages.length > 0 ? allInvoiceImages : undefined,
+        isDraft: true, // Ovo je draft
+      });
       
-      const cleanDraftData = removeUndefined(draftData);
-      
-      const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
-      await setDoc(draftRef, cleanDraftData);
-      console.log("💾 Draft obračun spremljen:", datumString);
+      console.log("💾 Draft obračun spremljen preko API-ja:", datumString);
       
       // Resetuj invoiceImages nakon upload-a
       if (invoiceImageUrls.length > 0) {
@@ -464,117 +450,41 @@ export default function ObracunPage() {
         setSavedInvoiceImagesCount(allInvoiceImages.length);
       }
     } catch (error: any) {
-      const errorCode = error?.code || "";
-      if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-        console.warn("Greška pri spremanju draft obračuna:", error);
-      }
+      console.warn("Greška pri spremanju draft obračuna:", error);
     }
   };
 
   // Funkcija za brisanje starih draft-ova (starijih od 24h)
+  // API automatski briše draftove starije od 24h pri GET pozivima, tako da ova funkcija nije potrebna
+  // Ali zadržavamo je kao placeholder ako treba eksplicitno brisanje
   const deleteOldDrafts = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    
-    try {
-      const draftCollection = collection(db, "users", user.uid, "draftObracuni");
-      const snapshot = await getDocs(draftCollection);
-      const now = new Date();
-      
-      snapshot.docs.forEach(async (docSnapshot: any) => {
-        const data = docSnapshot.data();
-        if (data.deleted) {
-          // Obriši obrisane draft-ove
-          await deleteDoc(docSnapshot.ref);
-          return;
-        }
-        
-        const updatedAt = data.updatedAt;
-        if (updatedAt) {
-          const updatedAtDate = updatedAt.toDate ? updatedAt.toDate() : new Date(updatedAt);
-          const diffInHours = (now.getTime() - updatedAtDate.getTime()) / (1000 * 60 * 60);
-          
-          if (diffInHours > 24) {
-            console.log("🗑️ Brisanje starih draft-ova:", docSnapshot.id);
-            await deleteDoc(docSnapshot.ref);
-          }
-        }
-      });
-    } catch (error: any) {
-      const errorCode = error?.code || "";
-      if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-        console.warn("Greška pri brisanju starih draft-ova:", error);
-      }
-    }
+    // API automatski briše stare draftove pri GET pozivima
+    // Ova funkcija je sada samo placeholder
+    console.log("🗑️ Brisanje starih draft-ova se vrši automatski u API-ju");
   };
 
-  // Funkcija za učitavanje draft obračuna iz Firestore
+  // Funkcija za učitavanje draft obračuna preko API-ja
+  // API automatski briše draftove starije od 24h
   const loadDraftObracun = async (datumString: string): Promise<any | null> => {
-    const user = auth.currentUser;
-    if (!user) return null;
+    const userId = user?.id || (await getUserId());
+    if (!userId) {
+      return null;
+    }
     
     try {
-      const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
-      const draftDoc = await getDoc(draftRef);
-      if (draftDoc.exists()) {
-        const data = draftDoc.data();
-        // Provjeri da li je draft obrisan
-        if (data.deleted) return null;
-        
-        // Provjeri starost draft-a (24h)
-        const updatedAt = data.updatedAt;
-        if (updatedAt) {
-          const updatedAtDate = updatedAt.toDate ? updatedAt.toDate() : new Date(updatedAt);
-          const now = new Date();
-          const diffInHours = (now.getTime() - updatedAtDate.getTime()) / (1000 * 60 * 60);
-          
-          if (diffInHours > 24) {
-            // Draft je stariji od 24h, obriši ga
-            console.log("🗑️ Draft obračun stariji od 24h, brišem:", datumString);
-            await deleteDoc(draftRef);
-            return null;
-          }
-        }
-        
-        console.log("📖 Draft obračun učitano:", datumString, data);
-        return data;
+      const draft = await getDraftObracun(userId, datumString);
+      if (draft) {
+        console.log("📖 Draft obračun učitano:", datumString, draft);
+        return draft;
       }
     } catch (error: any) {
-      const errorCode = error?.code || "";
-      // Ignoriraj greške sa dozvolama (možda nisu postavljena pravila)
-      if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-        console.warn("Greška pri učitavanju draft obračuna:", error);
-      }
+      console.warn("Greška pri učitavanju draft obračuna:", error);
     }
     return null;
   };
 
-  // Funkcija za automatsko spremanje draft obračuna kao finalni obračun
-  const autoSaveDraftAsFinal = async (datumString: string) => {
-    const user = auth.currentUser;
-    if (!user) return;
-    
-    try {
-      const draftData = await loadDraftObracun(datumString);
-      if (draftData) {
-        // Spremi kao finalni obračun
-        const obracunRef = doc(db, "users", user.uid, "obracuni", datumString);
-        const { isDraft, updatedAt, ...finalData } = draftData;
-        await setDoc(obracunRef, {
-          ...finalData,
-          datum: datumString,
-          savedAt: serverTimestamp(),
-        }, { merge: true });
-        
-        // Obriši draft
-        const draftRef = doc(db, "users", user.uid, "draftObracuni", datumString);
-        await setDoc(draftRef, { deleted: true }, { merge: true });
-        console.log("✅ Draft obračun automatski sačuvan kao finalni:", datumString);
-      }
-    } catch (error: any) {
-      console.warn("Greška pri automatskom spremanju draft obračuna:", error);
-    }
-  };
+  // Funkcija autoSaveDraftAsFinal je uklonjena - ne koristi se više
+  // handleSaveObracun direktno sprema finalni obračun i API automatski briše draft
 
   useEffect(() => {
     const datumString = formatirajDatum(trenutniDatum);
@@ -611,49 +521,14 @@ export default function ObracunPage() {
         return; // Ne nastavljaj dalje, draft je učitan
       }
       
-      // Učitaj ulaz cache za taj datum
-      const cache = await loadUlazCacheFromFirestore(datumString);
-      console.log("🔵 Cache učitano za datum:", datumString, cache);
-      setUlazCacheForDatum(cache);
-      
-      // Učitaj broj sačuvanih slika iz Firestore
-      const user = auth.currentUser;
-      const userId = user?.uid;
-      if (userId) {
-        try {
-          const cacheRef = doc(db, "users", userId, "cache", datumString);
-          const cacheDoc = await getDoc(cacheRef);
-          if (cacheDoc.exists()) {
-            const cacheData = cacheDoc.data();
-            const savedCount = cacheData.savedInvoiceImagesCount || 0;
-            setSavedInvoiceImagesCount(savedCount);
-          } else {
-            setSavedInvoiceImagesCount(0);
-          }
-        } catch (error: any) {
-          // Ignoriraj greške sa dozvolama za cache kolekciju (nije kritična)
-          const errorCode = error?.code || "";
-          if (!errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-            console.warn("Greška pri učitavanju broja sačuvanih slika:", error);
-          }
-          setSavedInvoiceImagesCount(0);
-        }
-      }
-      
-      // Provjeri da li postoji ulaz u cache-u
-      const imaUlazUCache = Object.keys(cache).some(naziv => {
-        const cached = cache[naziv];
-        return (cached && cached.ulaz !== 0) || (cached && cached.staroPocetnoStanje !== undefined);
-      });
-      setHasUlazInCache(imaUlazUCache);
-      
-      // Ako postoji ulaz u cache-u, zaključaj ulaze
-      if (imaUlazUCache) {
-        setIsUlazLocked(true);
-      }
+      // Nema draft-a - inicijaliziraj prazan cache
+      setUlazCacheForDatum({});
+      setSavedInvoiceImagesCount(0);
+      setHasUlazInCache(false);
+      setIsUlazLocked(false);
       
       setIsCacheLoaded(true);
-      console.log("🟢 Cache učitan, isCacheLoaded = true");
+      console.log("🟢 Nema draft-a, cache inicijaliziran kao prazan");
     };
     
     loadCacheFirst();
@@ -855,50 +730,8 @@ export default function ObracunPage() {
     return `${dan}.${mjesec}.${godina}.`;
   };
 
-  // Helper funkcije za ulaz cache u Firestore (umjesto localStorage)
-  const loadUlazCacheFromFirestore = async (datumString: string): Promise<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }> => {
-    const user = auth.currentUser;
-    if (!user) return {};
-    
-    try {
-      const ulazCacheRef = doc(db, "users", user.uid, "ulazCache", datumString);
-      const ulazCacheDoc = await getDoc(ulazCacheRef);
-      if (ulazCacheDoc.exists()) {
-        const data = ulazCacheDoc.data();
-        return data.cache || {};
-      }
-    } catch (error: any) {
-      const errorCode = error?.code || "";
-      if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-        console.warn("Greška pri učitavanju ulaz cache iz Firestore:", error);
-      }
-    }
-    return {};
-  };
-
-  // Helper funkcija za uklanjanje undefined vrijednosti iz objekta (već postoji gore)
-
-  const saveUlazCacheToFirestore = async (datumString: string, ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }) => {
-    const user = auth.currentUser;
-    if (!user) return;
-    
-    try {
-      // Očisti undefined vrijednosti prije spremanja
-      const cleanedCache = removeUndefined(ulazCache);
-      
-      const ulazCacheRef = doc(db, "users", user.uid, "ulazCache", datumString);
-      await setDoc(ulazCacheRef, {
-        cache: cleanedCache,
-        datum: datumString,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-    } catch (error: any) {
-      const errorCode = error?.code || "";
-      if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-        console.warn("Greška pri spremanju ulaz cache u Firestore:", error);
-      }
-    }
-  };
+  // Firebase cache funkcije su uklonjene - koristimo draft sistem umjesto cache-a
+  // Ulaz se čuva u draft obračunu, ne u posebnoj cache kolekciji
 
   // Funkcija za promjenu datuma
   const handleDatumChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -956,30 +789,8 @@ export default function ObracunPage() {
         setHasUlazInCache(true);
       }
       
-      // Automatski sačuvaj u Firestore cache (bez čekanja)
-      const datumString = formatirajDatum(trenutniDatum);
-      const saveCacheAsync = async () => {
-        try {
-          const existingCache = await loadUlazCacheFromFirestore(datumString);
-          let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = existingCache;
-          
-          // Ažuriraj cache sa novim podacima
-          updated.forEach((a) => {
-            if (a.ulaz !== 0 || a.staroPocetnoStanje !== undefined) {
-              ulazCache[a.naziv] = {
-                ulaz: a.ulaz,
-                staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
-                sačuvanUlaz: a.sačuvanUlaz, // Sačuvaj sačuvanUlaz ako postoji
-              };
-            }
-          });
-          
-          await saveUlazCacheToFirestore(datumString, ulazCache);
-        } catch (error) {
-          console.warn("Greška pri automatskom spremanju ulaz cache:", error);
-        }
-      };
-      saveCacheAsync(); // Pokreni asinkrono, ne blokiraj UI
+      // Ne spremamo automatski u cache - korisnik mora kliknuti "Ažuriraj obračun" da se sačuva draft
+      // Ulaz će biti sačuvan u draft obračunu kada se klikne "Ažuriraj obračun"
       
       return updated;
     });
@@ -1101,36 +912,8 @@ export default function ObracunPage() {
 
     const datumString = formatirajDatum(trenutniDatum);
 
-    // Učitaj postojeći cache iz Firestore da ne izgubimo podatke
-    const existingCache = await loadUlazCacheFromFirestore(datumString);
-    let ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = existingCache;
-    
-    // Ažuriraj cache sa novim podacima - SAČUVAJ ulaz prije nego što se resetira
-    artikli.forEach((a) => {
-      if (a.ulaz !== 0) {
-        // Ako ima ulaz, ažuriraj cache sa ulazom i starim početnim stanjem
-        ulazCache[a.naziv] = {
-          ulaz: a.ulaz, // Sačuvaj ulaz
-          staroPocetnoStanje: a.staroPocetnoStanje ?? a.pocetnoStanje,
-        };
-      } else if (a.staroPocetnoStanje !== undefined) {
-        // Ako nema ulaz ali ima staroPocetnoStanje (već je ažuriran), sačuvaj staroPocetnoStanje i sačuvanUlaz
-        // Postavi ulaz na 0 da znamo da je već ažuriran
-        const sačuvanUlaz = a.sačuvanUlaz ?? (a.pocetnoStanje - a.staroPocetnoStanje);
-        ulazCache[a.naziv] = {
-          ulaz: 0,
-          staroPocetnoStanje: a.staroPocetnoStanje,
-          sačuvanUlaz: sačuvanUlaz > 0 ? sačuvanUlaz : undefined, // Sačuvaj ulaz za prikaz u arhivi
-        };
-      }
-    });
-
-    // Spremi cache u Firestore PRIJE nego što se artikli ažuriraju
-    await saveUlazCacheToFirestore(datumString, ulazCache);
-    console.log("💾 Cache spremljen u Firestore:", ulazCache);
-    
-    // Ažuriraj lokalni state cache-a da se odmah koristi
-    setUlazCacheForDatum(ulazCache);
+    // Ne koristimo više Firebase cache - sve se čuva u draft obračunu
+    // Lokalni ulazCacheForDatum state će se ažurirati iz draft-a kada se učita
 
     // NE mijenjaj cjenovnik - početno stanje ostaje nepromijenjeno sve dok se obračun ne sačuva
     // Samo sačuvaj ulaz u cache da ostane vidljiv
@@ -1155,11 +938,7 @@ export default function ObracunPage() {
     
     setArtikli(updated);
     
-    // Cache je već sačuvan gore, samo ažuriraj lokalni state
-    // Ažuriraj lokalni state cache-a da se odmah koristi
-    setUlazCacheForDatum(ulazCache);
-    
-    // Postavi flag da postoji ulaz u cache-u (za prikaz gumba za slike)
+    // Postavi flag da postoji ulaz (za prikaz gumba za slike)
     setHasUlazInCache(true);
 
     setIsAzuriran(true); // Označi da je obračun bio ažuriran
@@ -1233,12 +1012,7 @@ export default function ObracunPage() {
     const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
     const datumString = formatirajDatum(trenutniDatum);
 
-    // Učitaj cache ulaza za ovaj datum iz Firestore
-    const ulazCache = await loadUlazCacheFromFirestore(datumString);
-
-    // Provjeri da li obračun ima ulaz
-    // Provjeri trenutni ulaz u state-u ili sačuvan ulaz (ako je obračun već ažuriran)
-    // Ne provjeravaj cache jer to može biti iz prethodnih obračuna
+    // Provjeri da li obračun ima ulaz - provjeri samo trenutni state (draft je već učitan ako postoji)
     const imaUlaz = artikli.some((a) => {
       // Provjeri trenutni ulaz
       if (a.ulaz !== 0) {
@@ -1246,10 +1020,6 @@ export default function ObracunPage() {
       }
       // Provjeri sačuvan ulaz (ako je obračun već ažuriran, ulaz je resetovan na 0 ali je sačuvan)
       if (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0) {
-        return true;
-      }
-      // Provjeri cache (ako postoji ulaz u cache-u za ovaj datum)
-      if (ulazCache[a.naziv] && ulazCache[a.naziv].ulaz !== 0) {
         return true;
       }
       return false;
@@ -1280,11 +1050,6 @@ export default function ObracunPage() {
           // Koristi sačuvanUlaz za prikaz u arhivi
           ulazZaPrikaz = a.sačuvanUlaz;
           staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
-        } 
-        // Ako nema ni trenutni ni sačuvan ulaz, provjeri cache
-        else if (ulazCache[a.naziv] && ulazCache[a.naziv].ulaz !== 0) {
-          ulazZaPrikaz = ulazCache[a.naziv].ulaz;
-          staroPocetnoStanjeZaPrikaz = ulazCache[a.naziv].staroPocetnoStanje;
         }
         
         // Kreiraj objekt bez undefined vrijednosti
@@ -1376,7 +1141,8 @@ export default function ObracunPage() {
       (arhiviraniObracun as any).invoiceImages = allInvoiceImages;
     }
 
-    // SPREMI PREKO API-JA
+    // SPREMI PREKO API-JA kao finalni obračun (isDraft: false ili undefined)
+    // API će automatski obrisati draft prije spremanja finalnog
     try {
       await saveObracun(userId, {
         datum: datumString,
@@ -1390,6 +1156,7 @@ export default function ObracunPage() {
         isAzuriran: arhiviraniObracun.isAzuriran || false,
         imaUlaz: arhiviraniObracun.imaUlaz || false,
         invoiceImages: allInvoiceImages.length > 0 ? allInvoiceImages : undefined,
+        isDraft: false, // Finalni obračun - API će obrisati draft prije spremanja
       });
       
       console.log("Obračun sačuvan preko API-ja:", datumString);
@@ -1405,20 +1172,15 @@ export default function ObracunPage() {
           const artikal = artikli.find((a: Artikal) => a.naziv === item.naziv);
           if (!artikal) return item;
           
-          // Provjeri da li artikal ima ulaz (trenutni ili iz cache-a)
-          let ulazZaPrikaz = artikal.ulaz;
-          if (ulazZaPrikaz === 0 && ulazCache[artikal.naziv] && ulazCache[artikal.naziv].ulaz !== 0) {
-            ulazZaPrikaz = ulazCache[artikal.naziv].ulaz;
-          }
-          
           // Za sljedeći dan, početno stanje = krajnje stanje iz ovog dana
           let novoPocetnoStanje: number;
           if (artikal.naziv.toLowerCase().includes("kafa")) {
             novoPocetnoStanje = 0; // Kafa se uvijek resetuje na 0
           } else if (artikal.isKrajnjeSet && artikal.krajnjeStanje > 0) {
             novoPocetnoStanje = artikal.krajnjeStanje;
-          } else if (ulazZaPrikaz !== 0) {
-            novoPocetnoStanje = artikal.pocetnoStanje + ulazZaPrikaz;
+          } else if (artikal.ulaz !== 0) {
+            // Ako ima ulaz, početno stanje za sljedeći dan = trenutno početno stanje + ulaz
+            novoPocetnoStanje = artikal.pocetnoStanje + artikal.ulaz;
           } else {
             novoPocetnoStanje = artikal.ukupno;
           }
@@ -1755,10 +1517,9 @@ export default function ObracunPage() {
                   <button
                     onClick={async () => {
                       const datumString = formatirajDatum(trenutniDatum);
-                      const user = auth.currentUser;
-                      const userId = user?.uid;
+                      const userId = user?.id || (await getUserId());
                       
-                      if (!user || !userId) {
+                      if (!userId) {
                         alert("Korisnik nije autentifikovan");
                         return;
                       }
@@ -1774,57 +1535,44 @@ export default function ObracunPage() {
                         setUploadProgress(0);
                         const uploadedUrls = await uploadInvoiceImages(datumString);
                         
-                        // Ažuriraj obračun u Firestore sa slikama
+                        // Ažuriraj draft obračun sa slikama preko API-ja
                         if (uploadedUrls.length > 0) {
                           try {
-                            const obracunRef = doc(db, "users", userId, "obracuni", datumString);
-                            const obracunDoc = await getDoc(obracunRef);
+                            // Učitaj postojeći draft (ako postoji)
+                            const existingDraft = await getDraftObracun(userId, datumString);
+                            const existingImages = existingDraft?.invoiceImages || [];
+                            const allImages = [...existingImages, ...uploadedUrls];
                             
-                            if (obracunDoc.exists()) {
-                              // Ako obračun već postoji, dodaj nove slike postojećim
-                              const existingData = obracunDoc.data();
-                              const existingImages = existingData.invoiceImages || [];
-                              const allImages = [...existingImages, ...uploadedUrls];
+                            // Spremi draft obračun sa slikama
+                            await saveDraftObracun(datumString);
+                            
+                            // Ako draft ne postoji, kreiraj novi sa slikama
+                            if (!existingDraft) {
+                              const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+                              const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+                              const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+                              const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
                               
-                              await setDoc(obracunRef, {
+                              await saveObracun(userId, {
+                                datum: datumString,
+                                artikli: artikli,
+                                rashodi: rashodi,
+                                prihodi: prihodi,
+                                ukupnoArtikli: ukupnoArtikli,
+                                ukupnoRashod: ukupnoRashod,
+                                ukupnoPrihod: ukupnoPrihod,
+                                neto: neto,
+                                imaUlaz: artikli.some((a) => a.ulaz !== 0),
+                                isAzuriran: isAzuriran,
                                 invoiceImages: allImages,
-                                datum: datumString, // Osiguraj da datum postoji
-                              }, { merge: true });
-                              console.log(`Slike dodane u postojeći obračun ${datumString}: ${allImages.length} slika`);
-                            } else {
-                              // Ako obračun ne postoji, kreiraj novi sa slikama
-                              await setDoc(obracunRef, {
-                                invoiceImages: uploadedUrls,
-                                datum: datumString, // Osiguraj da datum postoji
-                              }, { merge: true });
-                              console.log(`Kreiran novi obračun ${datumString} sa ${uploadedUrls.length} slikama`);
+                                isDraft: true,
+                              });
                             }
-                          } catch (firestoreError: any) {
-                            // Ignoriraj greške dozvola - slike su već upload-ovane u Storage
-                            const errorCode = firestoreError?.code || "";
-                            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-                              console.warn("Greška pri spremanju slika u Firestore:", firestoreError);
-                            }
-                          }
-                          
-                          // Sačuvaj broj sačuvanih slika u cache
-                          try {
-                            const cacheRef = doc(db, "users", userId, "cache", datumString);
-                            const cacheDoc = await getDoc(cacheRef);
-                            const currentCount = cacheDoc.exists() ? (cacheDoc.data().savedInvoiceImagesCount || 0) : 0;
-                            const newCount = currentCount + uploadedUrls.length;
                             
-                            await setDoc(cacheRef, {
-                              savedInvoiceImagesCount: newCount,
-                            }, { merge: true });
-                            
-                            setSavedInvoiceImagesCount(newCount);
-                          } catch (cacheError: any) {
-                            // Ignoriraj greške dozvola - broj će se sačuvati lokalno
-                            const errorCode = cacheError?.code || "";
-                            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-                              console.warn("Greška pri spremanju broja slika u cache:", cacheError);
-                            }
+                            setSavedInvoiceImagesCount(allImages.length);
+                            console.log(`Slike dodane u draft obračun ${datumString}: ${allImages.length} slika`);
+                          } catch (apiError: any) {
+                            console.warn("Greška pri spremanju slika u draft obračun:", apiError);
                             // Sačuvaj lokalno kao fallback
                             setSavedInvoiceImagesCount((prev) => prev + uploadedUrls.length);
                           }
@@ -1833,9 +1581,8 @@ export default function ObracunPage() {
                         alert("Slike faktura uspješno sačuvane!");
                         setInvoiceImages([]);
                         
-                        // Eksplicitno osvježi arhivu nakon upload-a slika
-                        // Real-time listener bi trebao osvježiti, ali osiguravamo da se osvježi
                         console.log("Slike upload-ovane, osvježavam arhivu...");
+                        window.dispatchEvent(new Event("arhivaChanged"));
                       } catch (error: any) {
                         console.error("Greška pri upload-u slika:", error);
                         alert("Greška pri upload-u slika: " + (error.message || "Nepoznata greška"));

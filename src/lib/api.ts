@@ -302,6 +302,7 @@ export async function saveObracun(
     isAzuriran?: boolean;
     imaUlaz?: boolean;
     invoiceImages?: string[];
+    isDraft?: boolean; // Optional: true za draft, false ili undefined za finalni obračun
   }
 ) {
   const token = getAuthToken();
@@ -392,10 +393,127 @@ export async function getObracuni(userId: string, datum?: string) {
       isAzuriran: artikliData?.isAzuriran === true || artikliData?.isAzuriran === 'true',
       imaUlaz: artikliData?.imaUlaz === true || artikliData?.imaUlaz === 'true',
       invoiceImages: Array.isArray(artikliData?.invoiceImages) ? artikliData.invoiceImages : [],
+      isDraft: ob.isDraft || false, // Dodaj isDraft flag
     };
   });
   
   return transformedObracuni;
+}
+
+/**
+ * Get draft obracun for specific datum
+ * Vraća draft obračun za određeni datum ili null ako ne postoji
+ */
+export async function getDraftObracun(userId: string, datum: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const url = `/api/users/${userId}/obracuni?datum=${encodeURIComponent(datum)}&is_draft=true`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      // Ako nema draft-a, to nije greška - vrati null
+      if (response.status === 404 || response.status === 400) {
+        return null;
+      }
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || errorData.message || 'Failed to fetch draft obracun');
+    }
+
+    const data = await response.json();
+    const draftObracuni = data.obracuni || [];
+    
+    if (draftObracuni.length === 0) {
+      return null;
+    }
+
+    // Transformiraj draft obračun (isti format kao getObracuni)
+    const draft = draftObracuni[0];
+    let artikliData = draft.artikli;
+    if (typeof artikliData === 'string') {
+      try {
+        artikliData = JSON.parse(artikliData);
+      } catch (e) {
+        console.warn('Failed to parse draft artikli JSON:', e);
+        artikliData = {};
+      }
+    }
+
+    return {
+      id: draft.id,
+      datum: draft.datum,
+      artikli: Array.isArray(artikliData?.artikli) ? artikliData.artikli : [],
+      rashodi: Array.isArray(artikliData?.rashodi) ? artikliData.rashodi : [],
+      prihodi: Array.isArray(artikliData?.prihodi) ? artikliData.prihodi : [],
+      ukupnoArtikli: Number(artikliData?.ukupnoArtikli) || 0,
+      ukupnoRashod: Number(artikliData?.ukupnoRashod) || 0,
+      ukupnoPrihod: Number(artikliData?.ukupnoPrihod) || 0,
+      neto: Number(artikliData?.neto) || 0,
+      isAzuriran: artikliData?.isAzuriran === true || artikliData?.isAzuriran === 'true',
+      imaUlaz: artikliData?.imaUlaz === true || artikliData?.imaUlaz === 'true',
+      invoiceImages: Array.isArray(artikliData?.invoiceImages) ? artikliData.invoiceImages : [],
+      isDraft: true,
+      updatedAt: draft.updatedAt,
+    };
+  } catch (error: any) {
+    // Ako je greška, logiraj i vrati null (draft možda ne postoji)
+    console.warn('getDraftObracun error:', error);
+    return null;
+  }
+}
+
+/**
+ * Delete obracun
+ */
+export async function deleteObracun(userId: string, datum: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const url = `/api/users/${userId}/obracuni?datum=${encodeURIComponent(datum)}`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to delete obracun');
+  }
+
+  return true;
+}
+
+/**
+ * Delete file by URL
+ */
+export async function deleteFile(fileUrl: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const url = `/api/files?url=${encodeURIComponent(fileUrl)}`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to delete file');
+  }
+
+  return true;
 }
 
 /**
@@ -496,5 +614,272 @@ export async function logout() {
     // Always remove token locally
     removeAuthToken();
   }
+}
+
+/**
+ * Get subscription for user
+ */
+export async function getSubscription(userId: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/subscription`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to get subscription');
+  }
+
+  const data = await response.json();
+  return data.subscription;
+}
+
+/**
+ * Update subscription
+ */
+export async function updateSubscription(
+  userId: string,
+  subscriptionData: {
+    monthlyPrice?: number;
+    trialEndDate?: Date | null;
+    graceEndDate?: Date | null;
+    lastPaymentDate?: Date | null;
+    isActive?: boolean;
+    endDate?: Date | null;
+    status?: string;
+  }
+) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/subscription`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(subscriptionData),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to update subscription');
+  }
+
+  const data = await response.json();
+  return data.subscription;
+}
+
+/**
+ * Add payment to subscription
+ */
+export async function addPaymentToSubscription(
+  userId: string,
+  amount: number,
+  months: number = 1,
+  note?: string
+) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/subscription/payments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ amount, months, note }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to add payment');
+  }
+
+  const data = await response.json();
+  return data.payment;
+}
+
+/**
+ * Admin: Adjust premium days (add or subtract days from subscription end date)
+ */
+export async function adminAdjustPremiumDays(userId: string, days: number) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/admin/users/${userId}/subscription/adjust-days`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ days, type: 'premium' }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to adjust premium days');
+  }
+
+  const data = await response.json();
+  return data.subscription;
+}
+
+/**
+ * Admin: Adjust trial days (add or subtract days from trial end date)
+ */
+export async function adminAdjustTrialDays(userId: string, days: number) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/admin/users/${userId}/subscription/adjust-days`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ days, type: 'trial' }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to adjust trial days');
+  }
+
+  const data = await response.json();
+  return data.subscription;
+}
+
+/**
+ * Admin: Change subscription status
+ */
+export async function adminChangeSubscriptionStatus(
+  userId: string,
+  status: "trial" | "premium" | "grace" | "inactive"
+) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/admin/users/${userId}/subscription/status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to change subscription status');
+  }
+
+  const data = await response.json();
+  return data.subscription;
+}
+
+/**
+ * Admin: Toggle subscription active status
+ */
+export async function adminToggleSubscription(userId: string, isActive: boolean) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/admin/users/${userId}/subscription/toggle`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ isActive }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to toggle subscription');
+  }
+
+  const data = await response.json();
+  return data.subscription;
+}
+
+/**
+ * Admin: Add payment for user
+ */
+export async function adminAddPayment(
+  userId: string,
+  amount: number,
+  months: number = 1,
+  note?: string
+) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/admin/users/${userId}/subscription/payments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ amount, months, note }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to add payment');
+  }
+
+  const data = await response.json();
+  return data.payment;
+}
+
+/**
+ * Admin: Set user as owner
+ */
+export async function adminSetUserAsOwner(userId: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/admin/users/${userId}/set-owner`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to set user as owner');
+  }
+
+  const data = await response.json();
+  return data.user;
+}
+
+/**
+ * Admin: Delete user
+ */
+export async function adminDeleteUser(userId: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to delete user');
+  }
+
+  return true;
 }
 

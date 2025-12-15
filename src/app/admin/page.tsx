@@ -1,36 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-// TEMPORARY: Disabled Firebase imports for development - using mocks
-// import { auth, db } from "../../lib/firebase";
-// import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, query, where, onSnapshot } from "firebase/firestore";
-// import { getAuth, User as FirebaseUser } from "firebase/auth";
+import { 
+  getAuthToken, 
+  adminAdjustPremiumDays, 
+  adminAdjustTrialDays, 
+  adminChangeSubscriptionStatus,
+  adminToggleSubscription,
+  adminAddPayment,
+  adminSetUserAsOwner,
+  adminDeleteUser
+} from "../../lib/api";
 
-// Admin email - MUST be defined BEFORE Firebase mocks
+// Admin email
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
-
-// TEMPORARY: Mock Firebase objects for development
-const auth = { 
-  currentUser: { 
-    uid: 'dev-user-id',
-    email: ADMIN_EMAIL || 'dev@example.com',
-  },
-  onAuthStateChanged: (...args: any[]) => () => {}
-} as any;
-const db = {} as any;
-const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
-const getDocs = async (...args: any[]) => ({ docs: [] } as any);
-const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
-const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
-const setDoc = async (...args: any[]) => {};
-const updateDoc = async (...args: any[]) => {};
-const deleteDoc = async (...args: any[]) => {};
-const Timestamp = { fromDate: (date: Date) => date } as any;
-const query = (...args: any[]) => ({ id: 'mock-query' }) as any;
-const where = (...args: any[]) => ({ id: 'mock-where' }) as any;
-const onSnapshot = (...args: any[]) => () => {};
-const getAuth = () => auth;
-type FirebaseUser = any;
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -123,53 +106,13 @@ export default function AdminPage() {
   const setUserAsOwnerHelper = async (userEmail: string) => {
     try {
       // Pronađi korisnika po emailu
-      const usersCollection = collection(db, "users");
-      const usersSnapshot = await getDocs(usersCollection);
-      
-      let foundUser = null;
-      for (const userDoc of usersSnapshot.docs) {
-        const userData = userDoc.data();
-        if (userData.email === userEmail) {
-          foundUser = { id: userDoc.id, ...userData };
-          break;
-        }
-      }
-      
-      if (!foundUser) {
+      const user = users.find(u => u.email === userEmail);
+      if (!user) {
         console.warn(`Korisnik sa emailom ${userEmail} nije pronađen`);
         return;
       }
       
-      // Ažuriraj isOwner na true
-      const userDocRef = doc(db, "users", foundUser.id);
-      await updateDoc(userDocRef, {
-        isOwner: true,
-      });
-      
-      // Ažuriraj sve device dokumente za ovog korisnika da imaju role "vlasnik"
-      const devicesCollection = collection(db, "devices");
-      const devicesSnapshot = await getDocs(devicesCollection);
-      
-      for (const deviceDoc of devicesSnapshot.docs) {
-        const deviceData = deviceDoc.data();
-        if (deviceData.userId === foundUser.id) {
-          const deviceRef = doc(db, "devices", deviceDoc.id);
-          await updateDoc(deviceRef, {
-            role: "vlasnik",
-            status: "approved",
-            permissions: {
-              dashboard: true,
-              obracun: true,
-              arhiva: true,
-              cjenovnik: true,
-              profit: true,
-              profile: true,
-              admin: false,
-            },
-          });
-        }
-      }
-      
+      await adminSetUserAsOwner(user.id);
       console.log(`Korisnik ${userEmail} je postavljen kao vlasnik`);
     } catch (error) {
       console.error("Greška pri postavljanju korisnika kao vlasnika:", error);
@@ -178,64 +121,51 @@ export default function AdminPage() {
 
   // Provjeri da li je korisnik admin
   useEffect(() => {
-    // Provjeri da li je auth dostupan prije nego što se koristi
-    if (!auth) {
-      console.error("Firebase auth nije inicijalizovan");
-      setLoading(false);
-      return;
-    }
-
     const checkAdmin = async () => {
-      if (!auth) {
-        console.error("Firebase auth nije inicijalizovan");
+      const token = getAuthToken();
+      if (!token) {
         setIsAdmin(false);
         setLoading(false);
+        router.push("/login");
         return;
       }
 
-      const user = auth.currentUser;
-      if (!user || user.email !== ADMIN_EMAIL) {
-        setIsAdmin(false);
-        setLoading(false);
-        router.push("/dashboard");
-        return;
-      }
-      setIsAdmin(true);
-      
-      // Učitaj podatke jednom pri inicijalizaciji
-      await loadUsers();
-      
-      // Napomena: Real-time listener više nije potreban jer korisnike učitavamo iz Firebase Auth
-      // koje se ne može pratiti preko Firestore listenera. Admin može osvježiti listu ručno
-      // ili se lista osvježava pri svakom pristupu stranici.
-    };
+      try {
+        // Get current user from API
+        const response = await fetch('/api/users/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-    // TEMPORARY: Disabled Firebase auth listener - set admin to true for development
-    setIsAdmin(true);
-    setLoading(false);
-    /*
-    let unsubscribe: (() => void) | null = null;
-    try {
-      unsubscribe = auth.onAuthStateChanged((user: FirebaseUser | null) => {
-        if (user) {
-          checkAdmin();
-        } else {
+        if (!response.ok) {
           setIsAdmin(false);
           setLoading(false);
           router.push("/login");
+          return;
         }
-      });
-    } catch (error) {
-      console.error("Greška pri postavljanju auth state listenera:", error);
-      setLoading(false);
-    }
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
+        const user = await response.json();
+        if (!user || user.email !== ADMIN_EMAIL) {
+          setIsAdmin(false);
+          setLoading(false);
+          router.push("/dashboard");
+          return;
+        }
+        
+        setIsAdmin(true);
+        // Učitaj podatke jednom pri inicijalizaciji
+        await loadUsers();
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+        setIsAdmin(false);
+        setLoading(false);
+        router.push("/login");
       }
     };
-    */
+
+    // Check admin status on mount
+    checkAdmin();
   }, [router]);
 
   // Ažuriraj state varijable kada se promijeni selectedUserDetails
@@ -244,27 +174,10 @@ export default function AdminPage() {
       // Učitaj podatke iz selectedUserDetails ili iz Firestore
       const loadUserInfo = async () => {
         try {
-          // Provjeri da li je db dostupan prije korištenja
-          if (!db) {
-            console.warn("Firebase db nije inicijalizovan, koristim podatke iz selectedUserDetails");
-            setImeKorisnika(selectedUserDetails.imeKorisnika || "");
-            setBrojTelefona(selectedUserDetails.brojTelefona || "");
-            setLokacija(selectedUserDetails.lokacija || "");
-            return;
-          }
-
-          const userDoc = await getDoc(doc(db, "users", selectedUserDetails.id));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setImeKorisnika(userData.imeKorisnika || "");
-            setBrojTelefona(userData.brojTelefona || "");
-            setLokacija(userData.lokacija || "");
-          } else {
-            // Ako dokument ne postoji, koristi podatke iz selectedUserDetails
-            setImeKorisnika(selectedUserDetails.imeKorisnika || "");
-            setBrojTelefona(selectedUserDetails.brojTelefona || "");
-            setLokacija(selectedUserDetails.lokacija || "");
-          }
+          // Koristi podatke iz selectedUserDetails koji su već učitani iz API-ja
+          setImeKorisnika(selectedUserDetails.imeKorisnika || "");
+          setBrojTelefona(selectedUserDetails.brojTelefona || "");
+          setLokacija(selectedUserDetails.lokacija || "");
         } catch (error) {
           console.error("Greška pri učitavanju podataka korisnika:", error);
           // Fallback na podatke iz selectedUserDetails
@@ -296,15 +209,13 @@ export default function AdminPage() {
         return;
       }
 
-      // Uzmi ID token od trenutnog korisnika za autentifikaciju
-      const user = auth.currentUser;
-      if (!user) {
+      // Uzmi token za autentifikaciju
+      const token = getAuthToken();
+      if (!token) {
         setMessage({ type: "error", text: "Niste prijavljeni" });
         setLoading(false);
         return;
       }
-
-      const token = await user.getIdToken();
       
       // Pozovi API route koji koristi Firebase Admin SDK da lista korisnike iz Auth
       const response = await fetch('/api/list-users', {
@@ -373,7 +284,7 @@ export default function AdminPage() {
       setLoading(false);
       
       if (usersList.length === 0) {
-        setMessage({ type: "error", text: "Nema korisnika u Firebase Auth" });
+        setMessage({ type: "error", text: "Nema korisnika u bazi podataka" });
       }
     } catch (error: any) {
       console.error("Greška pri učitavanju korisnika:", error);
@@ -388,57 +299,15 @@ export default function AdminPage() {
   // Ažuriraj premium dane
   const adjustPremiumDays = async (userId: string, days: number) => {
     try {
-      if (!db) {
-        setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
-        return;
-      }
       setSaving(true);
-      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-      const subscriptionDoc = await getDoc(subscriptionRef);
-
-      if (!subscriptionDoc.exists()) {
-        setMessage({ type: "error", text: "Pretplata ne postoji" });
-        return;
-      }
-
-      const subData = subscriptionDoc.data();
-      const now = new Date();
-      
-      // Pronađi postojeći expiry date ili kreiraj novi
-      let currentExpiryDate: Date;
-      if (subData.expiryDate) {
-        currentExpiryDate = subData.expiryDate.toDate ? subData.expiryDate.toDate() : new Date(subData.expiryDate);
-      } else {
-        // Ako nema expiry date, kreiraj od današnjeg datuma
-        currentExpiryDate = now;
-      }
-
-      // Dodaj ili oduzmi dane
-      const newExpiryDate = new Date(currentExpiryDate);
-      newExpiryDate.setDate(newExpiryDate.getDate() + days);
-
-      // Ako je novi datum u prošlosti, postavi na danas + dane
-      if (newExpiryDate < now && days > 0) {
-        newExpiryDate.setTime(now.getTime() + days * 24 * 60 * 60 * 1000);
-      }
-
-      await setDoc(
-        subscriptionRef,
-        {
-          expiryDate: Timestamp.fromDate(newExpiryDate),
-          isActive: newExpiryDate > now,
-          updatedAt: Timestamp.fromDate(now),
-        },
-        { merge: true }
-      );
-
+      await adminAdjustPremiumDays(userId, days);
       await loadUsers();
       setPremiumDaysAdjustment(0);
       setMessage({ type: "success", text: `Premium dana ${days > 0 ? "dodano" : "oduzeto"}: ${Math.abs(days)} dana` });
       setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri ažuriranju premium dana:", error);
-      setMessage({ type: "error", text: "Greška pri ažuriranju premium dana" });
+      setMessage({ type: "error", text: error.message || "Greška pri ažuriranju premium dana" });
     } finally {
       setSaving(false);
     }
@@ -516,57 +385,15 @@ export default function AdminPage() {
   // Ažuriraj trial dane
   const adjustTrialDays = async (userId: string, days: number) => {
     try {
-      if (!db) {
-        setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
-        return;
-      }
       setSaving(true);
-      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-      const subscriptionDoc = await getDoc(subscriptionRef);
-
-      if (!subscriptionDoc.exists()) {
-        setMessage({ type: "error", text: "Pretplata ne postoji" });
-        return;
-      }
-
-      const subData = subscriptionDoc.data();
-      const now = new Date();
-      
-      // Pronađi postojeći trial end date ili kreiraj novi
-      let currentTrialEndDate: Date;
-      if (subData.trialEndDate) {
-        currentTrialEndDate = subData.trialEndDate.toDate ? subData.trialEndDate.toDate() : new Date(subData.trialEndDate);
-      } else {
-        // Ako nema trial end date, kreiraj od današnjeg datuma (default 15 dana)
-        currentTrialEndDate = new Date(now);
-        currentTrialEndDate.setDate(currentTrialEndDate.getDate() + 15);
-      }
-
-      // Dodaj ili oduzmi dane
-      const newTrialEndDate = new Date(currentTrialEndDate);
-      newTrialEndDate.setDate(newTrialEndDate.getDate() + days);
-
-      // Ako je novi datum u prošlosti, postavi na danas + dane
-      if (newTrialEndDate < now && days > 0) {
-        newTrialEndDate.setTime(now.getTime() + days * 24 * 60 * 60 * 1000);
-      }
-
-      await setDoc(
-        subscriptionRef,
-        {
-          trialEndDate: Timestamp.fromDate(newTrialEndDate),
-          updatedAt: Timestamp.fromDate(now),
-        },
-        { merge: true }
-      );
-
+      await adminAdjustTrialDays(userId, days);
       await loadUsers();
       setTrialDaysAdjustment(0);
       setMessage({ type: "success", text: `Trial dana ${days > 0 ? "dodano" : "oduzeto"}: ${Math.abs(days)} dana` });
       setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri ažuriranju trial dana:", error);
-      setMessage({ type: "error", text: "Greška pri ažuriranju trial dana" });
+      setMessage({ type: "error", text: error.message || "Greška pri ažuriranju trial dana" });
     } finally {
       setSaving(false);
     }
@@ -576,91 +403,14 @@ export default function AdminPage() {
   const changeSubscriptionStatus = async (userId: string, status: "trial" | "premium" | "grace" | "inactive") => {
     try {
       setSaving(true);
-      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-      const subscriptionDoc = await getDoc(subscriptionRef);
-
-      const now = new Date();
-      let updateData: any = {
-        updatedAt: Timestamp.fromDate(now),
-      };
-
-      if (status === "trial") {
-        // Postavi trial period - korisnik nema uplatu, aktivna je pretplata
-        const trialEndDate = new Date(now);
-        trialEndDate.setDate(trialEndDate.getDate() + 15);
-        updateData.trialEndDate = Timestamp.fromDate(trialEndDate);
-        updateData.isActive = true;
-        updateData.expiryDate = null;
-        updateData.graceEndDate = null;
-        updateData.lastPaymentDate = null; // Resetuj uplatu da bi se smatralo da je u trial periodu
-      } else if (status === "premium") {
-        // Postavi premium - korisnik ima aktivnu pretplatu
-        const expiryDate = new Date(now);
-        expiryDate.setMonth(expiryDate.getMonth() + 1);
-        updateData.expiryDate = Timestamp.fromDate(expiryDate);
-        updateData.isActive = true;
-        updateData.trialEndDate = null;
-        updateData.graceEndDate = null;
-        // Ako nema lastPaymentDate, postavi ga na sada
-        if (!subscriptionDoc.exists() || !subscriptionDoc.data().lastPaymentDate) {
-          updateData.lastPaymentDate = Timestamp.fromDate(now);
-        }
-      } else if (status === "grace") {
-        // Postavi grace period - pretplata je istekla, ali ima grace period
-        const graceEndDate = new Date(now);
-        graceEndDate.setDate(graceEndDate.getDate() + 5);
-        updateData.graceEndDate = Timestamp.fromDate(graceEndDate);
-        updateData.isActive = false; // Neaktivna, ali ima pristup kroz grace period
-        // Postavi expiryDate na prošlost (ili sada) da bi se aktivirao grace period
-        updateData.expiryDate = Timestamp.fromDate(now);
-        updateData.trialEndDate = null;
-      } else {
-        // inactive - potpuno blokiran
-        // Ako je bio grace period, postavi expiryDate na dan kada je grace period istekao
-        if (subscriptionDoc.exists()) {
-          const subData = subscriptionDoc.data();
-          if (subData.graceEndDate) {
-            const graceEnd = subData.graceEndDate.toDate ? subData.graceEndDate.toDate() : new Date(subData.graceEndDate);
-            updateData.expiryDate = Timestamp.fromDate(graceEnd);
-            // Sačuvaj graceEndDate da bi se mogao prikazati datum isteka grace perioda
-            // Ne postavljaj ga na null, već ostavi da se prikaže kada je neaktivna
-          } else if (subData.expiryDate) {
-            // Ako nema graceEndDate ali ima expiryDate, koristi expiryDate
-            const expiry = subData.expiryDate.toDate ? subData.expiryDate.toDate() : new Date(subData.expiryDate);
-            // Provjeri da li je datum validan (nije 1970/1969)
-            if (expiry.getFullYear() > 1970) {
-              updateData.expiryDate = Timestamp.fromDate(expiry);
-            } else {
-              updateData.expiryDate = Timestamp.fromDate(new Date(0));
-            }
-          } else {
-            updateData.expiryDate = Timestamp.fromDate(new Date(0));
-          }
-        } else {
-          updateData.expiryDate = Timestamp.fromDate(new Date(0));
-        }
-        updateData.isActive = false;
-        // Postavi trialEndDate na null da se korisnik ne smatra da je u trial periodu
-        updateData.trialEndDate = null;
-        // Postavi lastPaymentDate na nešto (ili ostavi kako jeste) da se korisnik ne smatra da je u trial periodu
-        // Ako nema lastPaymentDate, postavi ga na prošlost da se ne smatra da je u trial periodu
-        if (!subscriptionDoc.exists() || !subscriptionDoc.data().lastPaymentDate) {
-          // Postavi lastPaymentDate na prošlost da se ne smatra da je u trial periodu
-          const pastDate = new Date(now);
-          pastDate.setDate(pastDate.getDate() - 100); // 100 dana u prošlosti
-          updateData.lastPaymentDate = Timestamp.fromDate(pastDate);
-        }
-      }
-
-      await setDoc(subscriptionRef, updateData, { merge: true });
-
+      await adminChangeSubscriptionStatus(userId, status);
       await loadUsers();
       setNewSubscriptionStatus("premium");
       setMessage({ type: "success", text: `Status pretplate promijenjen na: ${status === "trial" ? "Probni period" : status === "premium" ? "Premium" : status === "grace" ? "Grace Period" : "Neaktivna"}` });
       setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri promjeni statusa pretplate:", error);
-      setMessage({ type: "error", text: "Greška pri promjeni statusa pretplate" });
+      setMessage({ type: "error", text: error.message || "Greška pri promjeni statusa pretplate" });
     } finally {
       setSaving(false);
     }
@@ -696,64 +446,12 @@ export default function AdminPage() {
     );
     
     if (!doubleConfirmed) return;
-    
-    if (!db) {
-      setMessage({ type: "error", text: "Firebase nije inicijalizovan" });
-      return;
-    }
 
     setSaving(true);
     try {
-      // 1. Obriši sve obračune
-      const obracuniRef = collection(db, "users", userId, "obracuni");
-      const obracuniSnapshot = await getDocs(obracuniRef);
-      for (const docSnapshot of obracuniSnapshot.docs) {
-        await deleteDoc(docSnapshot.ref);
-      }
+      await adminDeleteUser(userId);
       
-      // 2. Obriši pretplatu
-      const subscriptionRef = collection(db, "users", userId, "subscription");
-      const subscriptionSnapshot = await getDocs(subscriptionRef);
-      for (const docSnapshot of subscriptionSnapshot.docs) {
-        await deleteDoc(docSnapshot.ref);
-      }
-      
-      // 3. Obriši ulaz cache
-      const ulazCacheRef = collection(db, "users", userId, "ulazCache");
-      const ulazCacheSnapshot = await getDocs(ulazCacheRef);
-      for (const docSnapshot of ulazCacheSnapshot.docs) {
-        await deleteDoc(docSnapshot.ref);
-      }
-      
-      // 4. Obriši cache
-      const cacheRef = collection(db, "users", userId, "cache");
-      const cacheSnapshot = await getDocs(cacheRef);
-      for (const docSnapshot of cacheSnapshot.docs) {
-        await deleteDoc(docSnapshot.ref);
-      }
-      
-      // 5. Obriši draft obračune
-      const draftObracuniRef = collection(db, "users", userId, "draftObracuni");
-      const draftObracuniSnapshot = await getDocs(draftObracuniRef);
-      for (const docSnapshot of draftObracuniSnapshot.docs) {
-        await deleteDoc(docSnapshot.ref);
-      }
-      
-      // 6. Obriši uređaje korisnika
-      const devicesRef = collection(db, "devices");
-      const devicesSnapshot = await getDocs(devicesRef);
-      for (const docSnapshot of devicesSnapshot.docs) {
-        const deviceData = docSnapshot.data();
-        if (deviceData.userId === userId) {
-          await deleteDoc(docSnapshot.ref);
-        }
-      }
-      
-      // 7. Obriši glavni dokument korisnika
-      const userRef = doc(db, "users", userId);
-      await deleteDoc(userRef);
-      
-      // 8. Ažuriraj lokalni state
+      // Ažuriraj lokalni state
       setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
       setSubscriptions((prevSubs) => {
         const newSubs = { ...prevSubs };
@@ -761,7 +459,7 @@ export default function AdminPage() {
         return newSubs;
       });
       
-      // 9. Zatvori modal
+      // Zatvori modal
       setShowDetailsModal(false);
       setSelectedUserDetails(null);
       
@@ -782,60 +480,14 @@ export default function AdminPage() {
   const toggleSubscription = async (userId: string, currentStatus: boolean) => {
     try {
       setSaving(true);
-      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-      const subscriptionDoc = await getDoc(subscriptionRef);
-
-      const now = new Date();
       const newStatus = !currentStatus;
-
-      if (subscriptionDoc.exists()) {
-        const subData = subscriptionDoc.data();
-        
-        // Pronađi trial end date
-        let trialEndDate: Date | null = null;
-        if (subData.trialEndDate) {
-          trialEndDate = subData.trialEndDate.toDate ? subData.trialEndDate.toDate() : new Date(subData.trialEndDate);
-        }
-        
-        // Ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
-        let startDate = now;
-        if (trialEndDate && now < trialEndDate) {
-          startDate = trialEndDate;
-        }
-        
-        const expiryDate = newStatus
-          ? new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000) // +30 dana od start date
-          : new Date(0); // Prošli datum
-        
-        await setDoc(
-          subscriptionRef,
-          {
-            isActive: newStatus,
-            expiryDate: Timestamp.fromDate(expiryDate),
-            graceEndDate: null,
-            updatedAt: Timestamp.fromDate(now),
-          },
-          { merge: true }
-        );
-      } else {
-        await setDoc(subscriptionRef, {
-          isActive: newStatus,
-          monthlyPrice: 12,
-          expiryDate: newStatus
-            ? Timestamp.fromDate(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000))
-            : Timestamp.fromDate(new Date(0)),
-          graceEndDate: null,
-          paymentHistory: [],
-          createdAt: Timestamp.fromDate(now),
-        });
-      }
-
+      await adminToggleSubscription(userId, newStatus);
       await loadUsers();
       setMessage({ type: "success", text: `Pretplata ${newStatus ? "aktivirana" : "deaktivirana"}` });
       setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri ažuriranju pretplate:", error);
-      setMessage({ type: "error", text: "Greška pri ažuriranju pretplate" });
+      setMessage({ type: "error", text: error.message || "Greška pri ažuriranju pretplate" });
     } finally {
       setSaving(false);
     }
@@ -850,76 +502,8 @@ export default function AdminPage() {
 
     try {
       setSaving(true);
-      const subscriptionRef = doc(db, "users", selectedUser.id, "subscription", "info");
-      const subscriptionDoc = await getDoc(subscriptionRef);
-
-      const now = new Date();
       const amount = parseFloat(paymentAmount);
-      
-      let subscriptionData: any = {};
-      if (subscriptionDoc.exists()) {
-        subscriptionData = subscriptionDoc.data();
-      }
-
-      // Pronađi postojeći expiry date
-      let existingExpiryDate: Date | null = null;
-      if (subscriptionData.expiryDate) {
-        existingExpiryDate = subscriptionData.expiryDate.toDate ? subscriptionData.expiryDate.toDate() : new Date(subscriptionData.expiryDate);
-      }
-
-      // Pronađi trial end date
-      let trialEndDate: Date | null = null;
-      if (subscriptionData.trialEndDate) {
-        trialEndDate = subscriptionData.trialEndDate.toDate ? subscriptionData.trialEndDate.toDate() : new Date(subscriptionData.trialEndDate);
-      }
-      
-      // Ako postoji postojeći expiry date i još nije istekao, dodaj nove mjesece na taj datum
-      // Inače, ako postoji trial end date i još nije prošao, računaj od kraja trial perioda
-      // Inače računaj od današnjeg datuma
-      let startDate = now;
-      if (existingExpiryDate && now < existingExpiryDate) {
-        // Postojeća pretplata još nije istekla - dodaj na postojeći expiry date
-        startDate = existingExpiryDate;
-      } else if (trialEndDate && now < trialEndDate) {
-        // Trial period još traje - počni od kraja trial perioda
-        startDate = trialEndDate;
-      }
-      
-      // Izračunaj expiry date od start date
-      const newExpiryDate = new Date(startDate);
-      newExpiryDate.setMonth(newExpiryDate.getMonth() + paymentMonths);
-      
-      // Izračunaj validUntil za payment history
-      const validUntil = new Date(newExpiryDate);
-
-      const paymentHistory = subscriptionData.paymentHistory || [];
-      paymentHistory.push({
-        date: Timestamp.fromDate(now),
-        amount: amount,
-        note: paymentNote || `Bank Transfer - ${paymentMonths} ${paymentMonths === 1 ? "mjesec" : "mjeseci"}`,
-        validUntil: Timestamp.fromDate(validUntil),
-      });
-
-      await setDoc(
-        subscriptionRef,
-        {
-          isActive: activateOnPayment,
-          lastPaymentDate: Timestamp.fromDate(now),
-          expiryDate: Timestamp.fromDate(newExpiryDate),
-          graceEndDate: null,
-          monthlyPrice: 12,
-          paymentHistory: paymentHistory,
-          // Resetuj payment verification status kada se doda uplata
-          paymentPendingVerification: false,
-          paymentRequestedAt: null,
-          paymentRequestedAmount: null,
-          paymentRequestedMonths: null,
-          paymentReferenceNumber: null,
-          updatedAt: Timestamp.fromDate(now),
-        },
-        { merge: true }
-      );
-
+      await adminAddPayment(selectedUser.id, amount, paymentMonths, paymentNote);
       await loadUsers();
       setShowPaymentModal(false);
       setPaymentAmount("");
@@ -927,11 +511,11 @@ export default function AdminPage() {
       setPaymentNote("");
       setActivateOnPayment(true);
       setSelectedUser(null);
-      setMessage({ type: "success", text: `Uplata dodana uspješno. Pretplata ${activateOnPayment ? "aktivirana" : "deaktivirana"}.` });
+      setMessage({ type: "success", text: `Uplata dodana uspješno. Pretplata aktivirana.` });
       setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Greška pri dodavanju uplate:", error);
-      setMessage({ type: "error", text: "Greška pri dodavanju uplate" });
+      setMessage({ type: "error", text: error.message || "Greška pri dodavanju uplate" });
     } finally {
       setSaving(false);
     }

@@ -1,204 +1,213 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-import { getApps } from "firebase-admin/app";
+import { withAuth, AuthRequest } from '@/lib/auth-middleware';
+import { query } from '@/lib/db';
 
-export async function GET(request: NextRequest) {
-  try {
-    // Provjeri da li je Firebase Admin inicijalizovan
-    const apps = getApps();
-    if (apps.length === 0) {
-      // Provjeri da li su environment varijable postavljene
-      if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
-        console.error("Firebase Admin environment varijable nisu postavljene na serveru");
-        return NextResponse.json(
-          { error: "Firebase Admin nije konfigurisan. Molimo provjerite da su sljedeće environment varijable postavljene na serveru: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY" },
-          { status: 500 }
-        );
+// Helper function to calculate subscription status (similar to SubscriptionContext)
+function calculateSubscriptionStatus(
+  subscription: any,
+  payments: any[],
+  userCreatedAt: Date | null
+): any {
+  const now = new Date();
+  let trialEndDate: Date | null = subscription?.trial_end_date ? new Date(subscription.trial_end_date) : null;
+  let expiryDate: Date | null = subscription?.end_date ? new Date(subscription.end_date) : null;
+  let graceEndDate: Date | null = subscription?.grace_end_date ? new Date(subscription.grace_end_date) : null;
+  let isTrial = false;
+  let isGracePeriod = false;
+  let daysRemaining = 0;
+  let daysUntilExpiry = 0;
+  let daysInGrace = 0;
+
+  const explicitIsActive = subscription?.is_active !== undefined ? subscription.is_active : null;
+  const hasPayment = subscription?.last_payment_date != null;
+
+  // If no trial end date exists and user is not explicitly deactivated, create one (15 days from registration)
+  if (!trialEndDate && userCreatedAt && explicitIsActive !== false) {
+    trialEndDate = new Date(userCreatedAt);
+    trialEndDate.setDate(trialEndDate.getDate() + 15);
+  }
+
+  // Check if in trial period
+  if (trialEndDate && now < trialEndDate && !hasPayment && explicitIsActive !== false) {
+    isTrial = true;
+    daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  } else if (expiryDate) {
+    if (now < expiryDate) {
+      // Subscription is active
+      daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    } else {
+      // Subscription expired, check grace period
+      if (!graceEndDate) {
+        // Create grace period (5 days from expiry) if not explicitly set
+        graceEndDate = new Date(expiryDate);
+        graceEndDate.setDate(graceEndDate.getDate() + 5);
       }
-      
-      return NextResponse.json(
-        { error: "Firebase Admin inicijalizacija neuspješna. Provjerite environment varijable." },
-        { status: 500 }
-      );
-    }
 
-    // Verifikuj admin token iz header-a
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      if (graceEndDate && now < graceEndDate) {
+        isGracePeriod = true;
+        daysInGrace = Math.ceil((graceEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      }
+    }
+  } else if (graceEndDate) {
+    // If no expiryDate but graceEndDate exists, check grace period
+    if (graceEndDate && now < graceEndDate) {
+      isGracePeriod = true;
+      daysInGrace = Math.ceil((graceEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    }
+  }
+
+  const isActiveFromDB = subscription?.is_active === true;
+  const isActive = isTrial || (expiryDate && now < expiryDate) || isGracePeriod || (explicitIsActive === true);
+  const isPremium = hasPayment && !isTrial && (isActiveFromDB || isGracePeriod);
+
+  return {
+    isActive,
+    monthlyPrice: parseFloat(subscription?.monthly_price) || 12,
+    lastPaymentDate: subscription?.last_payment_date ? new Date(subscription.last_payment_date) : null,
+    expiryDate: expiryDate,
+    graceEndDate: graceEndDate,
+    trialEndDate: trialEndDate,
+    paymentHistory: payments.map((p: any) => ({
+      date: p.date ? new Date(p.date) : new Date(),
+      amount: parseFloat(p.amount) || 0,
+      note: p.note || "",
+      validUntil: p.valid_until ? new Date(p.valid_until) : undefined,
+    })),
+    isTrial,
+    isPremium,
+    isGracePeriod,
+    daysRemaining,
+    daysUntilExpiry,
+    daysInGrace,
+    paymentPendingVerification: subscription?.subscription_data?.paymentPendingVerification || false,
+    paymentRequestedAt: subscription?.subscription_data?.paymentRequestedAt ? new Date(subscription.subscription_data.paymentRequestedAt) : null,
+    paymentRequestedAmount: subscription?.subscription_data?.paymentRequestedAmount || 0,
+    paymentRequestedMonths: subscription?.subscription_data?.paymentRequestedMonths || 0,
+    paymentReferenceNumber: subscription?.subscription_data?.paymentReferenceNumber || null,
+  };
+}
+
+async function getHandler(req: AuthRequest): Promise<NextResponse> {
+  try {
+    if (!req.user) {
       return NextResponse.json(
-        { error: 'Nedostaje authorization token' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.split('Bearer ')[1];
-    let adminAuth;
-    try {
-      adminAuth = getAuth();
-    } catch (error: any) {
-      console.error("Greška pri dobijanju Admin Auth instance:", error);
-      return NextResponse.json(
-        { error: `Firebase Admin Auth greška: ${error.message}` },
-        { status: 500 }
-      );
-    }
-    
-    // Verifikuj token korisnika
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (error) {
-      return NextResponse.json(
-        { error: 'Nevažeći token' },
-        { status: 401 }
-      );
-    }
-
-    // Proveri da li je admin
+    // Check if user is admin
     const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
-    if (decodedToken.email !== ADMIN_EMAIL) {
+    
+    // Get user from database to check admin status
+    const currentUserResult = await query(
+      `SELECT email, is_owner, role FROM users WHERE id = $1`,
+      [req.user.userId]
+    );
+
+    if (currentUserResult.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Nedozvoljen pristup' },
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const currentUser = currentUserResult.rows[0];
+    const isAdmin = currentUser.email === ADMIN_EMAIL || currentUser.is_owner === true;
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
         { status: 403 }
       );
     }
 
-    // Listaj sve korisnike iz Firebase Auth
-    const listUsersResult = await adminAuth.listUsers();
-    const authUsers = listUsersResult.users;
+    // Get all users from database
+    const usersResult = await query(
+      `SELECT id, email, app_name, role, is_owner, permissions, created_at, updated_at
+       FROM users
+       ORDER BY created_at DESC`
+    );
 
-    // Uzmi Firestore instance (admin SDK)
-    const db = getFirestore();
-    const usersCollection = db.collection('users');
+    // Get last login for each user from devices table
+    const lastLoginResult = await query(
+      `SELECT user_id, MAX(last_login) as last_login
+       FROM devices
+       WHERE last_login IS NOT NULL
+       GROUP BY user_id`
+    );
 
-    // Za svakog korisnika iz Auth, uzmi podatke iz Firestore
+    const lastLoginMap: Record<string, Date> = {};
+    lastLoginResult.rows.forEach((row: any) => {
+      if (row.last_login) {
+        lastLoginMap[row.user_id] = new Date(row.last_login);
+      }
+    });
+
+    // Get all subscriptions
+    const subscriptionsResult = await query(
+      `SELECT user_id, status, start_date, end_date, monthly_price, 
+              trial_end_date, grace_end_date, last_payment_date, is_active, 
+              subscription_data
+       FROM subscriptions`
+    );
+
+    const subscriptionsMap: Record<string, any> = {};
+    subscriptionsResult.rows.forEach((row: any) => {
+      subscriptionsMap[row.user_id] = row;
+    });
+
+    // Get all payments grouped by user
+    const paymentsResult = await query(
+      `SELECT user_id, id, amount, note, date, valid_until, created_at
+       FROM payments
+       ORDER BY date DESC`
+    );
+
+    const paymentsMap: Record<string, any[]> = {};
+    paymentsResult.rows.forEach((row: any) => {
+      if (!paymentsMap[row.user_id]) {
+        paymentsMap[row.user_id] = [];
+      }
+      paymentsMap[row.user_id].push(row);
+    });
+
+    // Build response with users and their subscriptions
     const usersWithData = await Promise.all(
-      authUsers.map(async (authUser) => {
+      usersResult.rows.map(async (user: any) => {
         try {
-          const userId = authUser.uid;
-          const userDoc = await usersCollection.doc(userId).get();
-          const userData = userDoc.exists ? userDoc.data() : {};
+          const userId = user.id;
+          const subscription = subscriptionsMap[userId] || null;
+          const payments = paymentsMap[userId] || [];
+          const userCreatedAt = user.created_at ? new Date(user.created_at) : null;
 
-          // Učitaj subscription
-          let subscription = {
-            isActive: false,
-            monthlyPrice: 12,
-            lastPaymentDate: null,
-            expiryDate: null,
-            graceEndDate: null,
-            trialEndDate: null,
-            paymentHistory: [],
-          };
-
-          try {
-            const subscriptionDoc = await usersCollection
-              .doc(userId)
-              .collection('subscription')
-              .doc('info')
-              .get();
-
-            if (subscriptionDoc.exists) {
-              const subData = subscriptionDoc.data();
-              const now = new Date();
-              
-              const trialEndDate = subData?.trialEndDate?.toDate?.() || 
-                (subData?.trialEndDate ? new Date(subData.trialEndDate) : null);
-              const expiryDate = subData?.expiryDate?.toDate?.() || 
-                (subData?.expiryDate ? new Date(subData.expiryDate) : null);
-              const graceEndDate = subData?.graceEndDate?.toDate?.() || 
-                (subData?.graceEndDate ? new Date(subData.graceEndDate) : null);
-
-              let isTrial = false;
-              let isGracePeriod = false;
-              let daysRemaining = 0;
-              let daysUntilExpiry = 0;
-              let daysInGrace = 0;
-
-              const hasPayment = subData?.lastPaymentDate != null;
-              const explicitIsActive = subData?.isActive !== undefined ? subData.isActive : null;
-
-              if (trialEndDate && now < trialEndDate && !hasPayment && explicitIsActive !== false) {
-                isTrial = true;
-                daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-              } else if (expiryDate) {
-                if (now < expiryDate) {
-                  daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                } else {
-                  let calculatedGraceEnd: Date | null = null;
-                  if (graceEndDate) {
-                    calculatedGraceEnd = graceEndDate;
-                  } else if (expiryDate) {
-                    calculatedGraceEnd = new Date(expiryDate);
-                    calculatedGraceEnd.setDate(calculatedGraceEnd.getDate() + 5);
-                  }
-
-                  if (calculatedGraceEnd && now < calculatedGraceEnd) {
-                    isGracePeriod = true;
-                    daysInGrace = Math.ceil((calculatedGraceEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                  }
-                }
-              } else if (graceEndDate) {
-                if (graceEndDate && now < graceEndDate) {
-                  isGracePeriod = true;
-                  daysInGrace = Math.ceil((graceEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                }
-              }
-
-              const isActiveFromFirebase = subData?.isActive === true;
-
-              subscription = {
-                isActive: isActiveFromFirebase,
-                monthlyPrice: subData?.monthlyPrice || 12,
-                lastPaymentDate: subData?.lastPaymentDate?.toDate?.() || 
-                  (subData?.lastPaymentDate ? new Date(subData.lastPaymentDate) : null),
-                expiryDate: expiryDate,
-                graceEndDate: graceEndDate,
-                trialEndDate: trialEndDate,
-                paymentHistory: (subData?.paymentHistory || []).map((p: any) => ({
-                  date: p.date?.toDate?.() || (p.date ? new Date(p.date) : new Date()),
-                  amount: p.amount || 0,
-                  note: p.note || "",
-                  validUntil: p.validUntil?.toDate?.() || (p.validUntil ? new Date(p.validUntil) : undefined),
-                })),
-                isTrial,
-                isPremium: hasPayment && !isTrial && (isActiveFromFirebase || isGracePeriod),
-                isGracePeriod,
-                daysRemaining,
-                daysUntilExpiry,
-                daysInGrace,
-                paymentPendingVerification: subData?.paymentPendingVerification || false,
-                paymentRequestedAt: subData?.paymentRequestedAt?.toDate?.() || 
-                  (subData?.paymentRequestedAt ? new Date(subData.paymentRequestedAt) : null),
-                paymentRequestedAmount: subData?.paymentRequestedAmount || 0,
-                paymentRequestedMonths: subData?.paymentRequestedMonths || 0,
-                paymentReferenceNumber: subData?.paymentReferenceNumber || null,
-              };
-            }
-          } catch (subError) {
-            console.warn(`Greška pri učitavanju subscription za korisnika ${userId}:`, subError);
-          }
+          // Calculate subscription status
+          const subscriptionStatus = calculateSubscriptionStatus(
+            subscription,
+            payments,
+            userCreatedAt
+          );
 
           return {
             id: userId,
-            email: authUser.email || null,
-            appName: userData?.appName || "N/A",
-            createdAt: authUser.metadata.creationTime ? new Date(authUser.metadata.creationTime) : null,
-            lastSignIn: authUser.metadata.lastSignInTime ? new Date(authUser.metadata.lastSignInTime) : null,
-            imeKorisnika: userData?.imeKorisnika || undefined,
-            brojTelefona: userData?.brojTelefona || undefined,
-            lokacija: userData?.lokacija || undefined,
-            subscription,
+            email: user.email,
+            appName: user.app_name || "N/A",
+            createdAt: user.created_at ? new Date(user.created_at) : null,
+            lastSignIn: lastLoginMap[userId] || null,
+            imeKorisnika: user.permissions?.imeKorisnika || undefined,
+            brojTelefona: user.permissions?.brojTelefona || undefined,
+            lokacija: user.permissions?.lokacija || undefined,
+            subscription: subscriptionStatus,
           };
         } catch (error) {
-          console.error(`Greška pri obradi korisnika ${authUser.uid}:`, error);
-          // Vrati osnovne podatke iz Auth ako ne možemo učitati iz Firestore
+          console.error(`Error processing user ${user.id}:`, error);
+          // Return basic user data if processing fails
           return {
-            id: authUser.uid,
-            email: authUser.email || null,
-            appName: "N/A",
-            createdAt: authUser.metadata.creationTime ? new Date(authUser.metadata.creationTime) : null,
-            lastSignIn: authUser.metadata.lastSignInTime ? new Date(authUser.metadata.lastSignInTime) : null,
+            id: user.id,
+            email: user.email,
+            appName: user.app_name || "N/A",
+            createdAt: user.created_at ? new Date(user.created_at) : null,
+            lastSignIn: lastLoginMap[user.id] || null,
             subscription: {
               isActive: false,
               monthlyPrice: 12,
@@ -207,6 +216,17 @@ export async function GET(request: NextRequest) {
               graceEndDate: null,
               trialEndDate: null,
               paymentHistory: [],
+              isTrial: false,
+              isPremium: false,
+              isGracePeriod: false,
+              daysRemaining: 0,
+              daysUntilExpiry: 0,
+              daysInGrace: 0,
+              paymentPendingVerification: false,
+              paymentRequestedAt: null,
+              paymentRequestedAmount: 0,
+              paymentRequestedMonths: 0,
+              paymentReferenceNumber: null,
             },
           };
         }
@@ -215,11 +235,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ users: usersWithData });
   } catch (error: any) {
-    console.error('Greška pri učitavanju korisnika:', error);
+    console.error('Error loading users:', error);
     return NextResponse.json(
-      { error: error.message || 'Greška pri učitavanju korisnika' },
+      { error: error.message || 'Error loading users' },
       { status: 500 }
     );
   }
 }
 
+export const GET = withAuth(getHandler);

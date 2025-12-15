@@ -8,36 +8,13 @@ import { useRole, UserRole, PagePermission } from "../context/RoleContext";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
-import { getUserId, updateCurrentUser, logout, getUserDevices, updateDevice, deleteDevice, saveDevice } from "../../lib/api";
+import { getUserId, updateCurrentUser, logout, getUserDevices, updateDevice, deleteDevice, saveDevice, getObracuni, getCjenovnik } from "../../lib/api";
 // TEMPORARY: Disabled Firebase imports for development - using mocks
 // import { db } from "../../lib/firestore";
 // TODO: Uklonjen Firebase import - implementirati API pozive
 import { FaSearch, FaSpinner, FaMobile, FaDesktop } from "react-icons/fa";
 
-// TEMPORARY: Mock Firebase objects for development
-const auth = { 
-  currentUser: { 
-    uid: 'dev-user-id',
-    email: 'dev@example.com',
-    metadata: {
-      creationTime: new Date().toISOString(),
-      lastSignInTime: new Date().toISOString(),
-    }
-  } 
-} as any;
-const db = {} as any;
-const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
-const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
-const setDoc = async (...args: any[]) => {};
-const deleteDoc = async (...args: any[]) => {};
-const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
-const getDocs = async (...args: any[]) => ({ docs: [] } as any);
-const onSnapshot = (...args: any[]) => () => {};
-// Mock Firebase query functions
-const query = (...args: any[]) => ({ id: 'mock-query' }) as any;
-const where = (...args: any[]) => ({ id: 'mock-where' }) as any;
-const updateDoc = async (...args: any[]) => {};
-const Timestamp = { fromDate: (date: Date) => date } as any;
+// Firebase imports removed - using API calls instead
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",
@@ -115,9 +92,7 @@ export default function Profile() {
   const [message, setMessage] = useState("");
   const { appName, setAppName } = useAppName();
   const [localAppName, setLocalAppName] = useState(appName); // Lokalni state za input
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
-  const [editedSessionName, setEditedSessionName] = useState("");
+  // Sessions removed - use devices instead
   const [isAppNameUpdated, setIsAppNameUpdated] = useState(false);
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(null);
   const [backupFromDate, setBackupFromDate] = useState("");
@@ -163,10 +138,14 @@ export default function Profile() {
     }
   }, [subscription]);
 
-  // Dohvati IP adresu, lokaciju i trenutnog korisnika
+  // Set email from user context
   useEffect(() => {
-    const loadSessions = async () => {
-      const user = auth.currentUser;
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user]);
+
+  // Sessions functionality removed - device management now handles this
       if (!user) return;
       
       setEmail(user.email || "N/A"); // Postavi trenutni e-mail
@@ -349,40 +328,15 @@ export default function Profile() {
   }, [editingDeviceId]);
 
   const handleChangeEmail = async () => {
-    const user = auth.currentUser;
-    if (!user || !user.email) {
-      setEmailMessage("Niste prijavljeni!");
-      setTimeout(() => setEmailMessage(""), 5000);
-      return;
-    }
-
-    try {
-      // Pošalji verifikacijski link na trenutni email
-      await sendEmailVerification(user);
-      setEmailMessage(`Verifikacijski link je poslan na vaš trenutni e-mail (${user.email}). Molimo provjerite inbox i kliknite na link za promjenu e-mail adrese.`);
-      setTimeout(() => setEmailMessage(""), 10000);
-    } catch (err: any) {
-      setEmailMessage("Greška: " + err.message);
-      setTimeout(() => setEmailMessage(""), 5000);
-    }
+    // TODO: Implement email change via API
+    setEmailMessage("Promjena e-mail adrese trenutno nije dostupna. Kontaktirajte administratora.");
+    setTimeout(() => setEmailMessage(""), 5000);
   };
 
   const handleChangePassword = async () => {
-    const user = auth.currentUser;
-    if (!user || !user.email) {
-      setMessage("Niste prijavljeni!");
-      setTimeout(() => setMessage(""), 5000);
-      return;
-    }
-
-    try {
-      await sendPasswordResetEmail(auth, user.email);
-      setMessage(`Link za promjenu lozinke je poslan na vaš e-mail (${user.email}). Provjerite inbox.`);
-      setTimeout(() => setMessage(""), 8000);
-    } catch (err: any) {
-      setMessage("Greška: " + err.message);
-      setTimeout(() => setMessage(""), 5000);
-    }
+    // TODO: Implement password reset via API
+    setMessage("Promjena lozinke trenutno nije dostupna. Kontaktirajte administratora.");
+    setTimeout(() => setMessage(""), 5000);
   };
 
   const handleSaveAppName = async () => {
@@ -700,14 +654,14 @@ export default function Profile() {
 
   // Učitaj broj obračuna iz arhive
   const loadArhivaCount = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!user?.id) return;
 
     try {
       setLoadingArhivaCount(true);
-      const obracuniRef = collection(db, "users", user.uid, "obracuni");
-      const querySnapshot = await getDocs(obracuniRef);
-      setArhivaCount(querySnapshot.size);
+      const obracuni = await getObracuni(user.id);
+      // Filter out drafts - count only final obracuni
+      const finalObracuni = obracuni.filter((ob: any) => !ob.isDraft);
+      setArhivaCount(finalObracuni.length);
     } catch (error) {
       console.error("Greška pri učitavanju broja obračuna:", error);
       setArhivaCount(0);
@@ -718,33 +672,13 @@ export default function Profile() {
 
   // Učitaj broj obračuna kada se komponenta učita
   useEffect(() => {
-    loadArhivaCount();
-  }, []);
-
-
-  const handleDeleteSession = (id: string) => {
-    if (window.confirm("Jeste li sigurni da želite obrisati ovu sesiju?")) {
-      setSessions(sessions.filter(session => session.id !== id));
+    if (user?.id) {
+      loadArhivaCount();
     }
-  };
+  }, [user?.id]);
 
-  const handleEditSessionName = (id: string, currentName: string) => {
-    setEditingSessionId(id);
-    setEditedSessionName(currentName);
-  };
 
-  const handleSaveSessionName = (id: string) => {
-    setSessions(sessions.map(session =>
-      session.id === id ? { ...session, name: editedSessionName } : session
-    ));
-    setEditingSessionId(null);
-    setEditedSessionName("");
-  };
-
-  const handleCancelEdit = () => {
-    setEditingSessionId(null);
-    setEditedSessionName("");
-  };
+  // Sessions functionality removed - use devices instead
 
 
   const handleLogout = async () => {
@@ -1759,27 +1693,22 @@ export default function Profile() {
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center", width: "100%" }}>
             <button
             onClick={async () => {
-              const user = auth.currentUser;
-              const userId = user?.uid;
-              if (!userId) return;
+              if (!user?.id) {
+                alert("Niste prijavljeni!");
+                return;
+              }
               
-              // Učitaj iz Firestore
+              // Učitaj iz API-ja
               let arhiva: any[] = [];
               let cjenovnik: any[] = [];
               
               try {
-                // Učitaj arhivu
-                const obracuniRef = collection(db, "users", userId, "obracuni");
-                const obracuniSnapshot = await getDocs(obracuniRef);
-                arhiva = obracuniSnapshot.docs.map(doc => doc.data());
+                // Učitaj arhivu - filter out drafts
+                const obracuni = await getObracuni(user.id);
+                arhiva = obracuni.filter((ob: any) => !ob.isDraft);
                 
                 // Učitaj cjenovnik
-                const userDocRef = doc(db, "users", userId);
-                const userDoc = await getDoc(userDocRef);
-                if (userDoc.exists()) {
-                  const userData = userDoc.data();
-                  cjenovnik = userData.cjenovnik || [];
-                }
+                cjenovnik = await getCjenovnik(user.id);
               } catch (error) {
                 console.error("Greška pri učitavanju podataka za backup:", error);
                 alert("Greška pri učitavanju podataka za backup.");
@@ -2341,41 +2270,9 @@ export default function Profile() {
               <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
                 <button
                   onClick={async () => {
-                    const user = auth.currentUser;
-                    if (!user) {
-                      setSubscriptionMessage("Niste prijavljeni!");
-                      setTimeout(() => setSubscriptionMessage(""), 5000);
-                      return;
-                    }
-
-                    try {
-                      setRequestingPayment(true);
-                      const userId = user.uid;
-                      const subscriptionRef = doc(db, "users", userId, "subscription", "info");
-                      
-                      await setDoc(
-                        subscriptionRef,
-                        {
-                          paymentPendingVerification: true,
-                          paymentRequestedAt: Timestamp.fromDate(new Date()),
-                          paymentRequestedAmount: 12 * selectedMonths,
-                          paymentRequestedMonths: selectedMonths,
-                          paymentReferenceNumber: appName && selectedMonths ? `${appName.toUpperCase().replace(/\s+/g, "-")}-${selectedMonths}` : null,
-                          updatedAt: Timestamp.fromDate(new Date()),
-                        },
-                        { merge: true }
-                      );
-
-                      setPaymentRequested(true);
-                      setSubscriptionMessage("Uspješno ste prijavili uplatu! Admin će provjeriti uplatu u najkraćem roku.");
-                      setTimeout(() => setSubscriptionMessage(""), 5000);
-                    } catch (error: any) {
-                      console.error("Greška pri prijavi uplate:", error);
-                      setSubscriptionMessage("Greška pri prijavi uplate: " + (error.message || "Nepoznata greška"));
-                      setTimeout(() => setSubscriptionMessage(""), 5000);
-                    } finally {
-                      setRequestingPayment(false);
-                    }
+                    // TODO: Implement subscription payment request via API
+                    setSubscriptionMessage("Funkcionalnost prijave uplate trenutno nije dostupna. Kontaktirajte administratora.");
+                    setTimeout(() => setSubscriptionMessage(""), 5000);
                   }}
                   disabled={requestingPayment || paymentRequested || subscription?.paymentPendingVerification}
                   style={{
@@ -2578,11 +2475,11 @@ export default function Profile() {
             </tr>
             <tr>
               <td style={tdStyle}>Datum registracije:</td>
-              <td style={tdStyle}>{auth.currentUser?.metadata?.creationTime ? new Date(auth.currentUser.metadata.creationTime).toLocaleDateString("bs-BA") : "N/A"}</td>
+              <td style={tdStyle}>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString("bs-BA") : "N/A"}</td>
             </tr>
               <tr>
                 <td style={tdStyle}>Zadnja prijava:</td>
-                <td style={tdStyle}>{auth.currentUser?.metadata?.lastSignInTime ? new Date(auth.currentUser.metadata.lastSignInTime).toLocaleString("bs-BA") : "N/A"}</td>
+                <td style={tdStyle}>{user?.lastLogin ? new Date(user.lastLogin).toLocaleString("bs-BA") : "N/A"}</td>
               </tr>
           </tbody>
         </table>

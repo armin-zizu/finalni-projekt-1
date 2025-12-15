@@ -32,6 +32,7 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
     // Get query parameters for filtering
     const { searchParams } = new URL(req.url);
     const datum = searchParams.get('datum');
+    const isDraft = searchParams.get('is_draft'); // Optional: filter by draft status
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,7 +44,21 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    let sql = `SELECT id, datum, artikli, created_at, updated_at
+    // Automatski briši draftove starije od 24h
+    try {
+      await query(
+        `DELETE FROM obracuni 
+         WHERE user_id = $1::uuid 
+         AND is_draft = TRUE 
+         AND updated_at < NOW() - INTERVAL '24 hours'`,
+        [userId]
+      );
+    } catch (cleanupError) {
+      console.warn('Error cleaning up old drafts:', cleanupError);
+      // Nastavi dalje čak i ako cleanup ne uspije
+    }
+
+    let sql = `SELECT id, datum, artikli, is_draft, created_at, updated_at
                FROM obracuni
                WHERE user_id = $1::uuid`;
     const queryParams: any[] = [userId];
@@ -51,6 +66,26 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
     if (datum) {
       sql += ' AND datum = $2';
       queryParams.push(datum);
+    }
+
+    // Filtrirati po is_draft ako je naveden
+    if (isDraft !== null) {
+      const draftValue = isDraft === 'true';
+      if (datum) {
+        sql += ' AND is_draft = $3';
+        queryParams.push(draftValue);
+      } else {
+        sql += ' AND is_draft = $2';
+        queryParams.push(draftValue);
+      }
+    } else {
+      // Ako nije naveden, vraćamo samo finalne obračune (is_draft = false ili NULL)
+      // Draft obračuni se vraćaju samo eksplicitno
+      if (datum) {
+        sql += ' AND (is_draft = FALSE OR is_draft IS NULL)';
+      } else {
+        sql += ' AND (is_draft = FALSE OR is_draft IS NULL)';
+      }
     }
 
     sql += ' ORDER BY datum DESC';
@@ -83,6 +118,7 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       id: row.id,
       datum: row.datum,
       artikli: row.artikli,
+      isDraft: row.is_draft || false,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -120,7 +156,7 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
     }
 
     const body = await req.json();
-    const { datum, artikli, rashodi, prihodi, ukupnoArtikli, ukupnoRashod, ukupnoPrihod, neto, isAzuriran, imaUlaz, invoiceImages } = body;
+    const { datum, artikli, rashodi, prihodi, ukupnoArtikli, ukupnoRashod, ukupnoPrihod, neto, isAzuriran, imaUlaz, invoiceImages, isDraft } = body;
 
     if (!datum) {
       return NextResponse.json(
@@ -153,15 +189,37 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       );
     }
 
+    // Determine if this is a draft or final obracun
+    const draftValue = isDraft === true || isDraft === 'true';
+    
+    // Ako spremaš finalni obračun (isDraft = false), prvo obriši draft za taj datum (ako postoji)
+    if (!draftValue) {
+      try {
+        await query(
+          `DELETE FROM obracuni 
+           WHERE user_id = $1::uuid 
+           AND datum = $2 
+           AND is_draft = TRUE`,
+          [userId, datum]
+        );
+      } catch (deleteError) {
+        console.warn('Error deleting draft before saving final obracun:', deleteError);
+        // Nastavi dalje
+      }
+    }
+
     // Upsert obracun
+    // Napomena: UNIQUE constraint je na (user_id, datum), ali sada imamo i is_draft
+    // Zato koristimo INSERT ... ON CONFLICT sa specifičnom logikom
     const result = await query(
-      `INSERT INTO obracuni (user_id, datum, artikli)
-       VALUES ($1::uuid, $2, $3)
+      `INSERT INTO obracuni (user_id, datum, artikli, is_draft)
+       VALUES ($1::uuid, $2, $3, $4)
        ON CONFLICT (user_id, datum) DO UPDATE
        SET artikli = EXCLUDED.artikli,
+           is_draft = EXCLUDED.is_draft,
            updated_at = NOW()
-       RETURNING id, datum, created_at, updated_at`,
-      [userId, datum, JSON.stringify(obracunData)]
+       RETURNING id, datum, is_draft, created_at, updated_at`,
+      [userId, datum, JSON.stringify(obracunData), draftValue]
     );
 
     return NextResponse.json({
@@ -169,6 +227,7 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       obracun: {
         id: result.rows[0].id,
         datum: result.rows[0].datum,
+        isDraft: result.rows[0].is_draft || false,
         createdAt: result.rows[0].created_at,
         updatedAt: result.rows[0].updated_at,
       },

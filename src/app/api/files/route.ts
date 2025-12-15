@@ -161,6 +161,71 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
   }
 }
 
+// DELETE - Delete file
+async function deleteHandler(req: AuthRequest): Promise<NextResponse> {
+  try {
+    if (!req.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const userId = req.user.userId;
+    const { searchParams } = new URL(req.url);
+    const fileUrl = searchParams.get('url');
+
+    if (!fileUrl) {
+      return NextResponse.json(
+        { error: 'File URL is required' },
+        { status: 400 }
+      );
+    }
+
+    // Find file in database by file_path
+    const result = await query(
+      `SELECT id, file_path FROM file_uploads 
+       WHERE user_id = $1 AND file_path = $2`,
+      [userId, fileUrl]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'File not found' },
+        { status: 404 }
+      );
+    }
+
+    const fileRecord = result.rows[0];
+    const filePath = join(process.cwd(), 'public', fileRecord.file_path);
+
+    // Delete file from disk
+    try {
+      if (existsSync(filePath)) {
+        await unlink(filePath);
+      }
+    } catch (error: any) {
+      console.warn('Failed to delete file from disk:', error);
+      // Continue with database deletion even if file deletion fails
+    }
+
+    // Delete record from database
+    await query(
+      `DELETE FROM file_uploads WHERE id = $1`,
+      [fileRecord.id]
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Delete file error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: error.message },
+      { status: 500 }
+    );
+  }
+}
+
 export const POST = withAuth(postHandler);
 export const GET = withAuth(getHandler);
+export const DELETE = withAuth(deleteHandler);
 

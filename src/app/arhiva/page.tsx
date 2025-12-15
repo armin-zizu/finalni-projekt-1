@@ -1,29 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { getUserId, getObracuni } from "../../lib/api";
+import { getUserId, getObracuni, deleteObracun, saveObracun, uploadFile, deleteFile } from "../../lib/api";
 import { useRole } from "../context/RoleContext";
-// TEMPORARY: Disabled Firebase imports for development - using mocks
-// import { auth, onAuthStateChanged } from "../../lib/firebase";
-// import { db, storage } from "../../lib/firebase";
-// import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
-// import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
-// TEMPORARY: Mock Firebase objects for development
-const auth = { currentUser: { uid: 'dev-user-id' } } as any;
-const db = {} as any;
-const storage = {} as any;
-const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
-const getDocs = async (...args: any[]) => ({ docs: [] } as any);
-const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
-const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
-const setDoc = async (...args: any[]) => {};
-const deleteDoc = async (...args: any[]) => {};
-const onSnapshot = (...args: any[]) => () => {};
-const ref = (...args: any[]) => ({ fullPath: 'mock/path' }) as any;
-const uploadBytes = async (...args: any[]) => ({ metadata: { fullPath: 'mock/path' } } as any);
-const getDownloadURL = async (...args: any[]) => 'mock-url';
-const onAuthStateChanged = (...args: any[]) => () => {};
 
 // ---- Tipovi ----
 type ArhiviraniArtikal = {
@@ -357,35 +336,29 @@ export default function ArhivaPage() {
   // NE SPREMAJ U LOCALSTORAGE - sve se čuva u Firestore
   // Real-time listener automatski osvježava arhivu kada se promijeni u Firestore
 
-  // Brisanje obračuna - HIBRIDNI PRISTUP
-  const deleteObracun = async (datum: string) => {
-    if (window.confirm(`Jeste li sigurni da želite obrisati obračun za ${datum}?`)) {
-      const user = auth.currentUser;
-      const userId = user?.uid;
+  // Brisanje obračuna
+  const handleDeleteObracun = async (datum: string) => {
+    if (!window.confirm(`Jeste li sigurni da želite obrisati obračun za ${datum}?`)) {
+      return;
+    }
+
+    if (!user?.id) {
+      alert("Korisnik nije prijavljen!");
+      return;
+    }
+
+    try {
+      await deleteObracun(user.id, datum);
       
-      // 1. Obriši iz Firestore
-      if (user && userId) {
-        try {
-          const docRef = doc(db, "users", userId, "obracuni", datum);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            await deleteDoc(docRef);
-            console.log("Obračun obrisan iz Firestore:", datum);
-          }
-        } catch (error: any) {
-          console.warn("Greška pri brisanju iz Firestore:", error);
-        }
-      }
-      
-      // 2. Obriši iz lokalnog state-a (real-time listener će automatski osvježiti)
+      // Obriši iz lokalnog state-a
       const filteredArhiva = arhiva.filter((item) => item.datum !== datum);
       setArhiva(filteredArhiva);
       
-      // 3. NE SPREMAJ U LOCALSTORAGE - sve je u Firestore
-      // Real-time listener automatski osvježava arhivu
-      
       delete obracunRefs.current[datum];
       setEditingObracunDatum(null);
+    } catch (error: any) {
+      console.error("Greška pri brisanju obračuna:", error);
+      alert(`Greška pri brisanju obračuna: ${error.message}`);
     }
   };
 
@@ -442,49 +415,67 @@ export default function ArhivaPage() {
 
   // Spremanje uređenih rashoda i prihoda
   const saveEditedObracun = async (datum: string) => {
-    const updatedArhiva = arhiva
-      .map((item) => {
-        if (item.datum === datum) {
-          const ukupnoRashod = editedRashodi.reduce((sum, r) => sum + r.cijena, 0);
-          const ukupnoPrihod = editedPrihodi.reduce((sum, p) => sum + p.cijena, 0);
-          return {
-            ...item,
-            rashodi: editedRashodi,
-            prihodi: editedPrihodi,
-            ukupnoRashod,
-            ukupnoPrihod,
-            neto: item.ukupnoArtikli + ukupnoPrihod - ukupnoRashod,
-          };
-        }
-        return item;
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-        return dateB - dateA;
-      });
-    setArhiva(updatedArhiva);
-    
-    // Spremi u Firestore
-    const user = auth.currentUser;
-    const userId = user?.uid;
-    if (user && userId) {
-      try {
-        const obracunToUpdate = updatedArhiva.find(o => o.datum === datum);
-        if (obracunToUpdate) {
-          const cleanedObracun = removeUndefined(obracunToUpdate);
-          const docRef = doc(db, "users", userId, "obracuni", datum);
-          await setDoc(docRef, cleanedObracun, { merge: true });
-          console.log("Obračun ažuriran u Firestore:", datum);
-        }
-      } catch (error: any) {
-        console.warn("Greška pri spremanju u Firestore:", error);
-      }
+    if (!user?.id) {
+      alert("Korisnik nije prijavljen!");
+      return;
     }
-    
-    setEditingObracunDatum(null);
-    setEditedRashodi([]);
-    setEditedPrihodi([]);
+
+    try {
+      // Pronađi obračun u arhivi
+      const obracunToUpdate = arhiva.find(o => o.datum === datum);
+      if (!obracunToUpdate) {
+        alert("Obračun nije pronađen!");
+        return;
+      }
+
+      const ukupnoRashod = editedRashodi.reduce((sum, r) => sum + r.cijena, 0);
+      const ukupnoPrihod = editedPrihodi.reduce((sum, p) => sum + p.cijena, 0);
+      
+      // Spremi kroz API
+      await saveObracun(user.id, {
+        datum: datum,
+        artikli: obracunToUpdate.artikli || [],
+        rashodi: editedRashodi,
+        prihodi: editedPrihodi,
+        ukupnoArtikli: obracunToUpdate.ukupnoArtikli || 0,
+        ukupnoRashod: ukupnoRashod,
+        ukupnoPrihod: ukupnoPrihod,
+        neto: obracunToUpdate.ukupnoArtikli + ukupnoPrihod - ukupnoRashod,
+        isAzuriran: obracunToUpdate.isAzuriran,
+        imaUlaz: obracunToUpdate.imaUlaz,
+        invoiceImages: obracunToUpdate.invoiceImages || [],
+        isDraft: false,
+      });
+
+      // Ažuriraj lokalni state
+      const updatedArhiva = arhiva
+        .map((item) => {
+          if (item.datum === datum) {
+            return {
+              ...item,
+              rashodi: editedRashodi,
+              prihodi: editedPrihodi,
+              ukupnoRashod,
+              ukupnoPrihod,
+              neto: item.ukupnoArtikli + ukupnoPrihod - ukupnoRashod,
+            };
+          }
+          return item;
+        })
+        .sort((a, b) => {
+          const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+          const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+          return dateB - dateA;
+        });
+      setArhiva(updatedArhiva);
+      
+      setEditingObracunDatum(null);
+      setEditedRashodi([]);
+      setEditedPrihodi([]);
+    } catch (error: any) {
+      console.error("Greška pri spremanju obračuna:", error);
+      alert(`Greška pri spremanju obračuna: ${error.message}`);
+    }
   };
 
   // Odustajanje od uređivanja
@@ -594,38 +585,33 @@ export default function ArhivaPage() {
 
   // Funkcija za dobijanje faktura jednog obračuna
   const getSingleObracunFakture = async (datum: string): Promise<{ datum: string; images: string[] }[]> => {
-    const obracun = arhiva.find(o => o.datum === datum);
-    let images: string[] = [];
-    
     // Prvo provjeri u arhivi
+    const obracun = arhiva.find(o => o.datum === datum);
     if (obracun && obracun.invoiceImages && obracun.invoiceImages.length > 0) {
-      images = obracun.invoiceImages;
-    }
-    
-    // Također provjeri direktno u Firestore (za obračune koji možda još nisu u arhivi)
-    const user = auth.currentUser;
-    const userId = user?.uid;
-    if (userId) {
-      try {
-        const obracunRef = doc(db, "users", userId, "obracuni", datum);
-        const obracunDoc = await getDoc(obracunRef);
-        if (obracunDoc.exists()) {
-          const data = obracunDoc.data();
-          if (data.invoiceImages && data.invoiceImages.length > 0) {
-            images = data.invoiceImages;
-          }
-        }
-      } catch (error) {
-        console.warn("Greška pri učitavanju faktura iz Firestore:", error);
-      }
-    }
-    
-    if (images.length > 0) {
       return [{
         datum: datum,
-        images: images,
+        images: obracun.invoiceImages,
       }];
     }
+    
+    // Ako nije u arhivi, učitaj iz API-ja
+    if (!user?.id) {
+      return [];
+    }
+
+    try {
+      const obracuni = await getObracuni(user.id, datum);
+      const obracunFromApi = obracuni.find((o: any) => o.datum === datum);
+      if (obracunFromApi && obracunFromApi.invoiceImages && obracunFromApi.invoiceImages.length > 0) {
+        return [{
+          datum: datum,
+          images: obracunFromApi.invoiceImages,
+        }];
+      }
+    } catch (error) {
+      console.warn("Greška pri učitavanju faktura iz API-ja:", error);
+    }
+    
     return [];
   };
 
@@ -700,22 +686,12 @@ export default function ArhivaPage() {
     const filesToUpload = files || invoiceFiles[datum] || [];
     if (filesToUpload.length === 0) return;
     
-    const user = auth.currentUser;
-    if (!user) {
+    if (!user?.id) {
       alert("Korisnik nije autentifikovan");
       return;
     }
     
-    const userId = user.uid;
-    
-    try {
-      await user.getIdToken(true); // Refresh token
-    } catch (authError) {
-      console.error("Greška pri autentifikaciji:", authError);
-      alert("Greška pri autentifikaciji. Molimo prijavite se ponovo.");
-      return;
-    }
-
+    const userId = user.id;
     const cleanDatumString = datum.replace(/\.$/, '');
     const uploadedUrls: string[] = [];
     setUploadingImagesForDatum(datum);
@@ -726,26 +702,11 @@ export default function ArhivaPage() {
       const obracun = arhiva.find(o => o.datum === datum);
       const existingImages = obracun?.invoiceImages || [];
 
+      // Upload svih fajlova
       for (let i = 0; i < filesToUpload.length; i++) {
         const file = filesToUpload[i];
-        const timestamp = Date.now();
-        const fileExtension = file.name.split('.').pop() || 'jpg';
-        const fileName = `${cleanDatumString}_${timestamp}_${i}.${fileExtension}`;
-        const storagePath = `users/${userId}/invoices/${cleanDatumString}/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        
-        const metadata = {
-          contentType: file.type || `image/${fileExtension}`,
-          customMetadata: {
-            uploadedBy: userId,
-            uploadedAt: new Date().toISOString(),
-            datum: datum,
-          }
-        };
-        
-        await uploadBytes(storageRef, file, metadata);
-        const downloadURL = await getDownloadURL(storageRef);
-        uploadedUrls.push(downloadURL);
+        const uploadedFile = await uploadFile(file, 'invoice', cleanDatumString);
+        uploadedUrls.push(uploadedFile.url);
         
         setUploadProgress(((i + 1) / filesToUpload.length) * 100);
       }
@@ -753,7 +714,28 @@ export default function ArhivaPage() {
       // Kombinuj postojeće i nove slike
       const allImages = [...existingImages, ...uploadedUrls];
 
-      // Ažuriraj obračun u arhivi
+      // Učitaj postojeći obračun iz API-ja da dobijemo sve podatke
+      const obracunData = await getObracuni(userId, datum);
+      const existingObracun = obracunData.find((o: any) => o.datum === datum);
+
+      if (existingObracun) {
+        // Ažuriraj obračun sa novim slikama
+        await saveObracun(userId, {
+          datum: datum,
+          artikli: existingObracun.artikli || [],
+          rashodi: existingObracun.rashodi || [],
+          prihodi: existingObracun.prihodi || [],
+          ukupnoArtikli: existingObracun.ukupnoArtikli || 0,
+          ukupnoRashod: existingObracun.ukupnoRashod || 0,
+          ukupnoPrihod: existingObracun.ukupnoPrihod || 0,
+          neto: existingObracun.neto || 0,
+          isAzuriran: existingObracun.isAzuriran || false,
+          imaUlaz: existingObracun.imaUlaz || false,
+          invoiceImages: allImages,
+        });
+      }
+
+      // Ažuriraj lokalni state
       const updatedArhiva = arhiva.map((obracun) => {
         if (obracun.datum === datum) {
           return {
@@ -764,22 +746,6 @@ export default function ArhivaPage() {
         return obracun;
       });
       setArhiva(updatedArhiva);
-
-      // Spremi u Firestore
-      if (user && userId) {
-        try {
-          const obracunToUpdate = updatedArhiva.find(o => o.datum === datum);
-          if (obracunToUpdate) {
-            const cleanedObracun = removeUndefined(obracunToUpdate);
-            const docRef = doc(db, "users", userId, "obracuni", datum);
-            await setDoc(docRef, cleanedObracun, { merge: true });
-            console.log("Slike faktura ažurirane u Firestore:", datum);
-          }
-        } catch (error: any) {
-          console.warn("Greška pri spremanju u Firestore:", error);
-          alert("Slike su upload-ovane, ali greška pri spremanju u bazu. Provjerite konzolu.");
-        }
-      }
 
       // Očisti fajlove
       setInvoiceFiles((prev) => {
@@ -813,22 +779,12 @@ export default function ArhivaPage() {
   const uploadInvoiceImagesInModal = async (datum: string) => {
     if (modalInvoiceFiles.length === 0) return;
     
-    const user = auth.currentUser;
-    if (!user) {
+    if (!user?.id) {
       alert("Korisnik nije autentifikovan");
       return;
     }
     
-    const userId = user.uid;
-    
-    try {
-      await user.getIdToken(true);
-    } catch (authError) {
-      console.error("Greška pri autentifikaciji:", authError);
-      alert("Greška pri autentifikaciji. Molimo prijavite se ponovo.");
-      return;
-    }
-
+    const userId = user.id;
     const cleanDatumString = datum.replace(/\.$/, '');
     const uploadedUrls: string[] = [];
     setUploadingImagesForDatum(datum);
@@ -839,26 +795,11 @@ export default function ArhivaPage() {
       const obracun = arhiva.find(o => o.datum === datum);
       const existingImages = obracun?.invoiceImages || [];
 
+      // Upload svih fajlova
       for (let i = 0; i < modalInvoiceFiles.length; i++) {
         const file = modalInvoiceFiles[i];
-        const timestamp = Date.now();
-        const fileExtension = file.name.split('.').pop() || 'jpg';
-        const fileName = `${cleanDatumString}_${timestamp}_${i}.${fileExtension}`;
-        const storagePath = `users/${userId}/invoices/${cleanDatumString}/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        
-        const metadata = {
-          contentType: file.type || `image/${fileExtension}`,
-          customMetadata: {
-            uploadedBy: userId,
-            uploadedAt: new Date().toISOString(),
-            datum: datum,
-          }
-        };
-        
-        await uploadBytes(storageRef, file, metadata);
-        const downloadURL = await getDownloadURL(storageRef);
-        uploadedUrls.push(downloadURL);
+        const uploadedFile = await uploadFile(file, 'invoice', cleanDatumString);
+        uploadedUrls.push(uploadedFile.url);
         
         setUploadProgress(((i + 1) / modalInvoiceFiles.length) * 100);
       }
@@ -866,7 +807,28 @@ export default function ArhivaPage() {
       // Kombinuj postojeće i nove slike
       const allImages = [...existingImages, ...uploadedUrls];
 
-      // Ažuriraj obračun u arhivi
+      // Učitaj postojeći obračun iz API-ja da dobijemo sve podatke
+      const obracunData = await getObracuni(userId, datum);
+      const existingObracun = obracunData.find((o: any) => o.datum === datum);
+
+      if (existingObracun) {
+        // Ažuriraj obračun sa novim slikama
+        await saveObracun(userId, {
+          datum: datum,
+          artikli: existingObracun.artikli || [],
+          rashodi: existingObracun.rashodi || [],
+          prihodi: existingObracun.prihodi || [],
+          ukupnoArtikli: existingObracun.ukupnoArtikli || 0,
+          ukupnoRashod: existingObracun.ukupnoRashod || 0,
+          ukupnoPrihod: existingObracun.ukupnoPrihod || 0,
+          neto: existingObracun.neto || 0,
+          isAzuriran: existingObracun.isAzuriran || false,
+          imaUlaz: existingObracun.imaUlaz || false,
+          invoiceImages: allImages,
+        });
+      }
+
+      // Ažuriraj lokalni state
       const updatedArhiva = arhiva.map((obracun) => {
         if (obracun.datum === datum) {
           return {
@@ -880,22 +842,6 @@ export default function ArhivaPage() {
 
       // Ažuriraj prikaz u modalu
       setSelectedFakturaImages(allImages);
-
-      // Spremi u Firestore
-      if (user && userId) {
-        try {
-          const obracunToUpdate = updatedArhiva.find(o => o.datum === datum);
-          if (obracunToUpdate) {
-            const cleanedObracun = removeUndefined(obracunToUpdate);
-            const docRef = doc(db, "users", userId, "obracuni", datum);
-            await setDoc(docRef, cleanedObracun, { merge: true });
-            console.log("Slike faktura ažurirane u Firestore:", datum);
-          }
-        } catch (error: any) {
-          console.warn("Greška pri spremanju u Firestore:", error);
-          alert("Slike su upload-ovane, ali greška pri spremanju u bazu. Provjerite konzolu.");
-        }
-      }
 
       // Očisti fajlove
       setModalInvoiceFiles([]);
@@ -917,25 +863,56 @@ export default function ArhivaPage() {
       return;
     }
 
-    const user = auth.currentUser;
-    if (!user) {
+    if (!user?.id) {
       alert("Korisnik nije autentifikovan");
       return;
     }
     
-    const userId = user.uid;
+    const userId = user.id;
 
     try {
       // Učitaj obračun
       const obracun = arhiva.find(o => o.datum === datum);
-      if (!obracun || !obracun.invoiceImages) {
+      if (!obracun || !obracun.invoiceImages || !obracun.invoiceImages[imageIndex]) {
         return;
+      }
+
+      // Pronađi URL slike koja treba biti obrisana
+      const imageUrlToDelete = obracun.invoiceImages[imageIndex];
+
+      // Obriši fajl sa servera
+      try {
+        await deleteFile(imageUrlToDelete);
+      } catch (error: any) {
+        console.warn("Greška pri brisanju fajla sa servera:", error);
+        // Nastavi sa brisanjem iz baze čak i ako brisanje fajla ne uspije
       }
 
       // Ukloni sliku iz liste
       const updatedImages = obracun.invoiceImages.filter((_, index) => index !== imageIndex);
 
-      // Ažuriraj obračun u arhivi
+      // Učitaj postojeći obračun iz API-ja da dobijemo sve podatke
+      const obracunData = await getObracuni(userId, datum);
+      const existingObracun = obracunData.find((o: any) => o.datum === datum);
+
+      if (existingObracun) {
+        // Ažuriraj obračun bez obrisane slike
+        await saveObracun(userId, {
+          datum: datum,
+          artikli: existingObracun.artikli || [],
+          rashodi: existingObracun.rashodi || [],
+          prihodi: existingObracun.prihodi || [],
+          ukupnoArtikli: existingObracun.ukupnoArtikli || 0,
+          ukupnoRashod: existingObracun.ukupnoRashod || 0,
+          ukupnoPrihod: existingObracun.ukupnoPrihod || 0,
+          neto: existingObracun.neto || 0,
+          isAzuriran: existingObracun.isAzuriran || false,
+          imaUlaz: existingObracun.imaUlaz || false,
+          invoiceImages: updatedImages,
+        });
+      }
+
+      // Ažuriraj lokalni state
       const updatedArhiva = arhiva.map((o) => {
         if (o.datum === datum) {
           return {
@@ -950,20 +927,6 @@ export default function ArhivaPage() {
       // Ažuriraj prikaz u modalu
       setSelectedFakturaImages(updatedImages);
 
-      // Spremi u Firestore
-      try {
-        const obracunToUpdate = updatedArhiva.find(o => o.datum === datum);
-        if (obracunToUpdate) {
-          const cleanedObracun = removeUndefined(obracunToUpdate);
-          const docRef = doc(db, "users", userId, "obracuni", datum);
-          await setDoc(docRef, cleanedObracun, { merge: true });
-          console.log("Slika obrisana iz Firestore:", datum);
-        }
-      } catch (error: any) {
-        console.warn("Greška pri spremanju u Firestore:", error);
-        alert("Slika je obrisana, ali greška pri spremanju u bazu. Provjerite konzolu.");
-      }
-
       alert("Slika je uspješno obrisana!");
     } catch (error: any) {
       console.error("Greška pri brisanju slike:", error);
@@ -973,35 +936,60 @@ export default function ArhivaPage() {
 
   // Funkcija za označavanje duga kao plaćenog
   const markDugAsPlacen = async (obracunDatum: string, rashodIndex: number) => {
-    const user = auth.currentUser;
-    const userId = user?.uid;
+    if (!user?.id) {
+      alert("Korisnik nije prijavljen!");
+      return;
+    }
     
-    const updatedArhiva = arhiva.map((obracun) => {
-      if (obracun.datum === obracunDatum) {
-        const updatedRashodi = (obracun.rashodi && Array.isArray(obracun.rashodi)) ? obracun.rashodi.map((rashod, index) => {
+    const userId = user.id;
+    
+    // Pronađi obračun u arhivi
+    const obracunToUpdate = arhiva.find(o => o.datum === obracunDatum);
+    if (!obracunToUpdate) {
+      alert("Obračun nije pronađen!");
+      return;
+    }
+
+    // Ažuriraj rashode
+    const updatedRashodi = (obracunToUpdate.rashodi && Array.isArray(obracunToUpdate.rashodi)) 
+      ? obracunToUpdate.rashodi.map((rashod, index) => {
           if (index === rashodIndex) {
             return { ...rashod, placeno: true };
           }
           return rashod;
-        }) : [];
+        }) 
+      : [];
+
+    // Ažuriraj lokalni state
+    const updatedArhiva = arhiva.map((obracun) => {
+      if (obracun.datum === obracunDatum) {
         return { ...obracun, rashodi: updatedRashodi };
       }
       return obracun;
     });
     setArhiva(updatedArhiva);
     
-    // Spremi u Firestore
-    if (user && userId) {
-      try {
-        const obracunToUpdate = updatedArhiva.find(o => o.datum === obracunDatum);
-        if (obracunToUpdate) {
-          const cleanedObracun = removeUndefined(obracunToUpdate);
-          const docRef = doc(db, "users", userId, "obracuni", obracunDatum);
-          await setDoc(docRef, cleanedObracun, { merge: true });
-        }
-      } catch (error: any) {
-        console.warn("Greška pri spremanju u Firestore:", error);
-      }
+    // Spremi kroz API
+    try {
+      const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
+      
+      await saveObracun(userId, {
+        datum: obracunDatum,
+        artikli: obracunToUpdate.artikli || [],
+        rashodi: updatedRashodi,
+        prihodi: obracunToUpdate.prihodi || [],
+        ukupnoArtikli: obracunToUpdate.ukupnoArtikli || 0,
+        ukupnoRashod: ukupnoRashod,
+        ukupnoPrihod: obracunToUpdate.ukupnoPrihod || 0,
+        neto: obracunToUpdate.ukupnoArtikli + (obracunToUpdate.ukupnoPrihod || 0) - ukupnoRashod,
+        isAzuriran: obracunToUpdate.isAzuriran || false,
+        imaUlaz: obracunToUpdate.imaUlaz || false,
+        invoiceImages: obracunToUpdate.invoiceImages || [],
+        isDraft: false,
+      });
+    } catch (error: any) {
+      console.warn("Greška pri spremanju u API:", error);
+      alert("Greška pri spremanju promjene. Provjerite konzolu.");
     }
   };
 
@@ -1768,7 +1756,7 @@ export default function ArhivaPage() {
                   <button
                     style={deleteButtonStyle}
                     className="delete-button"
-                    onClick={() => deleteObracun(item.datum)}
+                    onClick={() => handleDeleteObracun(item.datum)}
                   >
                     Obriši obračun
                   </button>
