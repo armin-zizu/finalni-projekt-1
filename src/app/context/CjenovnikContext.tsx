@@ -53,7 +53,9 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
 
   // Učitaj cjenovnik iz API-ja
   useEffect(() => {
-    if (!user?.id) {
+    // Email je glavni identifikator
+    const userId = user?.email || user?.id;
+    if (!userId) {
       // Ako nema korisnika, koristi initial cjenovnik
       setCjenovnik(initialCjenovnik);
       setIsInitialLoad(false);
@@ -63,8 +65,8 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     const loadCjenovnik = async () => {
       try {
         // Učitaj cjenovnik iz API-ja
-        console.log("📥 Učitavam cjenovnik iz API-ja za korisnika:", user.id);
-        const apiCjenovnik = await getCjenovnik(user.id);
+        console.log("📥 Učitavam cjenovnik iz API-ja za korisnika:", userId);
+        const apiCjenovnik = await getCjenovnik(userId);
         console.log("📦 API vratio cjenovnik:", apiCjenovnik?.length || 0, "artikala:", apiCjenovnik?.map((a: any) => a.naziv) || []);
         
         if (apiCjenovnik && apiCjenovnik.length > 0) {
@@ -72,77 +74,92 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
           // API vraća: { id, naziv, cijena, proizvodnaCijena, zestokoKolicina, pocetnoStanje: 0 }
           // Context očekuje: { naziv, cijena, jeZestoko, zestokoKolicina, proizvodnaCijena, nabavnaCijena, pocetnoStanje, ... }
           
-          let transformedCjenovnik: ArtiklCijena[] = apiCjenovnik.map((item: any) => ({
-            naziv: item.naziv,
-            cijena: item.cijena,
-            jeZestoko: item.zestokoKolicina ? true : false,
-            zestokoKolicina: item.zestokoKolicina,
-            proizvodnaCijena: item.proizvodnaCijena,
-            nabavnaCijena: item.proizvodnaCijena || 0, // Koristi proizvodnaCijena kao nabavnaCijena ako nije postavljeno
-            pocetnoStanje: item.pocetnoStanje || 0,
-            // Dodatna polja koja možda nedostaju
-            nabavnaCijenaFlase: item.nabavnaCijenaFlase,
-            zapreminaFlase: item.zapreminaFlase,
-          }));
+          // Transformiraj API format u format koji context koristi
+          // Koristi postojeći cjenovnik iz state-a kao fallback da ne gubimo podatke (nabavnaCijena, pocetnoStanje)
+          let transformedCjenovnik: ArtiklCijena[] = apiCjenovnik.map((item: any) => {
+            // Pronađi postojeći artikal u trenutnom cjenovniku da očuvamo pocetnoStanje
+            const postojeciArtikal = cjenovnik.find((a) => a.naziv === item.naziv);
+            
+            return {
+              naziv: item.naziv,
+              cijena: item.cijena,
+              jeZestoko: item.zestokoKolicina ? true : false,
+              zestokoKolicina: item.zestokoKolicina,
+              proizvodnaCijena: item.proizvodnaCijena,
+              // Koristi nabavnaCijena iz baze ako postoji, inače proizvodnaCijena, ili 0
+              nabavnaCijena: item.nabavnaCijena ?? item.proizvodnaCijena ?? 0,
+              // Očuvaj postojeće pocetnoStanje ako postoji (ne uzima se iz baze)
+              pocetnoStanje: postojeciArtikal?.pocetnoStanje ?? 0,
+              // Učitaj dodatna polja iz baze
+              nabavnaCijenaFlase: item.nabavnaCijenaFlase,
+              zapreminaFlase: item.zapreminaFlase,
+            };
+          });
 
-          // Ažuriraj početno stanje iz najnovijeg obračuna
-          // Ovo je opcionalno - ako ne uspe, koristi početno stanje iz cjenovnika
+          // Ažuriraj početno stanje iz najnovijeg FINALNOG obračuna (isAzuriran: false)
+          // VAŽNO: Ne koristi ažurirane obračune (isAzuriran: true) - oni su privremeni
           try {
-            const obracuni = await getObracuni(user.id).catch((error) => {
+            const obracuni = await getObracuni(userId).catch((error) => {
               console.warn("Greška pri učitavanju obracuni za ažuriranje početnog stanja (ignoriramo):", error);
               return []; // Vrati prazan array ako ne uspe
             });
             if (obracuni && obracuni.length > 0) {
-              // Sortiraj po datumu (najnoviji prvo)
-              const sortedObracuni = [...obracuni].sort((a: any, b: any) => {
-                const dateA = new Date(a.datum?.split(".").reverse().join("-") || 0).getTime();
-                const dateB = new Date(b.datum?.split(".").reverse().join("-") || 0).getTime();
-                return dateB - dateA;
-              });
-
-              const najnovijiObracun = sortedObracuni[0];
-              if (najnovijiObracun && najnovijiObracun.artikli && Array.isArray(najnovijiObracun.artikli)) {
-                transformedCjenovnik = transformedCjenovnik.map((item) => {
-                  const artikalIzArhive = najnovijiObracun.artikli.find((a: any) => a.naziv === item.naziv);
-                  if (artikalIzArhive) {
-                    let novoPocetnoStanje = item.pocetnoStanje;
-                    
-                    if (artikalIzArhive.krajnjeStanje !== undefined && artikalIzArhive.krajnjeStanje !== null && artikalIzArhive.krajnjeStanje > 0) {
-                      novoPocetnoStanje = artikalIzArhive.krajnjeStanje;
-                    } else if (artikalIzArhive.ukupno !== undefined && artikalIzArhive.ukupno !== null && artikalIzArhive.ukupno > 0) {
-                      novoPocetnoStanje = artikalIzArhive.ukupno;
-                    } else if (artikalIzArhive.pocetnoStanje !== undefined && artikalIzArhive.pocetnoStanje !== null && artikalIzArhive.pocetnoStanje > 0) {
-                      novoPocetnoStanje = artikalIzArhive.pocetnoStanje;
-                    }
-                    
-                    // Za kafu, uvijek resetuj na 0
-                    if (item.naziv.toLowerCase().includes("kafa")) {
-                      novoPocetnoStanje = 0;
-                    }
-                    
-                    return {
-                      ...item,
-                      pocetnoStanje: novoPocetnoStanje,
-                    };
-                  }
-                  return item;
+              // Filtrirati samo FINALNE obračune (isAzuriran: false ili undefined)
+              const finalniObracuni = obracuni.filter((ob: any) => !ob.isAzuriran || ob.isAzuriran === false);
+              
+              if (finalniObracuni.length > 0) {
+                // Sortiraj po datumu (najnoviji prvo)
+                const sortedObracuni = [...finalniObracuni].sort((a: any, b: any) => {
+                  const dateA = new Date(a.datum?.split(".").reverse().join("-") || 0).getTime();
+                  const dateB = new Date(b.datum?.split(".").reverse().join("-") || 0).getTime();
+                  return dateB - dateA;
                 });
+
+                const najnovijiObracun = sortedObracuni[0];
+                if (najnovijiObracun && najnovijiObracun.artikli && Array.isArray(najnovijiObracun.artikli)) {
+                  transformedCjenovnik = transformedCjenovnik.map((item) => {
+                    const artikalIzArhive = najnovijiObracun.artikli.find((a: any) => a.naziv === item.naziv);
+                    if (artikalIzArhive) {
+                      let novoPocetnoStanje = item.pocetnoStanje;
+                      
+                      if (artikalIzArhive.krajnjeStanje !== undefined && artikalIzArhive.krajnjeStanje !== null && artikalIzArhive.krajnjeStanje > 0) {
+                        novoPocetnoStanje = artikalIzArhive.krajnjeStanje;
+                      } else if (artikalIzArhive.ukupno !== undefined && artikalIzArhive.ukupno !== null && artikalIzArhive.ukupno > 0) {
+                        novoPocetnoStanje = artikalIzArhive.ukupno;
+                      } else if (artikalIzArhive.pocetnoStanje !== undefined && artikalIzArhive.pocetnoStanje !== null && artikalIzArhive.pocetnoStanje > 0) {
+                        novoPocetnoStanje = artikalIzArhive.pocetnoStanje;
+                      }
+                      
+                      // Za kafu, uvijek resetuj na 0
+                      if (item.naziv.toLowerCase().includes("kafa")) {
+                        novoPocetnoStanje = 0;
+                      }
+                      
+                      return {
+                        ...item,
+                        pocetnoStanje: novoPocetnoStanje,
+                      };
+                    }
+                    return item;
+                  });
+                }
               }
             }
           } catch (error) {
             console.warn("Greška pri učitavanju arhive za ažuriranje cjenovnika:", error);
           }
 
-          setPrethodniCjenovnik(cjenovnik);
+          setPrethodniCjenovnik(transformedCjenovnik);
           setCjenovnik(transformedCjenovnik);
+          setIsInitialLoad(false);
           console.log("Cjenovnik učitano iz API-ja:", transformedCjenovnik.length, "artikala");
         } else {
           // Nema cjenovnik u API-ju - koristi initial
-          setPrethodniCjenovnik(cjenovnik);
+          setPrethodniCjenovnik(initialCjenovnik);
           setCjenovnik(initialCjenovnik);
-          console.log("Cjenovnik postavljen na initial za korisnika:", user.id);
+          setIsInitialLoad(false);
+          console.log("Cjenovnik postavljen na initial za korisnika:", userId);
         }
-        setIsInitialLoad(false);
       } catch (error) {
         console.warn("Greška pri učitavanju cjenovnika iz API-ja:", error);
         // U slučaju greške, koristi initial cjenovnik
@@ -152,7 +169,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     };
 
     loadCjenovnik();
-  }, [user?.id]);
+  }, [user?.email, user?.id]);
 
   // TEMPORARY: Disabled Firebase listeners - comment out to re-enable
   /*
@@ -315,29 +332,70 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   }, []);
   */
 
-  // Spremi cjenovnik u API - automatski kada se promijeni
+  // Spremi cjenovnik u API - automatski kada se promijeni (samo ako je dužina promijenjena ili nazivi)
+  // NE sprema svaki put kada se promijeni pocetnoStanje ili nabavnaCijena (jer to nije u bazi)
   useEffect(() => {
-    if (!user?.id) return;
+    // Email je glavni identifikator
+    const userId = user?.email || user?.id;
+    if (!userId) return;
     
     // Ako je prvo učitavanje, ne spremaj (izbjegni beskonačnu petlju)
     if (isInitialLoad) {
       return;
     }
     
+    // Provjeri da li se promijenio broj artikala, nazivi, ILI bilo koje vrijednosti (osim pocetnoStanje koje se ne čuva u bazi)
+    const trenutniNazivi = cjenovnik.map((a) => a.naziv).sort().join(",");
+    const prethodniNazivi = prethodniCjenovnik.map((a) => a.naziv).sort().join(",");
+    
+    // Provjeri da li su se promijenile vrijednosti artikala (cijena, nabavnaCijena, proizvodnaCijena, zestokoKolicina, itd.)
+    const trenutniPodaci = cjenovnik.map((a) => ({
+      naziv: a.naziv,
+      cijena: a.cijena,
+      nabavnaCijena: a.nabavnaCijena,
+      proizvodnaCijena: a.proizvodnaCijena,
+      zestokoKolicina: a.zestokoKolicina,
+      nabavnaCijenaFlase: a.nabavnaCijenaFlase,
+      zapreminaFlase: a.zapreminaFlase,
+    })).sort((a, b) => a.naziv.localeCompare(b.naziv));
+    
+    const prethodniPodaci = prethodniCjenovnik.map((a) => ({
+      naziv: a.naziv,
+      cijena: a.cijena,
+      nabavnaCijena: a.nabavnaCijena,
+      proizvodnaCijena: a.proizvodnaCijena,
+      zestokoKolicina: a.zestokoKolicina,
+      nabavnaCijenaFlase: a.nabavnaCijenaFlase,
+      zapreminaFlase: a.zapreminaFlase,
+    })).sort((a, b) => a.naziv.localeCompare(b.naziv));
+    
+    const podaciIsti = JSON.stringify(trenutniPodaci) === JSON.stringify(prethodniPodaci);
+    
+    // Spremi ako su se promijenili nazivi, broj artikala, ILI bilo koje vrijednosti (osim pocetnoStanje)
+    if (podaciIsti && cjenovnik.length === prethodniCjenovnik.length) {
+      // Nema promjene - ne sprema (možda se samo promijenilo pocetnoStanje koje se ne čuva u bazi)
+      return;
+    }
+    
     // SPREMI U API - automatski čim se promijeni
     const saveToAPI = async () => {
       try {
-        // Transformiraj u format koji API očekuje
+        // Transformiraj u format koji API očekuje - šalji SVE podatke
         const apiCjenovnik = cjenovnik.map((item) => ({
           naziv: item.naziv,
           cijena: item.cijena,
           proizvodnaCijena: item.proizvodnaCijena,
           zestokoKolicina: item.zestokoKolicina,
+          nabavnaCijena: item.nabavnaCijena,
+          nabavnaCijenaFlase: item.nabavnaCijenaFlase,
+          zapreminaFlase: item.zapreminaFlase,
           // Napomena: pocetnoStanje se ne sprema u cjenovnik tabelu, već se uzima iz obračuna
         }));
         
-        await saveCjenovnik(user.id, apiCjenovnik);
+        await saveCjenovnik(userId, apiCjenovnik);
         console.log("Cjenovnik automatski spremljen u API:", cjenovnik.length, "artikala");
+        // Ažuriraj prethodni cjenovnik nakon spremanja
+        setPrethodniCjenovnik(cjenovnik);
       } catch (error: any) {
         console.warn("Greška pri spremanju cjenovnika u API:", error);
       }
@@ -345,7 +403,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     
     // Spremi u API
     saveToAPI();
-  }, [cjenovnik, isInitialLoad, user?.id]);
+  }, [cjenovnik, isInitialLoad, user?.email, user?.id]);
 
   const addArtikal = (artikal: ArtiklCijena) => {
     // Dodaj u privremeni cjenovnik (pending) - čeka na potvrdu
@@ -374,27 +432,46 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     const noviCjenovnik = [...cjenovnik, ...noviArtikli];
     
     // Eksplicitno sačuvaj u API PRVO pre nego što ažuriramo state
-    if (!user?.id) {
-      console.error("❌ Korisnik nije autentifikovan, ne mogu spremiti cjenovnik");
+    // Email je glavni identifikator - uzmi iz roleContext ponovo da osiguraš da imamo najnovije podatke
+    const currentUser = roleContext?.user ?? null;
+    const userId = currentUser?.email || currentUser?.id;
+    
+    console.log("🔍 updateCjenovnik - currentUser:", currentUser, "userId:", userId);
+    
+    if (!userId) {
+      console.error("❌ Korisnik nije autentifikovan, ne mogu spremiti cjenovnik", {
+        roleContext,
+        user: currentUser,
+        userEmail: currentUser?.email,
+        userId: currentUser?.id
+      });
       throw new Error("Korisnik nije autentifikovan");
     }
     
     try {
-      // Transformiraj u format koji API očekuje
+      // Transformiraj u format koji API očekuje - šalji SVE podatke
       const apiCjenovnik = noviCjenovnik.map((item) => ({
         naziv: item.naziv,
         cijena: item.cijena,
         proizvodnaCijena: item.proizvodnaCijena,
         zestokoKolicina: item.zestokoKolicina,
+        nabavnaCijena: item.nabavnaCijena,
+        nabavnaCijenaFlase: item.nabavnaCijenaFlase,
+        zapreminaFlase: item.zapreminaFlase,
       }));
       
-      console.log("💾 Spremanje cjenovnika u API - userId:", user.id, "artikala:", apiCjenovnik.length, "nazivi:", apiCjenovnik.map((a: any) => a.naziv));
-      await saveCjenovnik(user.id, apiCjenovnik);
+      console.log("💾 Spremanje cjenovnika u API - userId:", userId, "artikala:", apiCjenovnik.length, "nazivi:", apiCjenovnik.map((a: any) => a.naziv));
+      await saveCjenovnik(userId, apiCjenovnik);
       console.log("✅ Cjenovnik uspješno sačuvan u API:", noviCjenovnik.length, "artikala");
       
       // Ako je uspješno sačuvano, ažuriraj state
+      // Postavi isInitialLoad flag da ne bi automatski čuvanje prepisalo podatke
+      setIsInitialLoad(true);
+      setPrethodniCjenovnik(noviCjenovnik);
       setCjenovnik(noviCjenovnik);
       setPendingCjenovnik([]); // Očisti privremeni cjenovnik
+      // Resetuj flag nakon kratke pauze da omogući buduća automatska čuvanja
+      setTimeout(() => setIsInitialLoad(false), 100);
     } catch (error: any) {
       console.error("❌ Greška pri čuvanju cjenovnika u API:", error);
       throw error; // Re-throw da se korisnik obavesti o grešci

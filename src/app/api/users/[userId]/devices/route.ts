@@ -3,7 +3,7 @@ import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
 
 // GET - Get all devices for user
-async function getHandler(req: AuthRequest, { params }: { params: { userId: string } }): Promise<NextResponse> {
+async function getHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> | { userId: string } }): Promise<NextResponse> {
   try {
     if (!req.user) {
       return NextResponse.json(
@@ -12,7 +12,8 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    let userId = params.userId;
+    const resolvedParams = await params;
+    let userId = resolvedParams.userId;
 
     // If userId is not a UUID, try to find the actual UUID from database
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -108,7 +109,7 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
 }
 
 // POST - Create or update device
-async function postHandler(req: AuthRequest, { params }: { params: { userId: string } }): Promise<NextResponse> {
+async function postHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> | { userId: string } }): Promise<NextResponse> {
   try {
     if (!req.user) {
       return NextResponse.json(
@@ -117,7 +118,8 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       );
     }
 
-    let userId = params.userId;
+    const resolvedParams = await params;
+    let userId = resolvedParams.userId;
 
     // If userId is not a UUID, try to find the actual UUID from database
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -243,11 +245,11 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
   }
 }
 
-export const GET = (req: NextRequest, context: { params: { userId: string } }) => {
+export const GET = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
   return withAuth((authReq: AuthRequest) => getHandler(authReq, context))(req);
 };
 
-export const POST = (req: NextRequest, context: { params: { userId: string } }) => {
+export const POST = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
   return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
 };
 

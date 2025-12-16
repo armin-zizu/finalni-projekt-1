@@ -3,7 +3,7 @@ import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
 
 // GET - Get cjenovnik for user
-async function getHandler(req: AuthRequest, { params }: { params: { userId: string } }): Promise<NextResponse> {
+async function getHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> | { userId: string } }): Promise<NextResponse> {
   try {
     if (!req.user) {
       return NextResponse.json(
@@ -12,7 +12,8 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    let userId = params.userId;
+    const resolvedParams = await params;
+    let userId = resolvedParams.userId;
 
     // Resolve userId to UUID if needed
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -81,9 +82,9 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
     console.log('📖 Getting cjenovnik for user:', userId);
     
     const result = await query(
-      `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, created_at, updated_at
+      `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, created_at, updated_at
        FROM cjenovnik
-       WHERE user_id = $1::uuid
+       WHERE user_id = $1::text
        ORDER BY naziv ASC`,
       [userId]
     );
@@ -96,6 +97,9 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
       cijena: parseFloat(row.cijena),
       proizvodnaCijena: row.proizvodna_cijena ? parseFloat(row.proizvodna_cijena) : undefined,
       zestokoKolicina: row.zestoko_kolicina ? parseFloat(row.zestoko_kolicina) : undefined,
+      nabavnaCijena: row.nabavna_cijena ? parseFloat(row.nabavna_cijena) : undefined,
+      nabavnaCijenaFlase: row.nabavna_cijena_flase ? parseFloat(row.nabavna_cijena_flase) : undefined,
+      zapreminaFlase: row.zapremina_flase ? parseFloat(row.zapremina_flase) : undefined,
       pocetnoStanje: 0, // Default, može se dodati u schema ako treba
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -112,7 +116,7 @@ async function getHandler(req: AuthRequest, { params }: { params: { userId: stri
 }
 
 // POST - Create or update cjenovnik (upsert)
-async function postHandler(req: AuthRequest, { params }: { params: { userId: string } }): Promise<NextResponse> {
+async function postHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> | { userId: string } }): Promise<NextResponse> {
   try {
     if (!req.user) {
       return NextResponse.json(
@@ -121,7 +125,8 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
       );
     }
 
-    let userId = params.userId;
+    const resolvedParams = await params;
+    let userId = resolvedParams.userId;
 
     // Resolve userId to UUID if needed
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -200,30 +205,42 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
     console.log('💾 Saving cjenovnik for user:', userId, 'Items count:', cjenovnik.length, 'Items:', cjenovnik.map((i: any) => i.naziv));
     
     // Delete existing cjenovnik for this user
-    await query('DELETE FROM cjenovnik WHERE user_id = $1::uuid', [userId]);
+    await query('DELETE FROM cjenovnik WHERE user_id = $1::text', [userId]);
     console.log('🗑️ Deleted existing cjenovnik for user:', userId);
 
     // Insert new cjenovnik items
     if (cjenovnik.length > 0) {
       const values = cjenovnik.map((item: any, index: number) => {
-        const baseIndex = index * 5; // 5 vrijednosti po artiklu
-        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5})`;
+        const baseIndex = index * 8; // 8 vrijednosti po artiklu
+        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7}, $${baseIndex + 8})`;
       }).join(', ');
 
       const queryParams: any[] = [];
       cjenovnik.forEach((item: any) => {
-        queryParams.push(userId, item.naziv, item.cijena, item.proizvodnaCijena || null, item.zestokoKolicina || null);
+        queryParams.push(
+          userId, 
+          item.naziv, 
+          item.cijena, 
+          item.proizvodnaCijena || null, 
+          item.zestokoKolicina || null,
+          item.nabavnaCijena || null,
+          item.nabavnaCijenaFlase || null,
+          item.zapreminaFlase || null
+        );
       });
 
-      console.log('📝 Inserting cjenovnik items, params count:', queryParams.length, 'expected:', cjenovnik.length * 5);
+      console.log('📝 Inserting cjenovnik items, params count:', queryParams.length, 'expected:', cjenovnik.length * 8);
       
       await query(
-        `INSERT INTO cjenovnik (user_id, naziv, cijena, proizvodna_cijena, zestoko_kolicina)
+        `INSERT INTO cjenovnik (user_id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase)
          VALUES ${values}
          ON CONFLICT (user_id, naziv) DO UPDATE
          SET cijena = EXCLUDED.cijena,
              proizvodna_cijena = EXCLUDED.proizvodna_cijena,
              zestoko_kolicina = EXCLUDED.zestoko_kolicina,
+             nabavna_cijena = EXCLUDED.nabavna_cijena,
+             nabavna_cijena_flase = EXCLUDED.nabavna_cijena_flase,
+             zapremina_flase = EXCLUDED.zapremina_flase,
              updated_at = NOW()`,
         queryParams
       );
@@ -243,11 +260,11 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
   }
 }
 
-export const GET = (req: NextRequest, context: { params: { userId: string } }) => {
+export const GET = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
   return withAuth((authReq: AuthRequest) => getHandler(authReq, context))(req);
 };
 
-export const POST = (req: NextRequest, context: { params: { userId: string } }) => {
+export const POST = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
   return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
 };
 

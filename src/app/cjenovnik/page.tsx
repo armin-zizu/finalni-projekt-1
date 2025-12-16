@@ -599,7 +599,14 @@ export default function CjenovnikPage() {
           </button>
         </div>
         <button
-          onClick={updateCjenovnik}
+          onClick={async () => {
+            try {
+              await updateCjenovnik();
+            } catch (error: any) {
+              console.error("Greška pri ažuriranju cjenovnika:", error);
+              alert(`Greška pri ažuriranju cjenovnika: ${error.message || error}`);
+            }
+          }}
           style={updateButtonStyle}
           disabled={pendingCjenovnik.length === 0} // Onemogući ako nema promjena
         >
