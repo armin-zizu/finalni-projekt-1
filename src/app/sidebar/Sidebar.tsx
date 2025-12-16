@@ -19,17 +19,14 @@ const Sidebar = () => {
   const [isAdmin, setIsAdmin] = useState(true);
 
   useEffect(() => {
-    // TEMPORARY: Set authenticated to true for development - bypass auth check
-    setIsAuthenticated(true);
-    setIsAdmin(true); // Set admin to true so admin page is visible
-    /*
-    // TODO: Implementirati provjeru autentifikacije preko API poziva
+    // Provjeri autentifikaciju i admin status preko API poziva
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/me');
+        const response = await fetch('/api/users/me');
         if (response.ok) {
           const user = await response.json();
           setIsAuthenticated(true);
+          // Samo gitara.zizu@gmail.com ima pristup admin panelu
           const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
           setIsAdmin(user.email === ADMIN_EMAIL);
         } else {
@@ -42,7 +39,6 @@ const Sidebar = () => {
       }
     };
     checkAuth();
-    */
   }, []);
 
   // Definiši dozvole za svaku ulogu

@@ -124,7 +124,7 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
       }
       
       if (userLookup.rows.length > 0) {
-        userId = userLookup.rows[0].id;
+        userId = userLookup.rows[0].id.toString(); // Konvertuj UUID u string eksplicitno
         console.log('List users - Found UUID for user:', userId, 'from:', req.user.userId);
       } else {
         console.error('List users - User not found:', req.user.userId);
@@ -135,7 +135,16 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
       }
     }
     
-    // Get user from database to check admin status (userId is now guaranteed to be a valid UUID string)
+    // Get user from database to check admin status
+    // Proveri da li je userId validan UUID format
+    if (!uuidRegex.test(userId)) {
+      console.error('List users - userId is not a valid UUID after resolution:', userId);
+      return NextResponse.json(
+        { error: 'Invalid user ID format. Please log out and log in again.' },
+        { status: 400 }
+      );
+    }
+    
     const currentUserResult = await query(
       `SELECT email, is_owner, role FROM users WHERE id = $1::uuid`,
       [userId]
@@ -149,7 +158,8 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     }
 
     const currentUser = currentUserResult.rows[0];
-    const isAdmin = currentUser.email === ADMIN_EMAIL || currentUser.is_owner === true;
+    // Samo gitara.zizu@gmail.com ima pristup admin panelu (ne bilo koji owner)
+    const isAdmin = currentUser.email === ADMIN_EMAIL;
 
     if (!isAdmin) {
       return NextResponse.json(

@@ -394,6 +394,7 @@ export async function getObracuni(userId: string, datum?: string) {
     return {
       id: ob.id,
       datum: ob.datum,
+      createdAt: (ob as any).saved_at || (ob as any).createdAt || (ob as any).updatedAt, // Dodaj saved_at timestamp za prikaz satnice
       artikli: artikli,
       rashodi: rashodi,
       prihodi: prihodi,
@@ -429,8 +430,9 @@ export async function getDraftObracun(userId: string, datum: string) {
     });
 
     if (!response.ok) {
-      // Ako nema draft-a, to nije greška - vrati null
+      // Ako nema draft-a ili je problem sa userId format-om, to nije greška - vrati null
       if (response.status === 404 || response.status === 400) {
+        // Draft ne postoji ili userId format nije validan - vrati null bez greške
         return null;
       }
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));

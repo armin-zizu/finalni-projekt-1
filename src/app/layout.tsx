@@ -305,11 +305,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative", WebkitTapHighlightColor: "transparent" }}>
         <AppNameProvider>
-          <CjenovnikProvider>
-            <SubscriptionProvider>
-              <RoleProvider>
+          <SubscriptionProvider>
+            <RoleProvider>
+              <CjenovnikProvider>
                 <AppContent>{children}</AppContent>
-              </RoleProvider>
+              </CjenovnikProvider>
+            </RoleProvider>
             <style jsx>{`
               .sidebar-link:hover {
                 background-color: #3b82f6;
@@ -341,8 +342,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 }
               }
             `}</style>
-            </SubscriptionProvider>
-          </CjenovnikProvider>
+          </SubscriptionProvider>
         </AppNameProvider>
       </body>
     </html>

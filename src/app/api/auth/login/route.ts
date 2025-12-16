@@ -94,11 +94,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate JWT token
+    // Generate JWT token - koristimo email kao userId (glavni identifikator)
     let token;
     try {
       token = generateToken({
-        userId: user.id,
+        userId: user.email, // Email je glavni identifikator
         email: user.email,
         role: user.role,
         isOwner: user.is_owner,

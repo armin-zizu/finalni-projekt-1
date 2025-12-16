@@ -29,7 +29,8 @@ async function deleteHandler(
     }
 
     const currentUser = currentUserResult.rows[0];
-    const isAdmin = currentUser.email === ADMIN_EMAIL || currentUser.is_owner === true;
+    // Samo gitara.zizu@gmail.com ima pristup admin panelu (ne bilo koji owner)
+    const isAdmin = currentUser.email === ADMIN_EMAIL;
 
     if (!isAdmin) {
       return NextResponse.json(

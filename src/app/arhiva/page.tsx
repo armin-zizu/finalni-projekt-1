@@ -43,6 +43,7 @@ type ArhiviraniObracun = {
   isAzuriran?: boolean; // Flag da je obračun bio ažuriran
   imaUlaz?: boolean; // Flag da obračun ima ulaz
   invoiceImages?: string[]; // URL-ovi slika faktura
+  createdAt?: string | Date; // Timestamp kada je obračun sačuvan (za prikaz satnice)
 };
 
 // ---- CSS Stilovi ----
@@ -121,6 +122,63 @@ const checkboxStyle: React.CSSProperties = {
   marginRight: "8px",
 };
 
+// Funkcija za formatiranje datuma sa satima (MM-DD-YYYY HH:MM)
+// Prima datum string ili Date objekat, i opciono savedAt za satnicu
+const formatDatumSaSatima = (datum: string | Date, savedAt?: string | Date): string => {
+  let dateObj: Date;
+  
+  // Ako ima savedAt, koristi ga za satnicu, inače koristi datum
+  const dateForTime = savedAt ? (typeof savedAt === 'string' ? new Date(savedAt) : savedAt) : null;
+  
+  // Parsiraj datum
+  if (typeof datum === 'string') {
+    // Proveri da li je ISO format (YYYY-MM-DD ili YYYY-MM-DDTHH:MM:SS)
+    if (datum.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(datum)) {
+      // ISO format - direktno parse
+      dateObj = new Date(datum);
+    } else {
+      // Proveri da li je u formatu DD.MM.YYYY ili DD.MM.YYYY.
+      const cleanedDatum = datum.replace(/\.$/, ''); // Ukloni tačku na kraju ako postoji
+      const parts = cleanedDatum.split('.');
+      
+      if (parts.length === 3) {
+        // DD.MM.YYYY format
+        const [dan, mjesec, godina] = parts;
+        dateObj = new Date(parseInt(godina), parseInt(mjesec) - 1, parseInt(dan));
+      } else {
+        // Pokušaj standardni Date parse
+        dateObj = new Date(cleanedDatum);
+      }
+    }
+  } else {
+    dateObj = datum;
+  }
+  
+  // Proveri da li je validan datum
+  if (isNaN(dateObj.getTime())) {
+    return datum.toString(); // Vrati original ako ne može da se parsira
+  }
+  
+  // Formatiraj u MM-DD-YYYY
+  const mjesec = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const dan = String(dateObj.getDate()).padStart(2, '0');
+  const godina = dateObj.getFullYear();
+  
+  // Ako postoji savedAt, koristi satnicu iz njega, inače koristi iz datuma ili postavi na 00:00
+  let sati = '00';
+  let minuti = '00';
+  
+  if (dateForTime && !isNaN(dateForTime.getTime())) {
+    sati = String(dateForTime.getHours()).padStart(2, '0');
+    minuti = String(dateForTime.getMinutes()).padStart(2, '0');
+  } else if (!isNaN(dateObj.getTime()) && dateObj.getHours !== undefined) {
+    sati = String(dateObj.getHours()).padStart(2, '0');
+    minuti = String(dateObj.getMinutes()).padStart(2, '0');
+  }
+  
+  return `${mjesec}-${dan}-${godina} ${sati}:${minuti}`;
+};
+
 const obracunContainerStyle: React.CSSProperties = {
   marginBottom: "32px",
   border: "2px solid #e5e7eb",
@@ -189,28 +247,35 @@ export default function ArhivaPage() {
     if (userId) {
       try {
         const obracuni = await getObracuni(userId);
-        firestoreArhiva = obracuni.map((obracun: any) => {
-          // Parse artikli JSONB ako je string
-          const artikliData = typeof obracun.artikli === 'string' 
-            ? JSON.parse(obracun.artikli) 
-            : obracun.artikli;
+        // getObracuni već vraća transformisane podatke gde su artikli, rashodi i prihodi direktno arrayi
+        // FILTRIRAJ: Ne prikazuj ažurirane obračune u arhivi (isAzuriran: true) - oni se čuvaju samo u pozadini
+        const finalniObracuni = obracuni.filter((ob: any) => !ob.isAzuriran || ob.isAzuriran === false);
+        firestoreArhiva = finalniObracuni.map((obracun: any) => {
+          // getObracuni već vraća artikli, rashodi, prihodi kao arraye
+          // Osiguraj da su arrayi
+          const artikli = Array.isArray(obracun.artikli) ? obracun.artikli : [];
+          const rashodi = Array.isArray(obracun.rashodi) ? obracun.rashodi : [];
+          const prihodi = Array.isArray(obracun.prihodi) ? obracun.prihodi : [];
           
-          const invoiceImages = artikliData.invoiceImages ?? [];
+          console.log(`Arhiva - Loading obracun ${obracun.id}, artikli count: ${artikli.length}, rashodi: ${rashodi.length}, prihodi: ${prihodi.length}`);
+          
+          const invoiceImages = Array.isArray(obracun.invoiceImages) ? obracun.invoiceImages : [];
           if (invoiceImages.length > 0) {
             console.log(`Obračun ${obracun.id} ima ${invoiceImages.length} slika faktura`);
           }
           
           return {
             datum: obracun.datum,
-            artikli: artikliData.artikli || [],
-            rashodi: artikliData.rashodi || [],
-            prihodi: artikliData.prihodi || [],
-            ukupnoArtikli: artikliData.ukupnoArtikli || 0,
-            ukupnoRashod: artikliData.ukupnoRashod || 0,
-            ukupnoPrihod: artikliData.ukupnoPrihod || 0,
-            neto: artikliData.neto || 0,
-            imaUlaz: artikliData.imaUlaz ?? false,
-            isAzuriran: artikliData.isAzuriran ?? false,
+            createdAt: obracun.createdAt, // saved_at timestamp za satnicu
+            artikli: artikli,
+            rashodi: rashodi,
+            prihodi: prihodi,
+            ukupnoArtikli: Number(obracun.ukupnoArtikli) || 0,
+            ukupnoRashod: Number(obracun.ukupnoRashod) || 0,
+            ukupnoPrihod: Number(obracun.ukupnoPrihod) || 0,
+            neto: Number(obracun.neto) || 0,
+            imaUlaz: obracun.imaUlaz ?? false,
+            isAzuriran: obracun.isAzuriran ?? false,
             invoiceImages: invoiceImages,
           } as ArhiviraniObracun;
         });
@@ -342,13 +407,15 @@ export default function ArhivaPage() {
       return;
     }
 
-    if (!user?.id) {
+    // Email je glavni identifikator
+    const userId = user?.email || user?.id;
+    if (!userId) {
       alert("Korisnik nije prijavljen!");
       return;
     }
 
     try {
-      await deleteObracun(user.id, datum);
+      await deleteObracun(userId, datum);
       
       // Obriši iz lokalnog state-a
       const filteredArhiva = arhiva.filter((item) => item.datum !== datum);
@@ -431,8 +498,15 @@ export default function ArhivaPage() {
       const ukupnoRashod = editedRashodi.reduce((sum, r) => sum + r.cijena, 0);
       const ukupnoPrihod = editedPrihodi.reduce((sum, p) => sum + p.cijena, 0);
       
+      // Email je glavni identifikator
+      const userId = user?.email || user?.id;
+      if (!userId) {
+        alert("Korisnik nije prijavljen!");
+        return;
+      }
+      
       // Spremi kroz API
-      await saveObracun(user.id, {
+      await saveObracun(userId, {
         datum: datum,
         artikli: obracunToUpdate.artikli || [],
         rashodi: editedRashodi,
@@ -681,26 +755,29 @@ export default function ArhivaPage() {
     }
   };
 
-  // Funkcija za upload slika faktura u arhivi
+  // Funkcija za upload slika faktura u arhivi - kao što je Firebase radio
   const uploadInvoiceImagesInArchive = async (datum: string, files?: File[]) => {
     const filesToUpload = files || invoiceFiles[datum] || [];
     if (filesToUpload.length === 0) return;
     
-    if (!user?.id) {
+    // Email je glavni identifikator
+    const userId = user?.email || user?.id;
+    if (!userId) {
       alert("Korisnik nije autentifikovan");
       return;
     }
-    
-    const userId = user.id;
     const cleanDatumString = datum.replace(/\.$/, '');
     const uploadedUrls: string[] = [];
     setUploadingImagesForDatum(datum);
     setUploadProgress(0);
 
     try {
-      // Učitaj postojeće slike iz obračuna
-      const obracun = arhiva.find(o => o.datum === datum);
-      const existingImages = obracun?.invoiceImages || [];
+      // Pronađi obračun u lokalnom state-u (kao Firebase)
+      const obracunToUpdate = arhiva.find(o => o.datum === datum);
+      if (!obracunToUpdate) {
+        alert("Obračun nije pronađen!");
+        return;
+      }
 
       // Upload svih fajlova
       for (let i = 0; i < filesToUpload.length; i++) {
@@ -711,29 +788,25 @@ export default function ArhivaPage() {
         setUploadProgress(((i + 1) / filesToUpload.length) * 100);
       }
 
-      // Kombinuj postojeće i nove slike
+      // Kombinuj postojeće i nove slike (iz lokalnog state-a)
+      const existingImages = obracunToUpdate.invoiceImages || [];
       const allImages = [...existingImages, ...uploadedUrls];
 
-      // Učitaj postojeći obračun iz API-ja da dobijemo sve podatke
-      const obracunData = await getObracuni(userId, datum);
-      const existingObracun = obracunData.find((o: any) => o.datum === datum);
-
-      if (existingObracun) {
-        // Ažuriraj obračun sa novim slikama
-        await saveObracun(userId, {
-          datum: datum,
-          artikli: existingObracun.artikli || [],
-          rashodi: existingObracun.rashodi || [],
-          prihodi: existingObracun.prihodi || [],
-          ukupnoArtikli: existingObracun.ukupnoArtikli || 0,
-          ukupnoRashod: existingObracun.ukupnoRashod || 0,
-          ukupnoPrihod: existingObracun.ukupnoPrihod || 0,
-          neto: existingObracun.neto || 0,
-          isAzuriran: existingObracun.isAzuriran || false,
-          imaUlaz: existingObracun.imaUlaz || false,
-          invoiceImages: allImages,
-        });
-      }
+      // Direktno spremi obračun (kao Firebase setDoc) - koristi podatke iz lokalnog state-a
+      await saveObracun(userId, {
+        datum: datum,
+        artikli: obracunToUpdate.artikli || [],
+        rashodi: obracunToUpdate.rashodi || [],
+        prihodi: obracunToUpdate.prihodi || [],
+        ukupnoArtikli: obracunToUpdate.ukupnoArtikli || 0,
+        ukupnoRashod: obracunToUpdate.ukupnoRashod || 0,
+        ukupnoPrihod: obracunToUpdate.ukupnoPrihod || 0,
+        neto: obracunToUpdate.neto || 0,
+        isAzuriran: obracunToUpdate.isAzuriran || false,
+        imaUlaz: obracunToUpdate.imaUlaz || false,
+        invoiceImages: allImages,
+        isDraft: false,
+      });
 
       // Ažuriraj lokalni state
       const updatedArhiva = arhiva.map((obracun) => {
@@ -775,25 +848,28 @@ export default function ArhivaPage() {
     });
   };
 
-  // Funkcija za upload slika iz modala
+  // Funkcija za upload slika iz modala - kao što je Firebase radio
   const uploadInvoiceImagesInModal = async (datum: string) => {
     if (modalInvoiceFiles.length === 0) return;
     
-    if (!user?.id) {
+    // Email je glavni identifikator
+    const userId = user?.email || user?.id;
+    if (!userId) {
       alert("Korisnik nije autentifikovan");
       return;
     }
-    
-    const userId = user.id;
     const cleanDatumString = datum.replace(/\.$/, '');
     const uploadedUrls: string[] = [];
     setUploadingImagesForDatum(datum);
     setUploadProgress(0);
 
     try {
-      // Učitaj postojeće slike iz obračuna
-      const obracun = arhiva.find(o => o.datum === datum);
-      const existingImages = obracun?.invoiceImages || [];
+      // Pronađi obračun u lokalnom state-u (kao Firebase)
+      const obracunToUpdate = arhiva.find(o => o.datum === datum);
+      if (!obracunToUpdate) {
+        alert("Obračun nije pronađen!");
+        return;
+      }
 
       // Upload svih fajlova
       for (let i = 0; i < modalInvoiceFiles.length; i++) {
@@ -804,29 +880,25 @@ export default function ArhivaPage() {
         setUploadProgress(((i + 1) / modalInvoiceFiles.length) * 100);
       }
 
-      // Kombinuj postojeće i nove slike
+      // Kombinuj postojeće i nove slike (iz lokalnog state-a)
+      const existingImages = obracunToUpdate.invoiceImages || [];
       const allImages = [...existingImages, ...uploadedUrls];
 
-      // Učitaj postojeći obračun iz API-ja da dobijemo sve podatke
-      const obracunData = await getObracuni(userId, datum);
-      const existingObracun = obracunData.find((o: any) => o.datum === datum);
-
-      if (existingObracun) {
-        // Ažuriraj obračun sa novim slikama
-        await saveObracun(userId, {
-          datum: datum,
-          artikli: existingObracun.artikli || [],
-          rashodi: existingObracun.rashodi || [],
-          prihodi: existingObracun.prihodi || [],
-          ukupnoArtikli: existingObracun.ukupnoArtikli || 0,
-          ukupnoRashod: existingObracun.ukupnoRashod || 0,
-          ukupnoPrihod: existingObracun.ukupnoPrihod || 0,
-          neto: existingObracun.neto || 0,
-          isAzuriran: existingObracun.isAzuriran || false,
-          imaUlaz: existingObracun.imaUlaz || false,
-          invoiceImages: allImages,
-        });
-      }
+      // Direktno spremi obračun (kao Firebase setDoc) - koristi podatke iz lokalnog state-a
+      await saveObracun(userId, {
+        datum: datum,
+        artikli: obracunToUpdate.artikli || [],
+        rashodi: obracunToUpdate.rashodi || [],
+        prihodi: obracunToUpdate.prihodi || [],
+        ukupnoArtikli: obracunToUpdate.ukupnoArtikli || 0,
+        ukupnoRashod: obracunToUpdate.ukupnoRashod || 0,
+        ukupnoPrihod: obracunToUpdate.ukupnoPrihod || 0,
+        neto: obracunToUpdate.neto || 0,
+        isAzuriran: obracunToUpdate.isAzuriran || false,
+        imaUlaz: obracunToUpdate.imaUlaz || false,
+        invoiceImages: allImages,
+        isDraft: false,
+      });
 
       // Ažuriraj lokalni state
       const updatedArhiva = arhiva.map((obracun) => {
@@ -857,28 +929,28 @@ export default function ArhivaPage() {
     }
   };
 
-  // Funkcija za brisanje slike iz modala
+  // Funkcija za brisanje slike iz modala - kao što je Firebase radio
   const deleteInvoiceImage = async (datum: string, imageIndex: number) => {
     if (!confirm("Da li ste sigurni da želite obrisati ovu sliku?")) {
       return;
     }
 
-    if (!user?.id) {
+    // Email je glavni identifikator
+    const userId = user?.email || user?.id;
+    if (!userId) {
       alert("Korisnik nije autentifikovan");
       return;
     }
-    
-    const userId = user.id;
 
     try {
-      // Učitaj obračun
-      const obracun = arhiva.find(o => o.datum === datum);
-      if (!obracun || !obracun.invoiceImages || !obracun.invoiceImages[imageIndex]) {
+      // Pronađi obračun u lokalnom state-u (kao Firebase)
+      const obracunToUpdate = arhiva.find(o => o.datum === datum);
+      if (!obracunToUpdate || !obracunToUpdate.invoiceImages || !obracunToUpdate.invoiceImages[imageIndex]) {
         return;
       }
 
       // Pronađi URL slike koja treba biti obrisana
-      const imageUrlToDelete = obracun.invoiceImages[imageIndex];
+      const imageUrlToDelete = obracunToUpdate.invoiceImages[imageIndex];
 
       // Obriši fajl sa servera
       try {
@@ -889,28 +961,23 @@ export default function ArhivaPage() {
       }
 
       // Ukloni sliku iz liste
-      const updatedImages = obracun.invoiceImages.filter((_, index) => index !== imageIndex);
+      const updatedImages = obracunToUpdate.invoiceImages.filter((_, index) => index !== imageIndex);
 
-      // Učitaj postojeći obračun iz API-ja da dobijemo sve podatke
-      const obracunData = await getObracuni(userId, datum);
-      const existingObracun = obracunData.find((o: any) => o.datum === datum);
-
-      if (existingObracun) {
-        // Ažuriraj obračun bez obrisane slike
-        await saveObracun(userId, {
-          datum: datum,
-          artikli: existingObracun.artikli || [],
-          rashodi: existingObracun.rashodi || [],
-          prihodi: existingObracun.prihodi || [],
-          ukupnoArtikli: existingObracun.ukupnoArtikli || 0,
-          ukupnoRashod: existingObracun.ukupnoRashod || 0,
-          ukupnoPrihod: existingObracun.ukupnoPrihod || 0,
-          neto: existingObracun.neto || 0,
-          isAzuriran: existingObracun.isAzuriran || false,
-          imaUlaz: existingObracun.imaUlaz || false,
-          invoiceImages: updatedImages,
-        });
-      }
+      // Direktno spremi obračun (kao Firebase setDoc) - koristi podatke iz lokalnog state-a
+      await saveObracun(userId, {
+        datum: datum,
+        artikli: obracunToUpdate.artikli || [],
+        rashodi: obracunToUpdate.rashodi || [],
+        prihodi: obracunToUpdate.prihodi || [],
+        ukupnoArtikli: obracunToUpdate.ukupnoArtikli || 0,
+        ukupnoRashod: obracunToUpdate.ukupnoRashod || 0,
+        ukupnoPrihod: obracunToUpdate.ukupnoPrihod || 0,
+        neto: obracunToUpdate.neto || 0,
+        isAzuriran: obracunToUpdate.isAzuriran || false,
+        imaUlaz: obracunToUpdate.imaUlaz || false,
+        invoiceImages: updatedImages,
+        isDraft: false,
+      });
 
       // Ažuriraj lokalni state
       const updatedArhiva = arhiva.map((o) => {
@@ -936,12 +1003,12 @@ export default function ArhivaPage() {
 
   // Funkcija za označavanje duga kao plaćenog
   const markDugAsPlacen = async (obracunDatum: string, rashodIndex: number) => {
-    if (!user?.id) {
+    // Email je glavni identifikator
+    const userId = user?.email || user?.id;
+    if (!userId) {
       alert("Korisnik nije prijavljen!");
       return;
     }
-    
-    const userId = user.id;
     
     // Pronađi obračun u arhivi
     const obracunToUpdate = arhiva.find(o => o.datum === obracunDatum);
@@ -1675,7 +1742,7 @@ export default function ArhivaPage() {
                 }}
               >
                 <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937" }}>
-                  Obračun - {item.datum}
+                  Obračun - {formatDatumSaSatima(item.datum, item.createdAt)}
                   {stvarnoImaUlaz && (
                     <span style={{ fontSize: "14px", color: "#eab308", fontWeight: 500, marginLeft: "8px" }}>
                       (Ima ulaz)

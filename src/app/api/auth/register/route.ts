@@ -65,9 +65,21 @@ export async function POST(req: NextRequest) {
     // If user exists but has no password_hash, we'll update it instead of creating new
     const isUpdatingExisting = existingUser.rows.length > 0 && !existingUser.rows[0].password_hash;
 
-    // Check if this is the first user with password (will be owner)
-    const userCount = await query('SELECT COUNT(*) as count FROM users WHERE password_hash IS NOT NULL');
-    const isFirstUserWithPassword = parseInt(userCount.rows[0].count) === 0;
+    // Check if this is the first user with password for THIS EMAIL (will be owner of this account)
+    // Svaki email/nalog ima svog vlasnika - prvi korisnik koji se registruje sa tim emailom
+    let isFirstUserWithPasswordForThisEmail = false;
+    try {
+      // Proveri da li već postoji korisnik sa tim emailom koji ima password_hash
+      const userCountForEmail = await query(
+        'SELECT COUNT(*) as count FROM users WHERE email = $1 AND password_hash IS NOT NULL',
+        [normalizedEmail]
+      );
+      isFirstUserWithPasswordForThisEmail = parseInt(userCountForEmail.rows[0].count) === 0;
+    } catch (countError: any) {
+      console.error('Error counting users for email:', countError);
+      // Default to false if count fails
+      isFirstUserWithPasswordForThisEmail = false;
+    }
 
     // Hash password
     const passwordHash = await hashPassword(password);
@@ -82,9 +94,10 @@ export async function POST(req: NextRequest) {
         const existingRole = existingUser.rows[0].role;
         const existingIsOwner = existingUser.rows[0].is_owner;
         
-        // Set as owner if no role is set (first user scenario)
-        const finalRole = existingRole || (isFirstUserWithPassword ? 'vlasnik' : null);
-        const finalIsOwner = existingIsOwner || isFirstUserWithPassword;
+        // Set as owner if this is the first user with password for this email
+        // Ne menjamo existingIsOwner ako je već postavljen (možda je već vlasnik)
+        const finalRole = existingRole || (isFirstUserWithPasswordForThisEmail ? 'vlasnik' : null);
+        const finalIsOwner = existingIsOwner || isFirstUserWithPasswordForThisEmail;
         
         const userResult = await client.query(
           `UPDATE users 
@@ -100,11 +113,13 @@ export async function POST(req: NextRequest) {
         user = userResult.rows[0];
       } else {
         // Insert new user
+        // Prvi korisnik sa tim emailom dobija is_owner=true i role='vlasnik'
+        // Generiši UUID eksplicitno - koristimo gen_random_uuid() ili DEFAULT
         const userResult = await client.query(
-          `INSERT INTO users (email, password_hash, is_owner, role)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO users (id, email, password_hash, is_owner, role)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4)
            RETURNING id, email, role, is_owner, permissions, created_at`,
-          [normalizedEmail, passwordHash, isFirstUserWithPassword, isFirstUserWithPassword ? 'vlasnik' : null]
+          [normalizedEmail, passwordHash, isFirstUserWithPasswordForThisEmail, isFirstUserWithPasswordForThisEmail ? 'vlasnik' : null]
         );
         
         user = userResult.rows[0];
@@ -115,9 +130,9 @@ export async function POST(req: NextRequest) {
       // Initialize default cjenovnik (empty array)
       // This will be handled when cjenovnik is first accessed
 
-      // Generate JWT token
+      // Generate JWT token - koristimo email kao userId (glavni identifikator)
       const token = generateToken({
-        userId: user.id,
+        userId: user.email, // Email je glavni identifikator
         email: user.email,
         role: user.role,
         isOwner: user.is_owner,
@@ -150,9 +165,19 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error: any) {
-    console.error('Registration error:', error);
+    console.error('Registration error:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack,
+    });
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      { 
+        error: 'Internal server error', 
+        message: error.message,
+        detail: error.detail || error.hint || 'Please check server logs for more details'
+      },
       { status: 500 }
     );
   }
