@@ -1117,16 +1117,16 @@ export default function DashboardPage() {
           position: "relative"
         }}
       >
-        <div style={{ width: "100%", height: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "5px" : 0 }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 5 : 20, right: isMobile ? 5 : 20, left: isMobile ? -5 : 10, bottom: isMobile ? 60 : 6 }}>
+            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
                 tick={{ fill: "#6b7280", fontSize: 11 }} 
                 angle={-45}
                 textAnchor="end"
-                height={66}
+                height={isMobile ? 25 : 66}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />
@@ -1400,16 +1400,16 @@ export default function DashboardPage() {
           position: "relative"
         }}
       >
-        <div style={{ width: "100%", height: isMobile ? 300 : 350, position: "relative", padding: isMobile ? "5px" : 0 }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 350, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`artikl-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={selectedData && selectedData.length > 0 ? selectedData : []} margin={{ top: isMobile ? 5 : 20, right: isMobile ? 5 : 20, left: isMobile ? -5 : 10, bottom: isMobile ? 60 : 6 }}>
+            <LineChart data={selectedData && selectedData.length > 0 ? selectedData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
                 tick={{ fill: "#6b7280", fontSize: 11 }} 
                 angle={-45}
                 textAnchor="end"
-                height={66}
+                height={isMobile ? 25 : 66}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />

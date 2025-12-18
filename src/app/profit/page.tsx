@@ -157,88 +157,94 @@ const FilterSection: React.FC<{
   setCustomPeriod: (value: { from: string; to: string }) => void;
   label?: string;
   isMobile?: boolean;
-}> = ({ filter, setFilter, customPeriod, setCustomPeriod, label = "Filter arhive", isMobile = false }) => (
-  <div style={{ 
-    marginBottom: isMobile ? "16px" : "20px", 
-    background: "#fff", 
-    padding: isMobile ? "10px 12px" : "16px", 
-    borderRadius: "8px", 
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
-    width: "100%", 
-    maxWidth: "100%", 
-    boxSizing: "border-box" 
-  }}>
-    <h2 style={{ 
-      fontSize: isMobile ? "16px" : "18px", 
-      fontWeight: 500, 
-      marginBottom: isMobile ? "8px" : "12px", 
-      wordWrap: "break-word" 
-    }}>
-      {label}
-    </h2>
+}> = ({ filter, setFilter, customPeriod, setCustomPeriod, label = "Filter arhive", isMobile = false }) => {
+  const hasLabel = !!label;
+
+  return (
     <div style={{ 
-      display: "flex", 
-      gap: isMobile ? 4 : 12, 
-      flexWrap: "wrap", 
-      alignItems: "center", 
-      width: "100%" 
+      marginBottom: hasLabel ? (isMobile ? "16px" : "20px") : 0, 
+      background: hasLabel ? "#fff" : "transparent", 
+      padding: hasLabel ? (isMobile ? "10px 12px" : "16px") : 0, 
+      borderRadius: hasLabel ? "8px" : 0, 
+      boxShadow: hasLabel ? "0 2px 8px rgba(0,0,0,0.1)" : "none", 
+      width: "100%", 
+      maxWidth: "100%", 
+      boxSizing: "border-box" 
     }}>
-      {["trenutnaSedmica", "proslaSedmica", "prosliMjesec", "custom"].map((f, index) => (
-        <button
-          key={f}
-          onClick={() => setFilter(f as any)}
-          style={{
-            ...buttonStyle,
-            backgroundColor: filter === f ? "#3b82f6" : "#e5e7eb",
-            color: filter === f ? "#fff" : "#374151",
-            padding: isMobile ? "6px 12px" : "8px 16px",
-            fontSize: isMobile ? 13 : 14,
-            whiteSpace: "nowrap",
-            flex: isMobile && (index === 0 || index === 3) ? "1 1 100%" : isMobile ? "1 1 calc(50% - 3px)" : "1 1 auto",
-            minWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "fit-content",
-            maxWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "none",
-          }}
-        >
-          {f === "trenutnaSedmica" ? "Trenutna sedmica" :
-           f === "proslaSedmica" ? "Prošla sedmica" :
-           f === "prosliMjesec" ? "Prošli mjesec" :
-           "Prilagođeni period"}
-        </button>
-      ))}
-      {filter === "custom" && (
-        <div style={{ display: "flex", gap: isMobile ? 4 : 8, alignItems: "center", width: isMobile ? "100%" : "auto", flexWrap: "wrap" }}>
-          <input 
-            type="date" 
-            value={customPeriod.from} 
-            onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
-            style={{ 
-              ...formInputStyle, 
-              flex: isMobile ? "1 1 auto" : "none", 
-              minWidth: 0, 
-              maxWidth: isMobile ? "100%" : "none",
-              padding: isMobile ? "6px 8px" : "8px",
-              fontSize: isMobile ? 13 : 14,
-            }} 
-          />
-          <span style={{ whiteSpace: "nowrap", fontSize: isMobile ? 13 : 14 }}>do</span>
-          <input 
-            type="date" 
-            value={customPeriod.to} 
-            onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
-            style={{ 
-              ...formInputStyle, 
-              flex: isMobile ? "1 1 auto" : "none", 
-              minWidth: 0, 
-              maxWidth: isMobile ? "100%" : "none",
-              padding: isMobile ? "6px 8px" : "8px",
-              fontSize: isMobile ? 13 : 14,
-            }} 
-          />
-        </div>
+      {hasLabel && (
+        <h2 style={{ 
+          fontSize: isMobile ? "16px" : "18px", 
+          fontWeight: 500, 
+          marginBottom: isMobile ? "8px" : "12px", 
+          wordWrap: "break-word" 
+        }}>
+          {label}
+        </h2>
       )}
+      <div style={{ 
+        display: "flex", 
+        gap: isMobile ? 4 : 12, 
+        flexWrap: "wrap", 
+        alignItems: "center", 
+        width: "100%" 
+      }}>
+        {["trenutnaSedmica", "proslaSedmica", "prosliMjesec", "custom"].map((f, index) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f as any)}
+            style={{
+              ...buttonStyle,
+              backgroundColor: filter === f ? "#3b82f6" : "#e5e7eb",
+              color: filter === f ? "#fff" : "#374151",
+              padding: isMobile ? "6px 12px" : "8px 16px",
+              fontSize: isMobile ? 13 : 14,
+              whiteSpace: "nowrap",
+              flex: isMobile && (index === 0 || index === 3) ? "1 1 100%" : isMobile ? "1 1 calc(50% - 3px)" : "1 1 auto",
+              minWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "fit-content",
+              maxWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "none",
+            }}
+          >
+            {f === "trenutnaSedmica" ? "Trenutna sedmica" :
+             f === "proslaSedmica" ? "Prošla sedmica" :
+             f === "prosliMjesec" ? "Prošli mjesec" :
+             "Prilagođeni period"}
+          </button>
+        ))}
+        {filter === "custom" && (
+          <div style={{ display: "flex", gap: isMobile ? 4 : 8, alignItems: "center", width: isMobile ? "100%" : "auto", flexWrap: "wrap" }}>
+            <input 
+              type="date" 
+              value={customPeriod.from} 
+              onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
+              style={{ 
+                ...formInputStyle, 
+                flex: isMobile ? "1 1 auto" : "none", 
+                minWidth: 0, 
+                maxWidth: isMobile ? "100%" : "none",
+                padding: isMobile ? "6px 8px" : "8px",
+                fontSize: isMobile ? 13 : 14,
+              }} 
+            />
+            <span style={{ whiteSpace: "nowrap", fontSize: isMobile ? 13 : 14 }}>do</span>
+            <input 
+              type="date" 
+              value={customPeriod.to} 
+              onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
+              style={{ 
+                ...formInputStyle, 
+                flex: isMobile ? "1 1 auto" : "none", 
+                minWidth: 0, 
+                maxWidth: isMobile ? "100%" : "none",
+                padding: isMobile ? "6px 8px" : "8px",
+                fontSize: isMobile ? 13 : 14,
+              }} 
+            />
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ---- Glavna komponenta ----
 export default function ProfitPage() {
@@ -1026,16 +1032,16 @@ export default function ProfitPage() {
         boxSizing: "border-box",
         position: "relative"
       }}>
-        <div style={{ width: "100%", height: isMobile ? 300 : 300, position: "relative", padding: isMobile ? "5px" : 0 }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 300, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 5 : 20, right: isMobile ? 5 : 10, left: isMobile ? -5 : -10, bottom: isMobile ? 60 : 6 }}>
+            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 10, left: isMobile ? 0 : -10, bottom: isMobile ? 35 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
                 tick={{ fill: "#6b7280", fontSize: 11 }} 
                 angle={-45}
                 textAnchor="end"
-                height={66}
+                height={isMobile ? 35 : 66}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />
@@ -1049,31 +1055,111 @@ export default function ProfitPage() {
       </div>
 
       {/* ---- Odabir artikla i filter za grafikon profita po artiklu ---- */}
-      <div style={{ marginBottom: 20, width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8, width: "100%" }}>
-          <label style={{ fontWeight: 500, minWidth: "fit-content" }}>Odaberi artikal:</label>
+      <div style={{
+        marginBottom: 20,
+        width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
+        background: "#fff",
+        borderRadius: "12px",
+        padding: isMobile ? "16px" : "24px",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+        border: "1px solid #e5e7eb"
+      }}>
+        {/* Naslov sekcije */}
+        <div style={{
+          marginBottom: isMobile ? "16px" : "20px",
+          paddingBottom: isMobile ? "12px" : "16px",
+          borderBottom: "2px solid #f3f4f6"
+        }}>
+          <h2 style={{
+            fontSize: isMobile ? "18px" : "20px",
+            fontWeight: 600,
+            color: "#1f2937",
+            margin: 0
+          }}>
+            Profit po artiklu
+          </h2>
+          <p style={{
+            fontSize: isMobile ? "13px" : "14px",
+            color: "#6b7280",
+            margin: "4px 0 0 0"
+          }}>
+            Odaberite artikal i vremenski period za detaljnu analizu
+          </p>
+        </div>
+
+        {/* Odabir artikla */}
+        <div style={{
+          marginBottom: isMobile ? "20px" : "24px"
+        }}>
+          <label style={{
+            display: "block",
+            fontWeight: 600,
+            fontSize: isMobile ? "14px" : "15px",
+            color: "#374151",
+            marginBottom: isMobile ? "8px" : "10px"
+          }}>
+            Odaberi artikal
+          </label>
           <select
             value={selectedArtikl}
             onChange={(e) => setSelectedArtikl(e.target.value)}
-            style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", flex: 1, minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: isMobile ? "10px 12px" : "12px 16px",
+              borderRadius: "8px",
+              border: "1px solid #d1d5db",
+              fontSize: isMobile ? "14px" : "15px",
+              backgroundColor: "#fff",
+              color: "#1f2937",
+              cursor: "pointer",
+              outline: "none",
+              transition: "all 0.2s ease",
+              boxSizing: "border-box",
+              appearance: "none",
+              backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+              backgroundPosition: "right 8px center",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: "16px",
+              paddingRight: isMobile ? "36px" : "40px"
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "#3b82f6";
+              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "#d1d5db";
+              e.currentTarget.style.boxShadow = "none";
+            }}
           >
-            <option value="">Odaberi artikal</option>
+            <option value="">Odaberi artikal...</option>
             {allArtikli.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
+              <option key={a} value={a}>{a}</option>
             ))}
           </select>
         </div>
 
-        <FilterSection
-          filter={artiklFilter}
-          setFilter={setArtiklFilter}
-          customPeriod={customPeriod}
-          setCustomPeriod={setCustomPeriod}
-          label="Filter profita po artiklu"
-          isMobile={isMobile}
-        />
+        {/* Filter sekcija */}
+        <div>
+          <label style={{
+            display: "block",
+            fontWeight: 600,
+            fontSize: isMobile ? "14px" : "15px",
+            color: "#374151",
+            marginBottom: isMobile ? "12px" : "14px"
+          }}>
+            Vremenski period
+          </label>
+          <FilterSection
+            filter={artiklFilter}
+            setFilter={setArtiklFilter}
+            customPeriod={customPeriod}
+            setCustomPeriod={setCustomPeriod}
+            label=""
+            isMobile={isMobile}
+          />
+        </div>
       </div>
 
       {/* ---- Grafikon profita odabranog artikla ---- */}
@@ -1093,16 +1179,16 @@ export default function ProfitPage() {
         position: "relative"
       }}
       >
-        <div style={{ width: "100%", height: isMobile ? 300 : 300, position: "relative", padding: isMobile ? "5px" : 0 }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 300, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: isMobile ? 5 : 20, right: isMobile ? 5 : 10, left: isMobile ? -5 : -10, bottom: isMobile ? 60 : 6 }}>
+            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 10, left: isMobile ? 0 : -10, bottom: isMobile ? 35 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
                 tick={{ fill: "#6b7280", fontSize: 11 }} 
                 angle={-45}
                 textAnchor="end"
-                height={66}
+                height={isMobile ? 35 : 66}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />
