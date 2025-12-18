@@ -1991,6 +1991,152 @@ export default function Profile() {
         </h2>
         
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {/* Status pretplate */}
+            {subscriptionLoading ? (
+              <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb", textAlign: "center" }}>
+                <p style={{ fontSize: "14px", color: "#6b7280" }}>Učitavanje pretplate...</p>
+              </div>
+            ) : subscription ? (
+              <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
+                  Status pretplate
+                </h3>
+                
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+                  {/* Status badge */}
+                  {subscription.isTrial ? (
+                    <span style={{
+                      padding: "6px 12px",
+                      background: "#dbeafe",
+                      color: "#1e40af",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                    }}>
+                      📅 Trial period
+                    </span>
+                  ) : subscription.isPremium ? (
+                    <span style={{
+                      padding: "6px 12px",
+                      background: "#dcfce7",
+                      color: "#166534",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                    }}>
+                      ⭐ Premium
+                    </span>
+                  ) : subscription.isGracePeriod ? (
+                    <span style={{
+                      padding: "6px 12px",
+                      background: "#fef3c7",
+                      color: "#92400e",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                    }}>
+                      ⏳ Grace period
+                    </span>
+                  ) : subscription.isActive ? (
+                    <span style={{
+                      padding: "6px 12px",
+                      background: "#dcfce7",
+                      color: "#166534",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                    }}>
+                      ✓ Aktivna
+                    </span>
+                  ) : (
+                    <span style={{
+                      padding: "6px 12px",
+                      background: "#fee2e2",
+                      color: "#991b1b",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                    }}>
+                      ✗ Istekla
+                    </span>
+                  )}
+                  
+                  {/* Payment pending badge */}
+                  {subscription.paymentPendingVerification && (
+                    <span style={{
+                      padding: "6px 12px",
+                      background: "#fef3c7",
+                      color: "#92400e",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                    }}>
+                      ⏳ Čeka provjeru uplate
+                    </span>
+                  )}
+                </div>
+
+                {/* Detalji statusa */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "12px" }}>
+                  {subscription.isTrial && subscription.trialEndDate && (
+                    <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
+                      <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Trial period završava:</p>
+                      <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                        {subscription.trialEndDate.toLocaleDateString("bs-BA")}
+                      </p>
+                      <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                        Preostalo dana: <strong>{subscription.daysRemaining}</strong>
+                      </p>
+                    </div>
+                  )}
+                  
+                  {subscription.expiryDate && (
+                    <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
+                      <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>
+                        {subscription.isTrial ? "Pretplata istekne:" : "Pretplata ističe:"}
+                      </p>
+                      <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                        {subscription.expiryDate.toLocaleDateString("bs-BA")}
+                      </p>
+                      {subscription.daysUntilExpiry > 0 && (
+                        <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                          Preostalo dana: <strong>{subscription.daysUntilExpiry}</strong>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {subscription.isGracePeriod && subscription.graceEndDate && (
+                    <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
+                      <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Grace period završava:</p>
+                      <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                        {subscription.graceEndDate.toLocaleDateString("bs-BA")}
+                      </p>
+                      <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                        Preostalo dana: <strong>{subscription.daysInGrace}</strong>
+                      </p>
+                    </div>
+                  )}
+                  
+                  {subscription.lastPaymentDate && (
+                    <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
+                      <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Posljednja uplata:</p>
+                      <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                        {subscription.lastPaymentDate.toLocaleDateString("bs-BA")}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
+                    <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Mjesečna cijena:</p>
+                    <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                      {subscription.monthlyPrice} KM
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            
             {/* Plaćanje pretplate */}
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px" }}>
