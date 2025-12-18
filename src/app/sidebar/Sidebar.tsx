@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 // TODO: Implementirati API poziv za autentifikaciju
-import { FaTachometerAlt, FaCalculator, FaArchive, FaTags, FaDollarSign, FaUser, FaBars, FaShieldAlt } from "react-icons/fa";
+import { FaTachometerAlt, FaCalculator, FaArchive, FaTags, FaDollarSign, FaUser, FaShieldAlt } from "react-icons/fa";
 import { useAppName } from "../context/AppNameContext";
 import { useRole } from "../context/RoleContext";
 
@@ -13,7 +13,6 @@ const Sidebar = () => {
   const router = useRouter();
   const { appName } = useAppName();
   const { role, permissions, user } = useRole();
-  const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -106,78 +105,54 @@ const Sidebar = () => {
 
   return (
     <>
-      {isBottomBarVisible && (
-        <nav
-          style={{
-            backgroundColor: "#1E1E2F",
-            color: "#fff",
-            padding: "10px 0",
-            display: "flex",
-            justifyContent: "space-around",
-            alignItems: "center",
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            width: "100%",
-            zIndex: 1000,
-            boxShadow: "0 -2px 8px rgba(0,0,0,0.15)",
-            height: "60px",
-            transition: "transform 0.3s ease",
-          }}
-        >
-          {navLinks.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "2px",
-                  padding: "5px",
-                  borderRadius: "8px",
-                  background: isActive ? "#3b82f6" : "transparent",
-                  color: "#fff",
-                  textDecoration: "none",
-                  fontWeight: 500,
-                  transition: "all 0.2s ease",
-                  fontSize: "12px",
-                  width: "16%", // Ravnomjerno raspoređeno za 6 linkova
-                  textAlign: "center",
-                }}
-                className="sidebar-link"
-              >
-                {link.icon}
-                <span>{link.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      )}
-      <div
-          style={{
-            position: "fixed",
-            bottom: "60px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 1001,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "40px",
-            height: "40px",
-            backgroundColor: "#2A2A3F",
-            borderRadius: "50%",
-            cursor: "pointer",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-            transition: "transform 0.3s ease",
-          }}
-          onClick={() => setIsBottomBarVisible(!isBottomBarVisible)}
-        >
-          <FaBars style={{ color: "#fff", fontSize: "18px" }} />
-        </div>
+      <nav
+        style={{
+          backgroundColor: "#1E1E2F",
+          color: "#fff",
+          padding: "10px 0",
+          display: "flex",
+          justifyContent: "space-around",
+          alignItems: "center",
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          zIndex: 1000,
+          boxShadow: "0 -2px 8px rgba(0,0,0,0.15)",
+          height: "60px",
+          transition: "transform 0.3s ease",
+        }}
+      >
+        {navLinks.map((link) => {
+          const isActive = pathname === link.href;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "2px",
+                padding: "5px",
+                borderRadius: "8px",
+                background: isActive ? "#3b82f6" : "transparent",
+                color: "#fff",
+                textDecoration: "none",
+                fontWeight: 500,
+                transition: "all 0.2s ease",
+                fontSize: "12px",
+                width: "16%", // Ravnomjerno raspoređeno za 6 linkova
+                textAlign: "center",
+              }}
+              className="sidebar-link"
+            >
+              {link.icon}
+              <span>{link.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
       <style jsx>{`
         .sidebar-link:hover {
           background-color: #3b82f6;
@@ -192,10 +167,6 @@ const Sidebar = () => {
           }
           .sidebar-link {
             width: "16%"; /* Prilagođeno za 6 elemenata */
-          }
-          div[onClick] {
-            bottom: ${isBottomBarVisible ? "60px" : "10px"}; /* Pomicanje ikone kad je bar sakriven */
-            transform: ${isBottomBarVisible ? "translateX(-50%)" : "translateX(-50%) rotate(90deg)"};
           }
         }
         @media (min-width: 768px) {

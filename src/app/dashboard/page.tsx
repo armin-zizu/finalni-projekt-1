@@ -369,25 +369,89 @@ export default function DashboardPage() {
     };
 
     if (selectedRange === "currentWeek") {
-      const monday = getMonday(today);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
-      filteredData = data.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= monday.getTime() && dTime <= sunday.getTime();
-      });
+      // Generiši poslednjih 7 dana (od danas unazad)
+      const sevenDaysData: AggregatedData[] = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const datumStr = `${day}.${month}.${year}`;
+        
+        // Pronađi podatke za ovaj dan
+        const dayData = data.find((o) => {
+          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          return dTime >= date.getTime() && dTime < date.getTime() + 86400000; // 24h u ms
+        });
+        
+        if (dayData) {
+          sevenDaysData.push({
+            datum: datumStr,
+            artikli: dayData.artikli || 0,
+            rashod: dayData.rashod || 0,
+            prihod: dayData.prihod || 0,
+            neto: dayData.neto || 0,
+          });
+        } else {
+          // Ako nema podataka, dodaj sa 0 vrednostima (prikazaće se linija na nuli)
+          sevenDaysData.push({
+            datum: datumStr,
+            artikli: 0,
+            rashod: 0,
+            prihod: 0,
+            neto: 0,
+          });
+        }
+      }
+      
+      return sevenDaysData;
     } else if (selectedRange === "previousWeek") {
-      const lastWeekDate = new Date(today);
-      lastWeekDate.setDate(today.getDate() - 7);
-      const monday = getMonday(lastWeekDate);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
-      filteredData = data.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= monday.getTime() && dTime <= sunday.getTime();
-      });
+      // Generiši prethodnih 7 dana (prošla sedmica)
+      const sevenDaysData: AggregatedData[] = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Počni od pre 7 dana i generiši 7 dana unazad
+      for (let i = 13; i >= 7; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const datumStr = `${day}.${month}.${year}`;
+        
+        // Pronađi podatke za ovaj dan
+        const dayData = data.find((o) => {
+          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
+        });
+        
+        if (dayData) {
+          sevenDaysData.push({
+            datum: datumStr,
+            artikli: dayData.artikli || 0,
+            rashod: dayData.rashod || 0,
+            prihod: dayData.prihod || 0,
+            neto: dayData.neto || 0,
+          });
+        } else {
+          sevenDaysData.push({
+            datum: datumStr,
+            artikli: 0,
+            rashod: 0,
+            prihod: 0,
+            neto: 0,
+          });
+        }
+      }
+      
+      return sevenDaysData;
     } else if (selectedRange === "previousMonth") {
       const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
@@ -419,12 +483,12 @@ export default function DashboardPage() {
     selectedArtikl: string,
     selectedRange: "currentWeek" | "previousWeek" | "previousMonth" | "custom"
   ): ArtiklData[] => {
-    let filteredData = arhiva
+    // Prvo pripremi sve podatke sa artiklom (bez filtriranja utroseno > 0)
+    const allData = arhiva
       .map((o) => ({
         datum: o.datum,
         utroseno: o.artikli.find((a) => a.naziv === selectedArtikl)?.utroseno || 0,
       }))
-      .filter((o) => o.utroseno > 0)
       .sort((a, b) => {
         const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
         const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
@@ -432,53 +496,91 @@ export default function DashboardPage() {
       });
 
     const today = new Date();
-    const getMonday = (d: Date) => {
-      const date = new Date(d);
-      const day = date.getDay();
-      const diff = day === 0 ? -6 : 1 - day;
-      date.setDate(date.getDate() + diff);
-      date.setHours(0, 0, 0, 0);
-      return date;
-    };
 
     if (selectedRange === "currentWeek") {
-      const monday = getMonday(today);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= monday.getTime() && dTime <= sunday.getTime();
-      });
+      // Generiši poslednjih 7 dana (od danas unazad)
+      const sevenDaysData: ArtiklData[] = [];
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(todayDate);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const datumStr = `${day}.${month}.${year}`;
+        
+        // Pronađi podatke za ovaj dan
+        const dayData = allData.find((o) => {
+          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
+        });
+        
+        sevenDaysData.push({
+          datum: datumStr,
+          utroseno: dayData ? Number(dayData.utroseno) : 0,
+        });
+      }
+      
+      return sevenDaysData;
     } else if (selectedRange === "previousWeek") {
-      const lastWeekDate = new Date(today);
-      lastWeekDate.setDate(today.getDate() - 7);
-      const monday = getMonday(lastWeekDate);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= monday.getTime() && dTime <= sunday.getTime();
-      });
+      // Generiši prethodnih 7 dana (prošla sedmica)
+      const sevenDaysData: ArtiklData[] = [];
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      
+      // Počni od pre 7 dana i generiši 7 dana unazad
+      for (let i = 13; i >= 7; i--) {
+        const date = new Date(todayDate);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const datumStr = `${day}.${month}.${year}`;
+        
+        // Pronađi podatke za ovaj dan
+        const dayData = allData.find((o) => {
+          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
+        });
+        
+        sevenDaysData.push({
+          datum: datumStr,
+          utroseno: dayData ? Number(dayData.utroseno) : 0,
+        });
+      }
+      
+      return sevenDaysData;
     } else if (selectedRange === "previousMonth") {
       const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
       lastDay.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter((o) => {
+      const filteredData = allData.filter((o) => {
         const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
+      return filteredData.map((o) => ({
+        datum: o.datum,
+        utroseno: Number(o.utroseno),
+      }));
     } else if (selectedRange === "custom") {
       const fromTime = new Date(customFrom).getTime();
       const toTime = new Date(customTo).getTime();
-      filteredData = filteredData.filter((o) => {
+      const filteredData = allData.filter((o) => {
         const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
         return dTime >= fromTime && dTime <= toTime;
       });
+      return filteredData.map((o) => ({
+        datum: o.datum,
+        utroseno: Number(o.utroseno),
+      }));
     }
 
-    return filteredData.map((o) => ({
+    // Fallback (ne bi trebalo da se desi)
+    return allData.map((o) => ({
       datum: o.datum,
       utroseno: Number(o.utroseno),
     }));

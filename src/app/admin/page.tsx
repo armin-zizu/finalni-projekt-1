@@ -561,8 +561,10 @@ export default function AdminPage() {
       endDate.setHours(23, 59, 59, 999);
     } else if (revenueFilter === "dnevni") {
       startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 30); // Zadnjih 30 dana
+      startDate.setDate(startDate.getDate() - 6); // Zadnjih 7 dana (uključujući danas)
       startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
     } else if (revenueFilter === "tjedni") {
       // Od trenutnog datuma unazad 7 dana
       startDate = new Date(now);
@@ -653,6 +655,35 @@ export default function AdminPage() {
       }
       grouped[key].amount += payment.amount;
     });
+
+    // Za dnevni filter, uvek prikaži poslednjih 7 dana
+    if (revenueFilter === "dnevni") {
+      const sevenDaysData: Array<{ period: string; zarada: number; sortKey: string }> = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Generiši poslednjih 7 dana (od danas unazad)
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const period = `${day}.${month}.${year}`;
+        const sortKey = `${year}-${month}-${day}`;
+        
+        // Proveri da li postoji zarada za ovaj dan
+        const existingData = grouped[period];
+        sevenDaysData.push({
+          period,
+          zarada: existingData ? Number(existingData.amount.toFixed(2)) : 0,
+          sortKey
+        });
+      }
+      
+      return sevenDaysData.map(({ period, zarada }) => ({ period, zarada: zarada || null }));
+    }
 
     // Konvertuj u array i sortiraj
     return Object.entries(grouped)
@@ -769,17 +800,30 @@ export default function AdminPage() {
       )}
 
       {/* Grafikon zarade */}
-      <div style={{ marginBottom: "32px", background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "16px" }}>
+      <div style={{ marginBottom: "32px", background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "24px", boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+        <div style={{
+          marginBottom: "24px",
+          paddingBottom: "20px",
+          borderBottom: "2px solid #f3f4f6"
+        }}>
+          <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
+            Grafikon Zarade
+          </h2>
+          <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
+            Ukupna zarada od pretplata korisnika
+          </p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}>
           <div>
-            <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", marginBottom: "4px" }}>
-              Grafikon Zarade
-            </h2>
-            <p style={{ fontSize: "14px", color: "#6b7280" }}>
-              Ukupna zarada od pretplata korisnika
-            </p>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
+            <label style={{
+              display: "block",
+              fontWeight: 600,
+              fontSize: "15px",
+              color: "#374151",
+              marginBottom: "12px"
+            }}>
+              Vremenski period
+            </label>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <button
                 onClick={() => setRevenueFilter("dnevni")}
@@ -1789,7 +1833,7 @@ export default function AdminPage() {
               overflow: "hidden"
             }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={revenueChartData} margin={{ top: 20, right: 20, left: 10, bottom: 80 }}>
+                <LineChart data={revenueChartData} margin={{ top: 20, right: 20, left: 10, bottom: 35 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="period" 
@@ -1797,15 +1841,15 @@ export default function AdminPage() {
                     style={{ fontSize: "12px" }}
                     angle={-45}
                     textAnchor="end"
-                    height={80}
+                    height={35}
                   />
                   <YAxis 
                     stroke="#6b7280"
                     style={{ fontSize: "12px" }}
-                    tickFormatter={(value) => `${value} KM`}
+                    tickFormatter={(value) => `${value}`}
                   />
                   <Tooltip content={<RevenueTooltip />} />
-                  <Legend />
+                  <Legend verticalAlign="bottom" height={30} wrapperStyle={{ paddingTop: "40px" }} />
                   <Line 
                     type="monotone" 
                     dataKey="zarada" 
@@ -1845,14 +1889,41 @@ export default function AdminPage() {
         )}
       </div>
 
-      {/* Korisnici koji su prijavili uplatu */}
+      {/* Korisnici koji su prijavili uplatu - Profesionalni card */}
       {users.filter(user => subscriptions[user.id]?.paymentPendingVerification).length > 0 && (
-        <div style={{ marginBottom: "24px", padding: "16px", background: "#fef3c7", borderRadius: "8px", border: "2px solid #f59e0b" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-            <span style={{ fontSize: "20px" }}>⚠️</span>
-            <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#92400e", margin: 0 }}>
-              Uplate koje čekaju provjeru ({users.filter(user => subscriptions[user.id]?.paymentPendingVerification).length})
-            </h2>
+        <div style={{
+          marginBottom: "24px",
+          background: "#fff",
+          borderRadius: "12px",
+          padding: "24px",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+          border: "1px solid #e5e7eb"
+        }}>
+          <div style={{
+            marginBottom: "20px",
+            paddingBottom: "16px",
+            borderBottom: "2px solid #f3f4f6"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "24px" }}>⚠️</span>
+              <div>
+                <h2 style={{
+                  fontSize: "20px",
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  margin: 0
+                }}>
+                  Uplate koje čekaju provjeru
+                </h2>
+                <p style={{
+                  fontSize: "14px",
+                  color: "#6b7280",
+                  margin: "4px 0 0 0"
+                }}>
+                  {users.filter(user => subscriptions[user.id]?.paymentPendingVerification).length} uplata {users.filter(user => subscriptions[user.id]?.paymentPendingVerification).length === 1 ? 'čeka' : 'čekaju'} odobrenje
+                </p>
+              </div>
+            </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {users
@@ -1863,15 +1934,24 @@ export default function AdminPage() {
                   <div
                     key={user.id}
                     style={{
-                      padding: "12px",
-                      background: "#fff",
-                      borderRadius: "6px",
-                      border: "1px solid #fbbf24",
+                      padding: "16px",
+                      background: "#fffbeb",
+                      borderRadius: "8px",
+                      border: "1px solid #fcd34d",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
                       flexWrap: "wrap",
-                      gap: "12px",
+                      gap: "16px",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = "0 2px 8px rgba(245, 158, 11, 0.2)";
+                      e.currentTarget.style.borderColor = "#f59e0b";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = "none";
+                      e.currentTarget.style.borderColor = "#fcd34d";
                     }}
                   >
                     <div style={{ flex: 1, minWidth: "200px" }}>
@@ -2026,16 +2106,45 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Pretraga */}
-      <div style={{ marginBottom: "24px" }}>
+      {/* Pretraga - Profesionalni card */}
+      <div style={{
+        marginBottom: "24px",
+        background: "#fff",
+        borderRadius: "12px",
+        padding: "24px",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+        border: "1px solid #e5e7eb"
+      }}>
+        <div style={{
+          marginBottom: "16px",
+          paddingBottom: "16px",
+          borderBottom: "2px solid #f3f4f6"
+        }}>
+          <h2 style={{
+            fontSize: "20px",
+            fontWeight: 600,
+            color: "#1f2937",
+            margin: 0
+          }}>
+            Pretraga korisnika
+          </h2>
+          <p style={{
+            fontSize: "14px",
+            color: "#6b7280",
+            margin: "4px 0 0 0"
+          }}>
+            Pretražite korisnike po email-u, nazivu aplikacije ili user ID-u
+          </p>
+        </div>
         <div style={{ position: "relative", maxWidth: "100%" }}>
           <FaSearch
             style={{
               position: "absolute",
-              left: "12px",
+              left: "16px",
               top: "50%",
               transform: "translateY(-50%)",
               color: "#9ca3af",
+              fontSize: "16px",
             }}
           />
           <input
@@ -2046,12 +2155,22 @@ export default function AdminPage() {
             style={{
               width: "100%",
               maxWidth: "100%",
-              padding: "12px 12px 12px 40px",
+              padding: "12px 16px 12px 48px",
               borderRadius: "8px",
-              border: "1px solid #e5e7eb",
-              fontSize: "14px",
+              border: "1px solid #d1d5db",
+              fontSize: "15px",
               outline: "none",
               boxSizing: "border-box",
+              transition: "all 0.2s ease",
+              backgroundColor: "#fff",
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "#3b82f6";
+              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "#d1d5db";
+              e.currentTarget.style.boxShadow = "none";
             }}
           />
         </div>

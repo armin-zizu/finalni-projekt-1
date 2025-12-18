@@ -687,25 +687,64 @@ export default function ProfitPage() {
     };
 
     if (selectedFilter === "trenutnaSedmica") {
-      const monday = getMonday(today);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= monday.getTime() && dTime <= sunday.getTime();
-      });
+      // Generiši poslednjih 7 dana (od danas unazad)
+      const sevenDaysData: ArtiklProfitData[] = [];
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(todayDate);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const datumStr = `${day}.${month}.${year}`;
+        
+        // Pronađi podatke za ovaj dan
+        const dayData = filteredData.find((o) => {
+          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
+        });
+        
+        sevenDaysData.push({
+          datum: datumStr,
+          bruto: dayData ? Number(dayData.bruto) : 0,
+          neto: dayData ? Number(dayData.neto) : 0,
+        });
+      }
+      
+      return sevenDaysData;
     } else if (selectedFilter === "proslaSedmica") {
-      const lastWeekDate = new Date(today);
-      lastWeekDate.setDate(today.getDate() - 7);
-      const lastWeekMonday = getMonday(lastWeekDate);
-      const lastWeekSunday = new Date(lastWeekMonday);
-      lastWeekSunday.setDate(lastWeekMonday.getDate() + 6);
-      lastWeekSunday.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= lastWeekMonday.getTime() && dTime <= lastWeekSunday.getTime();
-      });
+      // Generiši prethodnih 7 dana (prošla sedmica)
+      const sevenDaysData: ArtiklProfitData[] = [];
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      
+      // Počni od pre 7 dana i generiši 7 dana unazad
+      for (let i = 13; i >= 7; i--) {
+        const date = new Date(todayDate);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const datumStr = `${day}.${month}.${year}`;
+        
+        // Pronađi podatke za ovaj dan
+        const dayData = filteredData.find((o) => {
+          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
+        });
+        
+        sevenDaysData.push({
+          datum: datumStr,
+          bruto: dayData ? Number(dayData.bruto) : 0,
+          neto: dayData ? Number(dayData.neto) : 0,
+        });
+      }
+      
+      return sevenDaysData;
     } else if (selectedFilter === "prosliMjesec") {
       const firstDayPrevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       const lastDayPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
@@ -732,11 +771,57 @@ export default function ProfitPage() {
 
   // ---- sortiranje podataka za glavni grafikon u uzlaznom redoslijedu ----
   const chartData = useMemo(() => {
+    // Za trenutnu i prošlu sedmicu, uvek prikaži 7 dana
+    if (filter === "trenutnaSedmica" || filter === "proslaSedmica") {
+      const sevenDaysData: Array<{ datum: string; bruto: number; neto: number; rashod: number }> = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Odredi početni dan (za trenutnu sedmicu: danas - 6, za prošlu: danas - 13)
+      const startOffset = filter === "trenutnaSedmica" ? 6 : 13;
+      const endOffset = filter === "trenutnaSedmica" ? 0 : 7;
+      
+      for (let i = startOffset; i >= endOffset; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const datumStr = `${day}.${month}.${year}`;
+        
+        // Pronađi podatke za ovaj dan
+        const dayData = filteredObracuni.find((o) => {
+          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
+        });
+        
+        if (dayData) {
+          sevenDaysData.push({
+            datum: datumStr,
+            bruto: dayData.ukupnoBruto,
+            neto: dayData.ukupnoNeto,
+            rashod: dayData.ukupnoRashod,
+          });
+        } else {
+          sevenDaysData.push({
+            datum: datumStr,
+            bruto: 0,
+            neto: 0,
+            rashod: 0,
+          });
+        }
+      }
+      
+      return sevenDaysData;
+    }
+    
+    // Za ostale filtere, koristi originalnu logiku
     return [...filteredObracuni]
       .sort((a, b) => {
         const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
         const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-        return dateA - dateB; // Uzlazni redoslijed za grafikon (stariji prvo)
+        return dateA - dateB;
       })
       .map((o) => ({
         datum: o.datum,
@@ -744,7 +829,7 @@ export default function ProfitPage() {
         neto: o.ukupnoNeto,
         rashod: o.ukupnoRashod,
       }));
-  }, [filteredObracuni]);
+  }, [filteredObracuni, filter]);
 
   // ---- podaci za grafikon profita odabranog artikla ----
   const selectedArtiklData = aggregateArtiklProfitData(selectedArtikl, artiklFilter);
