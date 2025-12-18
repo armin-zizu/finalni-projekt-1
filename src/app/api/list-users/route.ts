@@ -103,34 +103,62 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
-    // Prioritize email from JWT if userId is not a valid UUID
-    let userId: string = req.user.userId || '';
+    // IMPORTANT: Always use email from JWT if available, it's more reliable than userId
     let userEmail = req.user.email || '';
+    let userId: string = req.user.userId || '';
     
-    console.log('List users - Resolving userId:', { userId, userEmail, hasEmail: !!userEmail });
+    console.log('List users - Initial values:', { 
+      userId, 
+      userEmail, 
+      hasEmail: !!userEmail,
+      reqUserKeys: Object.keys(req.user || {}),
+      reqUser: req.user
+    });
     
-    // If userId is not a UUID, try to find user by email first (preferred method)
+    // If userId is not a UUID, try to resolve it using email or other methods
     if (!uuidRegex.test(userId)) {
-      console.log('List users - Non-UUID userId detected:', userId);
+      console.log('List users - Non-UUID userId detected, attempting resolution:', userId);
       
-      // If we have email in JWT, use it first (most reliable)
+      // Priority 1: Use email from JWT token if available (most reliable)
       if (userEmail && emailRegex.test(userEmail)) {
-        console.log('List users - Using email from JWT:', userEmail);
-        const emailLookup = await query(
-          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-          [userEmail]
-        );
-        if (emailLookup.rows.length > 0) {
-          userId = emailLookup.rows[0].id.toString();
-          console.log('List users - Found UUID via email:', userId);
-        } else {
-          console.error('List users - User not found by email:', userEmail);
+        console.log('List users - Attempting lookup by email from JWT:', userEmail);
+        try {
+          const emailLookup = await query(
+            'SELECT id, email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [userEmail]
+          );
+          console.log('List users - Email lookup result:', { 
+            rowsFound: emailLookup.rows.length,
+            firstRow: emailLookup.rows[0] || null
+          });
+          
+          if (emailLookup.rows.length > 0) {
+            userId = emailLookup.rows[0].id.toString();
+            console.log('List users - Found UUID via email from JWT:', userId, 'isUUID:', uuidRegex.test(userId));
+            
+            // Double-check that userId is now a valid UUID
+            if (!uuidRegex.test(userId)) {
+              console.error('List users - ERROR: userId is still not UUID after email lookup!', { userId, idType: typeof emailLookup.rows[0].id });
+            }
+          } else {
+            console.error('List users - User not found by email from JWT:', userEmail);
+            // Let's check what emails exist in database
+            const allUsersCheck = await query('SELECT email FROM users LIMIT 5');
+            console.log('List users - Sample emails in database:', allUsersCheck.rows.map((r: any) => r.email));
+            return NextResponse.json(
+              { error: `User not found with email: ${userEmail}. Please log out and log in again.` },
+              { status: 404 }
+            );
+          }
+        } catch (queryError: any) {
+          console.error('List users - Error executing email lookup query:', queryError);
           return NextResponse.json(
-            { error: 'User not found. Please log out and log in again to refresh your token.' },
-            { status: 404 }
+            { error: `Database error: ${queryError.message}` },
+            { status: 500 }
           );
         }
       } else if (emailRegex.test(userId)) {
+        // Priority 2: userId itself might be an email
         // userId itself might be an email
         console.log('List users - userId appears to be email:', userId);
         const emailLookup = await query(
@@ -143,12 +171,12 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
         } else {
           console.error('List users - User not found by email-like userId:', userId);
           return NextResponse.json(
-            { error: 'User not found. Please log out and log in again to refresh your token.' },
+            { error: `User not found with email: ${userId}. Please log out and log in again.` },
             { status: 404 }
           );
         }
       } else {
-        // Try by id as text (for backward compatibility)
+        // Try by id as text (for backward compatibility) - but this shouldn't happen for admin-user
         console.log('List users - Trying to find user by id as text:', userId);
         const idLookup = await query(
           'SELECT id FROM users WHERE id::text = $1 LIMIT 1',
@@ -158,24 +186,48 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
           userId = idLookup.rows[0].id.toString();
           console.log('List users - Found UUID from id as text:', userId);
         } else {
-          console.error('List users - User not found by any method:', { userId, userEmail });
-          return NextResponse.json(
-            { error: 'User not found. Please log out and log in again to refresh your token.' },
-            { status: 404 }
-          );
+          // Last resort: if we still have userEmail, try it one more time
+          if (userEmail && emailRegex.test(userEmail)) {
+            console.log('List users - Last resort: trying email again:', userEmail);
+            const finalEmailLookup = await query(
+              'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+              [userEmail]
+            );
+            if (finalEmailLookup.rows.length > 0) {
+              userId = finalEmailLookup.rows[0].id.toString();
+              console.log('List users - Found UUID via email (last resort):', userId);
+            } else {
+              console.error('List users - User not found by any method:', { userId, userEmail });
+              return NextResponse.json(
+                { error: `User not found. userId: ${userId}, email: ${userEmail || 'N/A'}. Please log out and log in again.` },
+                { status: 404 }
+              );
+            }
+          } else {
+            console.error('List users - User not found by any method:', { userId, userEmail });
+            return NextResponse.json(
+              { error: `User not found. userId: ${userId}, email: ${userEmail || 'N/A'}. Please log out and log in again.` },
+              { status: 404 }
+            );
+          }
         }
       }
     }
     
-    // Get user from database to check admin status
-    // Proveri da li je userId validan UUID format
+    // Final check - userId must be UUID at this point
     if (!uuidRegex.test(userId)) {
-      console.error('List users - userId is not a valid UUID after resolution:', userId, 'req.user:', req.user);
+      console.error('List users - CRITICAL: userId is still not a valid UUID after all resolution attempts:', { 
+        userId, 
+        userEmail,
+        reqUser: req.user 
+      });
       return NextResponse.json(
-        { error: 'Invalid user ID format. Please log out and log in again.' },
+        { error: `Invalid user ID format after resolution. userId: ${userId}, email: ${userEmail || 'N/A'}. Please log out and log in again.` },
         { status: 400 }
       );
     }
+    
+    console.log('List users - Successfully resolved userId to UUID:', userId);
     
     const currentUserResult = await query(
       `SELECT email, is_owner, role FROM users WHERE id = $1::uuid`,
