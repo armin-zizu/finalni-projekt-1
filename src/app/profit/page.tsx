@@ -960,6 +960,7 @@ export default function ProfitPage() {
             height: 280px !important;
             min-height: 280px !important;
             position: relative !important;
+            margin-bottom: 0 !important;
           }
           .recharts-surface { 
             width: 100% !important; 
@@ -974,6 +975,7 @@ export default function ProfitPage() {
             min-height: 300px !important;
             position: relative !important;
             overflow: visible !important;
+            margin-bottom: 16px !important;
           }
           div[style*='gap: 24px'] { 
             flex-direction: column; 
@@ -1018,7 +1020,7 @@ export default function ProfitPage() {
         borderRadius: 12,
         padding: isMobile ? 10 : 20,
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-        marginBottom: 20, 
+        marginBottom: isMobile ? 16 : 20, 
         overflow: isMobile ? "visible" : "hidden", 
         boxSizing: "border-box",
         position: "relative"

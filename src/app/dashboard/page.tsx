@@ -721,6 +721,7 @@ export default function DashboardPage() {
             height: 280px !important;
             min-height: 280px !important;
             position: relative !important;
+            margin-bottom: 0 !important;
           }
           .recharts-surface { 
             width: 100% !important; 
@@ -738,12 +739,14 @@ export default function DashboardPage() {
             min-height: 300px !important;
             position: relative !important;
             overflow: visible !important;
+            margin-bottom: 16px !important;
           }
           div[style*='height: 400'][style*='backgroundColor: #fff'] {
             height: 350px !important;
             min-height: 350px !important;
             position: relative !important;
             overflow: visible !important;
+            margin-bottom: 16px !important;
           }
         }
       `}</style>
@@ -1048,7 +1051,7 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 30, alignItems: "center" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: isMobile ? 16 : 30, alignItems: "center" }}>
           {[
             { value: "currentWeek", label: "Trenutna sedmica" },
             { value: "previousWeek", label: "Prošla sedmica" },
@@ -1106,7 +1109,7 @@ export default function DashboardPage() {
           borderRadius: 12,
           padding: isMobile ? 10 : 20,
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-          marginBottom: 30,
+          marginBottom: isMobile ? 16 : 30,
           overflow: isMobile ? "visible" : "hidden",
           boxSizing: "border-box",
           position: "relative"
@@ -1136,7 +1139,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Kartice */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 30, width: "100%", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 16 : 30, width: "100%", boxSizing: "border-box" }}>
         {[
           {
             label: "Bruto",
