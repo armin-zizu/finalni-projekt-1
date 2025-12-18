@@ -24,10 +24,19 @@ const Sidebar = () => {
         if (response.ok) {
           const user = await response.json();
           // Samo gitara.zizu@gmail.com ima pristup admin panelu
-          const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com").toLowerCase().trim();
+          const envAdminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+          const ADMIN_EMAIL = (envAdminEmail || "gitara.zizu@gmail.com").toLowerCase().trim();
           const userEmail = (user.email || "").toLowerCase().trim();
           const isUserAdmin = userEmail === ADMIN_EMAIL;
-          console.log("Admin check:", { userEmail, ADMIN_EMAIL, isUserAdmin });
+          console.log("Admin check:", { 
+            userEmail, 
+            ADMIN_EMAIL, 
+            envAdminEmail,
+            isUserAdmin,
+            match: userEmail === ADMIN_EMAIL,
+            userEmailLength: userEmail.length,
+            adminEmailLength: ADMIN_EMAIL.length
+          });
           setIsAdmin(isUserAdmin);
         } else {
           console.error("Failed to fetch user:", response.status, response.statusText);
