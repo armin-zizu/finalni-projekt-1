@@ -272,10 +272,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
          is_active = COALESCE(EXCLUDED.is_active, subscriptions.is_active),
          end_date = COALESCE(EXCLUDED.end_date, subscriptions.end_date),
          status = COALESCE(EXCLUDED.status, subscriptions.status),
-         subscription_data = CASE 
-           WHEN EXCLUDED.subscription_data IS NOT NULL THEN EXCLUDED.subscription_data 
-           ELSE subscriptions.subscription_data 
-         END,
+         subscription_data = $9::jsonb,
          updated_at = NOW()
        RETURNING id, user_id, status, start_date, end_date, monthly_price, 
                  trial_end_date, grace_end_date, last_payment_date, is_active, 
@@ -289,7 +286,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         isActive !== undefined ? isActive : true,
         endDate || null,
         status || 'active',
-        subscriptionData ? JSON.stringify(existingSubscriptionData) : null,
+        finalSubscriptionData ? JSON.stringify(finalSubscriptionData) : null,
       ]
     );
 
