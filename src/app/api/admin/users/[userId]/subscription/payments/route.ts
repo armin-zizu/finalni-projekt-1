@@ -14,24 +14,10 @@ async function postHandler(
       );
     }
 
-    // Check if user is admin
+    // Check if user is admin using email
     const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
-    const currentUserResult = await query(
-      `SELECT email, is_owner FROM users WHERE id = $1`,
-      [req.user.userId]
-    );
-
-    if (currentUserResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    const currentUser = currentUserResult.rows[0];
-    // Samo gitara.zizu@gmail.com ima pristup admin panelu (ne bilo koji owner)
     const adminEmailLower = ADMIN_EMAIL.toLowerCase().trim();
-    const userEmailLower = (currentUser.email || "").toLowerCase().trim();
+    const userEmailLower = (req.user.email || "").toLowerCase().trim();
     const isAdmin = userEmailLower === adminEmailLower;
 
     if (!isAdmin) {
@@ -41,7 +27,36 @@ async function postHandler(
       );
     }
 
-    const { userId } = await params;
+    const { userId: userIdParam } = await params;
+    
+    // Resolve userId to actual database UUID
+    let userId: string = userIdParam;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    // If userId is an email or non-UUID, try to resolve it
+    if (emailRegex.test(userIdParam) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdParam)) {
+      let lookupResult = await query(
+        `SELECT id::text as id FROM users WHERE id = $1 OR email = $1 LIMIT 1`,
+        [userIdParam]
+      );
+      
+      if (lookupResult.rows.length === 0 && emailRegex.test(userIdParam)) {
+        // Try case-insensitive email lookup
+        lookupResult = await query(
+          `SELECT id::text as id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+          [userIdParam]
+        );
+      }
+      
+      if (lookupResult.rows.length > 0) {
+        userId = lookupResult.rows[0].id.toString();
+      } else {
+        return NextResponse.json(
+          { error: 'Target user not found' },
+          { status: 404 }
+        );
+      }
+    }
     const body = await req.json();
     const { amount, months = 1, note } = body;
 
@@ -97,6 +112,30 @@ async function postHandler(
 
     const payment = paymentResult.rows[0];
 
+    // Get existing subscription_data to merge with payment request clearing
+    const existingSubResult = await query(
+      `SELECT subscription_data FROM subscriptions WHERE user_id = $1`,
+      [userId]
+    );
+    
+    let subscriptionDataJson: any = {};
+    if (existingSubResult.rows.length > 0 && existingSubResult.rows[0].subscription_data) {
+      try {
+        subscriptionDataJson = typeof existingSubResult.rows[0].subscription_data === 'object'
+          ? existingSubResult.rows[0].subscription_data
+          : JSON.parse(existingSubResult.rows[0].subscription_data);
+      } catch (e) {
+        console.warn('Error parsing subscription_data:', e);
+      }
+    }
+    
+    // Clear payment request fields
+    subscriptionDataJson.paymentPendingVerification = false;
+    subscriptionDataJson.paymentRequestedAt = null;
+    subscriptionDataJson.paymentRequestedAmount = null;
+    subscriptionDataJson.paymentRequestedMonths = null;
+    subscriptionDataJson.paymentReferenceNumber = null;
+
     // Update subscription
     await query(
       `UPDATE subscriptions
@@ -105,9 +144,10 @@ async function postHandler(
            is_active = TRUE,
            status = 'active',
            grace_end_date = NULL,
+           subscription_data = $4::jsonb,
            updated_at = NOW()
        WHERE user_id = $3`,
-      [newExpiryDate, now, userId]
+      [newExpiryDate, now, userId, JSON.stringify(subscriptionDataJson)]
     );
 
     return NextResponse.json({
