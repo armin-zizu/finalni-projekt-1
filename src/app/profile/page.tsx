@@ -2112,22 +2112,31 @@ export default function Profile() {
                   )}
                   
                   {/* Expiry date - prikaži ako postoji */}
-                  {subscription.expiryDate && (
+                  {(subscription.expiryDate || (!subscription.isTrial && !subscription.isGracePeriod)) && (
                     <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
                       <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>
                         {subscription.isTrial ? "Pretplata istekne:" : "Pretplata ističe:"}
                       </p>
-                      <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
-                        {subscription.expiryDate.toLocaleDateString("bs-BA")}
-                      </p>
-                      {subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry > 0 && (
-                        <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
-                          Preostalo dana: <strong>{subscription.daysUntilExpiry}</strong>
-                        </p>
-                      )}
-                      {subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry <= 0 && (
-                        <p style={{ fontSize: "12px", color: "#dc2626", marginTop: "4px" }}>
-                          <strong>Istekla pretplata</strong>
+                      {subscription.expiryDate ? (
+                        <>
+                          <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                            {subscription.expiryDate.toLocaleDateString("bs-BA")}
+                          </p>
+                          {subscription.daysUntilExpiry !== undefined && (
+                            subscription.daysUntilExpiry > 0 ? (
+                              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                                Preostalo dana: <strong>{subscription.daysUntilExpiry}</strong>
+                              </p>
+                            ) : (
+                              <p style={{ fontSize: "12px", color: "#dc2626", marginTop: "4px" }}>
+                                <strong>Istekla pretplata</strong>
+                              </p>
+                            )
+                          )}
+                        </>
+                      ) : (
+                        <p style={{ fontSize: "14px", color: "#6b7280" }}>
+                          Nije postavljeno
                         </p>
                       )}
                     </div>
