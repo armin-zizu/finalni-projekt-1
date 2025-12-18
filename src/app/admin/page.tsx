@@ -318,7 +318,7 @@ export default function AdminPage() {
       });
       setLoading(false);
     }
-  }, []);
+  };
 
   // Ažuriraj premium dane
   const adjustPremiumDays = async (userId: string, days: number) => {
