@@ -294,14 +294,43 @@ export default function Profile() {
         assignedAt: device.createdAt ? new Date(device.createdAt) : null,
       }));
       
+      // Filtriraj duplikate po deviceId - zadrži samo najnoviji zapis
+      const deviceMap = new Map<string, any>();
+      transformedDevices.forEach((device: any) => {
+        const deviceId = device.deviceId;
+        if (!deviceId) {
+          // Ako nema deviceId, dodaj ga (vjerovatno greška u podacima)
+          deviceMap.set(device.id, device);
+          return;
+        }
+        
+        const existing = deviceMap.get(deviceId);
+        if (!existing) {
+          deviceMap.set(deviceId, device);
+        } else {
+          // Uporedi datume - zadrži onaj sa novijim lastLogin ili createdAt
+          const existingDate = existing.lastLogin || existing.deviceInfo?.lastLogin || existing.assignedAt || new Date(0);
+          const currentDate = device.lastLogin || device.deviceInfo?.lastLogin || device.assignedAt || new Date(0);
+          
+          if (currentDate > existingDate) {
+            // Trenutni uređaj ima noviji datum, zamijeni postojeći
+            deviceMap.set(deviceId, device);
+          }
+          // Inače zadrži postojeći (existing)
+        }
+      });
+      
+      // Konvertuj Map nazad u array
+      const uniqueDevices = Array.from(deviceMap.values());
+      
       // Sortiraj po posljednjoj prijavi (najnoviji prvo)
-      transformedDevices.sort((a, b) => {
-        const aDate = a.lastLogin || a.deviceInfo?.firstSeen || new Date(0);
-        const bDate = b.lastLogin || b.deviceInfo?.firstSeen || new Date(0);
+      uniqueDevices.sort((a, b) => {
+        const aDate = a.lastLogin || a.deviceInfo?.lastLogin || a.assignedAt || new Date(0);
+        const bDate = b.lastLogin || b.deviceInfo?.lastLogin || b.assignedAt || new Date(0);
         return bDate.getTime() - aDate.getTime();
       });
       
-      setDevices(transformedDevices);
+      setDevices(uniqueDevices);
     } catch (error) {
       console.error("Greška pri učitavanju uređaja:", error);
     } finally {
