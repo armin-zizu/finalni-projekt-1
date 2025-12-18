@@ -241,20 +241,8 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
       }
     }
     
-    // Final check - userId must be UUID at this point
-    if (!uuidRegex.test(userId)) {
-      console.error('List users - CRITICAL: userId is still not a valid UUID after all resolution attempts:', { 
-        userId, 
-        userEmail,
-        reqUser: req.user 
-      });
-      return NextResponse.json(
-        { error: `Invalid user ID format after resolution. userId: ${userId}, email: ${userEmail || 'N/A'}. Please log out and log in again.` },
-        { status: 400 }
-      );
-    }
-    
-    console.log('List users - Successfully resolved userId to UUID:', userId);
+    // Note: userId can be any text format (not necessarily UUID) since users.id is text type in database
+    console.log('List users - Successfully resolved userId:', userId);
     
     const currentUserResult = await query(
       `SELECT email, is_owner, role FROM users WHERE id = $1`,
