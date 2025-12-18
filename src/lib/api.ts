@@ -391,9 +391,39 @@ export async function getObracuni(userId: string, datum?: string) {
     const rashodi = Array.isArray(artikliData?.rashodi) ? artikliData.rashodi : [];
     const prihodi = Array.isArray(artikliData?.prihodi) ? artikliData.prihodi : [];
     
+    // Formatiraj datum - može biti Date objekat, ISO string (2025-12-16T05:00:00.000Z), YYYY-MM-DD ili DD.MM.YYYY
+    let formattedDatum = ob.datum || '';
+    
+    // Ako je Date objekat, konvertuj u string
+    if (formattedDatum instanceof Date) {
+      const dan = String(formattedDatum.getDate()).padStart(2, '0');
+      const mjesec = String(formattedDatum.getMonth() + 1).padStart(2, '0');
+      const godina = formattedDatum.getFullYear();
+      formattedDatum = `${dan}.${mjesec}.${godina}`;
+    } else if (typeof formattedDatum === 'string') {
+      // Ako je ISO string format (2025-12-16T05:00:00.000Z), parsiraj ga
+      if (formattedDatum.includes('T') && formattedDatum.includes('Z')) {
+        const dateObj = new Date(formattedDatum);
+        if (!isNaN(dateObj.getTime())) {
+          const dan = String(dateObj.getDate()).padStart(2, '0');
+          const mjesec = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const godina = dateObj.getFullYear();
+          formattedDatum = `${dan}.${mjesec}.${godina}`;
+        }
+      } else if (formattedDatum.includes('-') && formattedDatum.match(/^\d{4}-\d{2}-\d{2}/)) {
+        // Ako je string u YYYY-MM-DD formatu, konvertuj u DD.MM.YYYY
+        const parts = formattedDatum.split('-');
+        if (parts.length >= 3) {
+          const [godina, mjesec, dan] = parts;
+          formattedDatum = `${dan}.${mjesec}.${godina}`;
+        }
+      }
+      // Ako već ima format DD.MM.YYYY, ostavi kako jeste
+    }
+    
     return {
       id: ob.id,
-      datum: ob.datum,
+      datum: formattedDatum,
       createdAt: (ob as any).saved_at || (ob as any).createdAt || (ob as any).updatedAt, // Dodaj saved_at timestamp za prikaz satnice
       artikli: artikli,
       rashodi: rashodi,

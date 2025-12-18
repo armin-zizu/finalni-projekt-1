@@ -170,44 +170,113 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const loadSubscription = useCallback(async () => {
     if (!user?.id) {
+      console.log("SubscriptionContext - No user.id, skipping subscription load");
       setSubscription(null);
       setLoading(false);
       return;
     }
 
+    // API endpoint očekuje email u URL-u, ne UUID
+    const userIdForApi = user.email || user.id;
+
     try {
       setLoading(true);
-      const subscriptionData = await getSubscription(user.id);
+      console.log("SubscriptionContext - Loading subscription for user:", userIdForApi, "email:", user.email);
+      const subscriptionData = await getSubscription(userIdForApi);
+      console.log("SubscriptionContext - Subscription data received:", subscriptionData);
+
+      if (!subscriptionData) {
+        console.error("SubscriptionContext - No subscription data returned from API");
+        setSubscription(null);
+        setLoading(false);
+        return;
+      }
 
       // Transform payment history
-      const paymentHistory: Payment[] = (subscriptionData.payments || []).map((p: any) => ({
-        date: new Date(p.date),
-        amount: p.amount,
-        note: p.note,
-        validUntil: p.validUntil ? new Date(p.validUntil) : undefined,
-      }));
+      const paymentHistory: Payment[] = (subscriptionData.payments || []).map((p: any) => {
+        try {
+          return {
+            date: p.date ? new Date(p.date) : new Date(),
+            amount: p.amount || 0,
+            note: p.note || "",
+            validUntil: p.validUntil ? new Date(p.validUntil) : undefined,
+          };
+        } catch (err) {
+          console.warn("SubscriptionContext - Error parsing payment:", p, err);
+          return {
+            date: new Date(),
+            amount: 0,
+            note: "",
+            validUntil: undefined,
+          };
+        }
+      });
 
       // Prepare data for calculateSubscriptionStatus
       const dataForCalculation = {
-        isActive: subscriptionData.isActive,
+        isActive: subscriptionData.isActive !== undefined ? subscriptionData.isActive : true,
         monthlyPrice: subscriptionData.monthlyPrice || 12,
-        lastPaymentDate: subscriptionData.lastPaymentDate ? new Date(subscriptionData.lastPaymentDate) : null,
-        expiryDate: subscriptionData.endDate ? new Date(subscriptionData.endDate) : null,
-        graceEndDate: subscriptionData.graceEndDate ? new Date(subscriptionData.graceEndDate) : null,
-        trialEndDate: subscriptionData.trialEndDate ? new Date(subscriptionData.trialEndDate) : null,
+        lastPaymentDate: subscriptionData.lastPaymentDate ? (() => {
+          try {
+            return new Date(subscriptionData.lastPaymentDate);
+          } catch (e) {
+            console.warn("SubscriptionContext - Error parsing lastPaymentDate:", subscriptionData.lastPaymentDate);
+            return null;
+          }
+        })() : null,
+        expiryDate: subscriptionData.endDate ? (() => {
+          try {
+            return new Date(subscriptionData.endDate);
+          } catch (e) {
+            console.warn("SubscriptionContext - Error parsing endDate:", subscriptionData.endDate);
+            return null;
+          }
+        })() : null,
+        graceEndDate: subscriptionData.graceEndDate ? (() => {
+          try {
+            return new Date(subscriptionData.graceEndDate);
+          } catch (e) {
+            console.warn("SubscriptionContext - Error parsing graceEndDate:", subscriptionData.graceEndDate);
+            return null;
+          }
+        })() : null,
+        trialEndDate: subscriptionData.trialEndDate ? (() => {
+          try {
+            return new Date(subscriptionData.trialEndDate);
+          } catch (e) {
+            console.warn("SubscriptionContext - Error parsing trialEndDate:", subscriptionData.trialEndDate);
+            return null;
+          }
+        })() : null,
         paymentHistory: paymentHistory,
+        paymentPendingVerification: subscriptionData.subscriptionData?.paymentPendingVerification || false,
+        paymentRequestedAt: subscriptionData.subscriptionData?.paymentRequestedAt || null,
+        paymentRequestedAmount: subscriptionData.subscriptionData?.paymentRequestedAmount || 0,
+        paymentRequestedMonths: subscriptionData.subscriptionData?.paymentRequestedMonths || 0,
+        paymentReferenceNumber: subscriptionData.subscriptionData?.paymentReferenceNumber || null,
       };
 
-      const userCreatedAt = subscriptionData.userCreatedAt ? new Date(subscriptionData.userCreatedAt) : null;
+      const userCreatedAt = subscriptionData.userCreatedAt ? (() => {
+        try {
+          return new Date(subscriptionData.userCreatedAt);
+        } catch (e) {
+          console.warn("SubscriptionContext - Error parsing userCreatedAt:", subscriptionData.userCreatedAt);
+          return null;
+        }
+      })() : null;
+      
+      console.log("SubscriptionContext - Data for calculation:", dataForCalculation);
       const status = calculateSubscriptionStatus(dataForCalculation, userCreatedAt);
+      console.log("SubscriptionContext - Calculated subscription status:", status);
       setSubscription(status);
     } catch (error: any) {
       console.error("Greška pri učitavanju pretplate:", error);
+      console.error("SubscriptionContext - Error details:", error.message, error.stack);
       setSubscription(null);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.email]);
 
   // Load subscription when user changes
   useEffect(() => {
@@ -221,8 +290,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const addPayment = async (amount: number, months: number = 1, note?: string) => {
     if (!user?.id) throw new Error("Korisnik nije prijavljen");
 
+    // API endpoint očekuje email u URL-u
+    const userIdForApi = user.email || user.id;
+
     try {
-      await addPaymentToSubscription(user.id, amount, months, note);
+      await addPaymentToSubscription(userIdForApi, amount, months, note);
       await refreshSubscription();
     } catch (error: any) {
       console.error("Greška pri dodavanju uplate:", error);
@@ -233,8 +305,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const updateMonthlyPrice = async (price: number) => {
     if (!user?.id) throw new Error("Korisnik nije prijavljen");
 
+    // API endpoint očekuje email u URL-u
+    const userIdForApi = user.email || user.id;
+
     try {
-      await updateSubscription(user.id, { monthlyPrice: price });
+      await updateSubscription(userIdForApi, { monthlyPrice: price });
       await refreshSubscription();
     } catch (error: any) {
       console.error("Greška pri ažuriranju cijene:", error);

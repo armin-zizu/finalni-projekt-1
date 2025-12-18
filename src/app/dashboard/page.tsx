@@ -59,6 +59,7 @@ type Obracun = {
   datum: string;
   artikli: number;
   rashod: number;
+  prihod: number;
   neto: number;
 };
 
@@ -67,6 +68,7 @@ type AggregatedData = {
   datum: string;
   artikli: number;
   rashod: number;
+  prihod: number;
   neto: number;
 };
 
@@ -170,8 +172,10 @@ export default function DashboardPage() {
       }
       
       // API već vraća podatke u ispravnom formatu, samo provjeri da su arrayi
-      const firestoreArhiva: ArhiviraniObracun[] = obracuni.map((ob: any) => {
-        return {
+      console.log("Dashboard - Primjer obračuna iz API-ja:", obracuni[0] || null);
+      
+      const firestoreArhiva: ArhiviraniObracun[] = obracuni.map((ob: any, index: number) => {
+        const mapped = {
           datum: ob.datum || "",
           ukupnoArtikli: Number(ob.ukupnoArtikli) || 0,
           ukupnoRashod: Number(ob.ukupnoRashod) || 0,
@@ -183,7 +187,21 @@ export default function DashboardPage() {
           imaUlaz: ob.imaUlaz === true || ob.imaUlaz === 'true',
           isAzuriran: ob.isAzuriran === true || ob.isAzuriran === 'true',
         };
+        
+        // Debug log za prvi obračun
+        if (index === 0) {
+          console.log("Dashboard - Mapiranje prvog obračuna:", {
+            original: ob,
+            mapped: mapped
+          });
+        }
+        
+        return mapped;
       });
+      
+      console.log("Dashboard - Učitano obračuna:", firestoreArhiva.length);
+      console.log("Dashboard - Finalni obračuni (bez isAzuriran):", firestoreArhiva.filter(o => !o.isAzuriran).length);
+      console.log("Dashboard - Ažurirani obračuni (isAzuriran: true):", firestoreArhiva.filter(o => o.isAzuriran).length);
       
       // Sortiraj po datumu (rastući redoslijed za dashboard)
       const sortedArhiva = firestoreArhiva.sort((a, b) => {
@@ -286,20 +304,20 @@ export default function DashboardPage() {
   }, [loadArhiva]);
   */
 
-  // Priprema podataka za grafikon
+  // Priprema podataka za grafikon - samo finalni obračuni (bez isAzuriran: true)
   const obracuni: Obracun[] = arhiva
+    .filter((o) => !o.isAzuriran) // Filtriraj samo finalne obračune (isAzuriran: false ili undefined)
     .map((o) => {
-      const ukupnoPrihodi = Array.isArray(o.prihodi) 
-        ? o.prihodi.reduce((sum: number, p: any) => sum + (Number(p.cijena) || 0), 0) 
-        : 0;
       const ukupnoArtikli = Number(o.ukupnoArtikli) || 0;
       const ukupnoRashod = Number(o.ukupnoRashod) || 0;
+      const ukupnoPrihod = Number(o.ukupnoPrihod) || 0;
       
       return {
         datum: o.datum,
-        artikli: ukupnoArtikli + ukupnoPrihodi,
+        artikli: ukupnoArtikli,
         rashod: ukupnoRashod,
-        neto: (ukupnoArtikli + ukupnoPrihodi) - ukupnoRashod,
+        prihod: ukupnoPrihod,
+        neto: ukupnoArtikli + ukupnoPrihod - ukupnoRashod,
       };
     })
     .sort((a, b) => {
@@ -309,14 +327,20 @@ export default function DashboardPage() {
     });
   
   // Debug logiranje
-  if (obracuni.length > 0) {
-    console.log("Dashboard - Priprema podataka za grafikon:", {
-      ukupanBrojObracuna: obracuni.length,
-      primjerPodataka: obracuni[0],
-      chartDataLength: obracuni.length,
+  console.log("Dashboard - Priprema podataka za grafikon:", {
+    arhivaCount: arhiva.length,
+    finalniObracuniCount: obracuni.length,
+    arhivaIsAzuriranCount: arhiva.filter(o => o.isAzuriran).length,
+    primjerPodataka: obracuni[0] || null,
+    chartDataLength: obracuni.length,
+    prviObracunIzArhive: arhiva[0] || null,
+  });
+  
+  if (obracuni.length === 0) {
+    console.warn("Dashboard - Nema obračuna za grafikon!", {
+      arhivaLength: arhiva.length,
+      arhivaPrimer: arhiva[0] || null,
     });
-  } else {
-    console.warn("Dashboard - Nema obračuna za grafikon!");
   }
 
   // Dobivanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive
@@ -383,6 +407,7 @@ export default function DashboardPage() {
       datum: o.datum,
       artikli: Number(o.artikli),
       rashod: Number(o.rashod),
+      prihod: Number(o.prihod || 0),
       neto: Number(o.neto),
     }));
   };
@@ -473,6 +498,7 @@ export default function DashboardPage() {
   // Ukupne vrijednosti
   const totalBruto = chartData.reduce((sum, o) => sum + Number(o.artikli || 0), 0);
   const totalRashod = chartData.reduce((sum, o) => sum + Number(o.rashod || 0), 0);
+  const totalPrihod = chartData.reduce((sum, o) => sum + Number(o.prihod || 0), 0);
   const totalNeto = chartData.reduce((sum, o) => sum + Number(o.neto || 0), 0);
   const totalArtikl = selectedData.reduce((sum, o) => sum + Number(o.utroseno || 0), 0);
 
@@ -949,19 +975,20 @@ export default function DashboardPage() {
       >
         <div style={{ width: "100%", height: isMobile ? 280 : 400, position: "relative" }}>
           <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
+            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 66 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
                 tick={{ fill: "#6b7280", fontSize: 11 }} 
                 angle={-45}
                 textAnchor="end"
-                height={60}
+                height={66}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
               <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
               <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
               <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
             </LineChart>
@@ -1231,14 +1258,14 @@ export default function DashboardPage() {
       >
         <div style={{ width: "100%", height: isMobile ? 280 : 350, position: "relative" }}>
           <ResponsiveContainer key={`artikl-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={selectedData && selectedData.length > 0 ? selectedData : []} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 60 : 5 }}>
+            <LineChart data={selectedData && selectedData.length > 0 ? selectedData : []} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 66 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
                 tick={{ fill: "#6b7280", fontSize: 11 }} 
                 angle={-45}
                 textAnchor="end"
-                height={60}
+                height={66}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />

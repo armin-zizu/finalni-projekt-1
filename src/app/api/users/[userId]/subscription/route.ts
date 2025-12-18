@@ -3,7 +3,7 @@ import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
 
 // GET - Get subscription for user
-async function getHandler(req: AuthRequest): Promise<NextResponse> {
+async function getHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> }): Promise<NextResponse> {
   try {
     if (!req.user) {
       return NextResponse.json(
@@ -12,7 +12,50 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
       );
     }
 
-    const userId = req.user.userId;
+    // Email je glavni identifikator - koristimo email iz JWT tokena
+    let userEmail = req.user.email || req.user.userId;
+    const { userId: requestedUserId } = await params;
+    
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    // Ako userId nije email format, pokušaj da nađeš email iz baze
+    if (!emailRegex.test(userEmail) && !uuidRegex.test(userEmail)) {
+      try {
+        const userLookup = await query(
+          'SELECT email FROM users WHERE id::text = $1 OR email = $1 LIMIT 1',
+          [req.user.userId]
+        );
+        if (userLookup.rows.length > 0) {
+          userEmail = userLookup.rows[0].email;
+        }
+      } catch (lookupError: any) {
+        if (req.user.email && emailRegex.test(req.user.email)) {
+          userEmail = req.user.email;
+        }
+      }
+    }
+    
+    // Resolv-ujemo email u ID za SQL upite (baza koristi text u user_id koloni, ne UUID)
+    let userIdForDb: string;
+    
+    if (emailRegex.test(userEmail)) {
+      const userResult = await query(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+        [userEmail]
+      );
+      
+      if (userResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
+      
+      userIdForDb = userResult.rows[0].id;
+    } else {
+      userIdForDb = userEmail;
+    }
 
     // Get subscription
     const subscriptionResult = await query(
@@ -20,8 +63,8 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
               trial_end_date, grace_end_date, last_payment_date, is_active, 
               subscription_data, created_at, updated_at
        FROM subscriptions
-       WHERE user_id = $1`,
-      [userId]
+       WHERE user_id = $1::text`,
+      [userIdForDb]
     );
 
     let subscription: any = null;
@@ -33,9 +76,9 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     const paymentsResult = await query(
       `SELECT id, amount, note, date, valid_until, created_at
        FROM payments
-       WHERE user_id = $1
+       WHERE user_id = $1::text
        ORDER BY date DESC`,
-      [userId]
+      [userIdForDb]
     );
 
     const payments = paymentsResult.rows.map((p: any) => ({
@@ -50,7 +93,7 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     // Get user created_at for trial period calculation
     const userResult = await query(
       `SELECT created_at FROM users WHERE id = $1`,
-      [userId]
+      [userIdForDb]
     );
     const userCreatedAt = userResult.rows[0]?.created_at || null;
 
@@ -63,14 +106,26 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
 
       const insertResult = await query(
         `INSERT INTO subscriptions (user_id, status, monthly_price, trial_end_date, is_active, start_date)
-         VALUES ($1, 'trial', $2, $3, TRUE, $4)
+         VALUES ($1::text, 'trial', $2, $3, TRUE, $4)
          RETURNING id, user_id, status, start_date, end_date, monthly_price, 
                    trial_end_date, grace_end_date, last_payment_date, is_active, 
                    subscription_data, created_at, updated_at`,
-        [userId, 12.00, trialEndDate, now]
+        [userIdForDb, 12.00, trialEndDate, now]
       );
 
       subscription = insertResult.rows[0];
+    }
+
+    // Parse subscription_data JSONB field for additional payment info
+    let subscriptionDataJson = {};
+    try {
+      if (subscription.subscription_data && typeof subscription.subscription_data === 'object') {
+        subscriptionDataJson = subscription.subscription_data;
+      } else if (typeof subscription.subscription_data === 'string') {
+        subscriptionDataJson = JSON.parse(subscription.subscription_data);
+      }
+    } catch (e) {
+      console.warn('Get subscription - Error parsing subscription_data:', e);
     }
 
     // Transform subscription data
@@ -85,16 +140,30 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
       graceEndDate: subscription.grace_end_date,
       lastPaymentDate: subscription.last_payment_date,
       isActive: subscription.is_active !== false,
-      subscriptionData: subscription.subscription_data || {},
+      subscriptionData: subscriptionDataJson,
       createdAt: subscription.created_at,
       updatedAt: subscription.updated_at,
       userCreatedAt: userCreatedAt,
       payments: payments,
     };
 
+    console.log('Get subscription - Success:', {
+      userId: userEmail,
+      userIdForDb,
+      hasSubscription: !!subscription,
+      subscriptionId: subscription?.id,
+      subscriptionStatus: subscription?.status,
+      isActive: subscription?.is_active,
+    });
+    
     return NextResponse.json({ subscription: subscriptionData });
   } catch (error: any) {
     console.error('Get subscription error:', error);
+    console.error('Get subscription - Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+    });
     return NextResponse.json(
       { error: 'Internal server error', message: error.message },
       { status: 500 }
@@ -103,7 +172,7 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
 }
 
 // POST/PUT - Update subscription
-async function postHandler(req: AuthRequest): Promise<NextResponse> {
+async function postHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> }): Promise<NextResponse> {
   try {
     if (!req.user) {
       return NextResponse.json(
@@ -112,7 +181,51 @@ async function postHandler(req: AuthRequest): Promise<NextResponse> {
       );
     }
 
-    const userId = req.user.userId;
+    // Email je glavni identifikator - koristimo email iz JWT tokena
+    let userEmail = req.user.email || req.user.userId;
+    const { userId: requestedUserId } = await params;
+    
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    // Ako userId nije email format, pokušaj da nađeš email iz baze
+    if (!emailRegex.test(userEmail) && !uuidRegex.test(userEmail)) {
+      try {
+        const userLookup = await query(
+          'SELECT email FROM users WHERE id::text = $1 OR email = $1 LIMIT 1',
+          [req.user.userId]
+        );
+        if (userLookup.rows.length > 0) {
+          userEmail = userLookup.rows[0].email;
+        }
+      } catch (lookupError: any) {
+        if (req.user.email && emailRegex.test(req.user.email)) {
+          userEmail = req.user.email;
+        }
+      }
+    }
+    
+    // Resolv-ujemo email u ID za SQL upite
+    let userIdForDb: string;
+    
+    if (emailRegex.test(userEmail)) {
+      const userResult = await query(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+        [userEmail]
+      );
+      
+      if (userResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
+      
+      userIdForDb = userResult.rows[0].id;
+    } else {
+      userIdForDb = userEmail;
+    }
+
     const body = await req.json();
     const {
       monthlyPrice,
@@ -128,7 +241,7 @@ async function postHandler(req: AuthRequest): Promise<NextResponse> {
     const result = await query(
       `INSERT INTO subscriptions (user_id, monthly_price, trial_end_date, grace_end_date, 
                                   last_payment_date, is_active, end_date, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       VALUES ($1::text, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (user_id)
        DO UPDATE SET
          monthly_price = EXCLUDED.monthly_price,
@@ -143,7 +256,7 @@ async function postHandler(req: AuthRequest): Promise<NextResponse> {
                  trial_end_date, grace_end_date, last_payment_date, is_active, 
                  subscription_data, created_at, updated_at`,
       [
-        userId,
+        userIdForDb,
         monthlyPrice || 12.00,
         trialEndDate || null,
         graceEndDate || null,
@@ -181,8 +294,15 @@ async function postHandler(req: AuthRequest): Promise<NextResponse> {
   }
 }
 
-export const GET = withAuth(getHandler);
-export const POST = withAuth(postHandler);
-export const PUT = withAuth(postHandler);
+export const GET = (req: NextRequest, context: { params: Promise<{ userId: string }> }) => {
+  return withAuth((authReq: AuthRequest) => getHandler(authReq, context))(req);
+};
+
+export const POST = (req: NextRequest, context: { params: Promise<{ userId: string }> }) => {
+  return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
+};
+export const PUT = (req: NextRequest, context: { params: Promise<{ userId: string }> }) => {
+  return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
+};
 
 

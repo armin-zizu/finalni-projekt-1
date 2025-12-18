@@ -67,7 +67,7 @@ type ObracunProfit = {
 type ArtiklProfitData = {
   datum: string;
   bruto: number; // prodajnaCijena * kolicina
-  neto: number;  // (prodajnaCijena - nabavnaCijena) * kolicina
+  neto: number;  // prava zarada = bruto - nabavna * kolicina - deo rashoda (proporcionalno bruto)
 };
 
 // ---- CSS ----
@@ -399,6 +399,7 @@ export default function ProfitPage() {
       }
 
       const parsed: Obracun[] = firestoreArhiva
+        .filter((item: any) => !item.isAzuriran) // Filtriraj samo finalne obračune (isAzuriran: false ili undefined)
         .map((item: any) => ({
           ...item,
           artikli: item.artikli ?? [],
@@ -410,6 +411,12 @@ export default function ProfitPage() {
           const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
           return dateB - dateA; // Silazni redoslijed (najnoviji prvo)
         });
+        
+      console.log("Profit - Filtrirani obračuni:", {
+        preFiltera: firestoreArhiva.length,
+        posleFiltera: parsed.length,
+        finalni: parsed.length
+      });
 
       console.log("Profit - Parsirano obračuna:", parsed.length);
       console.log("Profit - Prvi obračun detalji:", parsed[0] ? {
@@ -441,7 +448,11 @@ export default function ProfitPage() {
           })),
         });
 
-        const artikliProfit: ArtikalProfit[] = (obracun.artikli || [])
+        // Prvo izračunaj ukupni rashod
+        const ukupnoRashod = obracun.rashodi?.reduce((sum, r) => sum + r.cijena, 0) || 0;
+
+        // Izračunaj artikle sa bruto vrednostima
+        const artikliProfitTemp: (ArtikalProfit & { bruto: number })[] = (obracun.artikli || [])
           .filter((a) => {
             const isValid = a && a.naziv;
             if (!isValid) {
@@ -484,7 +495,6 @@ export default function ProfitPage() {
             }
             
             const bruto = prodajna * kolicina;
-            const neto = (prodajna - nabavna) * kolicina;
             const profit = prodajna - nabavna;
 
             return {
@@ -493,18 +503,32 @@ export default function ProfitPage() {
               prodajnaCijena: prodajna,
               kolicina,
               bruto,
-              neto,
+              neto: 0, // Biće izračunato nakon što znamo ukupnoBruto
               profit,
               zestokoKolicina: a.zestokoKolicina,
             };
           });
 
+        // Izračunaj ukupno bruto da bismo mogli da delimo rashod proporcionalno
+        const ukupnoBruto = artikliProfitTemp.reduce((sum, a) => sum + a.bruto, 0);
+
+        // Sada izračunaj pravu zaradu (neto) po artiklu sa proporcionalnim rashodom
+        const artikliProfit: ArtikalProfit[] = artikliProfitTemp.map((a) => {
+          // Rashod se dijeli proporcionalno bruto cijeni
+          const deoRashoda = ukupnoBruto > 0 ? (a.bruto / ukupnoBruto) * ukupnoRashod : 0;
+          // Prava zarada = bruto - nabavna cijena - deo rashoda
+          const neto = a.bruto - (a.nabavnaCijena * a.kolicina) - deoRashoda;
+          
+          return {
+            ...a,
+            neto,
+          };
+        });
+
         console.log(`Profit - Obračun ${obracun.datum} ima ${artikliProfit.length} artikala za prikaz`);
 
-        const ukupnoRashod = obracun.rashodi?.reduce((sum, r) => sum + r.cijena, 0) || 0;
-        const ukupnoPrihod = obracun.prihodi?.reduce((sum, p) => sum + p.cijena, 0) || 0;
-        const ukupnoBruto = artikliProfit.reduce((sum, a) => sum + a.bruto, 0);
-        const ukupnoNeto = artikliProfit.reduce((sum, a) => sum + a.neto, 0) - ukupnoRashod + ukupnoPrihod;
+        // Ukupno neto = suma prave zarade svih artikala
+        const ukupnoNeto = artikliProfit.reduce((sum, a) => sum + a.neto, 0);
 
         return {
           datum: obracun.datum,
@@ -636,7 +660,7 @@ export default function ProfitPage() {
         return {
           datum: o.datum,
           bruto: artikal ? artikal.bruto : 0, // prodajnaCijena * kolicina
-          neto: artikal ? artikal.neto : 0,   // (prodajnaCijena - nabavnaCijena) * kolicina
+          neto: artikal ? artikal.neto : 0,   // prava zarada = bruto - nabavna * kolicina - deo rashoda
         };
       })
       .filter((o) => o.bruto > 0 || o.neto > 0)
@@ -974,6 +998,15 @@ export default function ProfitPage() {
       `}</style>
       <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24 }}>Profit</h1>
       
+      {/* ---- Filter za ukupni profit ---- */}
+      <FilterSection
+        filter={filter}
+        setFilter={setFilter}
+        customPeriod={customPeriod}
+        setCustomPeriod={setCustomPeriod}
+        label="Filter ukupnog profita"
+        isMobile={isMobile}
+      />
 
       {/* ---- Chart ukupnog profita ---- */}
       <div style={{ 
@@ -992,14 +1025,14 @@ export default function ProfitPage() {
       }}>
         <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
           <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
+            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 66 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
                 tick={{ fill: "#6b7280", fontSize: 11 }} 
                 angle={-45}
                 textAnchor="end"
-                height={60}
+                height={66}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />
@@ -1059,14 +1092,14 @@ export default function ProfitPage() {
       >
         <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
           <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 60 : 5 }}>
+            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 66 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
                 tick={{ fill: "#6b7280", fontSize: 11 }} 
                 angle={-45}
                 textAnchor="end"
-                height={60}
+                height={66}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />

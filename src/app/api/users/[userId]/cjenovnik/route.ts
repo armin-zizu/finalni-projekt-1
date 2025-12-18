@@ -82,7 +82,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
     console.log('📖 Getting cjenovnik for user:', userId);
     
     const result = await query(
-      `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, created_at, updated_at
+      `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje, created_at, updated_at
        FROM cjenovnik
        WHERE user_id = $1::text
        ORDER BY naziv ASC`,
@@ -100,7 +100,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       nabavnaCijena: row.nabavna_cijena ? parseFloat(row.nabavna_cijena) : undefined,
       nabavnaCijenaFlase: row.nabavna_cijena_flase ? parseFloat(row.nabavna_cijena_flase) : undefined,
       zapreminaFlase: row.zapremina_flase ? parseFloat(row.zapremina_flase) : undefined,
-      pocetnoStanje: 0, // Default, može se dodati u schema ako treba
+      pocetnoStanje: row.pocetno_stanje ? parseFloat(row.pocetno_stanje) : 0,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -204,15 +204,12 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
 
     console.log('💾 Saving cjenovnik for user:', userId, 'Items count:', cjenovnik.length, 'Items:', cjenovnik.map((i: any) => i.naziv));
     
-    // Delete existing cjenovnik for this user
-    await query('DELETE FROM cjenovnik WHERE user_id = $1::text', [userId]);
-    console.log('🗑️ Deleted existing cjenovnik for user:', userId);
-
-    // Insert new cjenovnik items
+    // NE brišemo postojeće - koristimo UPSERT (ON CONFLICT DO UPDATE) da očuvamo sve podatke
+    // Insert/Update cjenovnik items - UPSERT pristup (ne brišemo postojeće, samo ažuriramo/dodajemo)
     if (cjenovnik.length > 0) {
       const values = cjenovnik.map((item: any, index: number) => {
-        const baseIndex = index * 8; // 8 vrijednosti po artiklu
-        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7}, $${baseIndex + 8})`;
+        const baseIndex = index * 9; // 9 vrijednosti po artiklu (dodato pocetno_stanje)
+        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7}, $${baseIndex + 8}, $${baseIndex + 9})`;
       }).join(', ');
 
       const queryParams: any[] = [];
@@ -225,14 +222,15 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
           item.zestokoKolicina || null,
           item.nabavnaCijena || null,
           item.nabavnaCijenaFlase || null,
-          item.zapreminaFlase || null
+          item.zapreminaFlase || null,
+          item.pocetnoStanje !== undefined ? item.pocetnoStanje : null
         );
       });
 
-      console.log('📝 Inserting cjenovnik items, params count:', queryParams.length, 'expected:', cjenovnik.length * 8);
+      console.log('📝 Inserting cjenovnik items, params count:', queryParams.length, 'expected:', cjenovnik.length * 9);
       
       await query(
-        `INSERT INTO cjenovnik (user_id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase)
+        `INSERT INTO cjenovnik (user_id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje)
          VALUES ${values}
          ON CONFLICT (user_id, naziv) DO UPDATE
          SET cijena = EXCLUDED.cijena,
@@ -241,6 +239,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
              nabavna_cijena = EXCLUDED.nabavna_cijena,
              nabavna_cijena_flase = EXCLUDED.nabavna_cijena_flase,
              zapremina_flase = EXCLUDED.zapremina_flase,
+             pocetno_stanje = COALESCE(EXCLUDED.pocetno_stanje, cjenovnik.pocetno_stanje),
              updated_at = NOW()`,
         queryParams
       );

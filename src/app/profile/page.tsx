@@ -1990,106 +1990,7 @@ export default function Profile() {
           Pretplata
         </h2>
         
-        {subscriptionLoading || !subscription ? (
-          <p style={{ color: "#6b7280", fontSize: "14px" }}>Učitavanje pretplate...</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            {/* Status pretplate */}
-            <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
-                <div>
-                  <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "4px" }}>Status pretplate</h3>
-                  <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
-                    {subscription.isTrial 
-                      ? `Probni period ističe za ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}`
-                      : subscription.isPremium
-                      ? `Premium pretplata ističe za ${subscription.daysUntilExpiry} ${subscription.daysUntilExpiry === 1 ? "dan" : "dana"}`
-                      : subscription.isActive
-                      ? `Pretplata ističe za ${subscription.daysUntilExpiry} ${subscription.daysUntilExpiry === 1 ? "dan" : "dana"}`
-                      : subscription.isGracePeriod
-                      ? `Grace period ističe za ${subscription.daysInGrace} ${subscription.daysInGrace === 1 ? "dan" : "dana"}`
-                      : "Pretplata nije aktivna"}
-                  </p>
-                </div>
-                {(() => {
-                  let statusText = "N/A";
-                  let statusColor = "#6b7280";
-                  let statusBg = "#f3f4f6";
-                  
-                  if (subscription.isTrial) {
-                    statusText = `Probni period (${subscription.daysRemaining} dana)`;
-                    statusColor = "#3b82f6";
-                    statusBg = "#dbeafe";
-                  } else if (subscription.isPremium) {
-                    statusText = `Premium (${subscription.daysUntilExpiry} dana)`;
-                    statusColor = "#16a34a";
-                    statusBg = "#dcfce7";
-                  } else if (subscription.isActive) {
-                    statusText = `Aktivna (${subscription.daysUntilExpiry} dana)`;
-                    statusColor = "#16a34a";
-                    statusBg = "#dcfce7";
-                  } else if (subscription.isGracePeriod) {
-                    statusText = `Grace period (${subscription.daysInGrace} dana)`;
-                    statusColor = "#f59e0b";
-                    statusBg = "#fef3c7";
-                  } else {
-                    statusText = "Neaktivna";
-                    statusColor = "#dc2626";
-                    statusBg = "#fee2e2";
-                  }
-                  
-                  return (
-                    <span
-                      style={{
-                        padding: "8px 16px",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        background: statusBg,
-                        color: statusColor,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {statusText}
-                    </span>
-                  );
-                })()}
-              </div>
-              
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
-                <div>
-                  <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Mjesečna cijena</p>
-                  <p style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937" }}>
-                    {subscription.monthlyPrice.toFixed(2)} KM
-                  </p>
-                </div>
-                
-                {subscription.lastPaymentDate && (
-                  <div>
-                    <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Posljednja uplata</p>
-                    <p style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
-                      {subscription.lastPaymentDate.toLocaleDateString("bs-BA")}
-                    </p>
-                  </div>
-                )}
-                
-                {subscription.expiryDate && (
-                  <div>
-                    <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Datum isteka</p>
-                    <p
-                      style={{
-                        fontSize: "14px",
-                        fontWeight: 500,
-                        color: subscription.expiryDate < new Date() ? "#dc2626" : "#1f2937",
-                      }}
-                    >
-                      {subscription.expiryDate.toLocaleDateString("bs-BA")}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Plaćanje pretplate */}
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px" }}>
@@ -2187,27 +2088,27 @@ export default function Profile() {
                     setSubscriptionMessage("Funkcionalnost prijave uplate trenutno nije dostupna. Kontaktirajte administratora.");
                     setTimeout(() => setSubscriptionMessage(""), 5000);
                   }}
-                  disabled={requestingPayment || paymentRequested || subscription?.paymentPendingVerification}
+                  disabled={requestingPayment || paymentRequested}
                   style={{
                     padding: "12px 24px",
-                    background: paymentRequested || subscription?.paymentPendingVerification ? "#9ca3af" : "#16a34a",
+                    background: paymentRequested ? "#9ca3af" : "#16a34a",
                     color: "white",
                     border: "none",
                     borderRadius: "6px",
-                    cursor: requestingPayment || paymentRequested || subscription?.paymentPendingVerification ? "not-allowed" : "pointer",
+                    cursor: requestingPayment || paymentRequested ? "not-allowed" : "pointer",
                     fontSize: "14px",
                     fontWeight: 600,
                     width: "auto",
-                    opacity: requestingPayment || paymentRequested || subscription?.paymentPendingVerification ? 0.6 : 1,
+                    opacity: requestingPayment || paymentRequested ? 0.6 : 1,
                   }}
                 >
                   {requestingPayment 
                     ? "Prijavljivanje..." 
-                    : paymentRequested || subscription?.paymentPendingVerification
+                    : paymentRequested
                     ? "✓ Uplata je prijavljena - čeka provjeru"
                     : "✓ Plaćeno - Prijavi uplatu"}
                 </button>
-                {(paymentRequested || subscription?.paymentPendingVerification) && (
+                {paymentRequested && (
                   <p style={{ fontSize: "12px", color: "#6b7280", textAlign: "center", margin: 0 }}>
                     Vaša uplata je prijavljena i čeka provjeru od strane administratora.
                   </p>
@@ -2229,7 +2130,7 @@ export default function Profile() {
             </div>
 
             {/* Historija uplata */}
-            {subscription.paymentHistory && subscription.paymentHistory.length > 0 && (
+            {subscription && subscription.paymentHistory && subscription.paymentHistory.length > 0 && (
               <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                 <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
                   Historija uplata
@@ -2259,7 +2160,6 @@ export default function Profile() {
               </div>
             )}
           </div>
-        )}
       </div>
 
 

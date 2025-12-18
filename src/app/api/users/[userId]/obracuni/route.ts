@@ -504,8 +504,10 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         datum
       });
       
-      if (existingCheck.rows.length > 0) {
-        // Update existing - this is final obracun (saving from draft or updating existing)
+      // Koristimo UPDATE ili INSERT zavisno od postojanja - osiguravamo da se podaci UVIJEK sačuvaju
+      const exists = existingCheck.rows.length > 0;
+      if (exists) {
+        // UPDATE postojeći - ovo je finalni obračun
         console.log('Save obracun - Updating existing obracun:', { userEmail, userIdForDb, datumForPostgres });
         result = await query(
           `UPDATE obracuni 
@@ -517,7 +519,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
           [userIdForDb, datumForPostgres, JSON.stringify(obracunData), datumRaw]
         );
       } else {
-        // Insert new - this is final obracun (saving from draft)
+        // INSERT novi - ovo je finalni obračun
         console.log('Save obracun - Creating new obracun:', { userEmail, userIdForDb, datumForPostgres, datumRaw });
         result = await query(
           `INSERT INTO obracuni (user_id, datum, datum_raw, artikli, saved_at)

@@ -77,9 +77,6 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
           // Transformiraj API format u format koji context koristi
           // Koristi postojeći cjenovnik iz state-a kao fallback da ne gubimo podatke (nabavnaCijena, pocetnoStanje)
           let transformedCjenovnik: ArtiklCijena[] = apiCjenovnik.map((item: any) => {
-            // Pronađi postojeći artikal u trenutnom cjenovniku da očuvamo pocetnoStanje
-            const postojeciArtikal = cjenovnik.find((a) => a.naziv === item.naziv);
-            
             return {
               naziv: item.naziv,
               cijena: item.cijena,
@@ -88,8 +85,8 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
               proizvodnaCijena: item.proizvodnaCijena,
               // Koristi nabavnaCijena iz baze ako postoji, inače proizvodnaCijena, ili 0
               nabavnaCijena: item.nabavnaCijena ?? item.proizvodnaCijena ?? 0,
-              // Očuvaj postojeće pocetnoStanje ako postoji (ne uzima se iz baze)
-              pocetnoStanje: postojeciArtikal?.pocetnoStanje ?? 0,
+              // Učitaj pocetnoStanje iz baze (ako ne postoji, koristi 0)
+              pocetnoStanje: item.pocetnoStanje !== undefined ? item.pocetnoStanje : 0,
               // Učitaj dodatna polja iz baze
               nabavnaCijenaFlase: item.nabavnaCijenaFlase,
               zapreminaFlase: item.zapreminaFlase,
@@ -380,17 +377,17 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     // SPREMI U API - automatski čim se promijeni
     const saveToAPI = async () => {
       try {
-        // Transformiraj u format koji API očekuje - šalji SVE podatke
-        const apiCjenovnik = cjenovnik.map((item) => ({
-          naziv: item.naziv,
-          cijena: item.cijena,
-          proizvodnaCijena: item.proizvodnaCijena,
-          zestokoKolicina: item.zestokoKolicina,
-          nabavnaCijena: item.nabavnaCijena,
-          nabavnaCijenaFlase: item.nabavnaCijenaFlase,
-          zapreminaFlase: item.zapreminaFlase,
-          // Napomena: pocetnoStanje se ne sprema u cjenovnik tabelu, već se uzima iz obračuna
-        }));
+      // Transformiraj u format koji API očekuje - šalji SVE podatke (uključujući pocetnoStanje)
+      const apiCjenovnik = cjenovnik.map((item) => ({
+        naziv: item.naziv,
+        cijena: item.cijena,
+        proizvodnaCijena: item.proizvodnaCijena,
+        zestokoKolicina: item.zestokoKolicina,
+        nabavnaCijena: item.nabavnaCijena,
+        nabavnaCijenaFlase: item.nabavnaCijenaFlase,
+        zapreminaFlase: item.zapreminaFlase,
+        pocetnoStanje: item.pocetnoStanje, // Takođe šalji pocetnoStanje
+      }));
         
         await saveCjenovnik(userId, apiCjenovnik);
         console.log("Cjenovnik automatski spremljen u API:", cjenovnik.length, "artikala");
@@ -449,7 +446,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      // Transformiraj u format koji API očekuje - šalji SVE podatke
+      // Transformiraj u format koji API očekuje - šalji SVE podatke (uključujući pocetnoStanje)
       const apiCjenovnik = noviCjenovnik.map((item) => ({
         naziv: item.naziv,
         cijena: item.cijena,
@@ -458,6 +455,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
         nabavnaCijena: item.nabavnaCijena,
         nabavnaCijenaFlase: item.nabavnaCijenaFlase,
         zapreminaFlase: item.zapreminaFlase,
+        pocetnoStanje: item.pocetnoStanje, // Takođe šalji pocetnoStanje
       }));
       
       console.log("💾 Spremanje cjenovnika u API - userId:", userId, "artikala:", apiCjenovnik.length, "nazivi:", apiCjenovnik.map((a: any) => a.naziv));
@@ -470,8 +468,11 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       setPrethodniCjenovnik(noviCjenovnik);
       setCjenovnik(noviCjenovnik);
       setPendingCjenovnik([]); // Očisti privremeni cjenovnik
-      // Resetuj flag nakon kratke pauze da omogući buduća automatska čuvanja
-      setTimeout(() => setIsInitialLoad(false), 100);
+      // Resetuj flag nakon kratke pauze da omogući buduća automatska čuvanja i osvježi prethodni cjenovnik
+      setTimeout(() => {
+        setIsInitialLoad(false);
+        setPrethodniCjenovnik(noviCjenovnik); // Osiguraj da prethodniCjenovnik odgovara trenutnom nakon čuvanja
+      }, 100);
     } catch (error: any) {
       console.error("❌ Greška pri čuvanju cjenovnika u API:", error);
       throw error; // Re-throw da se korisnik obavesti o grešci

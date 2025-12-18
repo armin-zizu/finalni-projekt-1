@@ -14,31 +14,25 @@ const Sidebar = () => {
   const { appName } = useAppName();
   const { role, permissions } = useRole();
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
-  // TEMPORARY: Set to true for development - bypass auth
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Provjeri autentifikaciju i admin status preko API poziva
-    const checkAuth = async () => {
+    // Provjeri admin status preko API poziva
+    const checkAdmin = async () => {
       try {
         const response = await fetch('/api/users/me');
         if (response.ok) {
           const user = await response.json();
-          setIsAuthenticated(true);
           // Samo gitara.zizu@gmail.com ima pristup admin panelu
           const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
           setIsAdmin(user.email === ADMIN_EMAIL);
-        } else {
-          setIsAuthenticated(false);
-          setIsAdmin(false);
         }
       } catch (error) {
-        setIsAuthenticated(false);
+        console.error("Greška pri provjeri admin statusa:", error);
         setIsAdmin(false);
       }
     };
-    checkAuth();
+    checkAdmin();
   }, []);
 
   // Definiši dozvole za svaku ulogu
@@ -83,9 +77,14 @@ const Sidebar = () => {
   // Filtriraj linkove na osnovu uloge
   const navLinks = allNavLinks.filter(link => canAccess(link.href));
 
+  // Ne prikazuj sidebar na login stranici
+  if (pathname === "/login") {
+    return null;
+  }
+
   return (
     <>
-      {isAuthenticated && isBottomBarVisible && (
+      {isBottomBarVisible && (
         <nav
           style={{
             backgroundColor: "#1E1E2F",
@@ -135,8 +134,7 @@ const Sidebar = () => {
           })}
         </nav>
       )}
-      {isAuthenticated && (
-        <div
+      <div
           style={{
             position: "fixed",
             bottom: "60px",
@@ -158,7 +156,6 @@ const Sidebar = () => {
         >
           <FaBars style={{ color: "#fff", fontSize: "18px" }} />
         </div>
-      )}
       <style jsx>{`
         .sidebar-link:hover {
           background-color: #3b82f6;
