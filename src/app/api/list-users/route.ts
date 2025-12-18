@@ -147,22 +147,7 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
           if (emailLookup.rows.length > 0) {
             const foundId = emailLookup.rows[0].id;
             userId = foundId.toString();
-            console.log('List users - Found UUID via email from JWT:', userId, 'isUUID:', uuidRegex.test(userId));
-            
-            // Double-check that userId is now a valid UUID
-            if (!uuidRegex.test(userId)) {
-              console.error('List users - ERROR: userId is still not UUID after email lookup!', { 
-                userId, 
-                foundId,
-                idType: typeof foundId,
-                rawId: emailLookup.rows[0].id 
-              });
-              // If still not UUID, this is a critical error
-              return NextResponse.json(
-                { error: `Invalid user ID format in database for email: ${userEmail}` },
-                { status: 500 }
-              );
-            }
+            console.log('List users - Found userId via email from JWT:', userId);
           } else {
             console.error('List users - User not found by email from JWT:', userEmail);
             // Let's check what emails exist in database for debugging
