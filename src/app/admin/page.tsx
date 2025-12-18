@@ -171,7 +171,7 @@ export default function AdminPage() {
     checkAdmin();
   }, [router]);
   
-  // Automatsko osvježavanje korisnika svakih 30 sekundi kada je admin
+  // Automatsko osvježavanje korisnika svakih 2 minuta kada je admin
   useEffect(() => {
     if (!isAdmin) return;
     
@@ -180,7 +180,7 @@ export default function AdminPage() {
       loadUsers().catch(error => {
         console.error('Admin - Error auto-refreshing users:', error);
       });
-    }, 30000); // 30 sekundi
+    }, 120000); // 2 minuta (120 sekundi)
     
     return () => {
       clearInterval(refreshInterval);
