@@ -147,6 +147,19 @@ export default function Profile() {
   const [editingPermissions, setEditingPermissions] = useState<PagePermission>({});
   const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
   const [deviceNames, setDeviceNames] = useState<Record<string, string>>({});
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<any | null>(null);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  
+  // Detektuj mobilnu verziju
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   const editingBoxRef = useRef<HTMLTableCellElement | null>(null);
   const [arhivaCount, setArhivaCount] = useState<number>(0);
   const [loadingArhivaCount, setLoadingArhivaCount] = useState<boolean>(false);
@@ -1011,28 +1024,26 @@ export default function Profile() {
 
                     return (
                       <React.Fragment key={device.id}>
-                        <tr>
+                        <tr 
+                          onClick={(e) => {
+                            // Ne otvaraj modal ako se kliknulo na button unutar reda
+                            if ((e.target as HTMLElement).tagName === 'BUTTON' || (e.target as HTMLElement).closest('button')) {
+                              return;
+                            }
+                            setSelectedDevice(device);
+                            setShowDeviceModal(true);
+                            if (device.deviceName) {
+                              setDeviceNames({ ...deviceNames, [device.id]: device.deviceName });
+                            }
+                            setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
+                            setEditingPermissions(device.permissions || {});
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
                         <td style={tdStyle}>
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={deviceNames[device.id] !== undefined ? deviceNames[device.id] : (device.deviceName || "")}
-                              onChange={(e) => setDeviceNames({ ...deviceNames, [device.id]: e.target.value })}
-                              placeholder="Unesite ime uređaja"
-                              style={{
-                                padding: "12px 16px",
-                                border: "1px solid #e5e7eb",
-                                borderRadius: "8px",
-                                fontSize: "16px",
-                                width: "100%",
-                                minHeight: "44px",
-                              }}
-                            />
-                          ) : (
-                            <span style={{ fontWeight: device.deviceName ? 500 : 400, color: device.deviceName ? "#1f2937" : "#9ca3af" }}>
-                              {device.deviceName || "Nema imena"}
-                            </span>
-                          )}
+                          <span style={{ fontWeight: device.deviceName ? 500 : 400, color: device.deviceName ? "#1f2937" : "#9ca3af" }}>
+                            {device.deviceName || "Nema imena"}
+                          </span>
                         </td>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1148,7 +1159,10 @@ export default function Profile() {
                         </td>
                         <td style={tdStyle}>
                           <button
-                            onClick={() => handleToggleBlockDevice(device, isBlocked)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleBlockDevice(device, isBlocked);
+                            }}
                             disabled={savingRole || needsVerification}
                             style={{
                               ...buttonStyle,
@@ -1163,283 +1177,6 @@ export default function Profile() {
                           </button>
                         </td>
                       </tr>
-                      {isEditing && (
-                        <tr>
-                          <td 
-                            ref={editingDeviceId === device.id ? editingBoxRef : null}
-                            colSpan={7} 
-                            className="editing-device-box"
-                            style={{ ...tdStyle, padding: "16px", background: "#f9fafb" }}
-                          >
-                            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                              <div>
-                                <h4 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "12px", color: "#1f2937" }}>
-                                  Uredi Ulogu i Dozvole
-                                </h4>
-                                {isEditing ? (
-                                  <div style={{ 
-                                    display: "flex", 
-                                    flexDirection: "column", 
-                                    gap: "16px", 
-                                    padding: "16px", 
-                                    background: "#fff", 
-                                    borderRadius: "8px", 
-                                    border: "1px solid #e5e7eb" 
-                                  }}>
-                                    <div>
-                                      <label style={{ 
-                                        display: "block", 
-                                        fontSize: "16px", 
-                                        fontWeight: 600, 
-                                        marginBottom: "8px", 
-                                        color: "#374151" 
-                                      }}>
-                                        Uloga:
-                                      </label>
-                                      <select
-                                        value={selectedRole[device.id] || device.role || ""}
-                                        onChange={(e) => {
-                                          const newRole = e.target.value as UserRole || null;
-                                          setSelectedRole({ ...selectedRole, [device.id]: newRole });
-                                          if (newRole === "konobar" && !device.permissions) {
-                                            setEditingPermissions({
-                                              dashboard: true,
-                                              obracun: true,
-                                              arhiva: true,
-                                              cjenovnik: true,
-                                              profit: true,
-                                              profile: true,
-                                              admin: false,
-                                            });
-                                          }
-                                        }}
-                                        style={{
-                                          padding: "12px 16px",
-                                          border: "1px solid #e5e7eb",
-                                          borderRadius: "8px",
-                                          fontSize: "16px",
-                                          backgroundColor: "#fff",
-                                          color: "#1f2937",
-                                          cursor: "pointer",
-                                          width: "100%",
-                                          minHeight: "44px",
-                                          WebkitAppearance: "none",
-                                          appearance: "none",
-                                        }}
-                                      >
-                                        <option value="">Nedodijeljena</option>
-                                        <option value="vlasnik">Vlasnik</option>
-                                        <option value="konobar">Konobar</option>
-                                      </select>
-                                    </div>
-                                    {(selectedRole[device.id] || device.role) === "konobar" && (
-                                      <div>
-                                        <label style={{ 
-                                          display: "block", 
-                                          fontSize: "16px", 
-                                          fontWeight: 600, 
-                                          marginBottom: "12px", 
-                                          color: "#374151" 
-                                        }}>
-                                          Dozvole za stranice:
-                                        </label>
-                                        <div style={{ 
-                                          display: "flex", 
-                                          flexDirection: "column",
-                                          gap: "12px", 
-                                          padding: "16px", 
-                                          background: "#f9fafb", 
-                                          borderRadius: "8px", 
-                                          border: "1px solid #e5e7eb" 
-                                        }}>
-                                          {["dashboard", "obracun", "arhiva", "cjenovnik", "profit", "profile"].map((page) => (
-                                            <label 
-                                              key={page} 
-                                              style={{ 
-                                                display: "flex", 
-                                                alignItems: "center", 
-                                                gap: "12px", 
-                                                fontSize: "16px", 
-                                                cursor: "pointer",
-                                                padding: "8px",
-                                                borderRadius: "6px",
-                                                minHeight: "44px",
-                                                transition: "background-color 0.2s"
-                                              }}
-                                              onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = "#f3f4f6";
-                                              }}
-                                              onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor = "transparent";
-                                              }}
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                checked={editingPermissions[page as keyof PagePermission] || false}
-                                                onChange={(e) => {
-                                                  setEditingPermissions({
-                                                    ...editingPermissions,
-                                                    [page]: e.target.checked,
-                                                  });
-                                                }}
-                                                style={{ 
-                                                  cursor: "pointer",
-                                                  width: "24px",
-                                                  height: "24px",
-                                                  minWidth: "24px",
-                                                  minHeight: "24px",
-                                                  accentColor: "#3b82f6"
-                                                }}
-                                              />
-                                              <span style={{ userSelect: "none" }}>
-                                              {page === "dashboard" ? "Radna površina" :
-                                               page === "obracun" ? "Obračun" :
-                                               page === "arhiva" ? "Arhiva" :
-                                               page === "cjenovnik" ? "Cjenovnik" :
-                                               page === "profit" ? "Profit" :
-                                               "Profil"}
-                                              </span>
-                                            </label>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                    <div style={{ 
-                                      display: "flex", 
-                                      flexDirection: "column",
-                                      gap: "12px", 
-                                      width: "100%" 
-                                    }}>
-                                      <button
-                                        onClick={async () => {
-                                          const roleToSave = selectedRole[device.id] || device.role;
-                                          if (roleToSave === "konobar") {
-                                            await handleSavePermissions(device, roleToSave);
-                                          } else {
-                                            await handleAssignRole(device, roleToSave);
-                                          }
-                                          // Spremi ime uređaja ako je promijenjeno
-                                          if (deviceNames[device.id] !== undefined && deviceNames[device.id] !== device.deviceName) {
-                                            await handleSaveDeviceName(device, deviceNames[device.id]);
-                                          }
-                                          setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
-                                          setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
-                                        }}
-                                        style={{ 
-                                          ...buttonStyle, 
-                                          background: "#16a34a", 
-                                          fontSize: "16px", 
-                                          padding: "14px 20px",
-                                          minHeight: "48px",
-                                          width: "100%",
-                                          fontWeight: 600
-                                        }}
-                                      >
-                                        Spremi
-                                      </button>
-                                      <div style={{ display: "flex", gap: "12px", width: "100%" }}>
-                                      <button
-                                        onClick={() => {
-                                          setEditingDeviceId(null);
-                                          setEditingPermissions({});
-                                          setSelectedRole({ ...selectedRole, [device.id]: undefined as any });
-                                          setDeviceNames({ ...deviceNames, [device.id]: undefined as any });
-                                        }}
-                                          style={{ 
-                                            ...buttonStyle, 
-                                            background: "#6b7280", 
-                                            fontSize: "16px", 
-                                            padding: "14px 20px",
-                                            minHeight: "48px",
-                                            flex: 1,
-                                            fontWeight: 600
-                                          }}
-                                      >
-                                        Odustani
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteDevice(device)}
-                                          style={{ 
-                                            ...buttonStyle, 
-                                            background: "#dc2626", 
-                                            fontSize: "16px", 
-                                            padding: "14px 20px",
-                                            minHeight: "48px",
-                                            flex: 1,
-                                            fontWeight: 600
-                                          }}
-                                      >
-                                          Izbriši
-                                      </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                    <div style={{ padding: "12px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                                      <p style={{ fontSize: "12px", color: "#6b7280", margin: "0 0 8px 0" }}>
-                                        <strong>Uloga:</strong> {device.role || "Nedodijeljena"}
-                                      </p>
-                                      {device.role === "konobar" && device.permissions && (
-                                        <div>
-                                          <p style={{ fontSize: "12px", fontWeight: 600, margin: "0 0 8px 0", color: "#374151" }}>
-                                            Dozvole:
-                                          </p>
-                                          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                                            {Object.entries(device.permissions).filter(([key]) => key !== "admin").map(([page, allowed]) => (
-                                              <span
-                                                key={page}
-                                                style={{
-                                                  padding: "4px 8px",
-                                                  borderRadius: "4px",
-                                                  fontSize: "11px",
-                                                  backgroundColor: allowed ? "#dcfce7" : "#fee2e2",
-                                                  color: allowed ? "#16a34a" : "#dc2626",
-                                                }}
-                                              >
-                                                {page === "dashboard" ? "Radna površina" :
-                                                 page === "obracun" ? "Obračun" :
-                                                 page === "arhiva" ? "Arhiva" :
-                                                 page === "cjenovnik" ? "Cjenovnik" :
-                                                 page === "profit" ? "Profit" :
-                                                 "Profil"}: {allowed ? "Dozvoljeno" : "Blokirano"}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <button
-                                      onClick={() => {
-                                        setEditingDeviceId(device.id);
-                                        setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
-                                        setEditingPermissions(device.permissions || {});
-                                        setDeviceNames({ ...deviceNames, [device.id]: device.deviceName || "" });
-                                      }}
-                                      style={{ ...buttonStyle, background: "#3b82f6", fontSize: "13px", padding: "8px 16px", alignSelf: "flex-start" }}
-                                    >
-                                      Uredi
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              <div style={{ paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
-                                <h4 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "12px", color: "#1f2937" }}>
-                                  Informacije o uređaju
-                                </h4>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "14px", color: "#6b7280" }}>
-                                  <div><strong>Device ID:</strong> {device.id}</div>
-                                  <div><strong>Email:</strong> {device.userEmail || "N/A"}</div>
-                                  <div><strong>Browser:</strong> {device.deviceInfo?.browser || "N/A"}</div>
-                                  <div><strong>OS:</strong> {device.deviceInfo?.os || "N/A"}</div>
-                                  <div><strong>Ekran:</strong> {device.deviceInfo?.screenSize || "N/A"}</div>
-                                  <div><strong>Prvi put viđen:</strong> {device.deviceInfo?.firstSeen ? device.deviceInfo.firstSeen.toLocaleDateString("bs-BA") : "N/A"}</div>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
                       </React.Fragment>
                     );
                   })}
@@ -2705,6 +2442,318 @@ export default function Profile() {
           </button>
         </div>
       </div>
+
+      {/* Modal za uređivanje uređaja */}
+      {showDeviceModal && selectedDevice && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+            padding: isMobile ? "16px" : "24px",
+          }}
+          onClick={() => {
+            setShowDeviceModal(false);
+            setSelectedDevice(null);
+            setEditingDeviceId(null);
+            setEditingPermissions({});
+            setSelectedRole({ ...selectedRole, [selectedDevice.id]: undefined as any });
+            setDeviceNames({ ...deviceNames, [selectedDevice.id]: undefined as any });
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: isMobile ? "16px" : "24px",
+              maxWidth: isMobile ? "100%" : "700px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: isMobile ? "18px" : "20px", fontWeight: 600, color: "#1f2937", marginBottom: "20px" }}>
+              Uredi Uređaj - {selectedDevice.deviceName || "Nema imena"}
+            </h2>
+
+            {/* Informacije o uređaju */}
+            <div style={{ marginBottom: "24px", padding: "16px", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px" }}>
+                Informacije o uređaju
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: "12px", fontSize: "14px", color: "#6b7280" }}>
+                <div><strong>Browser:</strong> {selectedDevice.deviceInfo?.browser || "N/A"}</div>
+                <div><strong>OS:</strong> {selectedDevice.deviceInfo?.os || "N/A"}</div>
+                <div><strong>Ekran:</strong> {selectedDevice.deviceInfo?.screenSize || "N/A"}</div>
+                <div><strong>Posljednja prijava:</strong> {selectedDevice.lastLogin ? selectedDevice.lastLogin.toLocaleDateString("bs-BA") + " " + selectedDevice.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" }) : "N/A"}</div>
+                {selectedDevice.deviceInfo?.firstSeen && (
+                  <div><strong>Prvi put viđen:</strong> {selectedDevice.deviceInfo.firstSeen.toLocaleDateString("bs-BA")}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Ime uređaja */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: "#374151", marginBottom: "6px" }}>
+                Ime uređaja
+              </label>
+              <input
+                type="text"
+                value={deviceNames[selectedDevice.id] !== undefined ? deviceNames[selectedDevice.id] : (selectedDevice.deviceName || "")}
+                onChange={(e) => setDeviceNames({ ...deviceNames, [selectedDevice.id]: e.target.value })}
+                placeholder="Unesite ime uređaja"
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: "6px",
+                  border: "1px solid #e5e7eb",
+                  fontSize: "14px",
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            {/* Uloga */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: "#374151", marginBottom: "6px" }}>
+                Uloga
+              </label>
+              <select
+                value={selectedRole[selectedDevice.id] !== undefined ? (selectedRole[selectedDevice.id] || "") : (selectedDevice.role || "")}
+                onChange={(e) => {
+                  const newRole = e.target.value as UserRole || null;
+                  setSelectedRole({ ...selectedRole, [selectedDevice.id]: newRole });
+                  if (newRole === "konobar" && !selectedDevice.permissions) {
+                    setEditingPermissions({
+                      dashboard: true,
+                      obracun: true,
+                      arhiva: true,
+                      cjenovnik: true,
+                      profit: true,
+                      profile: true,
+                    });
+                  } else if (newRole !== "konobar") {
+                    setEditingPermissions({});
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: "6px",
+                  border: "1px solid #e5e7eb",
+                  fontSize: "14px",
+                  outline: "none",
+                  backgroundColor: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">Nedodijeljena</option>
+                <option value="vlasnik">Vlasnik</option>
+                <option value="konobar">Konobar</option>
+              </select>
+            </div>
+
+            {/* Dozvole (samo za konobar) */}
+            {(selectedRole[selectedDevice.id] !== undefined ? selectedRole[selectedDevice.id] : selectedDevice.role) === "konobar" && (
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: "#374151", marginBottom: "12px" }}>
+                  Dozvole za stranice
+                </label>
+                <div style={{ 
+                  display: "flex", 
+                  flexDirection: "column",
+                  gap: "12px", 
+                  padding: "16px", 
+                  background: "#f9fafb", 
+                  borderRadius: "8px", 
+                  border: "1px solid #e5e7eb" 
+                }}>
+                  {["dashboard", "obracun", "arhiva", "cjenovnik", "profit", "profile"].map((page) => (
+                    <label 
+                      key={page} 
+                      style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: "12px", 
+                        fontSize: "14px", 
+                        cursor: "pointer",
+                        padding: "8px",
+                        borderRadius: "6px",
+                        minHeight: "44px",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editingPermissions[page as keyof PagePermission] || false}
+                        onChange={(e) => {
+                          setEditingPermissions({
+                            ...editingPermissions,
+                            [page]: e.target.checked,
+                          });
+                        }}
+                        style={{ 
+                          cursor: "pointer",
+                          width: "20px",
+                          height: "20px",
+                          minWidth: "20px",
+                          minHeight: "20px",
+                          accentColor: "#3b82f6"
+                        }}
+                      />
+                      <span style={{ userSelect: "none" }}>
+                        {page === "dashboard" ? "Radna površina" :
+                         page === "obracun" ? "Obračun" :
+                         page === "arhiva" ? "Arhiva" :
+                         page === "cjenovnik" ? "Cjenovnik" :
+                         page === "profit" ? "Profit" :
+                         "Profil"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Status i akcije */}
+            <div style={{ marginBottom: "20px", padding: "16px", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
+                <div>
+                  <strong style={{ fontSize: "14px", color: "#374151" }}>Status: </strong>
+                  {selectedDevice.status === "verifikacija" ? (
+                    <span style={{ padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: 600, backgroundColor: "#fef3c7", color: "#f59e0b" }}>
+                      Verifikacija
+                    </span>
+                  ) : selectedDevice.isBlocked ? (
+                    <span style={{ padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: 600, backgroundColor: "#fee2e2", color: "#dc2626" }}>
+                      Blokiran
+                    </span>
+                  ) : (
+                    <span style={{ padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: 600, backgroundColor: "#dcfce7", color: "#16a34a" }}>
+                      Aktivan
+                    </span>
+                  )}
+                </div>
+                {selectedDevice.status !== "verifikacija" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleBlockDevice(selectedDevice, selectedDevice.isBlocked);
+                    }}
+                    disabled={savingRole}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "6px",
+                      border: "none",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      cursor: savingRole ? "not-allowed" : "pointer",
+                      backgroundColor: selectedDevice.isBlocked ? "#16a34a" : "#dc2626",
+                      color: "#fff",
+                      opacity: savingRole ? 0.5 : 1,
+                    }}
+                  >
+                    {selectedDevice.isBlocked ? "Odblokiraj" : "Blokiraj"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Dugmad */}
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button
+                onClick={() => {
+                  setShowDeviceModal(false);
+                  setSelectedDevice(null);
+                  setEditingDeviceId(null);
+                  setEditingPermissions({});
+                  setSelectedRole({ ...selectedRole, [selectedDevice.id]: undefined as any });
+                  setDeviceNames({ ...deviceNames, [selectedDevice.id]: undefined as any });
+                }}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "6px",
+                  border: "1px solid #e5e7eb",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: "#fff",
+                  color: "#374151",
+                }}
+              >
+                Otkaži
+              </button>
+              <button
+                onClick={async () => {
+                  const roleToSave = selectedRole[selectedDevice.id] !== undefined ? selectedRole[selectedDevice.id] : selectedDevice.role;
+                  
+                  // Spremi ulogu
+                  if (roleToSave === "konobar") {
+                    await handleSavePermissions(selectedDevice, roleToSave);
+                  } else if (roleToSave) {
+                    await handleAssignRole(selectedDevice, roleToSave);
+                  }
+                  
+                  // Spremi ime uređaja ako je promijenjeno
+                  if (deviceNames[selectedDevice.id] !== undefined && deviceNames[selectedDevice.id] !== selectedDevice.deviceName) {
+                    await handleSaveDeviceName(selectedDevice, deviceNames[selectedDevice.id]);
+                  }
+                  
+                  // Zatvori modal
+                  setShowDeviceModal(false);
+                  setSelectedDevice(null);
+                  setEditingDeviceId(null);
+                  setEditingPermissions({});
+                  setSelectedRole({ ...selectedRole, [selectedDevice.id]: undefined as any });
+                  setDeviceNames({ ...deviceNames, [selectedDevice.id]: undefined as any });
+                }}
+                disabled={savingRole}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: savingRole ? "not-allowed" : "pointer",
+                  backgroundColor: savingRole ? "#9ca3af" : "#3b82f6",
+                  color: "#fff",
+                }}
+              >
+                {savingRole ? "Spremanje..." : "Spremi"}
+              </button>
+              <button
+                onClick={async () => {
+                  if (window.confirm("Jeste li sigurni da želite izbrisati ovaj uređaj?")) {
+                    await handleDeleteDevice(selectedDevice);
+                    setShowDeviceModal(false);
+                    setSelectedDevice(null);
+                  }
+                }}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  backgroundColor: "#dc2626",
+                  color: "#fff",
+                }}
+              >
+                Izbriši
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
