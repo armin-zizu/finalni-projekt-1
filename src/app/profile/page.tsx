@@ -101,6 +101,13 @@ export default function Profile() {
   const [backupMessage, setBackupMessage] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const { subscription, loading: subscriptionLoading, addPayment, refreshSubscription } = useSubscription();
+  
+  // Osvježi subscription podatke kada se otvori profil stranica
+  useEffect(() => {
+    if (!subscriptionLoading && refreshSubscription) {
+      refreshSubscription();
+    }
+  }, []); // Samo jednom kada se komponenta mount-uje
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");

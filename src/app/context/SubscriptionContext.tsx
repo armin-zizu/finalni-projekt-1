@@ -269,9 +269,31 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         }
       })() : null;
       
-      console.log("SubscriptionContext - Data for calculation:", dataForCalculation);
+      console.log("SubscriptionContext - Data for calculation:", {
+        isActive: dataForCalculation.isActive,
+        monthlyPrice: dataForCalculation.monthlyPrice,
+        hasLastPaymentDate: !!dataForCalculation.lastPaymentDate,
+        hasExpiryDate: !!dataForCalculation.expiryDate,
+        expiryDate: dataForCalculation.expiryDate,
+        hasGraceEndDate: !!dataForCalculation.graceEndDate,
+        hasTrialEndDate: !!dataForCalculation.trialEndDate,
+        userCreatedAt: userCreatedAt,
+        paymentHistoryCount: dataForCalculation.paymentHistory?.length || 0,
+      });
       const status = calculateSubscriptionStatus(dataForCalculation, userCreatedAt);
-      console.log("SubscriptionContext - Calculated subscription status:", status);
+      console.log("SubscriptionContext - Calculated subscription status:", {
+        isActive: status.isActive,
+        isTrial: status.isTrial,
+        isPremium: status.isPremium,
+        isGracePeriod: status.isGracePeriod,
+        hasExpiryDate: !!status.expiryDate,
+        expiryDate: status.expiryDate,
+        daysUntilExpiry: status.daysUntilExpiry,
+        hasTrialEndDate: !!status.trialEndDate,
+        daysRemaining: status.daysRemaining,
+        hasGraceEndDate: !!status.graceEndDate,
+        daysInGrace: status.daysInGrace,
+      });
       setSubscription(status);
     } catch (error: any) {
       console.error("Greška pri učitavanju pretplate:", error);
