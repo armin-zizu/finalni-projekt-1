@@ -43,6 +43,11 @@ const Sidebar = () => {
 
   // Definiši dozvole za svaku ulogu
   const canAccess = (path: string): boolean => {
+    // Admin stranica - samo ako je isAdmin true
+    if (path === "/admin") {
+      return isAdmin;
+    }
+    
     // Ako nema uloge, dozvoli pristup (za kompatibilnost)
     if (!role) return true;
     
