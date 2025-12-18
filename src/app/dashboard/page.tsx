@@ -676,8 +676,8 @@ export default function DashboardPage() {
           div[style*='min-width: 160px'] { min-width: 100%; max-width: 100% !important; }
           button { width: 100%; margin: 5px 0; padding: 10px; font-size: 14px; min-height: 44px; }
           input[type="date"] { width: 100%; margin: 5px 0; padding: 8px; font-size: 14px; min-height: 44px; }
-          div[style*='height: 400'] { height: 350px; padding: 10px 10px 5px 10px !important; }
-          div[style*='height: 300'] { height: 280px; padding: 10px 10px 5px 10px !important; }
+          div[style*='height: 400'] { height: 350px; padding: 0 !important; }
+          div[style*='height: 300'] { height: 280px; padding: 0 !important; }
           .dashboard-card { 
             min-width: 100% !important; 
             max-width: 100% !important;
@@ -735,18 +735,20 @@ export default function DashboardPage() {
             overflow: visible !important;
           }
           div[style*='height: 300'][style*='backgroundColor: #fff'] {
-            height: 300px !important;
-            min-height: 300px !important;
+            height: 310px !important;
+            min-height: 310px !important;
             position: relative !important;
             overflow: visible !important;
             margin-bottom: 8px !important;
+            padding: 0 !important;
           }
           div[style*='height: 400'][style*='backgroundColor: #fff'] {
-            height: 350px !important;
-            min-height: 350px !important;
+            height: 310px !important;
+            min-height: 310px !important;
             position: relative !important;
             overflow: visible !important;
             margin-bottom: 8px !important;
+            padding: 0 !important;
           }
         }
       `}</style>
@@ -1103,11 +1105,11 @@ export default function DashboardPage() {
         style={{
           width: "100%",
           maxWidth: "100%",
-          height: isMobile ? 300 : 400,
-          minHeight: isMobile ? 300 : 400,
+          height: isMobile ? 310 : 400,
+          minHeight: isMobile ? 310 : 400,
           backgroundColor: "#fff",
           borderRadius: 12,
-          padding: isMobile ? "10px 10px 5px 10px" : 20,
+          padding: isMobile ? 0 : 20,
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
           marginBottom: isMobile ? 8 : 30,
           overflow: isMobile ? "visible" : "hidden",
@@ -1115,9 +1117,9 @@ export default function DashboardPage() {
           position: "relative"
         }}
       >
-        <div style={{ width: "100%", height: isMobile ? 280 : 400, position: "relative" }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "5px" : 0 }}>
           <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 66 : 6 }}>
+            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 5 : 20, right: isMobile ? 5 : 20, left: isMobile ? -5 : 10, bottom: isMobile ? 60 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1386,11 +1388,11 @@ export default function DashboardPage() {
         style={{
           width: "100%",
           maxWidth: "100%",
-          height: isMobile ? 300 : 350,
-          minHeight: isMobile ? 300 : 350,
+          height: isMobile ? 310 : 350,
+          minHeight: isMobile ? 310 : 350,
           backgroundColor: "#fff",
           borderRadius: 12,
-          padding: isMobile ? "10px 10px 5px 10px" : 20,
+          padding: isMobile ? 0 : 20,
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
           marginBottom: 10,
           overflow: isMobile ? "visible" : "hidden",
@@ -1398,9 +1400,9 @@ export default function DashboardPage() {
           position: "relative"
         }}
       >
-        <div style={{ width: "100%", height: isMobile ? 280 : 350, position: "relative" }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 350, position: "relative", padding: isMobile ? "5px" : 0 }}>
           <ResponsiveContainer key={`artikl-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={selectedData && selectedData.length > 0 ? selectedData : []} margin={{ top: 20, right: isMobile ? 10 : 20, left: isMobile ? -10 : 10, bottom: isMobile ? 66 : 6 }}>
+            <LineChart data={selectedData && selectedData.length > 0 ? selectedData : []} margin={{ top: isMobile ? 5 : 20, right: isMobile ? 5 : 20, left: isMobile ? -5 : 10, bottom: isMobile ? 60 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 

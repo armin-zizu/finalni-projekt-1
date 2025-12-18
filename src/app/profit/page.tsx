@@ -901,8 +901,9 @@ export default function ProfitPage() {
           h1 { font-size: 20px; margin-bottom: 16px !important; }
           h2 { font-size: 16px; margin-bottom: 12px !important; word-wrap: break-word; }
           div[style*='height: 300'] { 
-            height: 280px; 
-            padding: 10px 10px 5px 10px !important; 
+            height: 310px !important; 
+            min-height: 310px !important;
+            padding: 0 !important; 
             max-width: 100% !important;
             overflow: hidden !important;
           }
@@ -957,8 +958,8 @@ export default function ProfitPage() {
           }
           .recharts-wrapper { 
             width: 100% !important; 
-            height: 280px !important;
-            min-height: 280px !important;
+            height: 300px !important;
+            min-height: 300px !important;
             position: relative !important;
             margin-bottom: 0 !important;
           }
@@ -1014,20 +1015,20 @@ export default function ProfitPage() {
       <div style={{ 
         width: "100%", 
         maxWidth: "100%", 
-        height: isMobile ? 300 : 300, 
-        minHeight: isMobile ? 300 : 300,
+        height: isMobile ? 310 : 300, 
+        minHeight: isMobile ? 310 : 300,
         backgroundColor: "#fff",
         borderRadius: 12,
-        padding: isMobile ? "10px 10px 5px 10px" : 20,
+        padding: isMobile ? 0 : 20,
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
         marginBottom: isMobile ? 8 : 20, 
         overflow: isMobile ? "visible" : "hidden", 
         boxSizing: "border-box",
         position: "relative"
       }}>
-        <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 300, position: "relative", padding: isMobile ? "5px" : 0 }}>
           <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 66 : 6 }}>
+            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 5 : 20, right: isMobile ? 5 : 10, left: isMobile ? -5 : -10, bottom: isMobile ? 60 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1080,11 +1081,11 @@ export default function ProfitPage() {
         style={{
         width: "100%",
         maxWidth: "100%",
-        height: isMobile ? 300 : 300,
-        minHeight: isMobile ? 300 : 300,
+        height: isMobile ? 310 : 300,
+        minHeight: isMobile ? 310 : 300,
         backgroundColor: "#fff",
         borderRadius: 12,
-        padding: isMobile ? "10px 10px 5px 10px" : 20,
+        padding: isMobile ? 0 : 20,
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
         marginBottom: 10,
         boxSizing: "border-box",
@@ -1092,9 +1093,9 @@ export default function ProfitPage() {
         position: "relative"
       }}
       >
-        <div style={{ width: "100%", height: isMobile ? 280 : 300, position: "relative" }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 300, position: "relative", padding: isMobile ? "5px" : 0 }}>
           <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: 20, right: isMobile ? 5 : 10, left: isMobile ? -15 : -10, bottom: isMobile ? 66 : 6 }}>
+            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: isMobile ? 5 : 20, right: isMobile ? 5 : 10, left: isMobile ? -5 : -10, bottom: isMobile ? 60 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
