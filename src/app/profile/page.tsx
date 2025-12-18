@@ -2121,8 +2121,8 @@ export default function Profile() {
                         throw new Error(errorData.error || 'Greška pri prijavi uplate');
                       }
 
-                      // Osveži subscription podatke
-                      await refreshSubscription?.();
+                      // Osveži subscription podatke - reload page to see updated status
+                      window.location.reload();
 
                       setPaymentRequested(true);
                       setSubscriptionMessage("Uplata je uspješno prijavljena! Administrator će provjeriti uplatu u roku od 24 sata.");
