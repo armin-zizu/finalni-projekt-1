@@ -14,25 +14,12 @@ async function postHandler(
       );
     }
 
-    // Check if user is admin
+    // Check if user is admin - use email from JWT token (more reliable)
     const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
-    const currentUserResult = await query(
-      `SELECT email, is_owner FROM users WHERE id = $1`,
-      [req.user.userId]
-    );
-
-    if (currentUserResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    const currentUser = currentUserResult.rows[0];
-    // Samo gitara.zizu@gmail.com ima pristup admin panelu (ne bilo koji owner)
+    const userEmail = req.user.email || '';
     const adminEmailLower = ADMIN_EMAIL.toLowerCase().trim();
-    const userEmailLower = (currentUser.email || "").toLowerCase().trim();
-    const isAdmin = userEmailLower === adminEmailLower;
+    const userEmailLower = (userEmail || "").toLowerCase().trim();
+    const isAdmin = userEmail && userEmailLower === adminEmailLower;
 
     if (!isAdmin) {
       return NextResponse.json(
