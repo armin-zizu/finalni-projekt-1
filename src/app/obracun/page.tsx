@@ -434,29 +434,41 @@ export default function ObracunPage() {
       try {
         // Provjeri da li postoji ažurirani obračun za taj datum
         const obracuni = await getObracuni(userId, datumString);
-        const azuriraniObracun = obracuni.find((ob: any) => ob.datum === datumString && ob.isAzuriran === true);
+        console.log("🔍 Traženje draft obračuna - obracuni:", obracuni.length, "datum:", datumString);
+        
+        // Normalizuj datum (ukloni tačku sa kraja ako postoji)
+        const normalizedDatum = datumString.replace(/\.$/, '');
+        
+        const azuriraniObracun = obracuni.find((ob: any) => {
+          const obDatum = ob.datum ? ob.datum.replace(/\.$/, '') : '';
+          return obDatum === normalizedDatum && ob.isAzuriran === true;
+        });
         
         if (azuriraniObracun) {
           // Učitaj ažurirani obračun
-          console.log("🟢 Pronađen ažurirani obračun za datum:", datumString);
+          console.log("🟢 Pronađen ažurirani obračun za datum:", datumString, "artikala:", azuriraniObracun.artikli?.length || 0);
+          
+          // VAŽNO: Postavi isAzuriran PRIJE svega da bi drugi useEffect preskočio inicijalizaciju
+          setIsAzuriran(true);
+          setIsUlazLocked(true); // Zaključaj ulaze jer je obračun ažuriran
           
           // Kreiraj cache iz ažuriranog obračuna
           const ulazCache: Record<string, { ulaz: number }> = {};
-          azuriraniObracun.artikli.forEach((a: any) => {
-            if (a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) {
-              ulazCache[a.naziv] = { ulaz: a.ulaz || a.sačuvanUlaz || 0 };
-            }
-          });
+          if (azuriraniObracun.artikli && azuriraniObracun.artikli.length > 0) {
+            azuriraniObracun.artikli.forEach((a: any) => {
+              if (a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) {
+                ulazCache[a.naziv] = { ulaz: a.ulaz || a.sačuvanUlaz || 0 };
+              }
+            });
+          }
           
           setUlazCacheForDatum(ulazCache);
           setSavedInvoiceImagesCount(azuriraniObracun.invoiceImages?.length || 0);
           setHasUlazInCache(azuriraniObracun.imaUlaz || false);
-          setIsUlazLocked(true); // Zaključaj ulaze jer je obračun ažuriran
-          setIsAzuriran(true);
           
           // Ako postoje artikli u ažuriranom obračunu, učitaj ih u state
           if (azuriraniObracun.artikli && azuriraniObracun.artikli.length > 0) {
-            setArtikli(azuriraniObracun.artikli.map((a: any) => {
+            const mappedArtikli = azuriraniObracun.artikli.map((a: any) => {
               // VAŽNO: Ulaz se NE zbraja sa početnim stanjem - ostaje kao posebno polje
               const pocetnoStanje = a.pocetnoStanje || 0;
               const ulaz = a.ulaz || a.sačuvanUlaz || 0;
@@ -478,7 +490,10 @@ export default function ObracunPage() {
                 staroPocetnoStanje: a.staroPocetnoStanje,
                 sačuvanUlaz: a.sačuvanUlaz || a.ulaz || 0, // Sačuvaj ulaz za prikaz u arhivi
               };
-            }));
+            });
+            
+            console.log("🟢 Učitavanje", mappedArtikli.length, "artikala iz draft obračuna");
+            setArtikli(mappedArtikli);
             
             // Učitaj rashode i prihode ako postoje
             if (azuriraniObracun.rashodi && azuriraniObracun.rashodi.length > 0) {
@@ -488,21 +503,24 @@ export default function ObracunPage() {
               setPrihodi(azuriraniObracun.prihodi);
             }
             
-            // Učitaj slike faktura ako postoje
+            // Učitaj broj slika faktura ako postoje (URL-ovi, ne File objekti)
             if (azuriraniObracun.invoiceImages && azuriraniObracun.invoiceImages.length > 0) {
-              setInvoiceImages(azuriraniObracun.invoiceImages);
+              setSavedInvoiceImagesCount(azuriraniObracun.invoiceImages.length);
+              console.log(`📸 Učitano ${azuriraniObracun.invoiceImages.length} slika faktura iz draft-a`);
             }
+          } else {
+            console.log("⚠️ Draft obračun pronađen ali nema artikala");
           }
           
           console.log("🟢 Ažurirani obračun učitano:", azuriraniObracun.artikli?.length || 0, "artikala");
         } else {
           // Nema ažuriranog obračuna - inicijalizuj prazan cache
+          console.log("🟡 Nema ažuriranog obračuna za datum:", datumString);
           setUlazCacheForDatum({});
           setSavedInvoiceImagesCount(0);
           setHasUlazInCache(false);
           setIsUlazLocked(false);
           setIsAzuriran(false);
-          console.log("🟢 Nema ažuriranog obračuna, cache inicijaliziran kao prazan");
         }
       } catch (error: any) {
         console.warn("Greška pri učitavanju ažuriranog obračuna:", error);
@@ -522,12 +540,16 @@ export default function ObracunPage() {
 
   // DRUGO: Inicijalizacija artikala na osnovu cjenovnika I cache-a
   useEffect(() => {
-    if (cjenovnik.length === 0 || !isCacheLoaded) return; // Čekaj da se cache učita
+    if (cjenovnik.length === 0 || !isCacheLoaded) {
+      console.log("⏳ Čeka se cjenovnik ili cache:", { cjenovnikLength: cjenovnik.length, isCacheLoaded });
+      return; // Čekaj da se cache učita
+    }
     
-    // VAŽNO: Ako je obračun već ažuriran (isAzuriran === true) I artikli su već učitani, NE mijenjaj artikle
-    // Međutim, ako artikli nisu učitani (artikli.length === 0), moramo ih učitati iz cjenovnika
-    if (isAzuriran && artikli.length > 0) {
-      console.log("🟢 Obračun je ažuriran i artikli su već učitani, preskačem inicijalizaciju artikala iz cjenovnika");
+    // VAŽNO: Ako je obračun već ažuriran (isAzuriran === true), NE mijenjaj artikle
+    // Draft obračun se uvijek prikazuje sa zaključanim vrijednostima
+    // Ne prepisuj draft obračun sa početnim stanjem iz cjenovnika
+    if (isAzuriran) {
+      console.log("🟢 Obračun je ažuriran (draft), preskačem inicijalizaciju artikala iz cjenovnika - koristimo zaključane vrijednosti. Trenutno artikala:", artikli.length);
       return;
     }
     
@@ -945,13 +967,28 @@ export default function ObracunPage() {
     setIsUlazLocked(true); // Zaključaj ulaze nakon ažuriranja
 
     try {
-      // Sačuvaj ažurirani obračun u bazu kao privremeni (sa isAzuriran: true)
+      // Upload slika faktura prije čuvanja draft-a
+      let invoiceImageUrls: string[] = [];
+      if (invoiceImages.length > 0) {
+        try {
+          invoiceImageUrls = await uploadInvoiceImages(datumString);
+          console.log(`📸 Upload-ovano ${invoiceImageUrls.length} slika faktura za draft obračun`);
+          // Resetuj lokalne slike nakon upload-a
+          setInvoiceImages([]);
+          setSavedInvoiceImagesCount((prev) => prev + invoiceImageUrls.length);
+        } catch (error: any) {
+          console.warn("Upozorenje: Slike faktura nisu upload-ovane:", error);
+          // Nastavi sa čuvanjem obračuna čak i ako upload slika ne uspije
+        }
+      }
+
+      // Sačuvaj ažurirani obračun u bazu kao privremeni (sa isAzuriran: true i isDraft: true)
       const ukupnoArtikli = updated.reduce((sum, a) => sum + (a.vrijednostKM || 0), 0);
       const ukupnoRashod = rashodi.reduce((sum, r) => sum + (r.cijena || 0), 0);
       const ukupnoPrihod = prihodi.reduce((sum, p) => sum + (p.cijena || 0), 0);
       const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
 
-      // Sačuvaj kao ažurirani obračun (privremeni, sa isAzuriran: true)
+      // Sačuvaj kao draft obračun (privremeni, sa isAzuriran: true i isDraft: true)
       await saveObracun(userId, {
         datum: datumString,
         artikli: updated,
@@ -963,7 +1000,8 @@ export default function ObracunPage() {
         neto: neto,
         isAzuriran: true, // Označi kao ažurirani obračun
         imaUlaz: imaUlaz,
-        invoiceImages: invoiceImages || [],
+        invoiceImages: invoiceImageUrls.length > 0 ? invoiceImageUrls : undefined, // Sačuvaj URL-ove slika
+        isDraft: true, // Označi kao draft - biće obrisan kada se sačuva finalni obračun
       });
 
       alert("Ulaz je sačuvan i zaključan! Kliknite 'Uredi' ako želite promijeniti vrijednosti.");
@@ -1131,19 +1169,57 @@ export default function ObracunPage() {
       return;
     }
 
-    // Upload slika faktura - kao što je Firebase radio
-    let invoiceImageUrls: string[] = [];
+    // Uzmi slike iz draft-a (ako postoje)
+    // VAŽNO: Prvo proveri da li postoje ne-uploadovane slike u state-u koje treba upload-ovati
+    // Ako postoje slike koje nisu upload-ovane, upload-uj ih PRVO pa onda uzmi iz draft-a
+    let draftInvoiceImageUrls: string[] = [];
+    try {
+      // Prvo proveri da li postoje slike koje treba upload-ovati (ako je korisnik kliknuo "Sačuvaj slike fakture")
+      // Ako je `savedInvoiceImagesCount > 0`, znači da su već upload-ovane u draft
+      // Ali ako ima `invoiceImages.length > 0`, treba ih upload-ovati PRVO
+      
+      const obracuni = await getObracuni(userId, datumString);
+      // Traži draft obračun (isAzuriran === true)
+      const draftObracun = obracuni.find((ob: any) => {
+        const obDatum = ob.datum && ob.datum.replace(/\.$/, ''); // Ukloni tačku sa kraja ako postoji
+        const trazeniDatum = datumString.replace(/\.$/, ''); // Ukloni tačku sa kraja ako postoji
+        return obDatum === trazeniDatum && ob.isAzuriran === true;
+      });
+      
+      console.log('🔍 Traženje draft obračuna:', {
+        trazeniDatum: datumString,
+        obracuniCount: obracuni.length,
+        draftObracun: draftObracun ? 'pronađen' : 'nije pronađen',
+        draftInvoiceImages: draftObracun?.invoiceImages?.length || 0
+      });
+      if (draftObracun && draftObracun.invoiceImages && Array.isArray(draftObracun.invoiceImages)) {
+        draftInvoiceImageUrls = draftObracun.invoiceImages;
+        console.log(`📸 Pronađeno ${draftInvoiceImageUrls.length} slika faktura u draft-u:`, draftInvoiceImageUrls);
+      } else {
+        console.log(`📸 Nema draft obračuna sa slikama za datum ${datumString}`);
+      }
+    } catch (error: any) {
+      console.warn("Greška pri učitavanju draft-a za slike:", error);
+    }
+
+    // Upload novih slika faktura (ako postoje)
+    let newInvoiceImageUrls: string[] = [];
     if (invoiceImages.length > 0) {
       try {
-        invoiceImageUrls = await uploadInvoiceImages(datumString);
+        newInvoiceImageUrls = await uploadInvoiceImages(datumString);
+        console.log(`📸 Upload-ovano ${newInvoiceImageUrls.length} novih slika faktura:`, newInvoiceImageUrls);
       } catch (error: any) {
         console.warn("Upozorenje: Slike faktura nisu upload-ovane:", error);
       }
     }
     
+    // Kombinuj slike iz draft-a i nove slike
+    const allInvoiceImageUrls = [...draftInvoiceImageUrls, ...newInvoiceImageUrls];
+    console.log(`📸 Ukupno slika za finalni obračun: ${allInvoiceImageUrls.length}`, allInvoiceImageUrls);
+    
     // Dodaj slike u obračun - kao što je Firebase radio
-    if (invoiceImageUrls.length > 0) {
-      (arhiviraniObracun as any).invoiceImages = invoiceImageUrls;
+    if (allInvoiceImageUrls.length > 0) {
+      (arhiviraniObracun as any).invoiceImages = allInvoiceImageUrls;
     }
 
     // SPREMI PREKO API-JA kao finalni obračun (isDraft: false ili undefined)
@@ -1155,7 +1231,7 @@ export default function ObracunPage() {
         artikliCount: arhiviraniObracun.artikli.length,
         rashodiCount: arhiviraniObracun.rashodi.length,
         prihodiCount: arhiviraniObracun.prihodi.length,
-        invoiceImagesCount: invoiceImageUrls.length
+        invoiceImagesCount: allInvoiceImageUrls.length
       });
       
       const saveData = {
@@ -1169,14 +1245,19 @@ export default function ObracunPage() {
         neto: arhiviraniObracun.neto,
         isAzuriran: false, // Finalni obračun se čuva sa isAzuriran: false (prikazuje se u arhivi)
         imaUlaz: arhiviraniObracun.imaUlaz || false,
-        invoiceImages: invoiceImageUrls.length > 0 ? invoiceImageUrls : undefined,
+        invoiceImages: allInvoiceImageUrls.length > 0 ? allInvoiceImageUrls : undefined,
         isDraft: false, // Finalni obračun - API će obrisati draft prije spremanja
       };
       
-      console.log("📤 Pozivanje saveObracun API sa podacima:", saveData);
+      console.log("📤 Pozivanje saveObracun API sa podacima:", {
+        ...saveData,
+        invoiceImages: saveData.invoiceImages ? `[${saveData.invoiceImages.length} slika]` : 'nema slika'
+      });
+      console.log("📤 Detalji slika faktura:", saveData.invoiceImages);
+      
       await saveObracun(userId, saveData);
       
-      console.log("✅ Obračun uspješno sačuvan preko API-ja:", datumString);
+      console.log("✅ Obračun uspješno sačuvan preko API-ja:", datumString, "sa", allInvoiceImageUrls.length, "slika faktura");
       
       // Resetuj slike faktura nakon uspješnog spremanja
       setInvoiceImages([]);
@@ -1576,10 +1657,37 @@ export default function ObracunPage() {
                         setUploadProgress(0);
                         const uploadedUrls = await uploadInvoiceImages(datumString);
                         
-                        // Ažuriraj lokalni counter za uploadovane slike (draft onemogućen)
+                        // Upload-ovane slike - sada ih treba sačuvati u draft-u
                         if (uploadedUrls.length > 0) {
-                          setSavedInvoiceImagesCount((prev) => prev + uploadedUrls.length);
-                          console.log(`Slike upload-ovane (draft onemogućen): ${uploadedUrls.length} novih slika`);
+                          // Učitaj trenutni draft ili kreiraj novi sa slikama
+                          const obracuni = await getObracuni(userId, datumString);
+                          const draftObracun = obracuni.find((ob: any) => ob.datum === datumString && ob.isAzuriran === true);
+                          
+                          let existingImages: string[] = [];
+                          if (draftObracun && draftObracun.invoiceImages && Array.isArray(draftObracun.invoiceImages)) {
+                            existingImages = draftObracun.invoiceImages;
+                          }
+                          
+                          const allImages = [...existingImages, ...uploadedUrls];
+                          
+                          // Sačuvaj draft sa svim slikama
+                          await saveObracun(userId, {
+                            datum: datumString,
+                            artikli: draftObracun?.artikli || artikli,
+                            rashodi: draftObracun?.rashodi || rashodi,
+                            prihodi: draftObracun?.prihodi || prihodi,
+                            ukupnoArtikli: draftObracun?.ukupnoArtikli || artikli.reduce((sum, a) => sum + a.vrijednostKM, 0),
+                            ukupnoRashod: draftObracun?.ukupnoRashod || rashodi.reduce((sum, r) => sum + r.cijena, 0),
+                            ukupnoPrihod: draftObracun?.ukupnoPrihod || prihodi.reduce((sum, p) => sum + p.cijena, 0),
+                            neto: draftObracun?.neto || (artikli.reduce((sum, a) => sum + a.vrijednostKM, 0) + prihodi.reduce((sum, p) => sum + p.cijena, 0) - rashodi.reduce((sum, r) => sum + r.cijena, 0)),
+                            isAzuriran: true,
+                            imaUlaz: draftObracun?.imaUlaz || hasUlaz,
+                            invoiceImages: allImages,
+                            isDraft: true,
+                          });
+                          
+                          setSavedInvoiceImagesCount(allImages.length);
+                          console.log(`📸 Sačuvano ${uploadedUrls.length} novih slika u draft-u (ukupno: ${allImages.length})`);
                         }
                         
                         alert("Slike faktura uspješno sačuvane!");

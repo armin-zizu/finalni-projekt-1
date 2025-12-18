@@ -215,6 +215,51 @@ type DugInfo = {
 };
 
 // ---- Glavna komponenta ----
+// Helper funkcija za normalizaciju URL-ova slika
+const normalizeImageUrl = (imageUrl: string): string => {
+  if (!imageUrl) return imageUrl;
+  
+  // Ako već počinje sa / ili http, vrati kao jeste
+  if (imageUrl.startsWith('/') || imageUrl.startsWith('http')) {
+    return imageUrl;
+  }
+  
+  // Ukloni file:/// protokol
+  if (imageUrl.startsWith('file:///')) {
+    // Pronađi /public/ ili /uploads/
+    const publicIndex = imageUrl.indexOf('/public/');
+    const uploadsIndex = imageUrl.indexOf('/uploads/');
+    
+    if (publicIndex !== -1) {
+      return imageUrl.substring(publicIndex + '/public'.length);
+    } else if (uploadsIndex !== -1) {
+      return imageUrl.substring(uploadsIndex);
+    } else {
+      // Ako nema public ili uploads, probaj da ekstraktuj putanju nakon poslednjeg /
+      const lastSlash = imageUrl.lastIndexOf('/');
+      if (lastSlash !== -1 && lastSlash < imageUrl.length - 1) {
+        const pathPart = imageUrl.substring(lastSlash);
+        return pathPart.startsWith('/uploads') ? pathPart : `/uploads${pathPart}`;
+      }
+    }
+  }
+  
+  // Ako sadrži public/uploads, ekstraktuj relativni put
+  if (imageUrl.includes('public/uploads')) {
+    const uploadsIndex = imageUrl.indexOf('/uploads/');
+    if (uploadsIndex !== -1) {
+      return imageUrl.substring(uploadsIndex);
+    }
+  }
+  
+  // Ako je samo naziv fajla ili relativni put bez /, dodaj /uploads/
+  if (!imageUrl.startsWith('/')) {
+    return imageUrl.startsWith('uploads/') ? `/${imageUrl}` : `/uploads/${imageUrl}`;
+  }
+  
+  return imageUrl;
+};
+
 export default function ArhivaPage() {
   const { user } = useRole();
   const [arhiva, setArhiva] = useState<ArhiviraniObracun[]>([]);
@@ -260,8 +305,10 @@ export default function ArhivaPage() {
           
           console.log(`Arhiva - Loading obracun ${obracun.id}, artikli count: ${artikli.length}, rashodi: ${rashodi.length}, prihodi: ${prihodi.length}`);
           
-          const invoiceImages = Array.isArray(obracun.invoiceImages) ? obracun.invoiceImages : [];
+          let invoiceImages = Array.isArray(obracun.invoiceImages) ? obracun.invoiceImages : [];
+          // Normalizuj URL-ove slika prije spremanja u state
           if (invoiceImages.length > 0) {
+            invoiceImages = invoiceImages.map(url => normalizeImageUrl(url));
             console.log(`Obračun ${obracun.id} ima ${invoiceImages.length} slika faktura`);
           }
           
@@ -704,9 +751,11 @@ export default function ArhivaPage() {
       const obracuni = await getObracuni(user.id, datum);
       const obracunFromApi = obracuni.find((o: any) => o.datum === datum);
       if (obracunFromApi && obracunFromApi.invoiceImages && obracunFromApi.invoiceImages.length > 0) {
+        // Normalizuj URL-ove slika
+        const normalizedImages = obracunFromApi.invoiceImages.map((url: string) => normalizeImageUrl(url));
         return [{
           datum: datum,
-          images: obracunFromApi.invoiceImages,
+          images: normalizedImages,
         }];
       }
     } catch (error) {
@@ -1518,10 +1567,14 @@ export default function ArhivaPage() {
                 )}
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px" }}>
-                  {selectedFakturaImages.map((imageUrl, index) => (
+                  {selectedFakturaImages.map((imageUrl, index) => {
+                    // Normalizuj URL koristeći helper funkciju
+                    const normalizedUrl = normalizeImageUrl(imageUrl);
+                    
+                    return (
                     <div key={index} style={{ position: "relative" }}>
                       <img
-                        src={imageUrl}
+                        src={normalizedUrl}
                         alt={`Faktura ${selectedFakturaDatum} - ${index + 1}`}
                         style={{
                           width: "100%",
@@ -1531,7 +1584,11 @@ export default function ArhivaPage() {
                           border: "1px solid #e5e7eb",
                           cursor: "pointer",
                         }}
-                        onClick={() => window.open(imageUrl, "_blank")}
+                        onClick={() => window.open(normalizedUrl, "_blank")}
+                        onError={(e) => {
+                          console.error('Error loading image:', normalizedUrl, 'Original:', imageUrl);
+                          (e.target as HTMLImageElement).src = '/placeholder-image.png'; // Fallback image
+                        }}
                       />
                       <button
                         onClick={() => {
@@ -1560,7 +1617,8 @@ export default function ArhivaPage() {
                         ×
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

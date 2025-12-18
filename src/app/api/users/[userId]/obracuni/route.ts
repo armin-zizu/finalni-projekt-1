@@ -188,13 +188,11 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       queryParams.push(cleanedDatumForPostgres);
     }
 
-    // If requesting draft, return empty (drafts are stored on frontend, not in database)
-    // Frontend will use localStorage/cache for drafts
-    if (isDraft === 'true') {
-      sql += ' AND 1 = 0'; // Always false - no drafts in database
-    }
-    // Otherwise return all (all are final without is_draft column)
-
+    // VAŽNO: Draft obračuni se čuvaju u bazi sa isAzuriran: true u JSONB polju
+    // Ne filtriramo draft obračune - vraćamo sve obračune (finalni i draft)
+    // Frontend će sam filtrirati šta treba prikazati u arhivi
+    // Draft obračuni (isAzuriran: true) se koriste za privremeno čuvanje do završetka obračuna
+    
     // Sortiranje po datumu - datum kolona je već date tip, možemo direktno sortirati
     sql += ` ORDER BY datum DESC NULLS LAST`;
 
@@ -248,34 +246,13 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
         artikliData.prihodi = [];
       }
       
-      // Proveri da li je obračun ažurirani i da li je prošlo više od 24h od kraja datuma
-      // Ako jeste, automatski konvertuj u običan obračun
-      if (artikliData.isAzuriran === true) {
-        const datumParts = row.datum.toString().split('-');
-        if (datumParts.length === 3) {
-          const [godina, mjesec, dan] = datumParts;
-          const datumKraj = new Date(parseInt(godina), parseInt(mjesec) - 1, parseInt(dan), 23, 59, 59);
-          const sada = new Date();
-          const razlikaMS = sada.getTime() - datumKraj.getTime();
-          const razlikaSati = razlikaMS / (1000 * 60 * 60);
-          
-          // Ako je prošlo više od 24h od kraja datuma, konvertuj u običan obračun
-          if (razlikaSati > 24) {
-            console.log(`Automatska konverzija ažuriranog obračuna u običan (prošlo ${razlikaSati.toFixed(1)}h):`, row.id);
-            artikliData.isAzuriran = false;
-            
-            // Ažuriraj u bazi da obračun više nije ažurirani (async, ne blokiraj odgovor)
-            query(
-              `UPDATE obracuni 
-               SET artikli = $1::jsonb
-               WHERE id = $2`,
-              [JSON.stringify(artikliData), row.id]
-            ).catch((err) => {
-              console.error('Error updating obracun after auto-conversion:', err);
-            });
-          }
-        }
-      }
+      // VAŽNO: Draft obračuni (isAzuriran: true) se NE konvertuju automatski u finalni
+      // Draft obračuni treba da ostanu draft sve dok korisnik ne klikne "Sačuvaj obračun"
+      // Draft obračuni su namijenjeni za privremeno čuvanje dok korisnik radi na obračunu
+      // Finalni obračun (isAzuriran: false) je onaj koji se prikazuje u arhivi
+      // Draft obračun traje sve dok postoji - ne briše se automatski poslije 24h
+      
+      // Ne menjamo isAzuriran status - ostaje kako je sačuvan
       
       console.log('Get obracuni - Parsed artikliData for row:', row.id, 'has artikli:', Array.isArray(artikliData.artikli), 'artikli count:', artikliData.artikli?.length || 0, 'isAzuriran:', artikliData.isAzuriran);
       
@@ -470,6 +447,45 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       datumForPostgres = datumStr; // Fallback if format is different
     }
 
+    // Normalizuj invoiceImages URL-ove - ukloni file:/// i apsolutne putanje
+    let normalizedInvoiceImages: string[] = [];
+    if (invoiceImages && Array.isArray(invoiceImages)) {
+      normalizedInvoiceImages = invoiceImages.map((url: string) => {
+        if (!url) return url;
+        // Ako već počinje sa / ili http, vrati kao jeste
+        if (url.startsWith('/') || url.startsWith('http')) {
+          return url;
+        }
+        // Ukloni file:/// protokol
+        if (url.startsWith('file:///')) {
+          const uploadsIndex = url.indexOf('/uploads/');
+          if (uploadsIndex !== -1) {
+            return url.substring(uploadsIndex);
+          }
+          const publicIndex = url.indexOf('/public/');
+          if (publicIndex !== -1) {
+            return url.substring(publicIndex + '/public'.length);
+          }
+        }
+        // Ako sadrži uploads, ekstraktuj relativni put
+        if (url.includes('/uploads/')) {
+          const uploadsIndex = url.indexOf('/uploads/');
+          return url.substring(uploadsIndex);
+        }
+        // Ako nije relativni put, dodaj /uploads/
+        if (!url.startsWith('/')) {
+          return url.startsWith('uploads/') ? `/${url}` : `/uploads/${url}`;
+        }
+        return url;
+      });
+    }
+    
+    console.log('Save obracun - Invoice images:', {
+      original: invoiceImages,
+      normalized: normalizedInvoiceImages,
+      count: normalizedInvoiceImages.length
+    });
+
     // Combine all data into artikli JSONB
     const obracunData = {
       artikli: artikli || [],
@@ -481,24 +497,38 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       neto: neto || 0,
       isAzuriran: isAzuriran || false,
       imaUlaz: imaUlaz || false,
-      invoiceImages: invoiceImages || [],
+      invoiceImages: normalizedInvoiceImages,
     };
 
     // Upsert obracun - always use simple query without is_draft column
-    // is_draft column doesn't exist in database
+    // is_draft column doesn't exist in database, ali isAzuriran je u JSONB polju
     let result;
     try {
-      console.log('Save obracun - Starting upsert:', { userEmail, userIdForDb, datumForPostgres, datumRaw, requestedUserId });
+      console.log('Save obracun - Starting upsert:', { 
+        userEmail, 
+        userIdForDb, 
+        datumForPostgres, 
+        datumRaw, 
+        requestedUserId,
+        isAzuriran: isAzuriran,
+        isDraft: isDraft
+      });
       
-      // Check if exists first - koristimo userIdForDb za SQL upite
+      // VAŽNO: Razlikujemo draft (isAzuriran: true) od finalnog (isAzuriran: false)
+      // Draft i finalni obračun mogu postojati istovremeno za isti datum
+      
+      // Check if exists first - traži obračun sa istim datumom I isAzuriran statusom
       const existingCheck = await query(
-        `SELECT id FROM obracuni 
-         WHERE user_id = $1::text AND datum = $2`,
-        [userIdForDb, datumForPostgres]
+        `SELECT id, artikli FROM obracuni 
+         WHERE user_id = $1::text 
+         AND datum = $2
+         AND (artikli->>'isAzuriran')::boolean = $3`,
+        [userIdForDb, datumForPostgres, isAzuriran || false]
       );
       
       console.log('Save obracun - Existing check result:', { 
         exists: existingCheck.rows.length > 0, 
+        isAzuriran: isAzuriran,
         userEmail,
         userIdForDb, 
         datum
@@ -508,19 +538,84 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       const exists = existingCheck.rows.length > 0;
       if (exists) {
         // UPDATE postojeći - ovo je finalni obračun
-        console.log('Save obracun - Updating existing obracun:', { userEmail, userIdForDb, datumForPostgres });
+        // VAŽNO: Kombinuj postojeće slike sa novim ako postoje
+        let finalInvoiceImages = normalizedInvoiceImages;
+        try {
+          const existingObracunResult = await query(
+            `SELECT artikli FROM obracuni 
+             WHERE user_id = $1::text AND datum = $2`,
+            [userIdForDb, datumForPostgres]
+          );
+          
+          if (existingObracunResult.rows.length > 0) {
+            const existingArtikli = existingObracunResult.rows[0].artikli;
+            if (existingArtikli && typeof existingArtikli === 'object' && existingArtikli.invoiceImages && Array.isArray(existingArtikli.invoiceImages)) {
+              // Kombinuj postojeće i nove slike, ukloni duplikate
+              const existingImages = existingArtikli.invoiceImages || [];
+              const allImages = [...new Set([...existingImages, ...normalizedInvoiceImages])];
+              finalInvoiceImages = allImages;
+              obracunData.invoiceImages = finalInvoiceImages;
+              console.log('Save obracun - Kombinovane slike (postojeće + nove):', {
+                existing: existingImages.length,
+                new: normalizedInvoiceImages.length,
+                total: finalInvoiceImages.length
+              });
+            }
+          }
+        } catch (mergeError: any) {
+          console.warn('Save obracun - Greška pri kombinovanju slika, koristimo nove slike:', mergeError);
+          // Nastavi sa novim slikama ako kombinovanje ne uspije
+        }
+        
+        console.log('Save obracun - Updating existing obracun sa slikama:', { 
+          userEmail, 
+          userIdForDb, 
+          datumForPostgres,
+          invoiceImagesCount: finalInvoiceImages.length,
+          isAzuriran: isAzuriran
+        });
         result = await query(
           `UPDATE obracuni 
            SET artikli = $3::jsonb,
                datum_raw = $4,
                saved_at = NOW()
-           WHERE user_id = $1::text AND datum = $2
+           WHERE user_id = $1::text 
+           AND datum = $2
+           AND (artikli->>'isAzuriran')::boolean = $5
            RETURNING id, datum, saved_at`,
-          [userIdForDb, datumForPostgres, JSON.stringify(obracunData), datumRaw]
+          [userIdForDb, datumForPostgres, JSON.stringify(obracunData), datumRaw, isAzuriran || false]
         );
       } else {
-        // INSERT novi - ovo je finalni obračun
-        console.log('Save obracun - Creating new obracun:', { userEmail, userIdForDb, datumForPostgres, datumRaw });
+        // INSERT novi obračun (draft ili finalni)
+        console.log('Save obracun - Creating new obracun:', { 
+          userEmail, 
+          userIdForDb, 
+          datumForPostgres, 
+          datumRaw,
+          isAzuriran: isAzuriran,
+          isDraft: isDraft
+        });
+        
+        // VAŽNO: Ako se čuva finalni obračun (isAzuriran: false), obriši draft (isAzuriran: true) ako postoji
+        if (!isAzuriran && !isDraft) {
+          try {
+            const deleteDraftResult = await query(
+              `DELETE FROM obracuni 
+               WHERE user_id = $1::text 
+               AND datum = $2
+               AND (artikli->>'isAzuriran')::boolean = true
+               RETURNING id`,
+              [userIdForDb, datumForPostgres]
+            );
+            if (deleteDraftResult.rows.length > 0) {
+              console.log('Save obracun - Obrisan draft obračun prije spremanja finalnog:', deleteDraftResult.rows.length, 'redova');
+            }
+          } catch (deleteError: any) {
+            console.warn('Save obracun - Greška pri brisanju draft-a (možda ne postoji):', deleteError);
+            // Nastavi sa INSERT-om čak i ako brisanje ne uspije
+          }
+        }
+        
         result = await query(
           `INSERT INTO obracuni (user_id, datum, datum_raw, artikli, saved_at)
            VALUES ($1::text, $2, $3, $4::jsonb, NOW())
@@ -702,11 +797,22 @@ async function deleteHandler(req: AuthRequest, { params }: { params: Promise<{ u
     }
 
     // Clean datum - ukloni tačku sa kraja ako postoji (format: DD.MM.YYYY)
-    datum = cleanDatum(datum);
+    const cleanedDatum = cleanDatum(datum);
+    
+    // Konvertuj DD.MM.YYYY u YYYY-MM-DD format za PostgreSQL date tip
+    const parts = cleanedDatum.split('.');
+    if (parts.length !== 3) {
+      return NextResponse.json(
+        { error: 'Invalid date format. Expected DD.MM.YYYY' },
+        { status: 400 }
+      );
+    }
+    const [dan, mjesec, godina] = parts;
+    const datumForPostgres = `${godina}-${mjesec.padStart(2, '0')}-${dan.padStart(2, '0')}`; // YYYY-MM-DD
 
     await query(
       'DELETE FROM obracuni WHERE user_id = $1::text AND datum = $2',
-      [userIdForDb, datum]
+      [userIdForDb, datumForPostgres]
     );
 
     return NextResponse.json({ success: true, message: 'Obracun deleted' });
