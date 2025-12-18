@@ -238,13 +238,14 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       subscriptionData,
     } = body;
 
-    // Get existing subscription_data if updating
-    let existingSubscriptionData = {};
+    // Get existing subscription_data if updating to merge with new data
+    let finalSubscriptionData = subscriptionData || null;
     if (subscriptionData) {
       const existingResult = await query(
         `SELECT subscription_data FROM subscriptions WHERE user_id = $1`,
         [userIdForDb]
       );
+      let existingSubscriptionData = {};
       if (existingResult.rows.length > 0 && existingResult.rows[0].subscription_data) {
         try {
           existingSubscriptionData = typeof existingResult.rows[0].subscription_data === 'object' 
@@ -255,7 +256,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         }
       }
       // Merge with new subscriptionData (new values override old ones)
-      existingSubscriptionData = { ...existingSubscriptionData, ...subscriptionData };
+      finalSubscriptionData = { ...existingSubscriptionData, ...subscriptionData };
     }
 
     // Update or insert subscription
