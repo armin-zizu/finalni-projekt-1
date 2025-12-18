@@ -12,43 +12,45 @@ const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { appName } = useAppName();
-  const { role, permissions } = useRole();
+  const { role, permissions, user } = useRole();
   const [isBottomBarVisible, setIsBottomBarVisible] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Provjeri admin status preko API poziva
-    const checkAdmin = async () => {
+    // Provjeri admin status koristeći user email iz RoleContext
+    const checkAdmin = () => {
       try {
-        const response = await fetch('/api/users/me');
-        if (response.ok) {
-          const user = await response.json();
-          // Samo gitara.zizu@gmail.com ima pristup admin panelu
-          const envAdminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-          const ADMIN_EMAIL = (envAdminEmail || "gitara.zizu@gmail.com").toLowerCase().trim();
-          const userEmail = (user.email || "").toLowerCase().trim();
-          const isUserAdmin = userEmail === ADMIN_EMAIL;
-          console.log("Admin check:", { 
-            userEmail, 
-            ADMIN_EMAIL, 
-            envAdminEmail,
-            isUserAdmin,
-            match: userEmail === ADMIN_EMAIL,
-            userEmailLength: userEmail.length,
-            adminEmailLength: ADMIN_EMAIL.length
-          });
-          setIsAdmin(isUserAdmin);
-        } else {
-          console.error("Failed to fetch user:", response.status, response.statusText);
+        if (!user?.email) {
+          console.log("Admin check: No user email available");
           setIsAdmin(false);
+          return;
         }
+
+        // Samo gitara.zizu@gmail.com ima pristup admin panelu
+        const envAdminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+        const ADMIN_EMAIL = (envAdminEmail || "gitara.zizu@gmail.com").toLowerCase().trim();
+        const userEmail = (user.email || "").toLowerCase().trim();
+        const isUserAdmin = userEmail === ADMIN_EMAIL;
+        
+        console.log("Admin check:", { 
+          userEmail, 
+          ADMIN_EMAIL, 
+          envAdminEmail,
+          isUserAdmin,
+          match: userEmail === ADMIN_EMAIL,
+          userFromContext: user
+        });
+        
+        setIsAdmin(isUserAdmin);
       } catch (error) {
         console.error("Greška pri provjeri admin statusa:", error);
         setIsAdmin(false);
       }
     };
+    
+    // Proveri admin status kada se user učita
     checkAdmin();
-  }, []);
+  }, [user?.email]);
 
   // Definiši dozvole za svaku ulogu
   const canAccess = (path: string): boolean => {
