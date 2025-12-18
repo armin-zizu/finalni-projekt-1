@@ -257,7 +257,7 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     console.log('List users - Successfully resolved userId to UUID:', userId);
     
     const currentUserResult = await query(
-      `SELECT email, is_owner, role FROM users WHERE id = $1::uuid`,
+      `SELECT email, is_owner, role FROM users WHERE id = $1`,
       [userId]
     );
 
