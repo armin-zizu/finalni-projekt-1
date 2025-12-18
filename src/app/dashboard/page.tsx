@@ -676,8 +676,8 @@ export default function DashboardPage() {
           div[style*='min-width: 160px'] { min-width: 100%; max-width: 100% !important; }
           button { width: 100%; margin: 5px 0; padding: 10px; font-size: 14px; min-height: 44px; }
           input[type="date"] { width: 100%; margin: 5px 0; padding: 8px; font-size: 14px; min-height: 44px; }
-          div[style*='height: 400'] { height: 350px; padding: 10px !important; }
-          div[style*='height: 300'] { height: 280px; padding: 10px !important; }
+          div[style*='height: 400'] { height: 350px; padding: 10px 10px 5px 10px !important; }
+          div[style*='height: 300'] { height: 280px; padding: 10px 10px 5px 10px !important; }
           .dashboard-card { 
             min-width: 100% !important; 
             max-width: 100% !important;
@@ -739,14 +739,14 @@ export default function DashboardPage() {
             min-height: 300px !important;
             position: relative !important;
             overflow: visible !important;
-            margin-bottom: 16px !important;
+            margin-bottom: 8px !important;
           }
           div[style*='height: 400'][style*='backgroundColor: #fff'] {
             height: 350px !important;
             min-height: 350px !important;
             position: relative !important;
             overflow: visible !important;
-            margin-bottom: 16px !important;
+            margin-bottom: 8px !important;
           }
         }
       `}</style>
@@ -1107,9 +1107,9 @@ export default function DashboardPage() {
           minHeight: isMobile ? 300 : 400,
           backgroundColor: "#fff",
           borderRadius: 12,
-          padding: isMobile ? 10 : 20,
+          padding: isMobile ? "10px 10px 5px 10px" : 20,
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-          marginBottom: isMobile ? 16 : 30,
+          marginBottom: isMobile ? 8 : 30,
           overflow: isMobile ? "visible" : "hidden",
           boxSizing: "border-box",
           position: "relative"
@@ -1139,7 +1139,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Kartice */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 16 : 30, width: "100%", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 10 : 30, width: "100%", boxSizing: "border-box" }}>
         {[
           {
             label: "Bruto",
@@ -1390,7 +1390,7 @@ export default function DashboardPage() {
           minHeight: isMobile ? 300 : 350,
           backgroundColor: "#fff",
           borderRadius: 12,
-          padding: isMobile ? 10 : 20,
+          padding: isMobile ? "10px 10px 5px 10px" : 20,
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
           marginBottom: 10,
           overflow: isMobile ? "visible" : "hidden",

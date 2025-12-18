@@ -902,7 +902,7 @@ export default function ProfitPage() {
           h2 { font-size: 16px; margin-bottom: 12px !important; word-wrap: break-word; }
           div[style*='height: 300'] { 
             height: 280px; 
-            padding: 10px !important; 
+            padding: 10px 10px 5px 10px !important; 
             max-width: 100% !important;
             overflow: hidden !important;
           }
@@ -975,7 +975,7 @@ export default function ProfitPage() {
             min-height: 300px !important;
             position: relative !important;
             overflow: visible !important;
-            margin-bottom: 16px !important;
+            margin-bottom: 8px !important;
           }
           div[style*='gap: 24px'] { 
             flex-direction: column; 
@@ -1018,9 +1018,9 @@ export default function ProfitPage() {
         minHeight: isMobile ? 300 : 300,
         backgroundColor: "#fff",
         borderRadius: 12,
-        padding: isMobile ? 10 : 20,
+        padding: isMobile ? "10px 10px 5px 10px" : 20,
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-        marginBottom: isMobile ? 16 : 20, 
+        marginBottom: isMobile ? 8 : 20, 
         overflow: isMobile ? "visible" : "hidden", 
         boxSizing: "border-box",
         position: "relative"
@@ -1084,7 +1084,7 @@ export default function ProfitPage() {
         minHeight: isMobile ? 300 : 300,
         backgroundColor: "#fff",
         borderRadius: 12,
-        padding: isMobile ? 10 : 20,
+        padding: isMobile ? "10px 10px 5px 10px" : 20,
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
         marginBottom: 10,
         boxSizing: "border-box",
