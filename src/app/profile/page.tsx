@@ -505,11 +505,6 @@ export default function Profile() {
       return;
     }
 
-    if (!window.confirm("Jeste li sigurni da želite izbrisati ovaj login? Korisnik će morati ponovo zatražiti pristup.")) {
-      console.log("Korisnik je otkazao brisanje");
-      return;
-    }
-
     try {
       setSavingRole(true);
       console.log("Pokušavam da obrišem uređaj:", { 
@@ -1024,22 +1019,7 @@ export default function Profile() {
 
                     return (
                       <React.Fragment key={device.id}>
-                        <tr 
-                          onClick={(e) => {
-                            // Ne otvaraj modal ako se kliknulo na button unutar reda
-                            if ((e.target as HTMLElement).tagName === 'BUTTON' || (e.target as HTMLElement).closest('button')) {
-                              return;
-                            }
-                            setSelectedDevice(device);
-                            setShowDeviceModal(true);
-                            if (device.deviceName) {
-                              setDeviceNames({ ...deviceNames, [device.id]: device.deviceName });
-                            }
-                            setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
-                            setEditingPermissions(device.permissions || {});
-                          }}
-                          style={{ cursor: "pointer" }}
-                        >
+                        <tr>
                         <td style={tdStyle}>
                           <span style={{ fontWeight: device.deviceName ? 500 : 400, color: device.deviceName ? "#1f2937" : "#9ca3af" }}>
                             {device.deviceName || "Nema imena"}
@@ -1145,13 +1125,29 @@ export default function Profile() {
                             </div>
                           ) : (
                             <button
-                              onClick={() => {
-                                setEditingDeviceId(device.id);
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDevice(device);
+                                setShowDeviceModal(true);
+                                if (device.deviceName) {
+                                  setDeviceNames({ ...deviceNames, [device.id]: device.deviceName });
+                                }
                                 setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
                                 setEditingPermissions(device.permissions || {});
-                                setDeviceNames({ ...deviceNames, [device.id]: device.deviceName || "" });
                               }}
-                              style={{ ...buttonStyle, fontSize: "12px", padding: "4px 8px" }}
+                              style={{ 
+                                ...buttonStyle, 
+                                fontSize: "12px", 
+                                padding: "4px 8px",
+                                cursor: "pointer",
+                                transition: "background-color 0.2s"
+                              }}
+                              onMouseOver={(e) => {
+                                e.currentTarget.style.backgroundColor = "#2563eb";
+                              }}
+                              onMouseOut={(e) => {
+                                e.currentTarget.style.backgroundColor = buttonStyle.background as string;
+                              }}
                             >
                               Uredi
                             </button>
@@ -2730,11 +2726,17 @@ export default function Profile() {
                 {savingRole ? "Spremanje..." : "Spremi"}
               </button>
               <button
-                onClick={async () => {
-                  if (window.confirm("Jeste li sigurni da želite izbrisati ovaj uređaj?")) {
-                    await handleDeleteDevice(selectedDevice);
-                    setShowDeviceModal(false);
-                    setSelectedDevice(null);
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (window.confirm("Jeste li sigurni da želite izbrisati ovaj uređaj? Korisnik će morati ponovo zatražiti pristup.")) {
+                    try {
+                      await handleDeleteDevice(selectedDevice);
+                      setShowDeviceModal(false);
+                      setSelectedDevice(null);
+                    } catch (error) {
+                      // Error handling je već u handleDeleteDevice
+                      console.error("Error in modal delete button:", error);
+                    }
                   }
                 }}
                 style={{

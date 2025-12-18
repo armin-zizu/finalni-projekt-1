@@ -112,19 +112,24 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
     }
 
     updateFields.push(`updated_at = NOW()`);
+    // Add userId and deviceId as parameters for WHERE clause
+    const userIdParamIndex = paramIndex;
+    const deviceIdParamIndex = paramIndex + 1;
     updateValues.push(userId, deviceId); // Use resolved UUID
 
     console.log('Update device query:', {
       userId,
       deviceId,
       updateFields: updateFields.join(', '),
-      paramCount: updateValues.length
+      paramCount: updateValues.length,
+      userIdParamIndex,
+      deviceIdParamIndex
     });
 
     const result = await query(
       `UPDATE devices
        SET ${updateFields.join(', ')}
-       WHERE user_id = $${paramIndex} AND device_id = $${paramIndex + 1}
+       WHERE user_id = $${userIdParamIndex} AND device_id = $${deviceIdParamIndex}
        RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
       updateValues
     );
@@ -219,10 +224,17 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
         );
       } else {
         // For non-email, non-UUID values like "admin-user", try to find by email from JWT
-        userResult = await query(
-          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
-          [requestedUserId]
-        );
+        if (req.user.email) {
+          userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [req.user.email]
+          );
+        } else {
+          userResult = await query(
+            'SELECT id FROM users WHERE id = $1 LIMIT 1',
+            [requestedUserId]
+          );
+        }
       }
       if (userResult.rows.length > 0) {
         requestedUserIdResolved = userResult.rows[0].id;
@@ -297,7 +309,7 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
       } else {
         // Ostali brišu samo svoje uređaje
         deleteResult = await query(
-          'DELETE FROM devices WHERE user_id = $1::uuid AND device_id = $2 RETURNING id',
+          'DELETE FROM devices WHERE user_id = $1 AND device_id = $2 RETURNING id',
           [userIdForDelete, deviceId.trim()] // Use resolved UUID and trimmed deviceId
         );
       }
