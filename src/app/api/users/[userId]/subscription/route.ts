@@ -154,6 +154,10 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       subscriptionId: subscription?.id,
       subscriptionStatus: subscription?.status,
       isActive: subscription?.is_active,
+      endDate: subscription?.end_date,
+      lastPaymentDate: subscription?.last_payment_date,
+      trialEndDate: subscription?.trial_end_date,
+      graceEndDate: subscription?.grace_end_date,
     });
     
     return NextResponse.json({ subscription: subscriptionData });
