@@ -2005,10 +2005,6 @@ export default function Profile() {
         </h2>
         
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            {/* Status pretplate - DEBUG: Always visible */}
-            <div style={{ padding: "8px", background: "#f0f0f0", borderRadius: "4px", marginBottom: "8px", fontSize: "12px", color: "#666" }}>
-              DEBUG: subscriptionLoading={subscriptionLoading ? "true" : "false"}, hasSubscription={subscription ? "true" : "false"}
-            </div>
             {subscriptionLoading ? (
               <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb", textAlign: "center" }}>
                 <p style={{ fontSize: "14px", color: "#6b7280" }}>Učitavanje pretplate...</p>

@@ -183,7 +183,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       console.log("SubscriptionContext - Loading subscription for user:", userIdForApi, "email:", user.email);
       const subscriptionData = await getSubscription(userIdForApi);
-      console.log("SubscriptionContext - Subscription data received:", subscriptionData);
+      console.log("SubscriptionContext - Subscription data received:", {
+        hasData: !!subscriptionData,
+        keys: subscriptionData ? Object.keys(subscriptionData) : [],
+        subscriptionData: subscriptionData,
+      });
 
       if (!subscriptionData) {
         console.error("SubscriptionContext - No subscription data returned from API");
