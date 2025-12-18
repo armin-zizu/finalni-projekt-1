@@ -123,28 +123,55 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
       if (userEmail && emailRegex.test(userEmail)) {
         console.log('List users - Attempting lookup by email from JWT:', userEmail);
         try {
-          const emailLookup = await query(
-            'SELECT id, email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          // Try exact match first (fastest)
+          let emailLookup = await query(
+            'SELECT id::text as id, email FROM users WHERE email = $1 LIMIT 1',
             [userEmail]
           );
+          
+          // If not found, try case-insensitive
+          if (emailLookup.rows.length === 0) {
+            console.log('List users - Exact match failed, trying case-insensitive');
+            emailLookup = await query(
+              'SELECT id::text as id, email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+              [userEmail]
+            );
+          }
+          
           console.log('List users - Email lookup result:', { 
             rowsFound: emailLookup.rows.length,
-            firstRow: emailLookup.rows[0] || null
+            firstRow: emailLookup.rows[0] || null,
+            emailSearched: userEmail
           });
           
           if (emailLookup.rows.length > 0) {
-            userId = emailLookup.rows[0].id.toString();
+            const foundId = emailLookup.rows[0].id;
+            userId = foundId.toString();
             console.log('List users - Found UUID via email from JWT:', userId, 'isUUID:', uuidRegex.test(userId));
             
             // Double-check that userId is now a valid UUID
             if (!uuidRegex.test(userId)) {
-              console.error('List users - ERROR: userId is still not UUID after email lookup!', { userId, idType: typeof emailLookup.rows[0].id });
+              console.error('List users - ERROR: userId is still not UUID after email lookup!', { 
+                userId, 
+                foundId,
+                idType: typeof foundId,
+                rawId: emailLookup.rows[0].id 
+              });
+              // If still not UUID, this is a critical error
+              return NextResponse.json(
+                { error: `Invalid user ID format in database for email: ${userEmail}` },
+                { status: 500 }
+              );
             }
           } else {
             console.error('List users - User not found by email from JWT:', userEmail);
-            // Let's check what emails exist in database
-            const allUsersCheck = await query('SELECT email FROM users LIMIT 5');
-            console.log('List users - Sample emails in database:', allUsersCheck.rows.map((r: any) => r.email));
+            // Let's check what emails exist in database for debugging
+            try {
+              const allUsersCheck = await query('SELECT email FROM users LIMIT 10');
+              console.log('List users - Sample emails in database:', allUsersCheck.rows.map((r: any) => r.email));
+            } catch (debugError) {
+              console.error('List users - Error getting sample emails:', debugError);
+            }
             return NextResponse.json(
               { error: `User not found with email: ${userEmail}. Please log out and log in again.` },
               { status: 404 }

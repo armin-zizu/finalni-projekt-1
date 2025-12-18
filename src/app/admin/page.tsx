@@ -169,7 +169,21 @@ export default function AdminPage() {
 
     // Check admin status on mount
     checkAdmin();
-  }, [router]);
+    
+    // Automatsko osvježavanje korisnika svakih 30 sekundi
+    const refreshInterval = setInterval(() => {
+      if (isAdmin) {
+        console.log('Admin - Auto-refreshing users list');
+        loadUsers().catch(error => {
+          console.error('Admin - Error auto-refreshing users:', error);
+        });
+      }
+    }, 30000); // 30 sekundi
+    
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, [router, isAdmin]);
 
   // Ažuriraj state varijable kada se promijeni selectedUserDetails
   useEffect(() => {
@@ -304,7 +318,7 @@ export default function AdminPage() {
       });
       setLoading(false);
     }
-  };
+  }, []);
 
   // Ažuriraj premium dane
   const adjustPremiumDays = async (userId: string, days: number) => {
