@@ -289,7 +289,19 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     const subscriptionsMap: Record<string, any> = {};
     subscriptionsResult.rows.forEach((row: any) => {
       if (row.user_id) {
-        subscriptionsMap[row.user_id] = row;
+        // Parse subscription_data JSONB field if it's a string
+        let subscriptionDataParsed = row.subscription_data;
+        if (subscriptionDataParsed && typeof subscriptionDataParsed === 'string') {
+          try {
+            subscriptionDataParsed = JSON.parse(subscriptionDataParsed);
+          } catch (e) {
+            console.warn('Error parsing subscription_data for user', row.user_id, e);
+          }
+        }
+        subscriptionsMap[row.user_id] = {
+          ...row,
+          subscription_data: subscriptionDataParsed,
+        };
       }
     });
 
