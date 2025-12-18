@@ -2106,7 +2106,7 @@ export default function Profile() {
                         {subscription.trialEndDate.toLocaleDateString("bs-BA")}
                       </p>
                       <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
-                        Preostalo dana: <strong>{subscription.daysRemaining}</strong>
+                        Preostalo dana: <strong>{subscription.daysRemaining !== undefined ? subscription.daysRemaining : 0}</strong>
                       </p>
                     </div>
                   )}
@@ -2150,7 +2150,7 @@ export default function Profile() {
                         {subscription.graceEndDate.toLocaleDateString("bs-BA")}
                       </p>
                       <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
-                        Preostalo dana: <strong>{subscription.daysInGrace}</strong>
+                        Preostalo dana: <strong>{subscription.daysInGrace !== undefined ? subscription.daysInGrace : 0}</strong>
                       </p>
                     </div>
                   )}
