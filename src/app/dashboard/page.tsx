@@ -640,8 +640,11 @@ export default function DashboardPage() {
   //   return <div style={{ textAlign: "center", padding: 20, color: "red" }}>{error}</div>;
   // }
 
+  // Dinamički padding za mobilnu verziju
+  const containerPadding = isMobile ? 4 : 24;
+
   return (
-    <div style={{ padding: 30, fontFamily: "'Inter', sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
+    <div style={{ padding: containerPadding, fontFamily: "'Inter', sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
       {/* Loading indikator - prikaži samo tokom učitavanja ako nema podataka */}
       {loading && arhiva.length === 0 && (
         <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>

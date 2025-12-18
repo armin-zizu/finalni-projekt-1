@@ -234,6 +234,7 @@ export default function ArhivaPage() {
   const [showModalUploadInput, setShowModalUploadInput] = useState<boolean>(false);
   const [faktureModalMode, setFaktureModalMode] = useState<"all" | "single">("all"); // "all" za sve fakture, "single" za jedan obračun
   const [singleObracunDatum, setSingleObracunDatum] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const obracunRefs = useRef<{ [key: string]: React.RefObject<HTMLDivElement | null> }>({});
 
   // Funkcija za učitavanje arhive - MIGRIRANO NA API
@@ -345,6 +346,32 @@ export default function ArhivaPage() {
         obracunRefs.current[item.datum] = React.createRef<HTMLDivElement>();
       }
     });
+  }, []);
+
+  // Detekcija mobilnog uređaja
+  useEffect(() => {
+    const checkMobile = () => {
+      if (typeof window === 'undefined') return false;
+      const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
+      return width <= 768;
+    };
+    
+    if (typeof window !== 'undefined') {
+      setIsMobile(checkMobile());
+      
+      const handleResize = () => {
+        setIsMobile(checkMobile());
+      };
+      
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('orientationchange', () => {
+        setTimeout(() => setIsMobile(checkMobile()), 100);
+      });
+      
+      return () => {
+        window.removeEventListener('resize', handleResize);
+      };
+    }
   }, []);
 
   // Učitavanje arhive iz Firestore
@@ -1060,8 +1087,14 @@ export default function ArhivaPage() {
     }
   };
 
+  // Dinamički container style sa smanjenim padding-om na mobilnom
+  const dynamicContainerStyle: React.CSSProperties = {
+    ...containerStyle,
+    padding: isMobile ? "4px" : "24px",
+  };
+
   return (
-    <div style={containerStyle}>
+    <div style={dynamicContainerStyle}>
       <style jsx>{`
         button:hover {
           background-color: #2563eb;

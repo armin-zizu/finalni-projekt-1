@@ -18,11 +18,38 @@ import { setAuthToken, getAuthToken } from "../lib/api";
 function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   
   // Koristi useContext direktno sa fallback vrijednostima (ne može se uslovno pozivati)
   const roleContext = useContext(RoleContext);
   const role = roleContext?.role ?? null;
   const roleLoading = roleContext?.loading ?? true;
+
+  // Detekcija mobilnog uređaja
+  useEffect(() => {
+    const checkMobile = () => {
+      if (typeof window === 'undefined') return false;
+      const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
+      return width <= 768;
+    };
+    
+    if (typeof window !== 'undefined') {
+      setIsMobile(checkMobile());
+      
+      const handleResize = () => {
+        setIsMobile(checkMobile());
+      };
+      
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('orientationchange', () => {
+        setTimeout(() => setIsMobile(checkMobile()), 100);
+      });
+      
+      return () => {
+        window.removeEventListener('resize', handleResize);
+      };
+    }
+  }, []);
 
   // Preusmjeri na dashboard ako je role postavljen i korisnik je na login stranici
   useEffect(() => {
@@ -123,7 +150,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
           width: "100%",
         }}
       >
-        <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
+        <div style={{ padding: isMobile ? "4px" : "20px", width: "100%", boxSizing: "border-box" }}>{children}</div>
       </main>
     </>
   );

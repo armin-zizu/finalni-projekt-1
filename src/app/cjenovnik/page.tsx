@@ -184,7 +184,20 @@ export default function CjenovnikPage() {
   const [isPasswordProtected, setIsPasswordProtected] = useState<boolean | null>(null); // null = loading
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   const pathname = usePathname();
+
+  // Detekcija mobilnog uređaja
+  useEffect(() => {
+    const checkMobile = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Postavke za malu zalihu
   const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
@@ -407,8 +420,14 @@ export default function CjenovnikPage() {
     );
   }
 
+  // Dinamički container style sa smanjenim padding-om na mobilnom
+  const dynamicContainerStyle: React.CSSProperties = {
+    ...containerStyle,
+    padding: isMobile ? "4px" : "24px",
+  };
+
   return (
-    <div style={containerStyle}>
+    <div style={dynamicContainerStyle}>
       <style jsx>{`
         input.no-spin::-webkit-inner-spin-button,
         input.no-spin::-webkit-outer-spin-button {

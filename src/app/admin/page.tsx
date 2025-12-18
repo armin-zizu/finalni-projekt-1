@@ -101,6 +101,19 @@ export default function AdminPage() {
   const [lokacija, setLokacija] = useState("");
   const [savingUserInfo, setSavingUserInfo] = useState(false);
   const [editingUserInfo, setEditingUserInfo] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+
+  // Detekcija mobilnog uređaja
+  useEffect(() => {
+    const checkMobile = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Postavi korisnika kao vlasnika (isOwner = true) - pomoćna funkcija
   const setUserAsOwnerHelper = async (userEmail: string) => {
@@ -763,8 +776,11 @@ export default function AdminPage() {
     return null;
   }
 
+  // Dinamički padding za mobilnu verziju
+  const containerPadding = isMobile ? "4px" : "20px";
+
   return (
-    <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "20px" }}>
+    <div style={{ maxWidth: "1400px", margin: "0 auto", padding: containerPadding }}>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#1f2937", marginBottom: "8px" }}>
           Admin Panel - Upravljanje Pretplatama

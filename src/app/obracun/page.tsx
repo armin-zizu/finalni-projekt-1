@@ -250,6 +250,19 @@ export default function ObracunPage() {
   const [isOwner, setIsOwner] = useState<boolean>(false); // Provjera da li je korisnik vlasnik
   const [hasUlazInCache, setHasUlazInCache] = useState<boolean>(false); // Provjera da li postoji ulaz u cache-u
   const [isUlazLocked, setIsUlazLocked] = useState<boolean>(false); // Provjera da li su ulazi zaključani
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+
+  // Detekcija mobilnog uređaja
+  useEffect(() => {
+    const checkMobile = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Postavke za malu zalihu
   const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
@@ -1253,8 +1266,14 @@ export default function ObracunPage() {
     return `${godina}-${mjesec}-${dan}`;
   };
 
+  // Dinamički container style sa smanjenim padding-om na mobilnom
+  const dynamicContainerStyle: React.CSSProperties = {
+    ...containerStyle,
+    padding: isMobile ? "4px" : "16px",
+  };
+
   return (
-    <div style={containerStyle}>
+    <div style={dynamicContainerStyle}>
       {!canEdit && subscription && !subscription.isActive && !subscription.isTrial && !subscription.isGracePeriod && (
         <div style={{
           padding: "16px",

@@ -682,8 +682,14 @@ export default function Profile() {
     }
   };
 
+  // Dinamički container style sa smanjenim padding-om na mobilnom
+  const dynamicContainerStyle: React.CSSProperties = {
+    ...containerStyle,
+    padding: isMobile ? "4px" : "24px",
+  };
+
   return (
-    <div style={containerStyle}>
+    <div style={dynamicContainerStyle}>
       <style jsx>{`
         button:hover {
           background-color: #2563eb;
