@@ -291,8 +291,8 @@ export default function AdminPage() {
       setLoading(false);
       
       if (usersList.length === 0) {
-        setMessage({ type: "info", text: "Nema korisnika u bazi podataka" });
         console.warn("Admin - No users found in database");
+        // Ne postavljamo error poruku ako nema korisnika, samo logujemo
       } else {
         console.log("Admin - Successfully loaded", usersList.length, "users");
       }
@@ -490,14 +490,23 @@ export default function AdminPage() {
   };
 
   // Filtriraj korisnike
-  const filteredUsers = users.filter((user) => {
-    const search = searchTerm.toLowerCase();
-    return (
-      user.email?.toLowerCase().includes(search) ||
-      user.appName.toLowerCase().includes(search) ||
-      user.id.toLowerCase().includes(search)
-    );
-  });
+  const filteredUsers = useMemo(() => {
+    console.log("Admin - Filtering users:", { 
+      totalUsers: users.length, 
+      searchTerm, 
+      users: users.map(u => ({ id: u.id, email: u.email, appName: u.appName }))
+    });
+    const filtered = users.filter((user) => {
+      const search = searchTerm.toLowerCase();
+      return (
+        user.email?.toLowerCase().includes(search) ||
+        user.appName.toLowerCase().includes(search) ||
+        user.id.toLowerCase().includes(search)
+      );
+    });
+    console.log("Admin - Filtered users result:", filtered.length, "users");
+    return filtered;
+  }, [users, searchTerm]);
 
   // Prikupi sve uplate iz svih korisnika
   const allPayments = useMemo(() => {
@@ -2065,7 +2074,30 @@ export default function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((user, index) => {
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+                    {loading ? (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px" }}>
+                        <FaSpinner style={{ fontSize: "20px", animation: "spin 1s linear infinite" }} />
+                        <span>Učitavanje korisnika...</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <p style={{ fontSize: "16px", marginBottom: "8px" }}>
+                          {searchTerm ? "Nema rezultata za vašu pretragu" : "Nema korisnika u bazi podataka"}
+                        </p>
+                        {!searchTerm && (
+                          <p style={{ fontSize: "14px", color: "#9ca3af" }}>
+                            Korisnici će se pojaviti ovde nakon što se registruju
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user, index) => {
                 const subscription = subscriptions[user.id];
                 const isActive = subscription?.isActive || false;
                 const isTrial = subscription?.isTrial || false;
@@ -2216,7 +2248,8 @@ export default function AdminPage() {
                     </td>
                   </tr>
                 );
-              })}
+              })
+              )}
             </tbody>
           </table>
         </div>
