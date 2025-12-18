@@ -242,7 +242,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
     let existingSubscriptionData = {};
     if (subscriptionData) {
       const existingResult = await query(
-        `SELECT subscription_data FROM subscriptions WHERE user_id = $1::text`,
+        `SELECT subscription_data FROM subscriptions WHERE user_id = $1`,
         [userIdForDb]
       );
       if (existingResult.rows.length > 0 && existingResult.rows[0].subscription_data) {
@@ -254,15 +254,15 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
           console.warn('Error parsing existing subscription_data:', e);
         }
       }
-      // Merge with new subscriptionData
-      Object.assign(existingSubscriptionData, subscriptionData);
+      // Merge with new subscriptionData (new values override old ones)
+      existingSubscriptionData = { ...existingSubscriptionData, ...subscriptionData };
     }
 
     // Update or insert subscription
     const result = await query(
       `INSERT INTO subscriptions (user_id, monthly_price, trial_end_date, grace_end_date, 
                                   last_payment_date, is_active, end_date, status, subscription_data)
-       VALUES ($1::text, $2, $3, $4, $5, $6, $7, $8, $9)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (user_id)
        DO UPDATE SET
          monthly_price = COALESCE(EXCLUDED.monthly_price, subscriptions.monthly_price),
@@ -272,7 +272,10 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
          is_active = COALESCE(EXCLUDED.is_active, subscriptions.is_active),
          end_date = COALESCE(EXCLUDED.end_date, subscriptions.end_date),
          status = COALESCE(EXCLUDED.status, subscriptions.status),
-         subscription_data = COALESCE(EXCLUDED.subscription_data, subscriptions.subscription_data),
+         subscription_data = CASE 
+           WHEN EXCLUDED.subscription_data IS NOT NULL THEN EXCLUDED.subscription_data 
+           ELSE subscriptions.subscription_data 
+         END,
          updated_at = NOW()
        RETURNING id, user_id, status, start_date, end_date, monthly_price, 
                  trial_end_date, grace_end_date, last_payment_date, is_active, 

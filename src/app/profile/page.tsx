@@ -2084,9 +2084,56 @@ export default function Profile() {
               <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
                 <button
                   onClick={async () => {
-                    // TODO: Implement subscription payment request via API
-                    setSubscriptionMessage("Funkcionalnost prijave uplate trenutno nije dostupna. Kontaktirajte administratora.");
-                    setTimeout(() => setSubscriptionMessage(""), 5000);
+                    if (!user?.id) {
+                      setSubscriptionMessage("Greška: Korisnik nije pronađen. Pokušajte ponovo.");
+                      setTimeout(() => setSubscriptionMessage(""), 5000);
+                      return;
+                    }
+
+                    try {
+                      setRequestingPayment(true);
+                      setSubscriptionMessage("");
+
+                      const amount = 12 * selectedMonths;
+                      const referenceNumber = appName && selectedMonths 
+                        ? `${appName.toUpperCase().replace(/\s+/g, "-")}-${selectedMonths}` 
+                        : null;
+
+                      // Pozovi API endpoint za prijavu uplate
+                      const response = await fetch(`/api/users/${user.id}/subscription`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          subscriptionData: {
+                            paymentPendingVerification: true,
+                            paymentRequestedAt: new Date().toISOString(),
+                            paymentRequestedAmount: amount,
+                            paymentRequestedMonths: selectedMonths,
+                            paymentReferenceNumber: referenceNumber,
+                          }
+                        })
+                      });
+
+                      if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ error: 'Nepoznata greška' }));
+                        throw new Error(errorData.error || 'Greška pri prijavi uplate');
+                      }
+
+                      // Osveži subscription podatke
+                      await refreshSubscription?.();
+
+                      setPaymentRequested(true);
+                      setSubscriptionMessage("Uplata je uspješno prijavljena! Administrator će provjeriti uplatu u roku od 24 sata.");
+                      setTimeout(() => setSubscriptionMessage(""), 10000);
+                    } catch (error: any) {
+                      console.error("Greška pri prijavi uplate:", error);
+                      setSubscriptionMessage(`Greška pri prijavi uplate: ${error.message || "Nepoznata greška"}`);
+                      setTimeout(() => setSubscriptionMessage(""), 5000);
+                    } finally {
+                      setRequestingPayment(false);
+                    }
                   }}
                   disabled={requestingPayment || paymentRequested}
                   style={{
