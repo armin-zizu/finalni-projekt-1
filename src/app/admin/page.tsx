@@ -228,7 +228,15 @@ export default function AdminPage() {
       }
 
       const data = await response.json();
+      console.log("Admin - API response:", { 
+        status: response.status, 
+        hasUsers: !!data.users, 
+        usersCount: data.users?.length || 0,
+        dataKeys: Object.keys(data)
+      });
+      
       const usersWithSubscriptions = data.users || [];
+      console.log("Admin - Users with subscriptions:", usersWithSubscriptions.length);
 
       // Razdvoji korisnike i subscriptions
       const usersList: User[] = [];
@@ -275,12 +283,18 @@ export default function AdminPage() {
         };
       });
 
+      console.log("Admin - Processed users list:", usersList.length, "users");
+      console.log("Admin - Processed subscriptions:", Object.keys(subscriptionsMap).length, "subscriptions");
+      
       setUsers(usersList);
       setSubscriptions(subscriptionsMap);
       setLoading(false);
       
       if (usersList.length === 0) {
-        setMessage({ type: "error", text: "Nema korisnika u bazi podataka" });
+        setMessage({ type: "info", text: "Nema korisnika u bazi podataka" });
+        console.warn("Admin - No users found in database");
+      } else {
+        console.log("Admin - Successfully loaded", usersList.length, "users");
       }
     } catch (error: any) {
       console.error("Greška pri učitavanju korisnika:", error);

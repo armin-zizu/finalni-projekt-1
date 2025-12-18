@@ -53,3 +53,4 @@ pm2 restart office-app
 pm2 logs office-app --lines 50
 ```
 
+cd ~/bar-app && git pull origin main && npm run build && pm2 restart office-app --update-env
