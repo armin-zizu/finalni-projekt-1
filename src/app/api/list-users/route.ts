@@ -100,7 +100,7 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
     
     // Resolve userId to UUID if needed (it might be non-UUID like "admin-user" from old tokens)
-    let userId: string = req.user.userId;
+    let userId: string = req.user.userId || req.user.email || '';
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
@@ -127,18 +127,35 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
         userId = userLookup.rows[0].id.toString(); // Konvertuj UUID u string eksplicitno
         console.log('List users - Found UUID for user:', userId, 'from:', req.user.userId);
       } else {
-        console.error('List users - User not found:', req.user.userId);
-        return NextResponse.json(
-          { error: 'User not found. Please log out and log in again to refresh your token.' },
-          { status: 404 }
-        );
+        console.error('List users - User not found:', req.user.userId, 'userId:', userId);
+        // If we have email in req.user, try that
+        if (req.user.email && emailRegex.test(req.user.email)) {
+          const emailLookup = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [req.user.email]
+          );
+          if (emailLookup.rows.length > 0) {
+            userId = emailLookup.rows[0].id.toString();
+            console.log('List users - Found UUID via email:', userId);
+          } else {
+            return NextResponse.json(
+              { error: 'User not found. Please log out and log in again to refresh your token.' },
+              { status: 404 }
+            );
+          }
+        } else {
+          return NextResponse.json(
+            { error: 'User not found. Please log out and log in again to refresh your token.' },
+            { status: 404 }
+          );
+        }
       }
     }
     
     // Get user from database to check admin status
     // Proveri da li je userId validan UUID format
     if (!uuidRegex.test(userId)) {
-      console.error('List users - userId is not a valid UUID after resolution:', userId);
+      console.error('List users - userId is not a valid UUID after resolution:', userId, 'req.user:', req.user);
       return NextResponse.json(
         { error: 'Invalid user ID format. Please log out and log in again.' },
         { status: 400 }
@@ -159,7 +176,9 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
 
     const currentUser = currentUserResult.rows[0];
     // Samo gitara.zizu@gmail.com ima pristup admin panelu (ne bilo koji owner)
-    const isAdmin = currentUser.email === ADMIN_EMAIL;
+    const adminEmailLower = ADMIN_EMAIL.toLowerCase().trim();
+    const userEmailLower = (currentUser.email || "").toLowerCase().trim();
+    const isAdmin = userEmailLower === adminEmailLower;
 
     if (!isAdmin) {
       return NextResponse.json(

@@ -30,7 +30,9 @@ async function putHandler(
 
     const currentUser = currentUserResult.rows[0];
     // Samo gitara.zizu@gmail.com ima pristup admin panelu (ne bilo koji owner)
-    const isAdmin = currentUser.email === ADMIN_EMAIL;
+    const adminEmailLower = ADMIN_EMAIL.toLowerCase().trim();
+    const userEmailLower = (currentUser.email || "").toLowerCase().trim();
+    const isAdmin = userEmailLower === adminEmailLower;
 
     if (!isAdmin) {
       return NextResponse.json(

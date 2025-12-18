@@ -235,22 +235,44 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       isActive,
       endDate,
       status,
+      subscriptionData,
     } = body;
+
+    // Get existing subscription_data if updating
+    let existingSubscriptionData = {};
+    if (subscriptionData) {
+      const existingResult = await query(
+        `SELECT subscription_data FROM subscriptions WHERE user_id = $1::text`,
+        [userIdForDb]
+      );
+      if (existingResult.rows.length > 0 && existingResult.rows[0].subscription_data) {
+        try {
+          existingSubscriptionData = typeof existingResult.rows[0].subscription_data === 'object' 
+            ? existingResult.rows[0].subscription_data 
+            : JSON.parse(existingResult.rows[0].subscription_data);
+        } catch (e) {
+          console.warn('Error parsing existing subscription_data:', e);
+        }
+      }
+      // Merge with new subscriptionData
+      Object.assign(existingSubscriptionData, subscriptionData);
+    }
 
     // Update or insert subscription
     const result = await query(
       `INSERT INTO subscriptions (user_id, monthly_price, trial_end_date, grace_end_date, 
-                                  last_payment_date, is_active, end_date, status)
-       VALUES ($1::text, $2, $3, $4, $5, $6, $7, $8)
+                                  last_payment_date, is_active, end_date, status, subscription_data)
+       VALUES ($1::text, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (user_id)
        DO UPDATE SET
-         monthly_price = EXCLUDED.monthly_price,
-         trial_end_date = EXCLUDED.trial_end_date,
-         grace_end_date = EXCLUDED.grace_end_date,
-         last_payment_date = EXCLUDED.last_payment_date,
-         is_active = EXCLUDED.is_active,
-         end_date = EXCLUDED.end_date,
-         status = EXCLUDED.status,
+         monthly_price = COALESCE(EXCLUDED.monthly_price, subscriptions.monthly_price),
+         trial_end_date = COALESCE(EXCLUDED.trial_end_date, subscriptions.trial_end_date),
+         grace_end_date = COALESCE(EXCLUDED.grace_end_date, subscriptions.grace_end_date),
+         last_payment_date = COALESCE(EXCLUDED.last_payment_date, subscriptions.last_payment_date),
+         is_active = COALESCE(EXCLUDED.is_active, subscriptions.is_active),
+         end_date = COALESCE(EXCLUDED.end_date, subscriptions.end_date),
+         status = COALESCE(EXCLUDED.status, subscriptions.status),
+         subscription_data = COALESCE(EXCLUDED.subscription_data, subscriptions.subscription_data),
          updated_at = NOW()
        RETURNING id, user_id, status, start_date, end_date, monthly_price, 
                  trial_end_date, grace_end_date, last_payment_date, is_active, 
@@ -264,6 +286,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         isActive !== undefined ? isActive : true,
         endDate || null,
         status || 'active',
+        subscriptionData ? JSON.stringify(existingSubscriptionData) : null,
       ]
     );
 

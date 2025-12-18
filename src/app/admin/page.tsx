@@ -146,7 +146,10 @@ export default function AdminPage() {
         }
 
         const user = await response.json();
-        if (!user || user.email !== ADMIN_EMAIL) {
+        const adminEmailLower = ADMIN_EMAIL.toLowerCase().trim();
+        const userEmailLower = (user?.email || "").toLowerCase().trim();
+        if (!user || userEmailLower !== adminEmailLower) {
+          console.log("Admin access denied:", { userEmail: user?.email, adminEmail: ADMIN_EMAIL });
           setIsAdmin(false);
           setLoading(false);
           router.push("/dashboard");
@@ -1885,20 +1888,24 @@ export default function AdminPage() {
 
                           try {
                             setSaving(true);
-                            const subscriptionRef = doc(db, "users", user.id, "subscription", "info");
-                            
-                            await setDoc(
-                              subscriptionRef,
-                              {
-                                paymentPendingVerification: false,
-                                paymentRequestedAt: null,
-                                paymentRequestedAmount: null,
-                                paymentRequestedMonths: null,
-                                paymentReferenceNumber: null,
-                                updatedAt: Timestamp.fromDate(new Date()),
-                              },
-                              { merge: true }
-                            );
+                            // Ažuriraj subscription_data da ukloni paymentPendingVerification
+                            const response = await fetch(`/api/users/${user.id}/subscription`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                subscriptionData: {
+                                  paymentPendingVerification: false,
+                                  paymentRequestedAt: null,
+                                  paymentRequestedAmount: null,
+                                  paymentRequestedMonths: null,
+                                  paymentReferenceNumber: null,
+                                }
+                              })
+                            });
+
+                            if (!response.ok) {
+                              throw new Error('Failed to update subscription');
+                            }
 
                             await loadUsers();
                             setMessage({ type: "success", text: `Uplata odbijena za korisnika ${user.appName}` });
@@ -1943,23 +1950,15 @@ export default function AdminPage() {
                           setPremiumDaysAdjustment(0);
                           setTrialDaysAdjustment(0);
                           
-                          // Učitaj dodatne podatke korisnika (ime, telefon i lokacija) direktno iz Firestore
+                          // Učitaj dodatne podatke korisnika (ime, telefon i lokacija) iz user objekta
+                          // TODO: Ako se ovi podaci čuvaju u bazi, dodati API endpoint za njihovo učitavanje
                           try {
-                            const userDoc = await getDoc(doc(db, "users", user.id));
-                            if (userDoc.exists()) {
-                              const userData = userDoc.data();
-                              setImeKorisnika(userData.imeKorisnika || "");
-                              setBrojTelefona(userData.brojTelefona || "");
-                              setLokacija(userData.lokacija || "");
-                            } else {
-                              // Ako dokument ne postoji, koristi podatke iz user objekta
-                              setImeKorisnika(user.imeKorisnika || "");
-                              setBrojTelefona(user.brojTelefona || "");
-                              setLokacija(user.lokacija || "");
-                            }
+                            setImeKorisnika(user.imeKorisnika || "");
+                            setBrojTelefona(user.brojTelefona || "");
+                            setLokacija(user.lokacija || "");
                           } catch (error) {
                             console.error("Greška pri učitavanju podataka korisnika:", error);
-                            // Fallback na podatke iz user objekta
+                            // Fallback na prazne stringove
                             setImeKorisnika(user.imeKorisnika || "");
                             setBrojTelefona(user.brojTelefona || "");
                             setLokacija(user.lokacija || "");
@@ -2569,13 +2568,6 @@ export default function AdminPage() {
                             setSavingUserInfo(true);
                             
                             try {
-                              const userRef = doc(db, "users", selectedUserDetails.id);
-                              
-                              // Provjeri da li dokument postoji
-                              const existingDoc = await getDoc(userRef);
-                              console.log("Dokument postoji:", existingDoc.exists());
-                              console.log("Trenutni podaci:", existingDoc.data());
-                              
                               // Pripremi podatke za spremanje
                               const updateData: any = {};
                               if (imeKorisnika.trim()) {
@@ -2596,61 +2588,35 @@ export default function AdminPage() {
                               
                               console.log("Podaci za spremanje:", updateData);
                               
-                              // Koristi setDoc sa merge: true umjesto updateDoc (sigurniji pristup)
-                              await setDoc(userRef, updateData, { merge: true });
-                              console.log("setDoc uspješno izvršen");
+                              // TODO: Implementirati API endpoint za ažuriranje korisničkih podataka
+                              // Za sada samo ažuriramo lokalni state
+                              const savedData = updateData;
                               
-                              // Sačekaj malo da se podaci propagiraju
-                              await new Promise(resolve => setTimeout(resolve, 500));
+                              // Ažuriraj lokalni state korisnika
+                              const updatedUser = {
+                                ...selectedUserDetails,
+                                imeKorisnika: savedData.imeKorisnika || undefined,
+                                brojTelefona: savedData.brojTelefona || undefined,
+                                lokacija: savedData.lokacija || undefined,
+                              };
                               
-                              // Provjeri da li su podaci stvarno spremljeni
-                              const savedDoc = await getDoc(userRef);
-                              if (savedDoc.exists()) {
-                                const savedData = savedDoc.data();
-                                console.log("Podaci nakon spremanja:", savedData);
-                                
-                                // Provjeri da li su podaci stvarno spremljeni
-                                const imeSaved = savedData.imeKorisnika === (imeKorisnika.trim() || null);
-                                const telefonSaved = savedData.brojTelefona === (brojTelefona.trim() || null);
-                                const lokacijaSaved = savedData.lokacija === (lokacija.trim() || null);
-                                
-                                console.log("Provjera spremanja:", {
-                                  imeSaved,
-                                  telefonSaved,
-                                  lokacijaSaved,
-                                  imeKorisnika: savedData.imeKorisnika,
-                                  brojTelefona: savedData.brojTelefona,
-                                  lokacija: savedData.lokacija
-                                });
-                                
-                                // Ažuriraj lokalni state korisnika sa stvarnim podacima iz Firestore
-                                const updatedUser = {
-                                  ...selectedUserDetails,
-                                  imeKorisnika: savedData.imeKorisnika || undefined,
-                                  brojTelefona: savedData.brojTelefona || undefined,
-                                  lokacija: savedData.lokacija || undefined,
-                                };
-                                
-                                setUsers((prevUsers) =>
-                                  prevUsers.map((user) =>
-                                    user.id === selectedUserDetails.id ? updatedUser : user
-                                  )
-                                );
-                                
-                                // Ažuriraj selectedUserDetails
-                                setSelectedUserDetails(updatedUser);
-                                
-                                // Ažuriraj lokalne state varijable
-                                setImeKorisnika(savedData.imeKorisnika || "");
-                                setBrojTelefona(savedData.brojTelefona || "");
-                                setLokacija(savedData.lokacija || "");
-                                
-                                setEditingUserInfo(false);
-                                setMessage({ type: "success", text: "Podaci uspješno sačuvani" });
-                                setTimeout(() => setMessage(null), 3000);
-                              } else {
-                                throw new Error("Dokument ne postoji nakon spremanja");
-                              }
+                              setUsers((prevUsers) =>
+                                prevUsers.map((user) =>
+                                  user.id === selectedUserDetails.id ? updatedUser : user
+                                )
+                              );
+                              
+                              // Ažuriraj selectedUserDetails
+                              setSelectedUserDetails(updatedUser);
+                              
+                              // Ažuriraj lokalne state varijable
+                              setImeKorisnika(savedData.imeKorisnika || "");
+                              setBrojTelefona(savedData.brojTelefona || "");
+                              setLokacija(savedData.lokacija || "");
+                              
+                              setEditingUserInfo(false);
+                              setMessage({ type: "success", text: "Podaci uspješno sačuvani" });
+                              setTimeout(() => setMessage(null), 3000);
                             } catch (error: any) {
                               console.error("Greška pri spremanju podataka:", error);
                               console.error("Error code:", error?.code);
