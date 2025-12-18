@@ -102,12 +102,20 @@ export default function Profile() {
   const [emailMessage, setEmailMessage] = useState("");
   const { subscription, loading: subscriptionLoading, addPayment, refreshSubscription } = useSubscription();
   
-  // Osvježi subscription podatke kada se otvori profil stranica
+  // Osvježi subscription podatke kada se otvori profil stranica i svakih 30 sekundi
   useEffect(() => {
-    if (!subscriptionLoading && refreshSubscription) {
+    if (refreshSubscription) {
+      // Osvježi odmah
       refreshSubscription();
+      
+      // Osvježavaj svakih 30 sekundi da bi korisnik vidio ažurirane podatke
+      const interval = setInterval(() => {
+        refreshSubscription();
+      }, 30000); // 30 sekundi
+      
+      return () => clearInterval(interval);
     }
-  }, []); // Samo jednom kada se komponenta mount-uje
+  }, [refreshSubscription]);
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
