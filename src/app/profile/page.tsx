@@ -104,6 +104,20 @@ export default function Profile() {
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
+  
+  // Debug logovanje za subscription
+  useEffect(() => {
+    console.log("Profile - Subscription state:", {
+      subscriptionLoading,
+      subscription: subscription ? {
+        isActive: subscription.isActive,
+        isTrial: subscription.isTrial,
+        isPremium: subscription.isPremium,
+        isGracePeriod: subscription.isGracePeriod,
+      } : null,
+      hasSubscription: !!subscription
+    });
+  }, [subscription, subscriptionLoading]);
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [paymentRequested, setPaymentRequested] = useState(false);
   const [requestingPayment, setRequestingPayment] = useState(false);
@@ -2135,7 +2149,16 @@ export default function Profile() {
                   </div>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px" }}>
+                  Status pretplate
+                </h3>
+                <p style={{ fontSize: "14px", color: "#6b7280" }}>
+                  Pretplata nije učitana. Molimo osvježite stranicu ili kontaktirajte administratora.
+                </p>
+              </div>
+            )}
             
             {/* Plaćanje pretplate */}
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
