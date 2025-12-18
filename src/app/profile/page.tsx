@@ -100,7 +100,7 @@ export default function Profile() {
   const [showBackupFilters, setShowBackupFilters] = useState(false);
   const [backupMessage, setBackupMessage] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
-  const { subscription, loading: subscriptionLoading, addPayment } = useSubscription();
+  const { subscription, loading: subscriptionLoading, addPayment, refreshSubscription } = useSubscription();
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
@@ -2121,8 +2121,10 @@ export default function Profile() {
                         throw new Error(errorData.error || 'Greška pri prijavi uplate');
                       }
 
-                      // Osveži subscription podatke - reload page to see updated status
-                      window.location.reload();
+                      // Osveži subscription podatke
+                      if (refreshSubscription) {
+                        await refreshSubscription();
+                      }
 
                       setPaymentRequested(true);
                       setSubscriptionMessage("Uplata je uspješno prijavljena! Administrator će provjeriti uplatu u roku od 24 sata.");
