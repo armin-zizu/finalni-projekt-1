@@ -24,6 +24,7 @@ type Rashod = {
   naziv: string;
   cijena: number;
   placeno?: boolean;
+  datumPlacanja?: string; // Datum kada je dug označen kao plaćen (DD.MM.YYYY format)
 };
 
 type Prihod = {
@@ -60,7 +61,6 @@ const tableStyle: React.CSSProperties = {
   borderSpacing: 0,
   background: "#ffffff",
   borderRadius: "8px",
-  overflow: "hidden",
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
   marginBottom: "20px",
 };
@@ -212,6 +212,7 @@ type DugInfo = {
   datum: string;
   obracunDatum: string;
   rashodIndex: number;
+  datumPlacanja?: string; // Datum kada je dug označen kao plaćen (DD.MM.YYYY format)
 };
 
 // ---- Glavna komponenta ----
@@ -489,6 +490,19 @@ export default function ArhivaPage() {
     }
 
     try {
+      // Provjeri da li postoje dugovi koji su plaćeni i imaju prihod u draft obračunu
+      // Ako postoje, ne briši obračun jer bi se to poremetilo
+      const obracunToDelete = arhiva.find(o => o.datum === datum);
+      if (obracunToDelete && obracunToDelete.rashodi) {
+        const placeniDugovi = obracunToDelete.rashodi.filter((r: Rashod) => r.placeno && r.datumPlacanja);
+        if (placeniDugovi.length > 0) {
+          const confirmMessage = `Upozorenje: Ovaj obračun ima ${placeniDugovi.length} plaćenih dugova koji su dodati u draft obračune. Ako obrišete ovaj obračun, status plaćenih dugova će se vratiti na neplaćen.\n\nŽelite li ipak obrisati obračun?`;
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+        }
+      }
+      
       await deleteObracun(userId, datum);
       
       // Obriši iz lokalnog state-a
@@ -682,6 +696,7 @@ export default function ArhivaPage() {
             datum: obracun.datum,
             obracunDatum: obracun.datum,
             rashodIndex: index,
+            datumPlacanja: rashod.datumPlacanja,
           });
         }
       });
@@ -1093,11 +1108,35 @@ export default function ArhivaPage() {
       return;
     }
 
-    // Ažuriraj rashode
+    // Pronađi rashod (dug) koji se označava kao plaćen
+    const rashodToMark = obracunToUpdate.rashodi && Array.isArray(obracunToUpdate.rashodi) 
+      ? obracunToUpdate.rashodi[rashodIndex] 
+      : null;
+    
+    if (!rashodToMark) {
+      alert("Rashod (dug) nije pronađen!");
+      return;
+    }
+
+    // Izvuci ime dužnika iz naziva rashoda
+    const dugInfo = extractDugInfo(rashodToMark.naziv);
+    if (!dugInfo.isDug || !dugInfo.imeDuznika) {
+      alert("Greška: Ne može se pronaći ime dužnika!");
+      return;
+    }
+
+    // Formiraj datum plaćanja (trenutni datum u DD.MM.YYYY formatu)
+    const today = new Date();
+    const dan = String(today.getDate()).padStart(2, '0');
+    const mjesec = String(today.getMonth() + 1).padStart(2, '0');
+    const godina = today.getFullYear();
+    const datumPlacanja = `${dan}.${mjesec}.${godina}`;
+
+    // Ažuriraj rashode - dodaj datum plaćanja
     const updatedRashodi = (obracunToUpdate.rashodi && Array.isArray(obracunToUpdate.rashodi)) 
       ? obracunToUpdate.rashodi.map((rashod, index) => {
           if (index === rashodIndex) {
-            return { ...rashod, placeno: true };
+            return { ...rashod, placeno: true, datumPlacanja: datumPlacanja };
           }
           return rashod;
         }) 
@@ -1112,8 +1151,8 @@ export default function ArhivaPage() {
     });
     setArhiva(updatedArhiva);
     
-    // Spremi kroz API
     try {
+      // 1. Spremi ažurirani obračun (sa datumom plaćanja u rashodu)
       const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
       
       await saveObracun(userId, {
@@ -1130,9 +1169,77 @@ export default function ArhivaPage() {
         invoiceImages: obracunToUpdate.invoiceImages || [],
         isDraft: false,
       });
+
+      // 2. Pronađi ili kreiraj draft obračun za danas (datum plaćanja)
+      // Provjeri da li postoji draft obračun za danas
+      console.log("🔍 Traženje draft obračuna za datum plaćanja:", datumPlacanja);
+      const obracuni = await getObracuni(userId);
+      console.log("🔍 Pronađeno obračuna:", obracuni.length);
+      const draftObracun = obracuni.find((ob: any) => {
+        const obDatum = ob.datum ? ob.datum.replace(/\.$/, '') : '';
+        const trazeniDatum = datumPlacanja.replace(/\.$/, '');
+        const matches = obDatum === trazeniDatum && ob.isAzuriran === true;
+        console.log("🔍 Provjera obračuna:", { obDatum, trazeniDatum, isAzuriran: ob.isAzuriran, matches });
+        return matches;
+      });
+
+      // Pripremi novi prihod
+      const noviPrihod = {
+        naziv: dugInfo.imeDuznika,
+        cijena: rashodToMark.cijena,
+      };
+
+      if (draftObracun) {
+        // Ažuriraj postojeći draft obračun - dodaj prihod
+        const postojeciPrihodi = Array.isArray(draftObracun.prihodi) ? draftObracun.prihodi : [];
+        const updatedPrihodi = [...postojeciPrihodi, noviPrihod];
+        const ukupnoPrihod = updatedPrihodi.reduce((sum, p) => sum + (p.cijena || 0), 0);
+        
+        await saveObracun(userId, {
+          datum: datumPlacanja,
+          artikli: Array.isArray(draftObracun.artikli) ? draftObracun.artikli : [],
+          rashodi: Array.isArray(draftObracun.rashodi) ? draftObracun.rashodi : [],
+          prihodi: updatedPrihodi,
+          ukupnoArtikli: draftObracun.ukupnoArtikli || 0,
+          ukupnoRashod: draftObracun.ukupnoRashod || 0,
+          ukupnoPrihod: ukupnoPrihod,
+          neto: (draftObracun.ukupnoArtikli || 0) + ukupnoPrihod - (draftObracun.ukupnoRashod || 0),
+          isAzuriran: true, // Draft obračun
+          imaUlaz: draftObracun.imaUlaz || false,
+          invoiceImages: draftObracun.invoiceImages || [],
+          isDraft: true,
+        });
+      } else {
+        // Kreiraj novi draft obračun sa prihodom
+        await saveObracun(userId, {
+          datum: datumPlacanja,
+          artikli: [],
+          rashodi: [],
+          prihodi: [noviPrihod],
+          ukupnoArtikli: 0,
+          ukupnoRashod: 0,
+          ukupnoPrihod: noviPrihod.cijena,
+          neto: noviPrihod.cijena,
+          isAzuriran: true, // Draft obračun
+          imaUlaz: false,
+          invoiceImages: [],
+          isDraft: true,
+        });
+      }
+
+      console.log("✅ Dug je uspješno označen kao plaćen i prihod je dodan u draft obračun");
+      alert(`Dug je označen kao plaćen. Prihod od ${rashodToMark.cijena.toFixed(2)} KM je dodan u draft obračun za ${datumPlacanja}.`);
     } catch (error: any) {
-      console.warn("Greška pri spremanju u API:", error);
-      alert("Greška pri spremanju promjene. Provjerite konzolu.");
+      console.error("❌ Greška pri spremanju:", error);
+      console.error("❌ Error details:", {
+        message: error.message,
+        stack: error.stack,
+        userId,
+        obracunDatum,
+        datumPlacanja,
+        rashodIndex,
+      });
+      alert(`Greška pri spremanju promjene: ${error.message || 'Unknown error'}. Provjerite konzolu za detalje.`);
     }
   };
 
@@ -1140,6 +1247,8 @@ export default function ArhivaPage() {
   const dynamicContainerStyle: React.CSSProperties = {
     ...containerStyle,
     padding: isMobile ? "4px" : "24px",
+    margin: isMobile ? "0 auto" : "0 auto",
+    marginLeft: isMobile ? "auto" : "auto",
   };
 
   return (
@@ -1158,7 +1267,14 @@ export default function ArhivaPage() {
           overflow-x: visible; /* Na desktopu nema scroll */
           width: 100%;
         }
-        @media (max-width: 768px) {
+        /* Desktop verzija - osiguraj marginu */
+        @media (min-width: 769px) {
+          div[style*='maxWidth: 1200px'] {
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+        }
+          @media (max-width: 768px) {
           div[style*='padding: 24px'] {
             padding: 10px; /* Smanjen padding na mobilu */
           }
@@ -1184,6 +1300,45 @@ export default function ArhivaPage() {
             padding: 8px !important; /* Smanjen padding za ćelije */
             min-width: 80px;
             white-space: nowrap; /* Sprečava prelamanje teksta */
+          }
+          /* Sticky prva kolona (Artikal) na mobilnoj verziji - VRLO SPECIFIČNI SELEKTORI */
+          .table-scroll-wrapper {
+            display: block !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          .table-scroll-wrapper table {
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
+            display: table !important;
+          }
+          /* PRVA KOLONA - Header - koristi klasu za sigurnost */
+          .table-scroll-wrapper table thead tr th:first-child,
+          .table-scroll-wrapper table thead tr th.sticky-first-column-header {
+            position: -webkit-sticky !important;
+            position: sticky !important;
+            left: 0 !important;
+            z-index: 101 !important;
+            background-color: #f8fafc !important;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15) !important;
+          }
+          /* PRVA KOLONA - Body - svi redovi - koristi klasu za sigurnost */
+          .table-scroll-wrapper table tbody tr td:first-child,
+          .table-scroll-wrapper table tbody tr td.sticky-first-column-row {
+            position: -webkit-sticky !important;
+            position: sticky !important;
+            left: 0 !important;
+            z-index: 100 !important;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15) !important;
+          }
+          /* Body prva kolona - alterniraj boju pozadine po klasi */
+          .table-scroll-wrapper table tbody tr:nth-child(even) td:first-child,
+          .table-scroll-wrapper table tbody tr td.sticky-first-column-even {
+            background-color: #ffffff !important;
+          }
+          .table-scroll-wrapper table tbody tr:nth-child(odd) td:first-child,
+          .table-scroll-wrapper table tbody tr td.sticky-first-column-odd {
+            background-color: #f9fafb !important;
           }
           button {
             width: 100%;
@@ -1736,13 +1891,14 @@ export default function ArhivaPage() {
                     <th style={thStyle}>Količina</th>
                     <th style={thStyle}>Datum</th>
                     <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Datum plaćanja</th>
                     <th style={thStyle}>Akcija</th>
                   </tr>
                 </thead>
                 <tbody>
                   {getFilteredDugovi().length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#6b7280" }}>
+                      <td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#6b7280" }}>
                         Nema dugova za prikaz
                       </td>
                     </tr>
@@ -1768,6 +1924,15 @@ export default function ArhivaPage() {
                           >
                             {dug.placeno ? "✓ Plaćeno" : "✗ Neplaćeno"}
                           </span>
+                        </td>
+                        <td style={tdStyle}>
+                          {dug.datumPlacanja ? (
+                            <span style={{ color: "#16a34a", fontWeight: 500 }}>
+                              {dug.datumPlacanja}
+                            </span>
+                          ) : (
+                            <span style={{ color: "#9ca3af" }}>-</span>
+                          )}
                         </td>
                         <td style={tdStyle}>
                           {!dug.placeno && (
@@ -2001,10 +2166,30 @@ export default function ArhivaPage() {
                 Artikli
               </h3>
               <div className="table-scroll-wrapper">
+                {(() => {
+                  // Izračunaj širinu prve kolone jednom na osnovu najdužeg imena
+                  const artikli = item.artikli && Array.isArray(item.artikli) ? item.artikli : [];
+                  const maxLength = artikli.length > 0 ? Math.max(...artikli.map(art => (art.naziv || '').length)) : 0;
+                  // Aproksimacija: svaki karakter je ~6px, plus minimalni padding 12px
+                  const estimatedWidth = maxLength > 0 ? Math.max(70, Math.min(250, maxLength * 6 + 12)) : 90;
+                  const firstColumnWidth = `${estimatedWidth}px`;
+                  
+                  return (
                 <table style={tableStyle}>
                   <thead>
                     <tr>
-                      <th style={thStyle}>Artikal</th>
+                      <th 
+                        className={isMobile ? "sticky-first-column-header" : ""}
+                        style={{
+                          ...thStyle,
+                          ...(isMobile ? {
+                            width: firstColumnWidth,
+                            minWidth: firstColumnWidth,
+                            maxWidth: firstColumnWidth,
+                            paddingLeft: '4px',
+                            paddingRight: '4px',
+                          } : {})
+                        }}>Artikal</th>
                       <th style={thStyle}>Cijena</th>
                       <th style={thStyle}>Zestoko Količina (ml)</th>
                       <th style={thStyle}>Proizvodna Cijena</th>
@@ -2017,9 +2202,23 @@ export default function ArhivaPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(item.artikli && Array.isArray(item.artikli) ? item.artikli : []).map((a, i) => (
+                    {artikli.map((a, i) => (
                       <tr key={i}>
-                        <td style={tdStyle}>{a.naziv}</td>
+                        <td 
+                          className={isMobile ? `sticky-first-column-row sticky-first-column-${i % 2 === 0 ? 'even' : 'odd'}` : ""}
+                          style={{
+                            ...tdStyle,
+                            ...(isMobile ? {
+                              width: firstColumnWidth,
+                              minWidth: firstColumnWidth,
+                              maxWidth: firstColumnWidth,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              paddingLeft: '4px',
+                              paddingRight: '4px',
+                            } : {})
+                          }}>{a.naziv}</td>
                         <td style={tdStyle}>{a.cijena?.toFixed(2) ?? "-"}</td>
                         <td style={tdStyle}>{a.zestokoKolicina?.toFixed(3) ?? "-"}</td>
                         <td style={tdStyle}>{a.proizvodnaCijena?.toFixed(2) ?? "-"}</td>
@@ -2070,6 +2269,8 @@ export default function ArhivaPage() {
                     ))}
                   </tbody>
                 </table>
+                );
+                })()}
               </div>
 
               {/* Rashodi */}

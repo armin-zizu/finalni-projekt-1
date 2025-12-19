@@ -2036,7 +2036,7 @@ export default function DashboardPage() {
                     accentColor: "#3b82f6"
                   }}
                 />
-                <span>Odaberi artikal</span>
+                <span>Po Artiklu</span>
               </label>
               <label style={{
                 display: "flex",
@@ -2249,8 +2249,8 @@ export default function DashboardPage() {
                   transition: "all 0.2s",
                   boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
                   whiteSpace: "nowrap",
-                  flex: index >= 4 ? "1 1 100%" : index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
-                  minWidth: index >= 4 ? "100%" : index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                  flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
+                  minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
                   maxWidth: index >= 4 ? "100%" : index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
                 }}
               >
@@ -2602,7 +2602,7 @@ export default function DashboardPage() {
                     accentColor: "#3b82f6"
                   }}
                 />
-                <span>Odaberi artikal</span>
+                <span>Po Artiklu</span>
               </label>
               <label style={{
                 display: "flex",
@@ -2634,7 +2634,7 @@ export default function DashboardPage() {
                     accentColor: "#3b82f6"
                   }}
                 />
-                <span>Najprodavaniji artikal</span>
+                <span>Najprodavaniji</span>
               </label>
             </div>
           </div>

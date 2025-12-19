@@ -74,7 +74,7 @@ export default function AdminPage() {
   const [activateOnPayment, setActivateOnPayment] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [revenueFilter, setRevenueFilter] = useState<"dnevni" | "tjedni" | "mjesečni" | "tromjesečni" | "prilagođeno" | "odaberiMjesec">("dnevni");
+  const [revenueFilter, setRevenueFilter] = useState<"currentWeek" | "previousWeek" | "mjesečni" | "tromjesečni" | "prilagođeno" | "odaberiMjesec">("currentWeek");
   const [customFromDate, setCustomFromDate] = useState<string>("");
   const [customToDate, setCustomToDate] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
@@ -572,18 +572,20 @@ export default function AdminPage() {
       startDate.setHours(0, 0, 0, 0);
       endDate = new Date(customToYear, customToMonth - 1, customToDay);
       endDate.setHours(23, 59, 59, 999);
-    } else if (revenueFilter === "dnevni") {
+    } else if (revenueFilter === "currentWeek") {
+      // Trenutna sedmica - poslednjih 7 dana
       startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 6); // Zadnjih 7 dana (uključujući danas)
+      startDate.setDate(startDate.getDate() - 6);
       startDate.setHours(0, 0, 0, 0);
       endDate = new Date(now);
       endDate.setHours(23, 59, 59, 999);
-    } else if (revenueFilter === "tjedni") {
-      // Od trenutnog datuma unazad 7 dana
+    } else if (revenueFilter === "previousWeek") {
+      // Prošla sedmica - prethodnih 7 dana
       startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 7);
+      startDate.setDate(startDate.getDate() - 13);
       startDate.setHours(0, 0, 0, 0);
       endDate = new Date(now);
+      endDate.setDate(endDate.getDate() - 7);
       endDate.setHours(23, 59, 59, 999);
     } else if (revenueFilter === "mjesečni") {
       // Od trenutnog datuma unazad do početka mjeseca
@@ -622,24 +624,11 @@ export default function AdminPage() {
       let sortKey: string; // Za sortiranje
       const date = new Date(payment.date);
       
-      if (revenueFilter === "dnevni" || revenueFilter === "prilagođeno" || revenueFilter === "odaberiMjesec") {
+      if (revenueFilter === "currentWeek" || revenueFilter === "previousWeek" || revenueFilter === "prilagođeno" || revenueFilter === "odaberiMjesec") {
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
         key = `${day}.${month}.${year}`;
-        sortKey = `${year}-${month}-${day}`;
-      } else if (revenueFilter === "tjedni") {
-        // Pronađi početak tjedna (ponedjeljak)
-        const weekStart = new Date(date);
-        const dayOfWeek = date.getDay();
-        const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Ponedjeljak
-        weekStart.setDate(diff);
-        weekStart.setHours(0, 0, 0, 0);
-        
-        const day = String(weekStart.getDate()).padStart(2, "0");
-        const month = String(weekStart.getMonth() + 1).padStart(2, "0");
-        const year = weekStart.getFullYear();
-        key = `Tjedan ${day}.${month}.${year}`;
         sortKey = `${year}-${month}-${day}`;
       } else if (revenueFilter === "mjesečni") {
         // Mjesečni
@@ -669,14 +658,40 @@ export default function AdminPage() {
       grouped[key].amount += payment.amount;
     });
 
-    // Za dnevni filter, uvek prikaži poslednjih 7 dana
-    if (revenueFilter === "dnevni") {
+    // Za currentWeek i previousWeek filtere, uvek prikaži 7 dana
+    if (revenueFilter === "currentWeek") {
       const sevenDaysData: Array<{ period: string; zarada: number; sortKey: string }> = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
       // Generiši poslednjih 7 dana (od danas unazad)
       for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const year = date.getFullYear();
+        const period = `${day}.${month}.${year}`;
+        const sortKey = `${year}-${month}-${day}`;
+        
+        // Proveri da li postoji zarada za ovaj dan
+        const existingData = grouped[period];
+        sevenDaysData.push({
+          period,
+          zarada: existingData ? Number(existingData.amount.toFixed(2)) : 0,
+          sortKey
+        });
+      }
+      
+      return sevenDaysData.map(({ period, zarada }) => ({ period, zarada: zarada || null }));
+    } else if (revenueFilter === "previousWeek") {
+      const sevenDaysData: Array<{ period: string; zarada: number; sortKey: string }> = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Generiši prethodnih 7 dana (prošla sedmica)
+      for (let i = 13; i >= 7; i--) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         
@@ -840,103 +855,44 @@ export default function AdminPage() {
             }}>
               Vremenski period
             </label>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <button
-                onClick={() => setRevenueFilter("dnevni")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  backgroundColor: revenueFilter === "dnevni" ? "#3b82f6" : "#f3f4f6",
-                  color: revenueFilter === "dnevni" ? "#fff" : "#374151",
-                  transition: "all 0.2s",
-                }}
-              >
-                Dnevni
-              </button>
-              <button
-                onClick={() => setRevenueFilter("tjedni")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  backgroundColor: revenueFilter === "tjedni" ? "#3b82f6" : "#f3f4f6",
-                  color: revenueFilter === "tjedni" ? "#fff" : "#374151",
-                  transition: "all 0.2s",
-                }}
-              >
-                Tjedni
-              </button>
-              <button
-                onClick={() => setRevenueFilter("mjesečni")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  backgroundColor: revenueFilter === "mjesečni" ? "#3b82f6" : "#f3f4f6",
-                  color: revenueFilter === "mjesečni" ? "#fff" : "#374151",
-                  transition: "all 0.2s",
-                }}
-              >
-                Mjesečni
-              </button>
-              <button
-                onClick={() => setRevenueFilter("tromjesečni")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  backgroundColor: revenueFilter === "tromjesečni" ? "#3b82f6" : "#f3f4f6",
-                  color: revenueFilter === "tromjesečni" ? "#fff" : "#374151",
-                  transition: "all 0.2s",
-                }}
-              >
-                Tromjesečni
-              </button>
-              <button
-                onClick={() => setRevenueFilter("prilagođeno")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  backgroundColor: revenueFilter === "prilagođeno" ? "#3b82f6" : "#f3f4f6",
-                  color: revenueFilter === "prilagođeno" ? "#fff" : "#374151",
-                  transition: "all 0.2s",
-                }}
-              >
-                Prilagođeno
-              </button>
-              <button
-                onClick={() => setRevenueFilter("odaberiMjesec")}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  backgroundColor: revenueFilter === "odaberiMjesec" ? "#3b82f6" : "#f3f4f6",
-                  color: revenueFilter === "odaberiMjesec" ? "#fff" : "#374151",
-                  transition: "all 0.2s",
-                }}
-              >
-                Odaberi Mjesec
-              </button>
+            <div style={{ 
+              display: "flex", 
+              gap: 4, 
+              flexWrap: "wrap", 
+              alignItems: "center", 
+              width: "100%" 
+            }}>
+              {[
+                { value: "currentWeek", label: "Trenutna sedmica" },
+                { value: "previousWeek", label: "Prošla sedmica" },
+                { value: "mjesečni", label: "Mjesečni" },
+                { value: "tromjesečni", label: "Tromjesečni" },
+                { value: "odaberiMjesec", label: "Odaberi mjesec" },
+                { value: "prilagođeno", label: "Prilagođeno" },
+              ].map((r, index) => (
+                <button
+                  key={r.value}
+                  onClick={() => setRevenueFilter(r.value as any)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    fontSize: 13,
+                    background: revenueFilter === r.value ? "#3b82f6" : "#e5e7eb",
+                    color: revenueFilter === r.value ? "#fff" : "#374151",
+                    transition: "all 0.2s",
+                    boxShadow: revenueFilter === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+                    whiteSpace: "nowrap",
+                    flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
+                    minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                    maxWidth: index >= 4 ? "100%" : index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
             </div>
             {revenueFilter === "prilagođeno" && (
               <div style={{ display: "flex", gap: "16px", alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -1592,10 +1548,16 @@ export default function AdminPage() {
               </div>
             )}
             {revenueFilter === "odaberiMjesec" && (
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ 
+                display: "flex", 
+                gap: 8, 
+                alignItems: "flex-end", 
+                width: "100%", 
+                flexWrap: "wrap" 
+              }}>
                 {/* Custom Dropdown za Mjesec */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Mjesec:</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
                   <div style={{ position: "relative" }}>
                     <button
                       type="button"
@@ -1604,11 +1566,11 @@ export default function AdminPage() {
                         setYearDropdownOpen(false);
                       }}
                       style={{
-                        padding: "10px 40px 10px 14px",
+                        padding: "8px 32px 8px 12px",
                         border: "1px solid #d1d5db",
                         borderRadius: "8px",
-                        fontSize: "14px",
-                        minWidth: "160px",
+                        fontSize: "13px",
+                        width: "100%",
                         backgroundColor: "#fff",
                         cursor: "pointer",
                         display: "flex",
@@ -1710,8 +1672,8 @@ export default function AdminPage() {
                 </div>
 
                 {/* Custom Dropdown za Godinu */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Godina:</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Godina:</label>
                   <div style={{ position: "relative" }}>
                     <button
                       type="button"
@@ -1720,11 +1682,11 @@ export default function AdminPage() {
                         setMonthDropdownOpen(false);
                       }}
                       style={{
-                        padding: "10px 40px 10px 14px",
+                        padding: "8px 32px 8px 12px",
                         border: "1px solid #d1d5db",
                         borderRadius: "8px",
-                        fontSize: "14px",
-                        minWidth: "130px",
+                        fontSize: "13px",
+                        width: "100%",
                         backgroundColor: "#fff",
                         cursor: "pointer",
                         display: "flex",
@@ -1839,26 +1801,27 @@ export default function AdminPage() {
             </div>
             <div style={{ 
               width: "100%", 
-              height: "400px", 
+              height: isMobile ? 300 : 400, 
               marginTop: "20px",
               backgroundColor: "#fff",
               borderRadius: "12px",
-              padding: "20px",
+              padding: isMobile ? "0px" : "20px",
               boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
               boxSizing: "border-box",
               overflow: "hidden"
             }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={revenueChartData} margin={{ top: 20, right: 20, left: 10, bottom: 35 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis 
-                    dataKey="period" 
-                    stroke="#6b7280"
-                    style={{ fontSize: "12px" }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={35}
-                  />
+              <div style={{ width: "100%", height: "100%", position: "relative", padding: isMobile ? "10px" : 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={revenueChartData} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 35 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="period" 
+                      stroke="#6b7280"
+                      style={{ fontSize: "12px" }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={isMobile ? 25 : 35}
+                    />
                   <YAxis 
                     stroke="#6b7280"
                     style={{ fontSize: "12px" }}
@@ -1866,36 +1829,19 @@ export default function AdminPage() {
                   />
                   <Tooltip content={<RevenueTooltip />} />
                   <Legend verticalAlign="bottom" height={30} wrapperStyle={{ paddingTop: "40px" }} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="zarada" 
-                    stroke="#10b981" 
-                    strokeWidth={2}
-                    dot={{ fill: "#10b981", r: 4 }}
-                    activeDot={{ r: 6 }}
-                    name="Zarada (KM)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+                    <Line 
+                      type="monotone" 
+                      dataKey="zarada" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      dot={{ fill: "#10b981", r: 4 }}
+                      activeDot={{ r: 6 }}
+                      name="Zarada (KM)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <style jsx>{`
-              .recharts-wrapper {
-                width: 100% !important;
-              }
-              .recharts-surface {
-                width: 100% !important;
-              }
-              @keyframes slideDown {
-                from {
-                  opacity: 0;
-                  transform: translateY(-8px);
-                }
-                to {
-                  opacity: 1;
-                  transform: translateY(0);
-                }
-              }
-            `}</style>
           </>
         ) : (
           <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
@@ -1903,6 +1849,14 @@ export default function AdminPage() {
             <p style={{ fontSize: "16px" }}>Nema podataka o uplatama za odabrani period.</p>
           </div>
         )}
+        <style jsx>{`
+          .recharts-wrapper {
+            width: 100% !important;
+          }
+          .recharts-surface {
+            width: 100% !important;
+          }
+        `}</style>
       </div>
 
       {/* Korisnici koji su prijavili uplatu - Profesionalni card */}

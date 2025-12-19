@@ -366,6 +366,41 @@ export default function ObracunPage() {
   const [ulazCacheForDatum, setUlazCacheForDatum] = useState<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }>({});
   const [isCacheLoaded, setIsCacheLoaded] = useState<boolean>(false);
 
+  // Helper funkcija za provjeru da li je prihod još uvijek relevantan (tj. da li postoji plaćen dug u arhivi)
+  const isPrihodRelevant = async (prihodNaziv: string, userId: string): Promise<boolean> => {
+    try {
+      const obracuni = await getObracuni(userId);
+      const finalniObracuni = obracuni.filter((ob: any) => !ob.isAzuriran || ob.isAzuriran === false);
+      
+      // Pronađi obračun koji ima rashod (dug) sa imenom dužnika koje odgovara nazivu prihoda
+      for (const obracun of finalniObracuni) {
+        if (obracun.rashodi && Array.isArray(obracun.rashodi)) {
+          const relevantRashod = obracun.rashodi.find((rashod: any) => {
+            const naziv = rashod.naziv || '';
+            const lowerNaziv = naziv.toLowerCase().trim();
+            if (!lowerNaziv.includes('dug')) return false;
+            
+            // Ime dužnika je sve prije "dug" u nazivu rashoda
+            const parts = naziv.split(/\s+/);
+            const dugIndex = parts.findIndex(p => p.toLowerCase() === "dug");
+            if (dugIndex === -1) return false;
+            
+            const imeDuznika = parts.slice(0, dugIndex).join(" ").trim();
+            return imeDuznika.toLowerCase() === prihodNaziv.toLowerCase() && rashod.placeno === true;
+          });
+          
+          if (relevantRashod) {
+            return true; // Postoji plaćen dug u arhivi
+          }
+        }
+      }
+      return false; // Nema plaćenog duga u arhivi
+    } catch (error: any) {
+      console.error("Greška pri provjeri relevantnosti prihoda:", error);
+      return false; // U slučaju greške, smatraj da nije relevantan
+    }
+  };
+
   // Helper funkcija za provjeru da li je datum aktivan (nije prošao)
   const isDatumAktivan = (datum: Date): boolean => {
     const danas = new Date();
@@ -466,6 +501,43 @@ export default function ObracunPage() {
           setSavedInvoiceImagesCount(azuriraniObracun.invoiceImages?.length || 0);
           setHasUlazInCache(azuriraniObracun.imaUlaz || false);
           
+          // Provjeri i filtriraj prihode - ukloni one koji više nisu relevantni (dug više nije plaćen)
+          let validPrihodi = Array.isArray(azuriraniObracun.prihodi) ? azuriraniObracun.prihodi : [];
+          if (validPrihodi.length > 0) {
+            console.log("🔍 Provjera relevantnosti prihoda u draft obračunu:", validPrihodi.length, "prihoda");
+            const relevantPrihodiPromises = validPrihodi.map(async (prihod: any) => {
+              const isRelevant = await isPrihodRelevant(prihod.naziv, userId);
+              return { prihod, isRelevant };
+            });
+            
+            const relevantPrihodiResults = await Promise.all(relevantPrihodiPromises);
+            const filteredPrihodi = relevantPrihodiResults
+              .filter(result => result.isRelevant)
+              .map(result => result.prihod);
+            
+            if (filteredPrihodi.length !== validPrihodi.length) {
+              console.log(`🔍 Uklonjeno ${validPrihodi.length - filteredPrihodi.length} nevažećih prihoda iz draft obračuna`);
+              validPrihodi = filteredPrihodi;
+              
+              // Ažuriraj draft obračun u bazi sa filtriranim prihodima
+              const ukupnoPrihod = filteredPrihodi.reduce((sum: number, p: any) => sum + (p.cijena || 0), 0);
+              await saveObracun(userId, {
+                datum: datumString,
+                artikli: Array.isArray(azuriraniObracun.artikli) ? azuriraniObracun.artikli : [],
+                rashodi: Array.isArray(azuriraniObracun.rashodi) ? azuriraniObracun.rashodi : [],
+                prihodi: filteredPrihodi,
+                ukupnoArtikli: azuriraniObracun.ukupnoArtikli || 0,
+                ukupnoRashod: azuriraniObracun.ukupnoRashod || 0,
+                ukupnoPrihod: ukupnoPrihod,
+                neto: (azuriraniObracun.ukupnoArtikli || 0) + ukupnoPrihod - (azuriraniObracun.ukupnoRashod || 0),
+                isAzuriran: true,
+                imaUlaz: azuriraniObracun.imaUlaz || false,
+                invoiceImages: azuriraniObracun.invoiceImages || [],
+                isDraft: true,
+              });
+            }
+          }
+          
           // Ako postoje artikli u ažuriranom obračunu, učitaj ih u state
           if (azuriraniObracun.artikli && azuriraniObracun.artikli.length > 0) {
             const mappedArtikli = azuriraniObracun.artikli.map((a: any) => {
@@ -495,12 +567,13 @@ export default function ObracunPage() {
             console.log("🟢 Učitavanje", mappedArtikli.length, "artikala iz draft obračuna");
             setArtikli(mappedArtikli);
             
-            // Učitaj rashode i prihode ako postoje
+            // Učitaj rashode i prihode ako postoje (koristi filtrirane prihode)
             if (azuriraniObracun.rashodi && azuriraniObracun.rashodi.length > 0) {
               setRashodi(azuriraniObracun.rashodi);
             }
-            if (azuriraniObracun.prihodi && azuriraniObracun.prihodi.length > 0) {
-              setPrihodi(azuriraniObracun.prihodi);
+            if (validPrihodi.length > 0) {
+              setPrihodi(validPrihodi);
+              console.log("🟢 Učitano", validPrihodi.length, "validnih prihoda iz draft obračuna");
             }
             
             // Učitaj broj slika faktura ako postoje (URL-ovi, ne File objekti)
@@ -509,7 +582,17 @@ export default function ObracunPage() {
               console.log(`📸 Učitano ${azuriraniObracun.invoiceImages.length} slika faktura iz draft-a`);
             }
           } else {
-            console.log("⚠️ Draft obračun pronađen ali nema artikala");
+            console.log("⚠️ Draft obračun pronađen ali nema artikala - artikli će biti inicijalizovani iz cjenovnika");
+            // Učitaj rashode i prihode čak i ako nema artikala (koristi filtrirane prihode)
+            if (azuriraniObracun.rashodi && azuriraniObracun.rashodi.length > 0) {
+              setRashodi(azuriraniObracun.rashodi);
+            }
+            if (validPrihodi.length > 0) {
+              setPrihodi(validPrihodi);
+              console.log("🟢 Učitano", validPrihodi.length, "validnih prihoda iz draft obračuna");
+            }
+            // Ne postavljaj artikli na prazan array - dozvoli inicijalizaciju iz cjenovnika
+            // isAzuriran je već postavljen na true, ali će inicijalizacija artikala biti dozvoljena jer artikli.length === 0
           }
           
           console.log("🟢 Ažurirani obračun učitano:", azuriraniObracun.artikli?.length || 0, "artikala");
@@ -545,12 +628,18 @@ export default function ObracunPage() {
       return; // Čekaj da se cache učita
     }
     
-    // VAŽNO: Ako je obračun već ažuriran (isAzuriran === true), NE mijenjaj artikle
-    // Draft obračun se uvijek prikazuje sa zaključanim vrijednostima
-    // Ne prepisuj draft obračun sa početnim stanjem iz cjenovnika
-    if (isAzuriran) {
-      console.log("🟢 Obračun je ažuriran (draft), preskačem inicijalizaciju artikala iz cjenovnika - koristimo zaključane vrijednosti. Trenutno artikala:", artikli.length);
+    // VAŽNO: Ako je obračun već ažuriran (isAzuriran === true) I ima artikala, NE mijenjaj artikle
+    // Draft obračun sa artiklima se uvijek prikazuje sa zaključanim vrijednostima
+    // Međutim, ako draft obračun nema artikala (npr. samo sa prihodima), inicijalizuj artikle iz cjenovnika
+    if (isAzuriran && artikli.length > 0) {
+      console.log("🟢 Obračun je ažuriran (draft) i ima artikala, preskačem inicijalizaciju artikala iz cjenovnika - koristimo zaključane vrijednosti. Trenutno artikala:", artikli.length);
       return;
+    }
+    
+    // Ako je draft obračun ali nema artikala, inicijalizuj artikle iz cjenovnika (zadržavaju se prihodi i rashodi)
+    if (isAzuriran && artikli.length === 0) {
+      console.log("🟡 Draft obračun postoji ali nema artikala, inicijalizujem artikle iz cjenovnika (zadržavaju se prihodi i rashodi)");
+      // Nastavi sa inicijalizacijom - artikli će biti inicijalizovani iz cjenovnika
     }
     
     const datumString = formatirajDatum(trenutniDatum);
@@ -608,13 +697,18 @@ export default function ObracunPage() {
       setArtikli(inicijalniArtikli);
       setResetKey(0);
       // Ako postoji ulaz u cache-u, zaključaj ulaze i označi kao ažurirani obračun
+      // Također, ako je isAzuriran već postavljen na true (npr. draft obračun sa prihodima), ne resetuj ga
       if (Object.keys(ulazCache).some(naziv => ulazCache[naziv] && ulazCache[naziv].ulaz !== 0)) {
         setIsUlazLocked(true);
         setIsAzuriran(true); // Oznaci da je obračun ažuriran ako ima ulaz
         console.log("🔒 Ulazi zaključani jer postoji ulaz u cache-u");
-      } else {
+      } else if (!isAzuriran) {
+        // Samo resetuj isAzuriran ako nije već postavljen na true (npr. draft obračun sa prihodima)
         setIsUlazLocked(false);
         setIsAzuriran(false);
+      } else {
+        // isAzuriran je već true (npr. draft obračun sa prihodima), zadrži ga
+        console.log("🟢 isAzuriran je već true (draft obračun), zadržavam ga");
       }
       return;
     }
@@ -886,11 +980,94 @@ export default function ObracunPage() {
     }
   };
 
-  const handleDeletePrihod = (index: number) => {
+  const handleDeletePrihod = async (index: number) => {
+    // Sačuvaj prihod koji se briše prije nego što ga izbrišemo iz state-a
+    const prihodToDelete = prihodi[index];
+    
+    // Ukloni prihod iz state-a
     setPrihodi((prev) => prev.filter((_, i) => i !== index));
     if (editPrihodIndex === index) {
       setEditPrihodIndex(null);
       setEditPrihod({ naziv: "", cijena: 0 });
+    }
+    
+    // Ako je prihod obrisan, provjeri da li postoji dug u arhivi sa tim imenom (ime dužnika)
+    // i ako postoji, označi ga kao neplaćen i ukloni datum plaćanja
+    if (prihodToDelete && prihodToDelete.naziv) {
+      const userId = user?.email || user?.id;
+      if (!userId) {
+        console.warn("Korisnik nije prijavljen, ne mogu ažurirati dug u arhivi");
+        return;
+      }
+      
+      try {
+        // Učitaj sve obračune iz arhive (samo finalni, ne draft)
+        const obracuni = await getObracuni(userId);
+        const finalniObracuni = obracuni.filter((ob: any) => !ob.isAzuriran || ob.isAzuriran === false);
+        
+        // Pronađi obračun koji ima rashod (dug) sa imenom dužnika koje odgovara nazivu prihoda
+        for (const obracun of finalniObracuni) {
+          if (obracun.rashodi && Array.isArray(obracun.rashodi)) {
+            // Pronađi rashod (dug) koji ima ime dužnika u nazivu
+            const rashodIndex = obracun.rashodi.findIndex((rashod: any) => {
+              const naziv = rashod.naziv || '';
+              const lowerNaziv = naziv.toLowerCase().trim();
+              // Provjeri da li naziv rashoda sadrži "dug" i ime dužnika (naziv prihoda)
+              if (!lowerNaziv.includes('dug')) return false;
+              
+              // Ime dužnika je sve prije "dug" u nazivu rashoda
+              const parts = naziv.split(/\s+/);
+              const dugIndex = parts.findIndex(p => p.toLowerCase() === "dug");
+              if (dugIndex === -1) return false;
+              
+              const imeDuznika = parts.slice(0, dugIndex).join(" ").trim();
+              return imeDuznika.toLowerCase() === prihodToDelete.naziv.toLowerCase();
+            });
+            
+            if (rashodIndex !== -1) {
+              const rashod = obracun.rashodi[rashodIndex];
+              // Ako je dug označen kao plaćen, označi ga kao neplaćen i ukloni datum plaćanja
+              if (rashod.placeno || rashod.datumPlacanja) {
+                console.log(`🔍 Pronađen plaćeni dug za "${prihodToDelete.naziv}" u obračunu ${obracun.datum}, označavam kao neplaćen`);
+                
+                const updatedRashodi = obracun.rashodi.map((r: any, i: number) => {
+                  if (i === rashodIndex) {
+                    // Ukloni placeno i datumPlacanja
+                    const { placeno, datumPlacanja, ...rest } = r;
+                    return rest;
+                  }
+                  return r;
+                });
+                
+                const ukupnoRashod = updatedRashodi.reduce((sum: number, r: any) => sum + (r.cijena || 0), 0);
+                
+                // Ažuriraj obračun u arhivi
+                await saveObracun(userId, {
+                  datum: obracun.datum,
+                  artikli: Array.isArray(obracun.artikli) ? obracun.artikli : [],
+                  rashodi: updatedRashodi,
+                  prihodi: Array.isArray(obracun.prihodi) ? obracun.prihodi : [],
+                  ukupnoArtikli: obracun.ukupnoArtikli || 0,
+                  ukupnoRashod: ukupnoRashod,
+                  ukupnoPrihod: obracun.ukupnoPrihod || 0,
+                  neto: (obracun.ukupnoArtikli || 0) + (obracun.ukupnoPrihod || 0) - ukupnoRashod,
+                  isAzuriran: false, // Finalni obračun
+                  imaUlaz: obracun.imaUlaz || false,
+                  invoiceImages: obracun.invoiceImages || [],
+                  isDraft: false,
+                });
+                
+                console.log(`✅ Dug za "${prihodToDelete.naziv}" je označen kao neplaćen u obračunu ${obracun.datum}`);
+                // Ne treba alert jer je to automatska akcija
+                break; // Pronađen i ažuriran, prekini petlju
+              }
+            }
+          }
+        }
+      } catch (error: any) {
+        console.error("Greška pri ažuriranju duga u arhivi:", error);
+        // Ne prikazuj alert jer je to pozadinska operacija
+      }
     }
   };
 

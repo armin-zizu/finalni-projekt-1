@@ -518,12 +518,13 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       // Draft i finalni obračun mogu postojati istovremeno za isti datum
       
       // Check if exists first - traži obračun sa istim datumom I isAzuriran statusom
+      // Koristimo COALESCE i CAST za sigurnije parsiranje JSONB boolean vrijednosti
       const existingCheck = await query(
         `SELECT id, artikli FROM obracuni 
          WHERE user_id = $1::text 
          AND datum = $2
-         AND (artikli->>'isAzuriran')::boolean = $3`,
-        [userIdForDb, datumForPostgres, isAzuriran || false]
+         AND COALESCE((artikli->>'isAzuriran')::text, 'false') = $3`,
+        [userIdForDb, datumForPostgres, String(isAzuriran || false)]
       );
       
       console.log('Save obracun - Existing check result:', { 
@@ -581,9 +582,9 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
                saved_at = NOW()
            WHERE user_id = $1::text 
            AND datum = $2
-           AND (artikli->>'isAzuriran')::boolean = $5
+           AND COALESCE((artikli->>'isAzuriran')::text, 'false') = $5
            RETURNING id, datum, saved_at`,
-          [userIdForDb, datumForPostgres, JSON.stringify(obracunData), datumRaw, isAzuriran || false]
+          [userIdForDb, datumForPostgres, JSON.stringify(obracunData), datumRaw, String(isAzuriran || false)]
         );
       } else {
         // INSERT novi obračun (draft ili finalni)
@@ -603,7 +604,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
               `DELETE FROM obracuni 
                WHERE user_id = $1::text 
                AND datum = $2
-               AND (artikli->>'isAzuriran')::boolean = true
+               AND COALESCE((artikli->>'isAzuriran')::text, 'false') = 'true'
                RETURNING id`,
               [userIdForDb, datumForPostgres]
             );
