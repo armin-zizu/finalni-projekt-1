@@ -501,7 +501,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
     };
     
     // Provjeri da li se obracunData može serijalizovati u JSON
-    let obracunDataJson: string;
+    let obracunDataJson: string = '';
     try {
       obracunDataJson = JSON.stringify(obracunData);
       console.log('Save obracun - JSON serialization successful, size:', obracunDataJson.length, 'bytes');
@@ -528,8 +528,8 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
 
     // Upsert obracun - always use simple query without is_draft column
     // is_draft column doesn't exist in database, ali isAzuriran je u JSONB polju
+    // obracunDataJson je već deklarisan i inicijalizovan gore
     let result;
-    let obracunDataJson: string = ''; // Inicijalizuj za catch blok
     try {
       console.log('Save obracun - Starting upsert:', { 
         userEmail, 
