@@ -217,13 +217,21 @@ type DugInfo = {
 
 // ---- Glavna komponenta ----
 // Helper funkcija za normalizaciju URL-ova slika
+// Konvertuje putanje slika na API route za serviranje
 const normalizeImageUrl = (imageUrl: string): string => {
   if (!imageUrl) return imageUrl;
   
-  // Ako već počinje sa / ili http, vrati kao jeste
-  if (imageUrl.startsWith('/') || imageUrl.startsWith('http')) {
+  // Ako već počinje sa http ili https, vrati kao jeste (eksterni URL)
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     return imageUrl;
   }
+  
+  // Ako već koristi API route, vrati kao jeste
+  if (imageUrl.includes('/api/files/serve')) {
+    return imageUrl;
+  }
+  
+  let normalizedPath = '';
   
   // Ukloni file:/// protokol
   if (imageUrl.startsWith('file:///')) {
@@ -232,33 +240,37 @@ const normalizeImageUrl = (imageUrl: string): string => {
     const uploadsIndex = imageUrl.indexOf('/uploads/');
     
     if (publicIndex !== -1) {
-      return imageUrl.substring(publicIndex + '/public'.length);
+      normalizedPath = imageUrl.substring(publicIndex + '/public'.length);
     } else if (uploadsIndex !== -1) {
-      return imageUrl.substring(uploadsIndex);
+      normalizedPath = imageUrl.substring(uploadsIndex);
     } else {
       // Ako nema public ili uploads, probaj da ekstraktuj putanju nakon poslednjeg /
       const lastSlash = imageUrl.lastIndexOf('/');
       if (lastSlash !== -1 && lastSlash < imageUrl.length - 1) {
         const pathPart = imageUrl.substring(lastSlash);
-        return pathPart.startsWith('/uploads') ? pathPart : `/uploads${pathPart}`;
+        normalizedPath = pathPart.startsWith('/uploads') ? pathPart : `/uploads${pathPart}`;
       }
     }
-  }
-  
-  // Ako sadrži public/uploads, ekstraktuj relativni put
-  if (imageUrl.includes('public/uploads')) {
+  } else if (imageUrl.includes('public/uploads')) {
+    // Ako sadrži public/uploads, ekstraktuj relativni put
     const uploadsIndex = imageUrl.indexOf('/uploads/');
     if (uploadsIndex !== -1) {
-      return imageUrl.substring(uploadsIndex);
+      normalizedPath = imageUrl.substring(uploadsIndex);
     }
+  } else if (imageUrl.startsWith('/uploads/')) {
+    // Ako već počinje sa /uploads/, koristi direktno
+    normalizedPath = imageUrl;
+  } else if (!imageUrl.startsWith('/')) {
+    // Ako je samo naziv fajla ili relativni put bez /, dodaj /uploads/
+    normalizedPath = imageUrl.startsWith('uploads/') ? `/${imageUrl}` : `/uploads/${imageUrl}`;
+  } else {
+    normalizedPath = imageUrl;
   }
   
-  // Ako je samo naziv fajla ili relativni put bez /, dodaj /uploads/
-  if (!imageUrl.startsWith('/')) {
-    return imageUrl.startsWith('uploads/') ? `/${imageUrl}` : `/uploads/${imageUrl}`;
-  }
-  
-  return imageUrl;
+  // Konvertuj na API route za serviranje
+  // URL encode putanju da bi se pravilno proslijedila kao query parametar
+  const encodedUrl = encodeURIComponent(normalizedPath);
+  return `/api/files/serve?url=${encodedUrl}`;
 };
 
 export default function ArhivaPage() {
