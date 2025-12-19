@@ -1161,18 +1161,26 @@ export default function ArhivaPage() {
     }
 
     // Formiraj datum plaćanja (trenutni datum u DD.MM.YYYY. formatu - sa tačkom na kraju)
+    // Koristi lokalno vrijeme iz browsera za konzistentnost (ne UTC)
     // Koristi isti format kao formatirajDatum funkcija iz obracun/page.tsx
     const today = new Date();
+    // Koristi getFullYear(), getMonth(), getDate() koji vraćaju lokalne vrijednosti (ne UTC)
     const dan = String(today.getDate()).padStart(2, '0');
     const mjesec = String(today.getMonth() + 1).padStart(2, '0');
     const godina = today.getFullYear();
     const datumPlacanja = `${dan}.${mjesec}.${godina}.`; // Dodaj tačku na kraju za konzistentnost
     
+    // Eksplicitno koristi lokalno vrijeme (ne UTC)
+    const localDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     console.log("📅 Formiranje datuma plaćanja:", {
       todayISO: today.toISOString(),
       todayLocal: today.toString(),
+      todayUTC: today.toUTCString(),
+      localDate: localDate.toString(),
       datumPlacanja,
-      dateParts: { dan, mjesec, godina }
+      dateParts: { dan, mjesec, godina },
+      timezoneOffset: today.getTimezoneOffset(),
+      isUTC: today.getTimezoneOffset() === 0
     });
 
     // Ažuriraj rashode - dodaj datum plaćanja
