@@ -497,12 +497,39 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       neto: neto || 0,
       isAzuriran: isAzuriran || false,
       imaUlaz: imaUlaz || false,
-      invoiceImages: normalizedInvoiceImages,
+      invoiceImages: normalizedInvoiceImages || [],
     };
+    
+    // Provjeri da li se obracunData može serijalizovati u JSON
+    let obracunDataJson: string;
+    try {
+      obracunDataJson = JSON.stringify(obracunData);
+      console.log('Save obracun - JSON serialization successful, size:', obracunDataJson.length, 'bytes');
+    } catch (jsonError: any) {
+      console.error('Save obracun - JSON serialization error:', {
+        error: jsonError.message,
+        stack: jsonError.stack,
+        obracunData: {
+          artikliCount: (obracunData.artikli || []).length,
+          rashodiCount: (obracunData.rashodi || []).length,
+          prihodiCount: (obracunData.prihodi || []).length,
+          invoiceImagesCount: (obracunData.invoiceImages || []).length,
+        }
+      });
+      return NextResponse.json(
+        { 
+          error: 'Failed to serialize obracun data', 
+          message: jsonError.message,
+          detail: 'Check server logs for more details'
+        },
+        { status: 500 }
+      );
+    }
 
     // Upsert obracun - always use simple query without is_draft column
     // is_draft column doesn't exist in database, ali isAzuriran je u JSONB polju
     let result;
+    let obracunDataJson: string = ''; // Inicijalizuj za catch blok
     try {
       console.log('Save obracun - Starting upsert:', { 
         userEmail, 
@@ -584,7 +611,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
            AND datum = $2
            AND COALESCE((artikli->>'isAzuriran')::text, 'false') = $5
            RETURNING id, datum, saved_at`,
-          [userIdForDb, datumForPostgres, JSON.stringify(obracunData), datumRaw, String(isAzuriran || false)]
+          [userIdForDb, datumForPostgres, obracunDataJson, datumRaw, String(isAzuriran || false)]
         );
       } else {
         // INSERT novi obračun (draft ili finalni)
@@ -621,7 +648,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
           `INSERT INTO obracuni (user_id, datum, datum_raw, artikli, saved_at)
            VALUES ($1::text, $2, $3, $4::jsonb, NOW())
            RETURNING id, datum, saved_at`,
-          [userIdForDb, datumForPostgres, datumRaw, JSON.stringify(obracunData)]
+          [userIdForDb, datumForPostgres, datumRaw, obracunDataJson]
         );
       }
       
@@ -641,9 +668,20 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         datumForPostgres,
         datumRaw,
         requestedUserId,
+        isAzuriran,
+        obracunDataSize: obracunDataJson?.length || 0,
+        invoiceImagesCount: normalizedInvoiceImages?.length || 0,
         stack: dbError.stack
       });
-      throw dbError; // Re-throw to be caught by outer catch
+      return NextResponse.json(
+        { 
+          error: 'Database error', 
+          message: dbError.message,
+          detail: dbError.detail || dbError.hint || 'Please check server logs for more details',
+          code: dbError.code
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
