@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Eksplicitno postavi root direktorij za output file tracing
+  // Ovo osigurava da Next.js koristi pravi root projekta umjesto da inferira iz lockfile-a
+  outputFileTracingRoot: process.cwd(),
 };
 
 export default nextConfig;
