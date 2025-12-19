@@ -781,7 +781,7 @@ export default function ArhivaPage() {
   };
 
   // Funkcija za otvaranje modala sa svim faktorama
-  const openAllFaktureModal = () => {
+  const openAllFaktureModal = async () => {
     setFaktureModalMode("all");
     setSingleObracunDatum(null);
     setSelectedFakturaDatum(null);
@@ -789,6 +789,41 @@ export default function ArhivaPage() {
     setShowFaktureModal(true);
     setShowModalUploadInput(false);
     setModalInvoiceFiles([]);
+    
+    // Učitaj sve fakture iz arhive
+    const allFakture = getAllFakture();
+    setModalFakture(allFakture);
+    
+    // Ako nema faktura u lokalnoj arhivi, pokušaj učitati iz API-ja
+    if (allFakture.length === 0 && user?.id) {
+      try {
+        const obracuni = await getObracuni(user.id);
+        const finalniObracuni = obracuni.filter((ob: any) => !ob.isAzuriran || ob.isAzuriran === false);
+        const faktureFromApi: { datum: string; images: string[] }[] = [];
+        
+        finalniObracuni.forEach((obracun: any) => {
+          if (obracun.invoiceImages && Array.isArray(obracun.invoiceImages) && obracun.invoiceImages.length > 0) {
+            const normalizedImages = obracun.invoiceImages.map((url: string) => normalizeImageUrl(url));
+            faktureFromApi.push({
+              datum: obracun.datum,
+              images: normalizedImages,
+            });
+          }
+        });
+        
+        if (faktureFromApi.length > 0) {
+          // Sortiraj po datumu (najnoviji prvo)
+          faktureFromApi.sort((a, b) => {
+            const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+            const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+            return dateB - dateA;
+          });
+          setModalFakture(faktureFromApi);
+        }
+      } catch (error) {
+        console.warn("Greška pri učitavanju faktura iz API-ja:", error);
+      }
+    }
   };
 
   // Funkcija za otvaranje modala sa faktorama jednog obračuna
@@ -1125,12 +1160,20 @@ export default function ArhivaPage() {
       return;
     }
 
-    // Formiraj datum plaćanja (trenutni datum u DD.MM.YYYY formatu)
+    // Formiraj datum plaćanja (trenutni datum u DD.MM.YYYY. formatu - sa tačkom na kraju)
+    // Koristi isti format kao formatirajDatum funkcija iz obracun/page.tsx
     const today = new Date();
     const dan = String(today.getDate()).padStart(2, '0');
     const mjesec = String(today.getMonth() + 1).padStart(2, '0');
     const godina = today.getFullYear();
-    const datumPlacanja = `${dan}.${mjesec}.${godina}`;
+    const datumPlacanja = `${dan}.${mjesec}.${godina}.`; // Dodaj tačku na kraju za konzistentnost
+    
+    console.log("📅 Formiranje datuma plaćanja:", {
+      todayISO: today.toISOString(),
+      todayLocal: today.toString(),
+      datumPlacanja,
+      dateParts: { dan, mjesec, godina }
+    });
 
     // Ažuriraj rashode - dodaj datum plaćanja
     const updatedRashodi = (obracunToUpdate.rashodi && Array.isArray(obracunToUpdate.rashodi)) 
@@ -1173,15 +1216,32 @@ export default function ArhivaPage() {
       // 2. Pronađi ili kreiraj draft obračun za danas (datum plaćanja)
       // Provjeri da li postoji draft obračun za danas
       console.log("🔍 Traženje draft obračuna za datum plaćanja:", datumPlacanja);
+      console.log("🔍 Trenutno vrijeme na klijentu:", new Date().toISOString());
+      
       const obracuni = await getObracuni(userId);
       console.log("🔍 Pronađeno obračuna:", obracuni.length);
+      console.log("🔍 Svi obračuni (datum i isAzuriran):", obracuni.map((ob: any) => ({ datum: ob.datum, isAzuriran: ob.isAzuriran })));
+      
+      const trazeniDatum = datumPlacanja.replace(/\.$/, '').trim();
       const draftObracun = obracuni.find((ob: any) => {
-        const obDatum = ob.datum ? ob.datum.replace(/\.$/, '') : '';
-        const trazeniDatum = datumPlacanja.replace(/\.$/, '');
+        const obDatum = ob.datum ? ob.datum.replace(/\.$/, '').trim() : '';
         const matches = obDatum === trazeniDatum && ob.isAzuriran === true;
-        console.log("🔍 Provjera obračuna:", { obDatum, trazeniDatum, isAzuriran: ob.isAzuriran, matches });
+        if (ob.isAzuriran === true) {
+          console.log("🔍 Provjera draft obračuna:", { 
+            obDatum, 
+            trazeniDatum, 
+            obDatumLength: obDatum.length,
+            trazeniDatumLength: trazeniDatum.length,
+            isAzuriran: ob.isAzuriran, 
+            matches,
+            exactMatch: obDatum === trazeniDatum,
+            caseSensitive: obDatum.toLowerCase() === trazeniDatum.toLowerCase()
+          });
+        }
         return matches;
       });
+      
+      console.log("🔍 Pronađen draft obračun:", draftObracun ? "DA" : "NE");
 
       // Pripremi novi prihod
       const noviPrihod = {
