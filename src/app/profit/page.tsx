@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { FaArrowUp, FaDollarSign } from "react-icons/fa";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { usePathname } from "next/navigation";
 import { useRole } from "../context/RoleContext";
@@ -1145,6 +1146,46 @@ export default function ProfitPage() {
         </div>
       </div>
 
+      {/* Kartice sa ukupnim bruto i neto vrednostima */}
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 16 : 30, width: "100%", boxSizing: "border-box" }}>
+        {[
+          {
+            label: "Bruto",
+            value: ukupnoPeriod.bruto,
+            icon: <FaArrowUp color="#3b82f6" size={20} />,
+          },
+          {
+            label: "Neto",
+            value: ukupnoPeriod.neto,
+            icon: <FaDollarSign color="#10b981" size={20} />,
+          },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              flex: 1,
+              minWidth: isMobile ? "calc(50% - 10px)" : 160,
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: isMobile ? 16 : 20,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+              transition: "transform 0.2s, box-shadow 0.2s",
+              cursor: "default",
+            }}
+            className="dashboard-card"
+          >
+            <div>{item.icon}</div>
+            <div>
+              <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
+              <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* ---- Odabir artikla i filter za grafikon profita po artiklu ---- */}
       <div style={{
         marginBottom: 20,
@@ -1291,14 +1332,47 @@ export default function ProfitPage() {
         </div>
       </div>
 
-      <div style={{ ...summaryStyle, marginBottom: 30 }}>
-        <div style={summaryItemStyle("#3b82f6")}>
-          Ukupni bruto ({selectedArtikl || "Nema odabranog artikla"}): {totalArtiklSummary.bruto.toFixed(2)} KM
+      {/* Kartice sa ukupnim bruto i neto vrednostima za odabrani artikal */}
+      {selectedArtikl && (
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 16 : 30, width: "100%", boxSizing: "border-box" }}>
+          {[
+            {
+              label: `Bruto (${selectedArtikl})`,
+              value: totalArtiklSummary.bruto,
+              icon: <FaArrowUp color="#3b82f6" size={20} />,
+            },
+            {
+              label: `Neto (${selectedArtikl})`,
+              value: totalArtiklSummary.neto,
+              icon: <FaDollarSign color="#10b981" size={20} />,
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{
+                flex: 1,
+                minWidth: isMobile ? "calc(50% - 10px)" : 160,
+                backgroundColor: "#fff",
+                borderRadius: 12,
+                padding: isMobile ? 16 : 20,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                transition: "transform 0.2s, box-shadow 0.2s",
+                cursor: "default",
+              }}
+              className="dashboard-card"
+            >
+              <div>{item.icon}</div>
+              <div>
+                <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
+                <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
+              </div>
+            </div>
+          ))}
         </div>
-        <div style={summaryItemStyle("#10b981")}>
-          Ukupni neto ({selectedArtikl || "Nema odabranog artikla"}): {totalArtiklSummary.neto.toFixed(2)} KM
-        </div>
-      </div>
+      )}
 
       {/* ---- Poruka ako nema podataka ---- */}
       {filteredObracuni.length === 0 && (

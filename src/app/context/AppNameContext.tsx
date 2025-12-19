@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-// TODO: Implementirati API pozive za AppName
+import { getCurrentUser, getAuthToken } from "../../lib/api";
 
 interface AppNameContextType {
   appName: string;
@@ -11,27 +11,78 @@ interface AppNameContextType {
 const AppNameContext = createContext<AppNameContextType | undefined>(undefined);
 
 export function AppNameProvider({ children }: { children: React.ReactNode }) {
-  // Početna vrijednost - učitaj iz Firestore
+  // Početna vrijednost
   const [appName, setAppName] = useState<string>("Moja Aplikacija");
 
+  // Učitaj appName iz baze podataka kada se aplikacija učita i kada se token promijeni
   useEffect(() => {
-    // TODO: Implementirati API poziv za učitavanje appName
-    // const loadAppName = async () => {
-    //   try {
-    //     const response = await fetch('/api/users/app-name');
-    //     if (response.ok) {
-    //       const data = await response.json();
-    //       setAppName(data.appName || "Moja Aplikacija");
-    //     }
-    //   } catch (error) {
-    //     console.error("Greška pri učitavanju appName:", error);
-    //   }
-    // };
-    // loadAppName();
+    const loadAppName = async () => {
+      try {
+        // Provjeri da li je korisnik prijavljen
+        const token = getAuthToken();
+        if (!token) {
+          console.log("AppNameContext - No auth token, using default app name");
+          // Resetuj na default ako nema tokena
+          setAppName("Moja Aplikacija");
+          return;
+        }
+
+        // Učitaj korisnika koji sadrži appName
+        const user = await getCurrentUser();
+        if (user && user.appName) {
+          console.log("AppNameContext - Loaded app name from database:", user.appName);
+          setAppName(user.appName);
+        } else if (user && !user.appName) {
+          // Ako korisnik postoji ali nema appName, koristi default
+          console.log("AppNameContext - User exists but no app name, using default");
+          setAppName("Moja Aplikacija");
+        }
+      } catch (error) {
+        console.error("AppNameContext - Greška pri učitavanju appName:", error);
+        // Ne postavljaj error state - koristi default vrijednost
+        setAppName("Moja Aplikacija");
+      }
+    };
+
+    // Učita appName kada se komponenta učita
+    loadAppName();
+
+    // Listener za promjene u localStorage (kada se token promijeni)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token') {
+        // Token se promijenio - ponovno učitaj appName
+        loadAppName();
+      }
+    };
+
+    // Listener za custom event kada se korisnik prijavi/odjavi
+    const handleAuthChange = () => {
+      loadAppName();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('auth-changed', handleAuthChange);
+    
+    // Osvježi appName kada se prozor fokusira (korisnik se vratio na aplikaciju)
+    const handleFocus = () => {
+      loadAppName();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Periodičko osvježavanje appName (svakih 5 minuta) - za slučaj da se promijeni na drugom uređaju
+    const intervalId = setInterval(() => {
+      loadAppName();
+    }, 300000); // 5 minuta
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth-changed', handleAuthChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(intervalId);
+    };
   }, []);
 
-  // Uklonjen automatski useEffect koji sprema appName u Firestore
-  // Ime se sada sprema samo eksplicitno kroz handleSaveAppName u profile/page.tsx
+  // Ime se sprema eksplicitno kroz handleSaveAppName u profile/page.tsx
   // Ovo sprječava nepotrebne update-e i race condition probleme
 
   return (
