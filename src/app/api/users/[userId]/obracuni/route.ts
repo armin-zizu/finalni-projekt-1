@@ -422,7 +422,26 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       }
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+      console.log('Save obracun - Request body received:', {
+        hasDatum: !!body.datum,
+        artikliCount: Array.isArray(body.artikli) ? body.artikli.length : 0,
+        rashodiCount: Array.isArray(body.rashodi) ? body.rashodi.length : 0,
+        prihodiCount: Array.isArray(body.prihodi) ? body.prihodi.length : 0,
+        invoiceImagesCount: Array.isArray(body.invoiceImages) ? body.invoiceImages.length : 0,
+        isAzuriran: body.isAzuriran,
+        isDraft: body.isDraft
+      });
+    } catch (parseError: any) {
+      console.error('Save obracun - JSON parse error:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body', message: parseError.message },
+        { status: 400 }
+      );
+    }
+
     let { datum, artikli, rashodi, prihodi, ukupnoArtikli, ukupnoRashod, ukupnoPrihod, neto, isAzuriran, imaUlaz, invoiceImages, isDraft } = body;
 
     if (!datum) {
@@ -430,6 +449,20 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         { error: 'datum is required' },
         { status: 400 }
       );
+    }
+
+    // Provjeri da li su artikli, rashodi, prihodi arrayi
+    if (!Array.isArray(artikli)) {
+      artikli = [];
+    }
+    if (!Array.isArray(rashodi)) {
+      rashodi = [];
+    }
+    if (!Array.isArray(prihodi)) {
+      prihodi = [];
+    }
+    if (!Array.isArray(invoiceImages)) {
+      invoiceImages = [];
     }
 
     // Sačuvaj originalni datum format za datum_raw (DD.MM.YYYY bez tačke na kraju)
@@ -695,9 +728,27 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       },
     });
   } catch (error: any) {
-    console.error('Save obracun error:', error);
+    console.error('Save obracun error:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      stack: error.stack,
+      name: error.name,
+      // Dodaj i response ako postoji
+      response: error.response ? {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      } : null
+    });
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      { 
+        error: 'Internal server error', 
+        message: error.message || 'Unknown error',
+        detail: error.detail || error.hint || 'Please check server logs for more details',
+        code: error.code
+      },
       { status: 500 }
     );
   }
