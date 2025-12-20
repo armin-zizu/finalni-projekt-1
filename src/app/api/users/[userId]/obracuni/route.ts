@@ -533,108 +533,62 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       invoiceImages: normalizedInvoiceImages || [],
     };
     
-    // Provjeri da li se obracunData može serijalizovati u JSON
-    let obracunDataJson: string = '';
-    try {
-      obracunDataJson = JSON.stringify(obracunData);
-      console.log('Save obracun - JSON serialization successful, size:', obracunDataJson.length, 'bytes');
-    } catch (jsonError: any) {
-      console.error('Save obracun - JSON serialization error:', {
-        error: jsonError.message,
-        stack: jsonError.stack,
-        obracunData: {
-          artikliCount: (obracunData.artikli || []).length,
-          rashodiCount: (obracunData.rashodi || []).length,
-          prihodiCount: (obracunData.prihodi || []).length,
-          invoiceImagesCount: (obracunData.invoiceImages || []).length,
-        }
-      });
-      return NextResponse.json(
-        { 
-          error: 'Failed to serialize obracun data', 
-          message: jsonError.message,
-          detail: 'Check server logs for more details'
-        },
-        { status: 500 }
-      );
-    }
+    const obracunDataJson = JSON.stringify(obracunData);
 
     // Upsert obracun - always use simple query without is_draft column
     // is_draft column doesn't exist in database, ali isAzuriran je u JSONB polju
     // obracunDataJson je već deklarisan i inicijalizovan gore
     let result;
     try {
-      console.log('Save obracun - Starting upsert:', { 
-        userEmail, 
-        userIdForDb, 
-        datumForPostgres, 
-        datumRaw, 
-        requestedUserId,
-        isAzuriran: isAzuriran,
-        isDraft: isDraft
-      });
-      
       // VAŽNO: Razlikujemo draft (isAzuriran: true) od finalnog (isAzuriran: false)
-      // Draft i finalni obračun mogu postojati istovremeno za isti datum
-      
-      // Check if exists first - traži obračun sa istim datumom I isAzuriran statusom
-      // Koristimo COALESCE i CAST za sigurnije parsiranje JSONB boolean vrijednosti
+      // Prvo proveri da li postoji BILO KAKAV obračun za taj datum (bez obzira na isAzuriran)
+      // UNIQUE constraint je na (user_id, datum), ne na (user_id, datum, isAzuriran)
       const existingCheck = await query(
         `SELECT id, artikli FROM obracuni 
          WHERE user_id = $1::text 
-         AND datum = $2
-         AND COALESCE((artikli->>'isAzuriran')::text, 'false') = $3`,
-        [userIdForDb, datumForPostgres, String(isAzuriran || false)]
+         AND datum = $2`,
+        [userIdForDb, datumForPostgres]
       );
       
-      console.log('Save obracun - Existing check result:', { 
-        exists: existingCheck.rows.length > 0, 
-        isAzuriran: isAzuriran,
-        userEmail,
-        userIdForDb, 
-        datum
-      });
+      // Ako postoji obračun, proveri da li ima isti isAzuriran status
+      let existingIsAzuriran: boolean | null = null;
+      if (existingCheck.rows.length > 0) {
+        const existingArtikli = existingCheck.rows[0].artikli;
+        if (existingArtikli && typeof existingArtikli === 'object') {
+          existingIsAzuriran = existingArtikli.isAzuriran === true;
+        }
+      }
       
-      // Koristimo UPDATE ili INSERT zavisno od postojanja - osiguravamo da se podaci UVIJEK sačuvaju
-      const exists = existingCheck.rows.length > 0;
-      if (exists) {
-        // UPDATE postojeći - ovo je finalni obračun
-        // VAŽNO: Kombinuj postojeće slike sa novim ako postoje
-        let finalInvoiceImages = normalizedInvoiceImages;
+      // Koristimo UPDATE ako postoji obračun SA ISTIM isAzuriran statusom, inače INSERT
+      // Ali pošto postoji UNIQUE constraint, ako postoji obračun sa različitim isAzuriran statusom,
+      // treba da se UPDATE-uje postojeći umesto da se pokušava INSERT
+      const exists = existingCheck.rows.length > 0 && existingIsAzuriran === (isAzuriran || false);
+      if (exists || existingCheck.rows.length > 0) {
+        // UPDATE postojeći obračun (sa istim ili različitim isAzuriran statusom)
+        // UPDATE postojeći - kombinuj postojeće slike sa novim ako postoje
+        let finalObracunDataJson = obracunDataJson;
         try {
           const existingObracunResult = await query(
             `SELECT artikli FROM obracuni 
-             WHERE user_id = $1::text AND datum = $2`,
-            [userIdForDb, datumForPostgres]
+             WHERE user_id = $1::text AND datum = $2
+             AND COALESCE((artikli->>'isAzuriran')::text, 'false') = $3`,
+            [userIdForDb, datumForPostgres, String(isAzuriran || false)]
           );
           
           if (existingObracunResult.rows.length > 0) {
             const existingArtikli = existingObracunResult.rows[0].artikli;
             if (existingArtikli && typeof existingArtikli === 'object' && existingArtikli.invoiceImages && Array.isArray(existingArtikli.invoiceImages)) {
-              // Kombinuj postojeće i nove slike, ukloni duplikate
               const existingImages = existingArtikli.invoiceImages || [];
               const allImages = [...new Set([...existingImages, ...normalizedInvoiceImages])];
-              finalInvoiceImages = allImages;
-              obracunData.invoiceImages = finalInvoiceImages;
-              console.log('Save obracun - Kombinovane slike (postojeće + nove):', {
-                existing: existingImages.length,
-                new: normalizedInvoiceImages.length,
-                total: finalInvoiceImages.length
-              });
+              obracunData.invoiceImages = allImages;
+              finalObracunDataJson = JSON.stringify(obracunData);
             }
           }
         } catch (mergeError: any) {
           console.warn('Save obracun - Greška pri kombinovanju slika, koristimo nove slike:', mergeError);
-          // Nastavi sa novim slikama ako kombinovanje ne uspije
         }
         
-        console.log('Save obracun - Updating existing obracun sa slikama:', { 
-          userEmail, 
-          userIdForDb, 
-          datumForPostgres,
-          invoiceImagesCount: finalInvoiceImages.length,
-          isAzuriran: isAzuriran
-        });
+        // UPDATE postojeći obračun - ažuriraj bez obzira na prethodni isAzuriran status
         result = await query(
           `UPDATE obracuni 
            SET artikli = $3::jsonb,
@@ -642,38 +596,23 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
                saved_at = NOW()
            WHERE user_id = $1::text 
            AND datum = $2
-           AND COALESCE((artikli->>'isAzuriran')::text, 'false') = $5
            RETURNING id, datum, saved_at`,
-          [userIdForDb, datumForPostgres, obracunDataJson, datumRaw, String(isAzuriran || false)]
+          [userIdForDb, datumForPostgres, finalObracunDataJson, datumRaw]
         );
       } else {
         // INSERT novi obračun (draft ili finalni)
-        console.log('Save obracun - Creating new obracun:', { 
-          userEmail, 
-          userIdForDb, 
-          datumForPostgres, 
-          datumRaw,
-          isAzuriran: isAzuriran,
-          isDraft: isDraft
-        });
-        
-        // VAŽNO: Ako se čuva finalni obračun (isAzuriran: false), obriši draft (isAzuriran: true) ako postoji
+        // Ako se čuva finalni obračun (isAzuriran: false), obriši draft (isAzuriran: true) ako postoji
         if (!isAzuriran && !isDraft) {
           try {
-            const deleteDraftResult = await query(
+            await query(
               `DELETE FROM obracuni 
                WHERE user_id = $1::text 
                AND datum = $2
-               AND COALESCE((artikli->>'isAzuriran')::text, 'false') = 'true'
-               RETURNING id`,
+               AND COALESCE((artikli->>'isAzuriran')::text, 'false') = 'true'`,
               [userIdForDb, datumForPostgres]
             );
-            if (deleteDraftResult.rows.length > 0) {
-              console.log('Save obracun - Obrisan draft obračun prije spremanja finalnog:', deleteDraftResult.rows.length, 'redova');
-            }
           } catch (deleteError: any) {
-            console.warn('Save obracun - Greška pri brisanju draft-a (možda ne postoji):', deleteError);
-            // Nastavi sa INSERT-om čak i ako brisanje ne uspije
+            console.warn('Save obracun - Greška pri brisanju draft-a:', deleteError);
           }
         }
         
@@ -685,11 +624,6 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         );
       }
       
-      if (!result || !result.rows || result.rows.length === 0) {
-        throw new Error('No rows returned from insert/update query');
-      }
-      
-      console.log('Save obracun - Success:', { id: result.rows[0].id, datum: result.rows[0].datum });
     } catch (dbError: any) {
       console.error('Save obracun - Database error:', {
         message: dbError.message,
