@@ -256,39 +256,10 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       
       console.log('Get obracuni - Parsed artikliData for row:', row.id, 'has artikli:', Array.isArray(artikliData.artikli), 'artikli count:', artikliData.artikli?.length || 0, 'isAzuriran:', artikliData.isAzuriran);
       
-      // Konvertuj datum iz PostgreSQL date tipa (YYYY-MM-DD) u DD.MM.YYYY format
-      let datumFormatted = '';
-      if (row.datum) {
-        if (typeof row.datum === 'string' && row.datum.includes('-')) {
-          // PostgreSQL date format YYYY-MM-DD
-          const [year, month, day] = row.datum.split('T')[0].split('-');
-          datumFormatted = `${day}.${month}.${year}.`;
-        } else if (row.datum instanceof Date) {
-          // Date object
-          const day = String(row.datum.getDate()).padStart(2, '0');
-          const month = String(row.datum.getMonth() + 1).padStart(2, '0');
-          const year = row.datum.getFullYear();
-          datumFormatted = `${day}.${month}.${year}.`;
-        } else {
-          // Fallback - možda je već u formatu DD.MM.YYYY
-          datumFormatted = row.datum.toString();
-        }
-      }
-      
-      // Vrati podatke na root nivou za frontend kompatibilnost
       return {
         id: row.id,
-        datum: datumFormatted,
-        artikli: artikliData.artikli || [],
-        rashodi: artikliData.rashodi || [],
-        prihodi: artikliData.prihodi || [],
-        ukupnoArtikli: artikliData.ukupnoArtikli || 0,
-        ukupnoRashod: artikliData.ukupnoRashod || 0,
-        ukupnoPrihod: artikliData.ukupnoPrihod || 0,
-        neto: artikliData.neto || 0,
-        isAzuriran: artikliData.isAzuriran || false,
-        imaUlaz: artikliData.imaUlaz || false,
-        invoiceImages: artikliData.invoiceImages || [],
+        datum: row.datum,
+        artikli: artikliData,
         isDraft: false, // All obracuni in database are final (no is_draft column)
         createdAt: row.saved_at,
         updatedAt: row.saved_at,
