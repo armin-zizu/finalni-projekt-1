@@ -274,18 +274,35 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       // Ne menjamo isAzuriran status - ostaje kako je sačuvan
       
       // Formatiraj datum u DD.MM.YYYY format za frontend
+      // VAŽNO: Koristimo string manipulaciju umjesto Date objekta da se izbjegne timezone pomak
       let formattedDatum: string;
       if (row.datum) {
-        // row.datum je PostgreSQL date objekat ili string u YYYY-MM-DD formatu
-        const datumObj = typeof row.datum === 'string' ? new Date(row.datum) : row.datum;
-        if (datumObj instanceof Date && !isNaN(datumObj.getTime())) {
-          const dan = String(datumObj.getDate()).padStart(2, '0');
-          const mjesec = String(datumObj.getMonth() + 1).padStart(2, '0');
-          const godina = datumObj.getFullYear();
+        // Ako postoji datum_raw, koristi ga direktno (već je u DD.MM.YYYY formatu)
+        if (row.datum_raw) {
+          formattedDatum = row.datum_raw.endsWith('.') ? row.datum_raw : row.datum_raw + '.';
+        } else if (typeof row.datum === 'string') {
+          // Ako je string u YYYY-MM-DD formatu (PostgreSQL DATE tip vraća ovako), konvertuj u DD.MM.YYYY. bez Date objekta
+          // Ovo izbjegava timezone konverziju koja može uzrokovati pomak od jednog dana
+          if (row.datum.match(/^\d{4}-\d{2}-\d{2}/)) {
+            const parts = row.datum.split('-');
+            if (parts.length >= 3) {
+              const [godina, mjesec, dan] = parts;
+              formattedDatum = `${dan}.${mjesec}.${godina}.`;
+            } else {
+              formattedDatum = row.datum;
+            }
+          } else {
+            // Ako već ima DD.MM.YYYY format, dodaj tačku na kraju ako nema
+            formattedDatum = row.datum.endsWith('.') ? row.datum : row.datum + '.';
+          }
+        } else if (row.datum instanceof Date) {
+          // Ako je Date objekat, koristi lokalne metode (ne UTC) - ali ovo bi trebalo biti rijetko
+          const dan = String(row.datum.getDate()).padStart(2, '0');
+          const mjesec = String(row.datum.getMonth() + 1).padStart(2, '0');
+          const godina = row.datum.getFullYear();
           formattedDatum = `${dan}.${mjesec}.${godina}.`;
         } else {
-          // Fallback: ako je već string u DD.MM.YYYY formatu, koristi direktno
-          formattedDatum = row.datum_raw || row.datum.toString();
+          formattedDatum = row.datum.toString();
         }
       } else {
         formattedDatum = row.datum_raw || '';

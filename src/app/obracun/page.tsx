@@ -874,6 +874,8 @@ export default function ObracunPage() {
   // Sva logika za učitavanje cache-a je sada u drugom useEffect-u
 
   const formatirajDatum = (datum: Date): string => {
+    // Koristi lokalne vrijednosti (bez timezone konverzije) kako bi se izbjegao problem sa pomakom datuma
+    // getDate(), getMonth(), getFullYear() koriste lokalni timezone, što je ono što želimo
     const dan = datum.getDate().toString().padStart(2, "0");
     const mjesec = (datum.getMonth() + 1).toString().padStart(2, "0");
     const godina = datum.getFullYear();
@@ -885,9 +887,19 @@ export default function ObracunPage() {
 
   // Funkcija za promjenu datuma
   const handleDatumChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDate = new Date(e.target.value);
-    if (!isNaN(selectedDate.getTime())) {
-      setTrenutniDatum(selectedDate);
+    // HTML date input vraća YYYY-MM-DD format
+    // Umjesto new Date() koji interpretira kao UTC, parsiraj string direktno da se izbjegne timezone pomak
+    const value = e.target.value;
+    if (value) {
+      const parts = value.split('-');
+      if (parts.length === 3) {
+        const [godina, mjesec, dan] = parts;
+        // Kreiraj lokalni datum bez timezone konverzije
+        const selectedDate = new Date(parseInt(godina), parseInt(mjesec) - 1, parseInt(dan));
+        if (!isNaN(selectedDate.getTime())) {
+          setTrenutniDatum(selectedDate);
+        }
+      }
     }
   };
 
