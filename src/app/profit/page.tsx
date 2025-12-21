@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { FaArrowUp, FaDollarSign } from "react-icons/fa";
+import { FaArrowUp, FaArrowDown, FaDollarSign } from "react-icons/fa";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { usePathname } from "next/navigation";
 import { useRole } from "../context/RoleContext";
@@ -1113,20 +1113,20 @@ export default function ProfitPage() {
       <div style={{ 
         width: "100%", 
         maxWidth: "100%", 
-        height: isMobile ? 310 : 300, 
-        minHeight: isMobile ? 310 : 300,
+        height: isMobile ? 310 : 400, 
+        minHeight: isMobile ? 310 : 400,
         backgroundColor: "#fff",
         borderRadius: 12,
         padding: isMobile ? 0 : 20,
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-        marginBottom: isMobile ? 8 : 20, 
+        marginBottom: isMobile ? 8 : 30, 
         overflow: isMobile ? "visible" : "hidden", 
         boxSizing: "border-box",
         position: "relative"
       }}>
-        <div style={{ width: "100%", height: isMobile ? 300 : 300, position: "relative", padding: isMobile ? "10px" : 0 }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 10, left: isMobile ? 0 : -10, bottom: isMobile ? 35 : 6 }}>
+            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 35 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1139,20 +1139,25 @@ export default function ProfitPage() {
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
               <Line type="monotone" dataKey="bruto" name="Bruto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-              <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
               <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Kartice sa ukupnim bruto i neto vrednostima */}
+      {/* Kartice sa ukupnim bruto, rashod i neto vrednostima */}
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 16 : 30, width: "100%", boxSizing: "border-box" }}>
         {[
           {
             label: "Bruto",
             value: ukupnoPeriod.bruto,
             icon: <FaArrowUp color="#3b82f6" size={20} />,
+          },
+          {
+            label: "Rashod",
+            value: ukupnoPeriod.rashod,
+            icon: <FaArrowDown color="#ef4444" size={20} />,
           },
           {
             label: "Neto",
@@ -1299,21 +1304,21 @@ export default function ProfitPage() {
         style={{
         width: "100%",
         maxWidth: "100%",
-        height: isMobile ? 310 : 300,
-        minHeight: isMobile ? 310 : 300,
+        height: isMobile ? 310 : 400,
+        minHeight: isMobile ? 310 : 400,
         backgroundColor: "#fff",
         borderRadius: 12,
         padding: isMobile ? 0 : 20,
         boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-        marginBottom: 10,
+        marginBottom: isMobile ? 16 : 30,
         boxSizing: "border-box",
         overflow: isMobile ? "visible" : "hidden",
         position: "relative"
       }}
       >
-        <div style={{ width: "100%", height: isMobile ? 300 : 300, position: "relative", padding: isMobile ? "10px" : 0 }}>
+        <div style={{ width: "100%", height: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 10, left: isMobile ? 0 : -10, bottom: isMobile ? 35 : 6 }}>
+            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 35 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 

@@ -1798,6 +1798,43 @@ export default function Profile() {
                   Status pretplate
                 </h3>
                 
+                {/* Trenutna pretplata i preostali dani - naglašeno */}
+                <div style={{ 
+                  padding: "16px", 
+                  background: subscription.isTrial ? "#eff6ff" : subscription.isPremium ? "#f0fdf4" : subscription.isGracePeriod ? "#fffbeb" : subscription.isActive ? "#f0fdf4" : "#fef2f2",
+                  borderRadius: "8px", 
+                  border: `2px solid ${subscription.isTrial ? "#3b82f6" : subscription.isPremium ? "#16a34a" : subscription.isGracePeriod ? "#f59e0b" : subscription.isActive ? "#16a34a" : "#dc2626"}`,
+                  marginBottom: "16px"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "24px" }}>
+                      {subscription.isTrial ? "📅" : subscription.isPremium ? "⭐" : subscription.isGracePeriod ? "⏳" : subscription.isActive ? "✓" : "✗"}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: "18px", fontWeight: 700, color: "#1f2937", margin: 0 }}>
+                        {subscription.isTrial ? "Probni period (Trial)" : subscription.isPremium ? "Premium pretplata" : subscription.isGracePeriod ? "Grace period" : subscription.isActive ? "Aktivna pretplata" : "Pretplata istekla"}
+                      </p>
+                      {subscription.isTrial && subscription.daysRemaining !== undefined ? (
+                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                          Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{subscription.daysRemaining}</strong>
+                        </p>
+                      ) : subscription.isPremium && subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry > 0 ? (
+                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                          Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{subscription.daysUntilExpiry}</strong>
+                        </p>
+                      ) : subscription.isGracePeriod && subscription.daysInGrace !== undefined ? (
+                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                          Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{subscription.daysInGrace}</strong>
+                        </p>
+                      ) : subscription.isActive && subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry > 0 ? (
+                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                          Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{subscription.daysUntilExpiry}</strong>
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+                
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
                   {/* Status badge */}
                   {subscription.isTrial ? (

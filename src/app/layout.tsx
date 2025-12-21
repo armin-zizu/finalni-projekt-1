@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { AppNameProvider } from "./context/AppNameContext";
 import { CjenovnikProvider } from "./context/CjenovnikContext";
-import { SubscriptionProvider } from "./context/SubscriptionContext";
+import { SubscriptionProvider, useSubscription } from "./context/SubscriptionContext";
 import { RoleProvider, useRole, UserRole, RoleContext } from "./context/RoleContext";
 import dynamic from "next/dynamic";
 
@@ -24,6 +24,9 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const roleContext = useContext(RoleContext);
   const role = roleContext?.role ?? null;
   const roleLoading = roleContext?.loading ?? true;
+  
+  // Import SubscriptionContext za provjeru subscription statusa
+  const { subscription, loading: subscriptionLoading } = useSubscription();
 
   // Detekcija mobilnog uređaja
   useEffect(() => {
@@ -57,6 +60,19 @@ function AppContent({ children }: { children: React.ReactNode }) {
       router.push("/dashboard");
     }
   }, [role, roleLoading, pathname, router]);
+
+  // Provjeri subscription status - blokiraj pristup svim stranicama osim /profile ako subscription nije aktivan i grace period je prošao
+  const isSubscriptionBlocked = !subscriptionLoading && subscription && 
+    !subscription.isActive && 
+    !subscription.isTrial && 
+    !subscription.isGracePeriod;
+  
+  // Preusmjeri na /profile ako je subscription blokiran i korisnik nije na /profile stranici
+  useEffect(() => {
+    if (isSubscriptionBlocked && pathname !== "/profile") {
+      router.push("/profile");
+    }
+  }, [isSubscriptionBlocked, pathname, router]);
 
   // Ako se još učitava role, prikaži loading
   if (roleLoading) {
@@ -131,6 +147,15 @@ function AppContent({ children }: { children: React.ReactNode }) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "#f4f5f7" }}>
         <div style={{ fontSize: "16px", color: "#6b7280" }}>Preusmjeravanje...</div>
+      </div>
+    );
+  }
+
+  // Ako je subscription blokiran i korisnik nije na /profile stranici, prikaži loading dok se preusmjerava
+  if (isSubscriptionBlocked && pathname !== "/profile") {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", backgroundColor: "#f4f5f7" }}>
+        <div style={{ fontSize: "16px", color: "#6b7280" }}>Preusmjeravanje na profil...</div>
       </div>
     );
   }

@@ -726,7 +726,7 @@ export default function AdminPage() {
 
   // Ukupna zarada za odabrani period
   const totalRevenue = useMemo(() => {
-    return revenueChartData.reduce((sum, item) => sum + item.zarada, 0);
+    return revenueChartData.reduce((sum, item) => sum + (item.zarada || 0), 0);
   }, [revenueChartData]);
 
   // Custom Tooltip za grafikon
@@ -792,10 +792,10 @@ export default function AdminPage() {
   }
 
   // Dinamički padding za mobilnu verziju
-  const containerPadding = isMobile ? "4px" : "20px";
+  const containerPadding = isMobile ? 4 : 24;
 
   return (
-    <div style={{ maxWidth: "1400px", margin: "0 auto", padding: containerPadding }}>
+    <div style={{ padding: containerPadding, fontFamily: "'Inter', sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#1f2937", marginBottom: "8px" }}>
           Admin Panel - Upravljanje Pretplatama
@@ -1811,21 +1811,19 @@ export default function AdminPage() {
               overflow: "hidden"
             }}>
               <div style={{ width: "100%", height: "100%", position: "relative", padding: isMobile ? "10px" : 0 }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer key={`revenue-chart-${isMobile}-${revenueChartData.length}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
                   <LineChart data={revenueChartData} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 35 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis 
                       dataKey="period" 
-                      stroke="#6b7280"
-                      style={{ fontSize: "12px" }}
+                      tick={{ fill: "#6b7280", fontSize: 11 }}
                       angle={-45}
                       textAnchor="end"
-                      height={isMobile ? 25 : 35}
+                      height={isMobile ? 25 : 66}
                     />
                   <YAxis 
-                    stroke="#6b7280"
-                    style={{ fontSize: "12px" }}
-                    tickFormatter={(value) => `${value}`}
+                    tick={{ fill: "#6b7280", fontSize: 11 }} 
+                    width={50}
                   />
                   <Tooltip content={<RevenueTooltip />} />
                   <Legend verticalAlign="bottom" height={30} wrapperStyle={{ paddingTop: "40px" }} />
@@ -1834,8 +1832,7 @@ export default function AdminPage() {
                       dataKey="zarada" 
                       stroke="#10b981" 
                       strokeWidth={2}
-                      dot={{ fill: "#10b981", r: 4 }}
-                      activeDot={{ r: 6 }}
+                      dot={{ r: isMobile ? 2 : 3 }}
                       name="Zarada (KM)"
                     />
                   </LineChart>
@@ -2146,10 +2143,11 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Tabela korisnika */}
-      <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      {/* Tabela korisnika - Desktop verzija */}
+      {!isMobile ? (
+        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", overflow: "hidden", boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f9fafb", borderBottom: "2px solid #e5e7eb" }}>
                 <th style={{ padding: "12px", textAlign: "center", fontSize: "12px", fontWeight: 600, color: "#6b7280", width: "60px" }}>
@@ -2359,6 +2357,207 @@ export default function AdminPage() {
           </table>
         </div>
       </div>
+      ) : (
+        /* Mobilna verzija - Card layout */
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {filteredUsers.length === 0 ? (
+            <div style={{ 
+              padding: "40px", 
+              textAlign: "center", 
+              color: "#6b7280",
+              background: "#fff",
+              borderRadius: "12px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)"
+            }}>
+              {loading ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", flexDirection: "column" }}>
+                  <FaSpinner style={{ fontSize: "20px", animation: "spin 1s linear infinite" }} />
+                  <span>Učitavanje korisnika...</span>
+                </div>
+              ) : (
+                <div>
+                  <p style={{ fontSize: "16px", marginBottom: "8px" }}>
+                    {searchTerm ? "Nema rezultata za vašu pretragu" : "Nema korisnika u bazi podataka"}
+                  </p>
+                  {!searchTerm && (
+                    <p style={{ fontSize: "14px", color: "#9ca3af" }}>
+                      Korisnici će se pojaviti ovde nakon što se registruju
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            filteredUsers.map((user, index) => {
+              const subscription = subscriptions[user.id];
+              const isActive = subscription?.isActive || false;
+              const isTrial = subscription?.isTrial || false;
+              const isGracePeriod = subscription?.isGracePeriod || false;
+              const daysRemaining = subscription?.daysRemaining || 0;
+              const daysUntilExpiry = subscription?.daysUntilExpiry || 0;
+              const daysInGrace = subscription?.daysInGrace || 0;
+              const paymentCount = subscription?.paymentHistory?.length || 0;
+              
+              // Determine status text and color
+              let statusText = "Neaktivna";
+              let statusColor = "#dc2626";
+              let statusBg = "#fee2e2";
+              
+              const isPremium = subscription?.isPremium || false;
+              if (isTrial) {
+                statusText = `Probni period (${daysRemaining} dana)`;
+                statusColor = "#2563eb";
+                statusBg = "#dbeafe";
+              } else if (isPremium) {
+                statusText = `Premium (${daysUntilExpiry} dana)`;
+                statusColor = "#16a34a";
+                statusBg = "#dcfce7";
+              } else if (isActive && daysUntilExpiry > 0) {
+                statusText = `Aktivna (${daysUntilExpiry} dana)`;
+                statusColor = "#16a34a";
+                statusBg = "#dcfce7";
+              } else if (isGracePeriod) {
+                statusText = `Grace Period (${daysInGrace} dana)`;
+                statusColor = "#f59e0b";
+                statusBg = "#fef3c7";
+              } else if (isActive) {
+                statusText = "Aktivna";
+                statusColor = "#16a34a";
+                statusBg = "#dcfce7";
+              } else {
+                statusText = "Neaktivna";
+                statusColor = "#dc2626";
+                statusBg = "#fee2e2";
+              }
+              
+              // Calculate remaining days text
+              let remainingDaysText = "N/A";
+              if (isTrial) {
+                remainingDaysText = `${daysRemaining} dana (Trial)`;
+              } else if (isActive && daysUntilExpiry > 0) {
+                remainingDaysText = `${daysUntilExpiry} dana`;
+              } else if (isGracePeriod) {
+                remainingDaysText = `${daysInGrace} dana (Grace)`;
+              } else if (subscription?.expiryDate) {
+                remainingDaysText = "Istekla";
+              }
+
+              return (
+                <div
+                  key={user.id}
+                  style={{
+                    background: "#fff",
+                    borderRadius: "12px",
+                    padding: "16px",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                    border: "1px solid #e5e7eb"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", marginBottom: "4px" }}>
+                        #{index + 1} - {user.appName}
+                      </div>
+                      <div style={{ fontSize: "13px", color: "#6b7280", marginBottom: "8px" }}>
+                        {user.email || user.id.substring(0, 8) + "..."}
+                      </div>
+                      <div style={{ marginBottom: "8px" }}>
+                        <span
+                          style={{
+                            padding: "4px 12px",
+                            borderRadius: "12px",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            backgroundColor: statusBg,
+                            color: statusColor,
+                          }}
+                        >
+                          {statusText}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px", fontSize: "13px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#6b7280" }}>Preostalo dana:</span>
+                      <span style={{ fontWeight: 600, color: "#1f2937" }}>{remainingDaysText}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#6b7280" }}>Registracija:</span>
+                      <span style={{ color: "#1f2937" }}>{user.createdAt ? user.createdAt.toLocaleDateString("bs-BA") : "N/A"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "#6b7280" }}>Uplate:</span>
+                      {paymentCount > 0 ? (
+                        <span style={{ fontWeight: 600, color: "#3b82f6" }}>{paymentCount} uplata</span>
+                      ) : (
+                        <span style={{ color: "#9ca3af" }}>Nema uplata</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => {
+                        setSelectedUserDetails(user);
+                        const sub = subscriptions[user.id];
+                        if (sub?.isTrial) {
+                          setNewSubscriptionStatus("trial");
+                        } else if (sub?.isPremium || sub?.isActive) {
+                          setNewSubscriptionStatus("premium");
+                        } else if (sub?.isGracePeriod) {
+                          setNewSubscriptionStatus("grace");
+                        } else {
+                          setNewSubscriptionStatus("inactive");
+                        }
+                        setPremiumDaysAdjustment(0);
+                        setTrialDaysAdjustment(0);
+                        setShowDetailsModal(true);
+                      }}
+                      style={{
+                        flex: 1,
+                        minWidth: "calc(50% - 4px)",
+                        padding: "10px 12px",
+                        borderRadius: "6px",
+                        border: "none",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        backgroundColor: "#6b7280",
+                        color: "#fff",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      Detalji
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setSelectedSubscription(subscription);
+                        setShowPaymentModal(true);
+                      }}
+                      style={{
+                        flex: 1,
+                        minWidth: "calc(50% - 4px)",
+                        padding: "10px 12px",
+                        borderRadius: "6px",
+                        border: "none",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        backgroundColor: "#3b82f6",
+                        color: "#fff",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      <FaPlus /> Dodaj Uplatu
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {/* Modal za dodavanje uplate */}
       {showPaymentModal && selectedUser && (
