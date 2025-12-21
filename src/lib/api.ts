@@ -374,24 +374,58 @@ export async function getObracuni(userId: string, datum?: string) {
   const data = await response.json();
   
   // Transformiraj podatke iz API-ja u format koji dashboard/profit očekuje
+  // API sada vraća flattened strukturu (artikli, rashodi, prihodi direktno), ali zadržavamo kompatibilnost sa starim nested formatom
   const transformedObracuni = (data.obracuni || []).map((ob: any) => {
-    // Ako je artikli JSONB string, parsiraj ga
-    let artikliData = ob.artikli;
-    if (typeof artikliData === 'string') {
-      try {
-        artikliData = JSON.parse(artikliData);
-      } catch (e) {
-        console.warn('Failed to parse artikli JSON:', e);
-        artikliData = {};
+    // Provjeri da li je flattened struktura (artikli je array) ili nested struktura (artikli je objekat sa artikliData.artikli)
+    let artikliData: any;
+    let artikli: any[];
+    let rashodi: any[];
+    let prihodi: any[];
+    let ukupnoArtikli: number;
+    let ukupnoRashod: number;
+    let ukupnoPrihod: number;
+    let neto: number;
+    let isAzuriran: boolean;
+    let imaUlaz: boolean;
+    let invoiceImages: string[];
+    
+    if (Array.isArray(ob.artikli)) {
+      // Flattened struktura (novi format) - API vraća artikli, rashodi, prihodi direktno
+      artikli = ob.artikli;
+      rashodi = Array.isArray(ob.rashodi) ? ob.rashodi : [];
+      prihodi = Array.isArray(ob.prihodi) ? ob.prihodi : [];
+      ukupnoArtikli = Number(ob.ukupnoArtikli) || 0;
+      ukupnoRashod = Number(ob.ukupnoRashod) || 0;
+      ukupnoPrihod = Number(ob.ukupnoPrihod) || 0;
+      neto = Number(ob.neto) || 0;
+      isAzuriran = ob.isAzuriran === true || ob.isAzuriran === 'true';
+      imaUlaz = ob.imaUlaz === true || ob.imaUlaz === 'true';
+      invoiceImages = Array.isArray(ob.invoiceImages) ? ob.invoiceImages : [];
+    } else {
+      // Nested struktura (stari format) - artikli je JSONB objekat
+      artikliData = ob.artikli;
+      if (typeof artikliData === 'string') {
+        try {
+          artikliData = JSON.parse(artikliData);
+        } catch (e) {
+          console.warn('Failed to parse artikli JSON:', e);
+          artikliData = {};
+        }
       }
+      
+      artikli = Array.isArray(artikliData?.artikli) ? artikliData.artikli : [];
+      rashodi = Array.isArray(artikliData?.rashodi) ? artikliData.rashodi : [];
+      prihodi = Array.isArray(artikliData?.prihodi) ? artikliData.prihodi : [];
+      ukupnoArtikli = Number(artikliData?.ukupnoArtikli) || 0;
+      ukupnoRashod = Number(artikliData?.ukupnoRashod) || 0;
+      ukupnoPrihod = Number(artikliData?.ukupnoPrihod) || 0;
+      neto = Number(artikliData?.neto) || 0;
+      isAzuriran = artikliData?.isAzuriran === true || artikliData?.isAzuriran === 'true';
+      imaUlaz = artikliData?.imaUlaz === true || artikliData?.imaUlaz === 'true';
+      invoiceImages = Array.isArray(artikliData?.invoiceImages) ? artikliData.invoiceImages : [];
     }
     
-    // Osiguraj da artikli, rashodi i prihodi su arrayi
-    const artikli = Array.isArray(artikliData?.artikli) ? artikliData.artikli : [];
-    const rashodi = Array.isArray(artikliData?.rashodi) ? artikliData.rashodi : [];
-    const prihodi = Array.isArray(artikliData?.prihodi) ? artikliData.prihodi : [];
-    
-    // Formatiraj datum - može biti Date objekat, ISO string (2025-12-16T05:00:00.000Z), YYYY-MM-DD ili DD.MM.YYYY
+    // Formatiraj datum - API sada vraća već formatiran datum (DD.MM.YYYY.), ali zadržavamo kompatibilnost
     let formattedDatum = ob.datum || '';
     
     // Ako je Date objekat, konvertuj u string
@@ -399,7 +433,7 @@ export async function getObracuni(userId: string, datum?: string) {
       const dan = String(formattedDatum.getDate()).padStart(2, '0');
       const mjesec = String(formattedDatum.getMonth() + 1).padStart(2, '0');
       const godina = formattedDatum.getFullYear();
-      formattedDatum = `${dan}.${mjesec}.${godina}`;
+      formattedDatum = `${dan}.${mjesec}.${godina}.`;
     } else if (typeof formattedDatum === 'string') {
       // Ako je ISO string format (2025-12-16T05:00:00.000Z), parsiraj ga
       if (formattedDatum.includes('T') && formattedDatum.includes('Z')) {
@@ -408,17 +442,20 @@ export async function getObracuni(userId: string, datum?: string) {
           const dan = String(dateObj.getDate()).padStart(2, '0');
           const mjesec = String(dateObj.getMonth() + 1).padStart(2, '0');
           const godina = dateObj.getFullYear();
-          formattedDatum = `${dan}.${mjesec}.${godina}`;
+          formattedDatum = `${dan}.${mjesec}.${godina}.`;
         }
       } else if (formattedDatum.includes('-') && formattedDatum.match(/^\d{4}-\d{2}-\d{2}/)) {
-        // Ako je string u YYYY-MM-DD formatu, konvertuj u DD.MM.YYYY
+        // Ako je string u YYYY-MM-DD formatu, konvertuj u DD.MM.YYYY.
         const parts = formattedDatum.split('-');
         if (parts.length >= 3) {
           const [godina, mjesec, dan] = parts;
-          formattedDatum = `${dan}.${mjesec}.${godina}`;
+          formattedDatum = `${dan}.${mjesec}.${godina}.`;
         }
+      } else if (formattedDatum && !formattedDatum.endsWith('.')) {
+        // Ako već ima format DD.MM.YYYY ali nema tačku na kraju, dodaj je
+        formattedDatum = formattedDatum + '.';
       }
-      // Ako već ima format DD.MM.YYYY, ostavi kako jeste
+      // Ako već ima format DD.MM.YYYY., ostavi kako jeste
     }
     
     return {
@@ -428,13 +465,13 @@ export async function getObracuni(userId: string, datum?: string) {
       artikli: artikli,
       rashodi: rashodi,
       prihodi: prihodi,
-      ukupnoArtikli: Number(artikliData?.ukupnoArtikli) || 0,
-      ukupnoRashod: Number(artikliData?.ukupnoRashod) || 0,
-      ukupnoPrihod: Number(artikliData?.ukupnoPrihod) || 0,
-      neto: Number(artikliData?.neto) || 0,
-      isAzuriran: artikliData?.isAzuriran === true || artikliData?.isAzuriran === 'true',
-      imaUlaz: artikliData?.imaUlaz === true || artikliData?.imaUlaz === 'true',
-      invoiceImages: Array.isArray(artikliData?.invoiceImages) ? artikliData.invoiceImages : [],
+      ukupnoArtikli: ukupnoArtikli,
+      ukupnoRashod: ukupnoRashod,
+      ukupnoPrihod: ukupnoPrihod,
+      neto: neto,
+      isAzuriran: isAzuriran,
+      imaUlaz: imaUlaz,
+      invoiceImages: invoiceImages,
       isDraft: ob.isDraft || false, // Dodaj isDraft flag
     };
   });

@@ -202,6 +202,25 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
     try {
       result = await query(sql, queryParams);
       console.log('Get obracuni - result rows:', result.rows.length, 'first row sample:', result.rows[0] ? { id: result.rows[0].id, datum: result.rows[0].datum } : null);
+      
+      // AUTOMATSKO BRIŠANJE STARIH DRAFT OBRACUNA (stariji od 12 sati nakon završetka datuma)
+      // Draft obračun se briše 12 sati nakon završetka datuma (npr. za datum 19.12.2025, briše se 20.12.2025 u 12:00)
+      try {
+        // Koristi PostgreSQL funkcije za precizno računanje expiration time-a
+        // Kraj dana = datum + INTERVAL '1 day' - INTERVAL '1 second' (23:59:59)
+        // Expiration = kraj dana + INTERVAL '12 hours' (12:00 sljedeći dan)
+        await query(
+          `DELETE FROM obracuni 
+           WHERE user_id = $1::text 
+           AND COALESCE((artikli->>'isAzuriran')::text, 'false') = 'true'
+           AND NOW() > (datum::timestamp + INTERVAL '1 day' - INTERVAL '1 second' + INTERVAL '12 hours')`,
+          [userIdForDb]
+        );
+        console.log('Get obracuni - Automatsko brisanje starih draft obračuna završeno');
+      } catch (deleteError: any) {
+        console.warn('Get obracuni - Greška pri brisanju starih draft-ova (nastavlja se normalno):', deleteError.message);
+        // Ne zaustavlja proces - samo loguj grešku
+      }
     } catch (dbError: any) {
       console.error('Get obracuni - Database query error:', {
         message: dbError.message,
@@ -250,16 +269,44 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       // Draft obračuni treba da ostanu draft sve dok korisnik ne klikne "Sačuvaj obračun"
       // Draft obračuni su namijenjeni za privremeno čuvanje dok korisnik radi na obračunu
       // Finalni obračun (isAzuriran: false) je onaj koji se prikazuje u arhivi
-      // Draft obračun traje sve dok postoji - ne briše se automatski poslije 24h
+      // Draft obračun traje 12 sati nakon završetka datuma - automatski se briše
       
       // Ne menjamo isAzuriran status - ostaje kako je sačuvan
       
-      console.log('Get obracuni - Parsed artikliData for row:', row.id, 'has artikli:', Array.isArray(artikliData.artikli), 'artikli count:', artikliData.artikli?.length || 0, 'isAzuriran:', artikliData.isAzuriran);
+      // Formatiraj datum u DD.MM.YYYY format za frontend
+      let formattedDatum: string;
+      if (row.datum) {
+        // row.datum je PostgreSQL date objekat ili string u YYYY-MM-DD formatu
+        const datumObj = typeof row.datum === 'string' ? new Date(row.datum) : row.datum;
+        if (datumObj instanceof Date && !isNaN(datumObj.getTime())) {
+          const dan = String(datumObj.getDate()).padStart(2, '0');
+          const mjesec = String(datumObj.getMonth() + 1).padStart(2, '0');
+          const godina = datumObj.getFullYear();
+          formattedDatum = `${dan}.${mjesec}.${godina}.`;
+        } else {
+          // Fallback: ako je već string u DD.MM.YYYY formatu, koristi direktno
+          formattedDatum = row.datum_raw || row.datum.toString();
+        }
+      } else {
+        formattedDatum = row.datum_raw || '';
+      }
       
+      console.log('Get obracuni - Parsed artikliData for row:', row.id, 'has artikli:', Array.isArray(artikliData.artikli), 'artikli count:', artikliData.artikli?.length || 0, 'isAzuriran:', artikliData.isAzuriran, 'datum:', formattedDatum);
+      
+      // Flatten strukturu - vraćamo artikli, rashodi, prihodi direktno na root level
       return {
         id: row.id,
-        datum: row.datum,
-        artikli: artikliData,
+        datum: formattedDatum, // Formatiran datum u DD.MM.YYYY. formatu
+        isAzuriran: artikliData.isAzuriran || false,
+        artikli: artikliData.artikli || [],
+        rashodi: artikliData.rashodi || [],
+        prihodi: artikliData.prihodi || [],
+        ukupnoArtikli: artikliData.ukupnoArtikli || 0,
+        ukupnoRashod: artikliData.ukupnoRashod || 0,
+        ukupnoPrihod: artikliData.ukupnoPrihod || 0,
+        neto: artikliData.neto || 0,
+        imaUlaz: artikliData.imaUlaz || false,
+        invoiceImages: artikliData.invoiceImages || [],
         isDraft: false, // All obracuni in database are final (no is_draft column)
         createdAt: row.saved_at,
         updatedAt: row.saved_at,
