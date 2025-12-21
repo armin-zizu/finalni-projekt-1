@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { getUserId, getObracuni, deleteObracun, saveObracun, uploadFile, deleteFile } from "../../lib/api";
+import { getUserId, getObracuni, deleteObracun, saveObracun, uploadFile, deleteFile, getAuthToken } from "../../lib/api";
 import { useRole } from "../context/RoleContext";
 
 // ---- Tipovi ----
@@ -1819,7 +1819,46 @@ export default function ArhivaPage() {
                           border: "1px solid #e5e7eb",
                           cursor: "pointer",
                         }}
-                        onClick={() => window.open(normalizedUrl, "_blank")}
+                        onClick={async () => {
+                          try {
+                            // Dohvati sliku koristeći fetch sa Authorization header-om
+                            // Ovo je potrebno jer window.open ne šalje Authorization header
+                            const token = getAuthToken();
+                            if (!token) {
+                              alert('Niste prijavljeni!');
+                              return;
+                            }
+                            
+                            const response = await fetch(normalizedUrl, {
+                              headers: {
+                                'Authorization': `Bearer ${token}`,
+                              },
+                            });
+                            
+                            if (!response.ok) {
+                              throw new Error('Failed to fetch image');
+                            }
+                            
+                            // Kreiraj blob URL i otvori ga u novom tabu
+                            const blob = await response.blob();
+                            const blobUrl = URL.createObjectURL(blob);
+                            const imageWindow = window.open(blobUrl, "_blank");
+                            
+                            // Očisti blob URL nakon što se prozor otvori
+                            if (imageWindow) {
+                              imageWindow.addEventListener('load', () => {
+                                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                              });
+                            } else {
+                              // Ako popup blocker blokira, očisti blob URL odmah
+                              URL.revokeObjectURL(blobUrl);
+                              alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
+                            }
+                          } catch (error: any) {
+                            console.error('Error opening image:', error);
+                            alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
+                          }
+                        }}
                         onError={(e) => {
                           console.error('Error loading image:', normalizedUrl, 'Original:', imageUrl);
                           (e.target as HTMLImageElement).src = '/placeholder-image.png'; // Fallback image
