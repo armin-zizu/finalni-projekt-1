@@ -1801,18 +1801,21 @@ export default function AdminPage() {
             </div>
             <div style={{ 
               width: "100%", 
-              height: isMobile ? 300 : 400, 
+              maxWidth: "100%",
+              height: isMobile ? 310 : 400,
+              minHeight: isMobile ? 310 : 400,
               marginTop: "20px",
               backgroundColor: "#fff",
               borderRadius: "12px",
-              padding: isMobile ? "0px" : "20px",
-              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+              padding: isMobile ? 0 : 20,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
               boxSizing: "border-box",
-              overflow: "hidden"
+              overflow: isMobile ? "visible" : "hidden",
+              position: "relative"
             }}>
-              <div style={{ width: "100%", height: "100%", position: "relative", padding: isMobile ? "10px" : 0 }}>
-                <ResponsiveContainer key={`revenue-chart-${isMobile}-${revenueChartData.length}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-                  <LineChart data={revenueChartData} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 35 }}>
+              <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
+                <ResponsiveContainer key={`revenue-chart-${isMobile}-${revenueChartData.length}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
+                  <LineChart data={revenueChartData} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis 
                       dataKey="period" 
@@ -1826,7 +1829,7 @@ export default function AdminPage() {
                     width={50}
                   />
                   <Tooltip content={<RevenueTooltip />} />
-                  <Legend verticalAlign="bottom" height={30} wrapperStyle={{ paddingTop: "40px" }} />
+                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
                     <Line 
                       type="monotone" 
                       dataKey="zarada" 
