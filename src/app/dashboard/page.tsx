@@ -1831,24 +1831,25 @@ export default function DashboardPage() {
       </div>
 
       {/* Kartice */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 10 : 30, width: "100%", boxSizing: "border-box" }}>
-        {[
-          {
-            label: "Bruto",
-            value: totalBruto,
-            icon: <FaArrowUp color="#16a34a" size={20} />,
-          },
-          {
-            label: "Rashod",
-            value: totalRashod,
-            icon: <FaArrowDown color="#dc2626" size={20} />,
-          },
-          {
-            label: "Neto",
-            value: totalNeto,
-            icon: <FaDollarSign color="#3b82f6" size={20} />,
-          },
-        ].map((item) => (
+      {!loading && chartData.length > 0 && (
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 10 : 30, width: "100%", boxSizing: "border-box" }}>
+          {[
+            {
+              label: "Bruto",
+              value: totalBruto,
+              icon: <FaArrowUp color="#16a34a" size={20} />,
+            },
+            {
+              label: "Rashod",
+              value: totalRashod,
+              icon: <FaArrowDown color="#dc2626" size={20} />,
+            },
+            {
+              label: "Neto",
+              value: totalNeto,
+              icon: <FaDollarSign color="#3b82f6" size={20} />,
+            },
+          ].map((item) => (
           <div
             key={item.label}
             style={{
