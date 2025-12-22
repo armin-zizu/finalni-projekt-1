@@ -317,18 +317,25 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         }
         
         // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
-        if (isBlocked || (needsVerification && !isOwnerDevice)) {
-          // Blokiraj pristup ako je uređaj blokiran ili zahtijeva verifikaciju (osim ako je vlasnik)
+        // BLOKIRAJ pristup ako:
+        // 1. Uređaj je blokiran (isBlocked === true)
+        // 2. Status je "verifikacija" (čeka odobrenje)
+        // 3. Status nije "approved" (sve dok se ne odobri, nema pristupa)
+        const isApproved = status === "approved";
+        if (isBlocked || needsVerification || !isApproved) {
+          // Blokiraj pristup ako je uređaj blokiran ili zahtijeva verifikaciju
           setRole(null);
           setPermissions(null);
           console.log("RoleContext - Uređaj blokiran ili zahtijeva verifikaciju:", { 
             isBlocked, 
             needsVerification, 
             status, 
+            isApproved,
             deviceId: currentDeviceId,
             userId: user.id 
           });
         } else {
+          // Status je "approved" - dozvoli pristup
           setRole(deviceRole);
           setPermissions(data.permissions || (deviceRole === "vlasnik" ? {
             dashboard: true,
