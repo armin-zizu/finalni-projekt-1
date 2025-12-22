@@ -95,7 +95,7 @@ export default function DashboardPage() {
   const [arhiva, setArhiva] = useState<ArhiviraniObracun[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   const [chartKey, setChartKey] = useState(0);
   const router = useRouter();
   const { cjenovnik } = useCjenovnik();
@@ -829,9 +829,16 @@ export default function DashboardPage() {
   // Podaci za grafikon - memoizovano za bolje performanse i pravilno re-renderovanje
   const chartData = useMemo(() => {
     const data = aggregateData(obracuni, range);
-    console.log("Dashboard - ChartData memoizovan:", { length: data.length, range, primjer: data[0] });
+    console.log("Dashboard - ChartData memoizovan:", { 
+      length: data.length, 
+      range, 
+      primjer: data[0],
+      isMobile,
+      obracuniLength: obracuni.length,
+      allData: data
+    });
     return data;
-  }, [obracuni, range]);
+  }, [obracuni, range, isMobile]);
   
   // Odredi koji artikal prikazati
   // Ako je "top" - koristi najprodavaniji, inače koristi selectedArtikl
@@ -855,6 +862,17 @@ export default function DashboardPage() {
   const totalRashod = chartData.reduce((sum, o) => sum + Number(o.rashod || 0), 0);
   const totalPrihod = chartData.reduce((sum, o) => sum + Number(o.prihod || 0), 0);
   const totalNeto = chartData.reduce((sum, o) => sum + Number(o.neto || 0), 0);
+  
+  // Debug logiranje za ukupne vrijednosti
+  console.log("Dashboard - Ukupne vrijednosti:", {
+    totalBruto,
+    totalRashod,
+    totalPrihod,
+    totalNeto,
+    chartDataLength: chartData.length,
+    isMobile,
+    chartDataPrimjer: chartData[0]
+  });
   const totalArtikl = selectedData.reduce((sum, o) => sum + Number(o.utroseno || 0), 0);
 
   const growth = (current: number, previous: number) =>
