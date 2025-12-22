@@ -99,7 +99,6 @@ export default function Profile() {
   const [backupToDate, setBackupToDate] = useState("");
   const [showBackupFilters, setShowBackupFilters] = useState(false);
   const [backupMessage, setBackupMessage] = useState("");
-  const [emailMessage, setEmailMessage] = useState("");
   const { subscription, loading: subscriptionLoading, addPayment, refreshSubscription } = useSubscription();
   
   // Osvježi subscription podatke kada se otvori profil stranica i svakih 30 sekundi
@@ -219,11 +218,6 @@ export default function Profile() {
     }
   }, [editingDeviceId]);
 
-  const handleChangeEmail = async () => {
-    // TODO: Implement email change via API
-    setEmailMessage("Promjena e-mail adrese trenutno nije dostupna. Kontaktirajte administratora.");
-    setTimeout(() => setEmailMessage(""), 5000);
-  };
 
   const handleChangePassword = async () => {
     // TODO: Implement password reset via API
