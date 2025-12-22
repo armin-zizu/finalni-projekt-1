@@ -1923,7 +1923,7 @@ export default function DashboardPage() {
                 textAnchor="end"
                 height={isMobile ? 25 : 66}
               />
-              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+              <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
               <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
@@ -3139,7 +3139,7 @@ export default function DashboardPage() {
                     textAnchor="end"
                     height={isMobile ? 25 : 66}
                   />
-                  <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+                  <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
                   <Line type="monotone" dataKey="utroseno" name={`Utrošeno (${artiklToDisplay})`} stroke="#8b5cf6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
