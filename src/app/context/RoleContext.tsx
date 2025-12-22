@@ -319,18 +319,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
         // BLOKIRAJ pristup ako:
         // 1. Uređaj je blokiran (isBlocked === true)
-        // 2. Status je "verifikacija" (čeka odobrenje)
-        // 3. Status nije "approved" (sve dok se ne odobri, nema pristupa)
-        const isApproved = status === "approved";
-        if (isBlocked || needsVerification || !isApproved) {
-          // Blokiraj pristup ako je uređaj blokiran ili zahtijeva verifikaciju
+        // 2. Status nije "approved" (sve dok se ne odobri na prvom uređaju, nema pristupa)
+        // Ovo osigurava da korisnik ne može pristupiti aplikaciji dok se ne odobri na prvom uređaju
+        if (isBlocked || status !== "approved") {
+          // Blokiraj pristup ako je uređaj blokiran ili status nije "approved"
           setRole(null);
           setPermissions(null);
-          console.log("RoleContext - Uređaj blokiran ili zahtijeva verifikaciju:", { 
+          console.log("RoleContext - Uređaj blokiran ili status nije odobren:", { 
             isBlocked, 
-            needsVerification, 
             status, 
-            isApproved,
             deviceId: currentDeviceId,
             userId: user.id 
           });
