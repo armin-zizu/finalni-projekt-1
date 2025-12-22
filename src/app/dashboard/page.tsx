@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   LineChart,
   Line,
@@ -95,7 +95,7 @@ export default function DashboardPage() {
   const [arhiva, setArhiva] = useState<ArhiviraniObracun[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const [chartKey, setChartKey] = useState(0);
   const router = useRouter();
   const { cjenovnik } = useCjenovnik();
@@ -220,8 +220,6 @@ export default function DashboardPage() {
       setArhiva(sortedArhiva);
       setLoading(false);
       setError(null);
-      // Force chart re-render kada se podaci učitaju
-      setChartKey(prev => prev + 1);
       
       console.log("Dashboard - Učitavanje završeno:", {
         brojObračuna: sortedArhiva.length,
@@ -331,29 +329,27 @@ export default function DashboardPage() {
   }, [loadArhiva]);
   */
 
-  // Priprema podataka za grafikon - samo finalni obračuni (bez isAzuriran: true) - memoizovano
-  const obracuni: Obracun[] = useMemo(() => {
-    return arhiva
-      .filter((o) => !o.isAzuriran) // Filtriraj samo finalne obračune (isAzuriran: false ili undefined)
-      .map((o) => {
-        const ukupnoArtikli = Number(o.ukupnoArtikli) || 0;
-        const ukupnoRashod = Number(o.ukupnoRashod) || 0;
-        const ukupnoPrihod = Number(o.ukupnoPrihod) || 0;
-        
-        return {
-          datum: o.datum,
-          artikli: ukupnoArtikli,
-          rashod: ukupnoRashod,
-          prihod: ukupnoPrihod,
-          neto: ukupnoArtikli + ukupnoPrihod - ukupnoRashod,
-        };
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-        return dateA - dateB;
-      });
-  }, [arhiva]);
+  // Priprema podataka za grafikon - samo finalni obračuni (bez isAzuriran: true)
+  const obracuni: Obracun[] = arhiva
+    .filter((o) => !o.isAzuriran) // Filtriraj samo finalne obračune (isAzuriran: false ili undefined)
+    .map((o) => {
+      const ukupnoArtikli = Number(o.ukupnoArtikli) || 0;
+      const ukupnoRashod = Number(o.ukupnoRashod) || 0;
+      const ukupnoPrihod = Number(o.ukupnoPrihod) || 0;
+      
+      return {
+        datum: o.datum,
+        artikli: ukupnoArtikli,
+        rashod: ukupnoRashod,
+        prihod: ukupnoPrihod,
+        neto: ukupnoArtikli + ukupnoPrihod - ukupnoRashod,
+      };
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+      const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+      return dateA - dateB;
+    });
   
   // Debug logiranje
   console.log("Dashboard - Priprema podataka za grafikon:", {
@@ -828,19 +824,8 @@ export default function DashboardPage() {
     return ranking;
   }, [arhiva, customFrom, customTo, selectedMonth, selectedYear]);
 
-  // Podaci za grafikon - memoizovano za bolje performanse i pravilno re-renderovanje
-  const chartData = useMemo(() => {
-    const data = aggregateData(obracuni, range);
-    console.log("Dashboard - ChartData memoizovan:", { 
-      length: data.length, 
-      range, 
-      primjer: data[0],
-      isMobile,
-      obracuniLength: obracuni.length,
-      allData: data
-    });
-    return data;
-  }, [obracuni, range, isMobile]);
+  // Podaci za grafikon
+  const chartData = aggregateData(obracuni, range);
   
   // Odredi koji artikal prikazati
   // Ako je "top" - koristi najprodavaniji, inače koristi selectedArtikl
@@ -864,17 +849,6 @@ export default function DashboardPage() {
   const totalRashod = chartData.reduce((sum, o) => sum + Number(o.rashod || 0), 0);
   const totalPrihod = chartData.reduce((sum, o) => sum + Number(o.prihod || 0), 0);
   const totalNeto = chartData.reduce((sum, o) => sum + Number(o.neto || 0), 0);
-  
-  // Debug logiranje za ukupne vrijednosti
-  console.log("Dashboard - Ukupne vrijednosti:", {
-    totalBruto,
-    totalRashod,
-    totalPrihod,
-    totalNeto,
-    chartDataLength: chartData.length,
-    isMobile,
-    chartDataPrimjer: chartData[0]
-  });
   const totalArtikl = selectedData.reduce((sum, o) => sum + Number(o.utroseno || 0), 0);
 
   const growth = (current: number, previous: number) =>
@@ -1191,6 +1165,143 @@ export default function DashboardPage() {
         </h1>
       </div>
 
+      {/* Subscription Status Panel */}
+      {!subscriptionLoading && subscription && (
+        <div style={{
+          marginBottom: isMobile ? 16 : 24,
+          padding: isMobile ? "12px" : "16px",
+          background: subscription.isTrial 
+            ? "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)"
+            : subscription.isGracePeriod
+            ? "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)"
+            : subscription.isPremium || subscription.isActive
+            ? "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)"
+            : "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)",
+          borderRadius: isMobile ? "12px" : "16px",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+          border: "1px solid",
+          borderColor: subscription.isTrial 
+            ? "#93c5fd"
+            : subscription.isGracePeriod
+            ? "#fbbf24"
+            : subscription.isPremium || subscription.isActive
+            ? "#86efac"
+            : "#f87171",
+          width: "100%",
+          boxSizing: "border-box"
+        }}>
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: isMobile ? "8px" : "12px",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}>
+            {/* Status badge */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+              {subscription.isTrial ? (
+                <span style={{
+                  padding: "6px 12px",
+                  background: "#3b82f6",
+                  color: "#ffffff",
+                  borderRadius: "6px",
+                  fontSize: isMobile ? "13px" : "14px",
+                  fontWeight: 600,
+                }}>
+                  📅 Trial period
+                </span>
+              ) : subscription.isPremium ? (
+                <span style={{
+                  padding: "6px 12px",
+                  background: "#16a34a",
+                  color: "#ffffff",
+                  borderRadius: "6px",
+                  fontSize: isMobile ? "13px" : "14px",
+                  fontWeight: 600,
+                }}>
+                  ⭐ Premium
+                </span>
+              ) : subscription.isGracePeriod ? (
+                <span style={{
+                  padding: "6px 12px",
+                  background: "#f59e0b",
+                  color: "#ffffff",
+                  borderRadius: "6px",
+                  fontSize: isMobile ? "13px" : "14px",
+                  fontWeight: 600,
+                }}>
+                  ⏳ Grace period
+                </span>
+              ) : subscription.isActive ? (
+                <span style={{
+                  padding: "6px 12px",
+                  background: "#16a34a",
+                  color: "#ffffff",
+                  borderRadius: "6px",
+                  fontSize: isMobile ? "13px" : "14px",
+                  fontWeight: 600,
+                }}>
+                  ✓ Aktivna
+                </span>
+              ) : (
+                <span style={{
+                  padding: "6px 12px",
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  borderRadius: "6px",
+                  fontSize: isMobile ? "13px" : "14px",
+                  fontWeight: 600,
+                }}>
+                  ✗ Istekla
+                </span>
+              )}
+              
+              {subscription.paymentPendingVerification && (
+                <span style={{
+                  padding: "6px 12px",
+                  background: "#f59e0b",
+                  color: "#ffffff",
+                  borderRadius: "6px",
+                  fontSize: isMobile ? "13px" : "14px",
+                  fontWeight: 600,
+                }}>
+                  ⏳ Čeka provjeru uplate
+                </span>
+              )}
+            </div>
+
+            {/* Details */}
+            <div style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: isMobile ? "8px" : "12px",
+              alignItems: "center",
+              fontSize: isMobile ? "12px" : "14px",
+              color: "#1f2937",
+              fontWeight: 500,
+            }}>
+              {subscription.isTrial && subscription.trialEndDate && (
+                <span>
+                  Trial završava: <strong>{subscription.trialEndDate.toLocaleDateString("bs-BA")}</strong> ({subscription.daysRemaining !== undefined ? subscription.daysRemaining : 0} dana)
+                </span>
+              )}
+              {subscription.expiryDate && !subscription.isTrial && (
+                <span>
+                  Pretplata ističe: <strong>{subscription.expiryDate.toLocaleDateString("bs-BA")}</strong>
+                  {subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry > 0 && (
+                    <> ({subscription.daysUntilExpiry} dana)</>
+                  )}
+                </span>
+              )}
+              {subscription.isGracePeriod && subscription.graceEndDate && (
+                <span>
+                  Grace period završava: <strong>{subscription.graceEndDate.toLocaleDateString("bs-BA")}</strong> ({subscription.daysInGrace !== undefined ? subscription.daysInGrace : 0} dana)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Range za prvi grafikon - Box samo na mobilnom */}
       {isMobile ? (
@@ -1800,56 +1911,48 @@ export default function DashboardPage() {
           position: "relative"
         }}
       >
-        <div style={{ width: "100%", height: isMobile ? 310 : 400, minHeight: isMobile ? 310 : 400, position: "relative", padding: 0 }}>
-          {chartData && chartData.length > 0 && !loading ? (
-            <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${loading ? 'loading' : 'loaded'}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 310 : 400}>
-              <LineChart data={chartData} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 50 : 6 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="datum" 
-                  tick={{ fill: "#6b7280", fontSize: isMobile ? 9 : 11 }} 
-                  angle={isMobile ? -45 : -45}
-                  textAnchor="end"
-                  height={isMobile ? 50 : 66}
-                  interval={isMobile ? "preserveStartEnd" : 0}
-                />
-                <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-                <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-                <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-                <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-                <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#6b7280", fontSize: "14px" }}>
-              {loading ? "Učitavanje podataka..." : "Nema podataka za prikaz"}
-            </div>
-          )}
+        <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
+          <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
+            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="datum" 
+                tick={{ fill: "#6b7280", fontSize: 11 }} 
+                angle={-45}
+                textAnchor="end"
+                height={isMobile ? 25 : 66}
+              />
+              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
+              <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
       {/* Kartice */}
-      {!loading && chartData.length > 0 && (
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 10 : 30, width: "100%", boxSizing: "border-box" }}>
-          {[
-            {
-              label: "Bruto",
-              value: totalBruto,
-              icon: <FaArrowUp color="#16a34a" size={20} />,
-            },
-            {
-              label: "Rashod",
-              value: totalRashod,
-              icon: <FaArrowDown color="#dc2626" size={20} />,
-            },
-            {
-              label: "Neto",
-              value: totalNeto,
-              icon: <FaDollarSign color="#3b82f6" size={20} />,
-            },
-          ].map((item) => (
+      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 10 : 30, width: "100%", boxSizing: "border-box" }}>
+        {[
+          {
+            label: "Bruto",
+            value: totalBruto,
+            icon: <FaArrowUp color="#16a34a" size={20} />,
+          },
+          {
+            label: "Rashod",
+            value: totalRashod,
+            icon: <FaArrowDown color="#dc2626" size={20} />,
+          },
+          {
+            label: "Neto",
+            value: totalNeto,
+            icon: <FaDollarSign color="#3b82f6" size={20} />,
+          },
+        ].map((item) => (
           <div
             key={item.label}
             style={{
@@ -1874,8 +1977,7 @@ export default function DashboardPage() {
             </div>
           </div>
         ))}
-        </div>
-      )}
+      </div>
 
       {/* Artikal grafikon - Box samo na mobilnom */}
       {isMobile ? (
@@ -1889,29 +1991,6 @@ export default function DashboardPage() {
           maxWidth: "100%", 
           boxSizing: "border-box" 
         }}>
-          {/* Naslov i opis */}
-          <div style={{
-            marginBottom: "16px",
-            paddingBottom: "12px",
-            borderBottom: "2px solid #f3f4f6"
-          }}>
-            <h2 style={{
-              fontSize: "18px",
-              fontWeight: 600,
-              color: "#1f2937",
-              margin: 0
-            }}>
-              Utrošak po artiklu
-            </h2>
-            <p style={{
-              fontSize: "13px",
-              color: "#6b7280",
-              margin: "4px 0 0 0"
-            }}>
-              Odaberite artikal i vremenski period za detaljnu analizu utroška
-            </p>
-          </div>
-
           {/* Tip prikaza - Radio buttoni */}
           <div style={{ marginBottom: "12px" }}>
             <label style={{ 
@@ -3043,19 +3122,18 @@ export default function DashboardPage() {
               position: "relative"
             }}
           >
-            <div style={{ width: "100%", height: isMobile ? 310 : 400, minHeight: isMobile ? 310 : 400, position: "relative", padding: 0 }}>
-              <ResponsiveContainer key={`artikl-chart-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 310 : 400}>
-                <LineChart data={selectedData.length > 0 ? selectedData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 50 : 6 }}>
+            <div style={{ width: "100%", height: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
+              <ResponsiveContainer key={`artikl-chart-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
+                <LineChart data={selectedData.length > 0 ? selectedData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
-                    tick={{ fill: "#6b7280", fontSize: isMobile ? 9 : 11 }} 
-                    angle={isMobile ? -45 : -45}
+                    tick={{ fill: "#6b7280", fontSize: 11 }} 
+                    angle={-45}
                     textAnchor="end"
-                    height={isMobile ? 50 : 66}
-                    interval={isMobile ? "preserveStartEnd" : 0}
+                    height={isMobile ? 25 : 66}
                   />
-                  <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
+                  <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
                   <Line type="monotone" dataKey="utroseno" name={`Utrošeno (${artiklToDisplay})`} stroke="#8b5cf6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
