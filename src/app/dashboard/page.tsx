@@ -220,6 +220,8 @@ export default function DashboardPage() {
       setArhiva(sortedArhiva);
       setLoading(false);
       setError(null);
+      // Force chart re-render kada se podaci učitaju
+      setChartKey(prev => prev + 1);
       
       console.log("Dashboard - Učitavanje završeno:", {
         brojObračuna: sortedArhiva.length,
