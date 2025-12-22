@@ -1874,7 +1874,8 @@ export default function DashboardPage() {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Artikal grafikon - Box samo na mobilnom */}
       {isMobile ? (
