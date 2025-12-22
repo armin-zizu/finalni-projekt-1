@@ -2611,118 +2611,92 @@ export default function Profile() {
         </table>
         </div>
 
-        {/* Promjena email-a */}
-        <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px", textAlign: "center" }}>
-            📧 Promijeni e-mail adresu
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
-            <button 
-              style={{ 
-                ...buttonStyle, 
-                width: "auto",
-                padding: "10px 20px",
-                fontSize: "14px",
-                fontWeight: 500,
-              }} 
-              onClick={handleChangeEmail}
-            >
-              ✉️ Pošalji verifikacijski link
-            </button>
-            {emailMessage && (
-              <p style={{ 
-                color: emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "#dc2626" : "#15803d", 
-                marginTop: "8px",
-                fontSize: "14px",
-                textAlign: "center",
-                padding: "8px 16px",
-                background: emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "#fee2e2" : "#dcfce7",
-                borderRadius: "6px",
-                border: `1px solid ${emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "#fca5a5" : "#86efac"}`,
-                maxWidth: "500px"
-              }}>
-                {emailMessage.includes("Greška") || emailMessage.includes("mora biti") ? "⚠️ " : "✓ "}
-                {emailMessage}
-              </p>
-            )}
-            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", textAlign: "center" }}>
-              Verifikacijski link će biti poslan na vaš trenutni e-mail ({email || "N/A"})
-            </p>
-          </div>
-        </div>
-
-        {/* Promjena šifre */}
-        <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "12px", textAlign: "center" }}>
-            🔒 Promijeni lozinku
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
-            <button 
-              style={{ 
-                ...buttonStyle, 
-                width: "auto",
-                padding: "10px 20px",
-                fontSize: "14px",
-                fontWeight: 500,
-              }} 
-              onClick={handleChangePassword}
-            >
-              ✉️ Pošalji link za promjenu lozinke
-            </button>
-            {message && message.includes("lozinke") && (
-              <p style={{ 
-                color: message.includes("Greška") ? "#dc2626" : "#15803d", 
-                marginTop: "8px",
-                fontSize: "14px",
-                textAlign: "center",
-                padding: "8px 16px",
-                background: message.includes("Greška") ? "#fee2e2" : "#dcfce7",
-                borderRadius: "6px",
-                border: `1px solid ${message.includes("Greška") ? "#fca5a5" : "#86efac"}`,
-                maxWidth: "500px"
-              }}>
-                {message.includes("Greška") ? "⚠️ " : "✓ "}
-                {message}
-              </p>
-            )}
-            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", textAlign: "center" }}>
-              Link za promjenu lozinke će biti poslan na vaš e-mail ({email || "N/A"})
-            </p>
-          </div>
-        </div>
-
+        {/* Promjena lozinke i Odjava */}
         <div style={{ 
-          display: "flex", 
-          justifyContent: "center", 
-          marginTop: "32px",
-          paddingTop: "24px",
-          borderTop: "2px solid #e5e7eb"
+          marginTop: "24px", 
+          paddingTop: "24px", 
+          borderTop: "1px solid #e5e7eb",
+          backgroundColor: "#fff",
+          borderRadius: "12px",
+          padding: "20px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
         }}>
-          <button
-            onClick={handleLogout}
-            style={{
-              ...buttonStyle,
-              background: "#dc2626",
-              width: "auto",
-              padding: "12px 28px",
-              fontSize: "15px",
-              fontWeight: 600,
-              boxShadow: "0 2px 4px rgba(220, 38, 38, 0.2)",
-              transition: "all 0.2s ease-in-out",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#b91c1c";
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.boxShadow = "0 4px 8px rgba(220, 38, 38, 0.3)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#dc2626";
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 2px 4px rgba(220, 38, 38, 0.2)";
-            }}
-          >
-            🚪 Odjava
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center" }}>
+            {/* Promjena lozinke */}
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px", textAlign: "center" }}>
+                🔒 Promijeni lozinku
+              </h3>
+              <button 
+                style={{ 
+                  ...buttonStyle, 
+                  width: "auto",
+                  padding: "10px 20px",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                }} 
+                onClick={handleChangePassword}
+              >
+                ✉️ Pošalji link za promjenu lozinke
+              </button>
+              {message && message.includes("lozinke") && (
+                <p style={{ 
+                  color: message.includes("Greška") ? "#dc2626" : "#15803d", 
+                  marginTop: "8px",
+                  fontSize: "14px",
+                  textAlign: "center",
+                  padding: "8px 16px",
+                  background: message.includes("Greška") ? "#fee2e2" : "#dcfce7",
+                  borderRadius: "6px",
+                  border: `1px solid ${message.includes("Greška") ? "#fca5a5" : "#86efac"}`,
+                  maxWidth: "500px"
+                }}>
+                  {message.includes("Greška") ? "⚠️ " : "✓ "}
+                  {message}
+                </p>
+              )}
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", textAlign: "center" }}>
+                Link za promjenu lozinke će biti poslan na vaš e-mail ({email || "N/A"})
+              </p>
+            </div>
+
+            {/* Odvajanje */}
+            <div style={{ 
+              width: "100%", 
+              height: "1px", 
+              background: "#e5e7eb", 
+              margin: "8px 0" 
+            }} />
+
+            {/* Odjava */}
+            <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={handleLogout}
+                style={{
+                  ...buttonStyle,
+                  background: "#dc2626",
+                  width: "auto",
+                  padding: "12px 28px",
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  boxShadow: "0 2px 4px rgba(220, 38, 38, 0.2)",
+                  transition: "all 0.2s ease-in-out",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#b91c1c";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 4px 8px rgba(220, 38, 38, 0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#dc2626";
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 2px 4px rgba(220, 38, 38, 0.2)";
+                }}
+              >
+                🚪 Odjava
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
