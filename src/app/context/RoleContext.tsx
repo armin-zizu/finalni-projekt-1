@@ -219,59 +219,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       const info = getDeviceInfo(currentDeviceId);
       setDeviceInfo(info);
 
-      // Provjeri da li je korisnik vlasnik svog naloga (is_owner = true za taj email)
-      // gitara.zizu@gmail.com je admin, ali takođe mora biti vlasnik svog naloga
-      const isOwnerOfAccount = user.isOwner === true;
-      
-      // Ako je vlasnik svog naloga, automatski postavi kao vlasnik i preskoči sve provjere
-      if (isOwnerOfAccount) {
-        console.log("RoleContext - Detektovan vlasnik sa specifičnim emailom i OS-om, automatski postavljam kao vlasnik");
-        
-        // Provjeri da li postoji device
-        const existingDevice = await getDeviceByDeviceId(user.id, currentDeviceId);
-        const deviceInfoWithTimestamps = {
-          ...info,
-          firstSeen: existingDevice?.deviceInfo?.firstSeen || new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-        };
-        
-        // Kreiraj ili ažuriraj device sa vlasnik ulogom
-        await saveDevice(user.id, {
-          deviceId: currentDeviceId,
-          deviceName: `${info.browser} on ${info.os}`,
-          deviceInfo: deviceInfoWithTimestamps,
-          role: "vlasnik",
-          status: "approved",
-          isBlocked: false,
-          permissions: {
-            dashboard: true,
-            obracun: true,
-            arhiva: true,
-            cjenovnik: true,
-            profit: true,
-            profile: true,
-            admin: false,
-          },
-        });
-        
-        console.log("RoleContext - Device kreiran/ažuriran kao vlasnik za", user.email);
-        
-        // Automatski postavi ulogu i dozvole - PRESKOČI SVE OSTALE PROVJERE
-        setRole("vlasnik");
-        setPermissions({
-          dashboard: true,
-          obracun: true,
-          arhiva: true,
-          cjenovnik: true,
-          profit: true,
-          profile: true,
-          admin: false,
-        });
-        setLoading(false);
-        setError(null);
-        return; // Preskoči sve ostale provjere
-      }
-
       // Provjeri da li postoji uloga za ovaj uređaj
       const existingDevice = await getDeviceByDeviceId(user.id, currentDeviceId);
 
@@ -352,26 +299,23 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         let defaultRole: UserRole = "vlasnik"; // Po defaultu postavi kao vlasnik
         let status = "approved"; // Prvi uređaj je automatski odobren
         
-        // Provjeri da li je korisnik vlasnik svog naloga (is_owner = true za taj email)
-        const isOwnerOfAccount = user.isOwner === true;
-        
         // Provjeri da li korisnik već ima druge uređaje (prije kreiranja novog)
         try {
           const userDevices = await getUserDevices(user.id);
           
-          console.log("RoleContext - Provjera drugih uređaja - broj uređaja:", userDevices.length, "deviceId:", currentDeviceId, "isOwnerOfAccount:", isOwnerOfAccount);
+          console.log("RoleContext - Provjera drugih uređaja - broj uređaja:", userDevices.length, "deviceId:", currentDeviceId);
           
-          // Ako korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju
+          // Ako korisnik već ima druge uređaje, novi uređaj ZAUVIJEK zahtijeva verifikaciju
           if (userDevices.length > 0) {
             // Provjeri da li je trenutni uređaj već u listi
             const existingDevice = userDevices.find(d => d.deviceId === currentDeviceId);
             
             if (!existingDevice) {
             // Ako trenutni deviceId nije u listi postojećih, to je novi uređaj
-              // Novi uređaj zahtijeva verifikaciju - samo vlasnik naloga može odobriti
+              // Novi uređaj ZAUVIJEK zahtijeva verifikaciju - bez obzira na ulogu korisnika
               defaultRole = null;
-              status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju od vlasnika naloga
-              console.log("RoleContext - Korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju od vlasnika naloga");
+              status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju
+              console.log("RoleContext - Korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju");
             } else {
               // Ako je trenutni uređaj već u listi, to znači da je već kreiran (možda iz login stranice)
               console.log("RoleContext - Trenutni uređaj već postoji u bazi, učitavam postojeći status");
@@ -381,6 +325,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             }
           } else {
             // Prvi uređaj - provjeri da li je korisnik vlasnik svog naloga
+            const isOwnerOfAccount = user.isOwner === true;
             if (isOwnerOfAccount) {
               // Prvi uređaj za vlasnika naloga - automatski odobren kao vlasnik
               defaultRole = "vlasnik";
@@ -395,17 +340,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             }
           }
         } catch (queryError: any) {
-          // Ako query ne uspije zbog permisija ili indexa, provjeri da li je vlasnik
+          // Ako query ne uspije zbog permisija ili indexa, postavi na verifikaciju (sigurnije)
           console.warn("Greška pri provjeri drugih uređaja:", queryError);
-          if (isOwnerOfAccount) {
-            // Ako je vlasnik naloga, postavi kao vlasnik (fallback)
-            defaultRole = "vlasnik";
-            status = "approved";
-          } else {
-            // Ako nije vlasnik naloga i query ne radi, postavi na verifikaciju (sigurnije)
-            defaultRole = null;
-            status = "verifikacija";
-          }
+          defaultRole = null;
+          status = "verifikacija";
         }
         
         // Kreiraj device sa ulogom
