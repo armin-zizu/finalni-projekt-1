@@ -25,11 +25,13 @@ type Rashod = {
   cijena: number;
   placeno?: boolean;
   datumPlacanja?: string; // Datum kada je dug označen kao plaćen (DD.MM.YYYY format)
+  imageUrl?: string; // URL slike fakture za ovaj rashod
 };
 
 type Prihod = {
   naziv: string;
   cijena: number;
+  imageUrl?: string; // URL slike fakture za ovaj prihod
 };
 
 type ArhiviraniObracun = {
@@ -2532,7 +2534,68 @@ export default function ArhivaPage() {
                               color: tdStyle.color,
                             } : tdStyle}
                           >
-                            {r.naziv}
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span>{r.naziv}</span>
+                              {r.imageUrl && (
+                                <span
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const normalizedUrl = normalizeImageUrl(r.imageUrl!);
+                                      const token = getAuthToken();
+                                      if (!token) {
+                                        alert('Niste prijavljeni!');
+                                        return;
+                                      }
+                                      
+                                      const response = await fetch(normalizedUrl, {
+                                        headers: {
+                                          'Authorization': `Bearer ${token}`,
+                                        },
+                                      });
+                                      
+                                      if (!response.ok) {
+                                        if (response.status === 404) {
+                                          alert('Slika nije pronađena. Možda je obrisana ili premještena.');
+                                          return;
+                                        }
+                                        throw new Error(`Failed to fetch image: ${response.status}`);
+                                      }
+                                      
+                                      const blob = await response.blob();
+                                      const blobUrl = URL.createObjectURL(blob);
+                                      const newWindow = window.open(blobUrl, "_blank");
+                                      
+                                      if (!newWindow) {
+                                        URL.revokeObjectURL(blobUrl);
+                                        alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
+                                        return;
+                                      }
+                                      
+                                      setTimeout(() => {
+                                        try {
+                                          URL.revokeObjectURL(blobUrl);
+                                        } catch (e) {}
+                                      }, 1000);
+                                    } catch (error: any) {
+                                      console.error('Error opening image:', error);
+                                      alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
+                                    }
+                                  }}
+                                  style={{
+                                    cursor: "pointer",
+                                    fontSize: "24px",
+                                    padding: "4px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                  }}
+                                  title="Pregled fakture"
+                                >
+                                  📸
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td style={tdStyle}>{r.cijena !== undefined && r.cijena !== null ? r.cijena.toFixed(2) : "-"}</td>
                           <td style={tdStyle}>{r.placeno ? "Da" : "Ne"}</td>
@@ -2559,7 +2622,70 @@ export default function ArhivaPage() {
                   <tbody>
                     {(item.prihodi && Array.isArray(item.prihodi) ? item.prihodi : []).map((p, i) => (
                       <tr key={i}>
-                        <td style={tdStyle}>{p.naziv}</td>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span>{p.naziv}</span>
+                            {p.imageUrl && (
+                              <span
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const normalizedUrl = normalizeImageUrl(p.imageUrl!);
+                                    const token = getAuthToken();
+                                    if (!token) {
+                                      alert('Niste prijavljeni!');
+                                      return;
+                                    }
+                                    
+                                    const response = await fetch(normalizedUrl, {
+                                      headers: {
+                                        'Authorization': `Bearer ${token}`,
+                                      },
+                                    });
+                                    
+                                    if (!response.ok) {
+                                      if (response.status === 404) {
+                                        alert('Slika nije pronađena. Možda je obrisana ili premještena.');
+                                        return;
+                                      }
+                                      throw new Error(`Failed to fetch image: ${response.status}`);
+                                    }
+                                    
+                                    const blob = await response.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    const newWindow = window.open(blobUrl, "_blank");
+                                    
+                                    if (!newWindow) {
+                                      URL.revokeObjectURL(blobUrl);
+                                      alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
+                                      return;
+                                    }
+                                    
+                                    setTimeout(() => {
+                                      try {
+                                        URL.revokeObjectURL(blobUrl);
+                                      } catch (e) {}
+                                    }, 1000);
+                                  } catch (error: any) {
+                                    console.error('Error opening image:', error);
+                                    alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
+                                  }
+                                }}
+                                style={{
+                                  cursor: "pointer",
+                                  fontSize: "24px",
+                                  padding: "4px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center"
+                                }}
+                                title="Pregled fakture"
+                              >
+                                📸
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td style={tdStyle}>{p.cijena !== undefined && p.cijena !== null ? p.cijena.toFixed(2) : "-"}</td>
                       </tr>
                     ))}

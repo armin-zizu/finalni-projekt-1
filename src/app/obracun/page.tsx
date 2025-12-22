@@ -52,11 +52,13 @@ type Artikal = {
 type Rashod = {
   naziv: string;
   cijena: number;
+  imageUrl?: string; // URL slike fakture za ovaj rashod
 };
 
 type Prihod = {
   naziv: string;
   cijena: number;
+  imageUrl?: string; // URL slike fakture za ovaj prihod
 };
 
 type ArhiviraniArtikal = {
@@ -172,6 +174,8 @@ const buttonStyle: React.CSSProperties = {
   fontSize: "14px",
   fontWeight: 500,
   transition: "background-color 0.2s ease-in-out",
+  marginTop: 0,
+  marginLeft: 0,
   marginRight: "8px",
   marginBottom: "8px",
 };
@@ -274,6 +278,12 @@ export default function ObracunPage() {
   const [uploadingImages, setUploadingImages] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [savedInvoiceImagesCount, setSavedInvoiceImagesCount] = useState<number>(0); // Broj sačuvanih slika
+  
+  // State za slike rashoda i prihoda
+  const [newRashodImage, setNewRashodImage] = useState<File | null>(null);
+  const [newPrihodImage, setNewPrihodImage] = useState<File | null>(null);
+  const [editRashodImage, setEditRashodImage] = useState<File | null>(null);
+  const [editPrihodImage, setEditPrihodImage] = useState<File | null>(null);
 
   // Provjeri da li je korisnik vlasnik - koristi user.isOwner iz RoleContext
   useEffect(() => {
@@ -382,7 +392,7 @@ export default function ObracunPage() {
             
             // Ime dužnika je sve prije "dug" u nazivu rashoda
             const parts = naziv.split(/\s+/);
-            const dugIndex = parts.findIndex(p => p.toLowerCase() === "dug");
+            const dugIndex = parts.findIndex((p: string) => p.toLowerCase() === "dug");
             if (dugIndex === -1) return false;
             
             const imeDuznika = parts.slice(0, dugIndex).join(" ").trim();
@@ -506,11 +516,15 @@ export default function ObracunPage() {
           setIsUlazLocked(true); // Zaključaj ulaze jer je obračun ažuriran
           
           // Kreiraj cache iz ažuriranog obračuna
-          const ulazCache: Record<string, { ulaz: number }> = {};
+          const ulazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = {};
           if (azuriraniObracun.artikli && azuriraniObracun.artikli.length > 0) {
             azuriraniObracun.artikli.forEach((a: any) => {
               if (a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) {
-                ulazCache[a.naziv] = { ulaz: a.ulaz || a.sačuvanUlaz || 0 };
+                ulazCache[a.naziv] = { 
+                  ulaz: a.ulaz || a.sačuvanUlaz || 0,
+                  staroPocetnoStanje: a.pocetnoStanje || 0,
+                  sačuvanUlaz: a.sačuvanUlaz
+                };
               }
             });
           }
@@ -993,28 +1007,70 @@ export default function ObracunPage() {
     );
   };
 
-  const handleAddRashod = () => {
+  const handleAddRashod = async () => {
     if (newRashod.naziv && newRashod.cijena >= 0) {
-      setRashodi([...rashodi, newRashod]);
+      let imageUrl: string | undefined = undefined;
+      
+      // Upload slike ako postoji
+      if (newRashodImage) {
+        try {
+          const userId = user?.email || user?.id || (await getUserId());
+          if (!userId) {
+            throw new Error("Korisnik nije autentifikovan");
+          }
+          
+          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
+          const uploadedFile = await uploadFile(newRashodImage, 'rashod', datumString);
+          imageUrl = uploadedFile.url;
+        } catch (error: any) {
+          console.error("Greška pri upload-u slike rashoda:", error);
+          alert("Greška pri upload-u slike rashoda. Rashod će biti dodat bez slike.");
+        }
+      }
+      
+      setRashodi([...rashodi, { ...newRashod, imageUrl }]);
       setNewRashod({ naziv: "", cijena: 0 });
+      setNewRashodImage(null);
     }
   };
 
-  const handleAddPrihod = () => {
+  const handleAddPrihod = async () => {
     if (newPrihod.naziv && newPrihod.cijena >= 0) {
-      setPrihodi([...prihodi, newPrihod]);
+      let imageUrl: string | undefined = undefined;
+      
+      // Upload slike ako postoji
+      if (newPrihodImage) {
+        try {
+          const userId = user?.email || user?.id || (await getUserId());
+          if (!userId) {
+            throw new Error("Korisnik nije autentifikovan");
+          }
+          
+          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
+          const uploadedFile = await uploadFile(newPrihodImage, 'prihod', datumString);
+          imageUrl = uploadedFile.url;
+        } catch (error: any) {
+          console.error("Greška pri upload-u slike prihoda:", error);
+          alert("Greška pri upload-u slike prihoda. Prihod će biti dodat bez slike.");
+        }
+      }
+      
+      setPrihodi([...prihodi, { ...newPrihod, imageUrl }]);
       setNewPrihod({ naziv: "", cijena: 0 });
+      setNewPrihodImage(null);
     }
   };
 
   const handleEditRashod = (index: number) => {
     setEditRashodIndex(index);
     setEditRashod({ ...rashodi[index] });
+    setEditRashodImage(null); // Resetuj sliku pri edit-u
   };
 
   const handleEditPrihod = (index: number) => {
     setEditPrihodIndex(index);
     setEditPrihod({ ...prihodi[index] });
+    setEditPrihodImage(null); // Resetuj sliku pri edit-u
   };
 
   const handleDeleteRashod = (index: number) => {
@@ -1064,7 +1120,7 @@ export default function ObracunPage() {
               
               // Ime dužnika je sve prije "dug" u nazivu rashoda
               const parts = naziv.split(/\s+/);
-              const dugIndex = parts.findIndex(p => p.toLowerCase() === "dug");
+              const dugIndex = parts.findIndex((p: string) => p.toLowerCase() === "dug");
               if (dugIndex === -1) return false;
               
               const imeDuznika = parts.slice(0, dugIndex).join(" ").trim();
@@ -1127,34 +1183,76 @@ export default function ObracunPage() {
     }
   };
 
-  const handleSaveEditRashod = () => {
+  const handleSaveEditRashod = async () => {
     if (editRashodIndex !== null && editRashod.naziv && editRashod.cijena >= 0) {
+      let imageUrl = editRashod.imageUrl; // Zadrži postojeću sliku
+      
+      // Upload nove slike ako je dodana
+      if (editRashodImage) {
+        try {
+          const userId = user?.email || user?.id || (await getUserId());
+          if (!userId) {
+            throw new Error("Korisnik nije autentifikovan");
+          }
+          
+          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
+          const uploadedFile = await uploadFile(editRashodImage, 'rashod', datumString);
+          imageUrl = uploadedFile.url;
+        } catch (error: any) {
+          console.error("Greška pri upload-u slike rashoda:", error);
+          alert("Greška pri upload-u slike rashoda. Rashod će biti sačuvan sa postojećom slikom.");
+        }
+      }
+      
       setRashodi((prev) =>
-        prev.map((r, i) => (i === editRashodIndex ? { ...editRashod } : r))
+        prev.map((r, i) => (i === editRashodIndex ? { ...editRashod, imageUrl } : r))
       );
       setEditRashodIndex(null);
       setEditRashod({ naziv: "", cijena: 0 });
+      setEditRashodImage(null);
     }
   };
 
-  const handleSaveEditPrihod = () => {
+  const handleSaveEditPrihod = async () => {
     if (editPrihodIndex !== null && editPrihod.naziv && editPrihod.cijena >= 0) {
+      let imageUrl = editPrihod.imageUrl; // Zadrži postojeću sliku
+      
+      // Upload nove slike ako je dodana
+      if (editPrihodImage) {
+        try {
+          const userId = user?.email || user?.id || (await getUserId());
+          if (!userId) {
+            throw new Error("Korisnik nije autentifikovan");
+          }
+          
+          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
+          const uploadedFile = await uploadFile(editPrihodImage, 'prihod', datumString);
+          imageUrl = uploadedFile.url;
+        } catch (error: any) {
+          console.error("Greška pri upload-u slike prihoda:", error);
+          alert("Greška pri upload-u slike prihoda. Prihod će biti sačuvan sa postojećom slikom.");
+        }
+      }
+      
       setPrihodi((prev) =>
-        prev.map((p, i) => (i === editPrihodIndex ? { ...editPrihod } : p))
+        prev.map((p, i) => (i === editPrihodIndex ? { ...editPrihod, imageUrl } : p))
       );
       setEditPrihodIndex(null);
       setEditPrihod({ naziv: "", cijena: 0 });
+      setEditPrihodImage(null);
     }
   };
 
   const handleCancelEditRashod = () => {
     setEditRashodIndex(null);
     setEditRashod({ naziv: "", cijena: 0 });
+    setEditRashodImage(null);
   };
 
   const handleCancelEditPrihod = () => {
     setEditPrihodIndex(null);
     setEditPrihod({ naziv: "", cijena: 0 });
+    setEditPrihodImage(null);
   };
 
   // Funkcija za ažuriranje obračuna (bez spremanja u arhivu)
@@ -2195,7 +2293,7 @@ export default function ObracunPage() {
       </table>
 
       {/* Rashodi */}
-      <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px" }}>
+      <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px", textAlign: isMobile ? "center" : "left" }}>
         Rashodi
       </h2>
       <div style={tableWrapperStyle}>
@@ -2203,7 +2301,10 @@ export default function ObracunPage() {
           <thead>
             <tr>
               <th style={thStyle}>Naziv</th>
-              <th style={thStyle}>Cijena</th>
+              <th style={{
+                ...thStyle,
+                paddingLeft: isMobile ? undefined : "25px"
+              }}>Cijena</th>
               <th style={thStyle}>Akcija</th>
             </tr>
           </thead>
@@ -2222,20 +2323,74 @@ export default function ObracunPage() {
                         readOnly={!canEdit}
                       />
                     </td>
-                    <td style={tdStyle}>
+                    <td style={{
+                      ...tdStyle,
+                      paddingLeft: isMobile ? undefined : "25px"
+                    }}>
                       <input
                         type="number"
                         inputMode="numeric"
                         value={editRashod.cijena === 0 ? "" : editRashod.cijena}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setEditRashod({ ...editRashod, cijena: Number(e.target.value) || 0 })}
-                        style={{...rashodInputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+                        style={{
+                          ...rashodInputStyle,
+                          width: "100%",
+                          maxWidth: "160px",
+                          opacity: canEdit ? 1 : 0.5,
+                          cursor: canEdit ? "text" : "not-allowed"
+                        }}
                         className="no-spin"
                         disabled={!canEdit}
                         readOnly={!canEdit}
                       />
                     </td>
                     <td style={tdStyle}>
+                      <label
+                        style={{
+                          ...buttonStyle,
+                          opacity: canEdit ? 1 : 0.5,
+                          cursor: canEdit ? "pointer" : "not-allowed",
+                          margin: "0 4px 4px 0",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                          fontSize: "12px",
+                          padding: "6px 10px"
+                        }}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setEditRashodImage(file);
+                            e.target.value = "";
+                          }}
+                          style={{ display: "none" }}
+                          disabled={!canEdit}
+                        />
+                        📸 {editRashodImage ? editRashodImage.name.substring(0, 10) + "..." : editRashod.imageUrl ? "Promijeni" : "Dodaj"}
+                      </label>
+                      {editRashodImage && (
+                        <button
+                          style={{
+                            padding: "4px 8px",
+                            background: "#dc2626",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            marginLeft: "4px"
+                          }}
+                          onClick={() => setEditRashodImage(null)}
+                          disabled={!canEdit}
+                        >
+                          ✕
+                        </button>
+                      )}
                       <button 
                         style={{...buttonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
                         onClick={handleSaveEditRashod}
@@ -2256,7 +2411,10 @@ export default function ObracunPage() {
                 ) : (
                   <>
                     <td style={tdStyle}>{r.naziv}</td>
-                    <td style={tdStyle}>{r.cijena.toFixed(2)}</td>
+                    <td style={{
+                      ...tdStyle,
+                      paddingLeft: isMobile ? undefined : "25px"
+                    }}>{r.cijena.toFixed(2)}</td>
                     <td style={tdStyle}>
                       <button
                         style={{...editButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
@@ -2283,39 +2441,276 @@ export default function ObracunPage() {
         </table>
       </div>
 
-      <div style={{ marginTop: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%", boxSizing: "border-box" }}>
-        <input
-          type="text"
-          placeholder="Naziv rashoda"
-          value={newRashod.naziv}
-          onChange={(e) => setNewRashod({ ...newRashod, naziv: e.target.value })}
-          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
-          disabled={!canEdit}
-          readOnly={!canEdit}
-        />
-        <input
-          type="number"
-          inputMode="numeric"
-          placeholder="Cijena"
-          value={newRashod.cijena === 0 ? "" : newRashod.cijena}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => setNewRashod({ ...newRashod, cijena: Number(e.target.value) || 0 })}
-          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
-          className="no-spin"
-          disabled={!canEdit}
-          readOnly={!canEdit}
-        />
-        <button 
-          style={{...buttonStyle, flex: "1 1 auto", minWidth: "140px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
-          onClick={handleAddRashod}
-          disabled={!canEdit}
-        >
-          Dodaj rashod
-        </button>
-      </div>
+      {isMobile ? (
+        // Mobilna verzija - Card layout
+        <div style={{
+          background: "#ffffff",
+          padding: "16px",
+          borderRadius: "8px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+          marginTop: "20px"
+        }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                Naziv rashoda
+              </label>
+              <input
+                type="text"
+                placeholder="Naziv rashoda"
+                value={newRashod.naziv}
+                onChange={(e) => setNewRashod({ ...newRashod, naziv: e.target.value })}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  opacity: canEdit ? 1 : 0.5,
+                  cursor: canEdit ? "text" : "not-allowed"
+                }}
+                disabled={!canEdit}
+                readOnly={!canEdit}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                Cijena
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Cijena"
+                value={newRashod.cijena === 0 ? "" : newRashod.cijena}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setNewRashod({ ...newRashod, cijena: Number(e.target.value) || 0 })}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  opacity: canEdit ? 1 : 0.5,
+                  cursor: canEdit ? "text" : "not-allowed"
+                }}
+                className="no-spin"
+                disabled={!canEdit}
+                readOnly={!canEdit}
+              />
+            </div>
+          </div>
+          {newRashodImage && (
+            <div style={{ marginBottom: "12px", padding: "8px 12px", background: "#f3f4f6", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "14px", color: "#374151" }}>{newRashodImage.name}</span>
+              <button
+                style={{
+                  padding: "4px 8px",
+                  background: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  opacity: canEdit ? 1 : 0.5
+                }}
+                onClick={() => setNewRashodImage(null)}
+                disabled={!canEdit}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <button 
+              style={{
+                ...buttonStyle,
+                width: "100%",
+                opacity: canEdit ? 1 : 0.5,
+                cursor: canEdit ? "pointer" : "not-allowed",
+                background: "#dc2626",
+                padding: "12px 16px",
+                justifyContent: "center",
+                boxSizing: "border-box"
+              }}
+              onMouseEnter={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#b91c1c";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#dc2626";
+                }
+              }}
+              onClick={handleAddRashod}
+              disabled={!canEdit}
+            >
+              Dodaj rashod
+            </button>
+            <label
+              style={{
+                ...buttonStyle,
+                width: "100%",
+                opacity: canEdit ? 1 : 0.5,
+                cursor: canEdit ? "pointer" : "not-allowed",
+                marginTop: 0,
+              marginLeft: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                background: "#6b7280",
+                padding: "12px 16px",
+                boxSizing: "border-box"
+              }}
+              onMouseEnter={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#4b5563";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#6b7280";
+                }
+              }}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setNewRashodImage(file);
+                  e.target.value = "";
+                }}
+                style={{ display: "none" }}
+                disabled={!canEdit}
+              />
+              📸 {newRashodImage ? newRashodImage.name.substring(0, 10) + "..." : "Dodaj sliku"}
+            </label>
+          </div>
+        </div>
+      ) : (
+        // Desktop verzija - Flex layout
+        <div style={{ marginTop: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%", boxSizing: "border-box" }}>
+          <input
+            type="text"
+            placeholder="Naziv rashoda"
+            value={newRashod.naziv}
+            onChange={(e) => setNewRashod({ ...newRashod, naziv: e.target.value })}
+            style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+            disabled={!canEdit}
+            readOnly={!canEdit}
+          />
+          <input
+            type="number"
+            inputMode="numeric"
+            placeholder="Cijena"
+            value={newRashod.cijena === 0 ? "" : newRashod.cijena}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setNewRashod({ ...newRashod, cijena: Number(e.target.value) || 0 })}
+            style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+            className="no-spin"
+            disabled={!canEdit}
+            readOnly={!canEdit}
+          />
+          <button 
+            style={{
+              ...buttonStyle,
+              flex: "1 1 auto",
+              minWidth: "140px",
+              maxWidth: "140px",
+              opacity: canEdit ? 1 : 0.5,
+              cursor: canEdit ? "pointer" : "not-allowed",
+              background: "#dc2626",
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
+              marginBottom: 0
+            }}
+            onMouseEnter={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#b91c1c";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#dc2626";
+              }
+            }}
+            onClick={handleAddRashod}
+            disabled={!canEdit}
+          >
+            Dodaj rashod
+          </button>
+          <label
+            style={{
+              ...buttonStyle,
+              flex: "1 1 auto",
+              minWidth: "140px",
+              maxWidth: "140px",
+              opacity: canEdit ? 1 : 0.5,
+              cursor: canEdit ? "pointer" : "not-allowed",
+              marginTop: 0,
+              marginLeft: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              background: "#6b7280",
+              marginRight: 0,
+              marginBottom: 0
+            }}
+            onMouseEnter={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#4b5563";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#6b7280";
+              }
+            }}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setNewRashodImage(file);
+                e.target.value = "";
+              }}
+              style={{ display: "none" }}
+              disabled={!canEdit}
+            />
+            📸 {newRashodImage ? newRashodImage.name.substring(0, 15) + (newRashodImage.name.length > 15 ? "..." : "") : "Dodaj sliku"}
+          </label>
+          {newRashodImage && (
+            <button
+              style={{
+                padding: "8px 12px",
+                background: "#dc2626",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "14px",
+                opacity: canEdit ? 1 : 0.5
+              }}
+              onClick={() => setNewRashodImage(null)}
+              disabled={!canEdit}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Prihodi */}
-      <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px" }}>
+      <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px", textAlign: isMobile ? "center" : "left" }}>
         Prihodi
       </h2>
       <div style={tableWrapperStyle}>
@@ -2323,7 +2718,10 @@ export default function ObracunPage() {
           <thead>
             <tr>
               <th style={thStyle}>Naziv</th>
-              <th style={thStyle}>Cijena</th>
+              <th style={{
+                ...thStyle,
+                paddingLeft: isMobile ? undefined : "25px"
+              }}>Cijena</th>
               <th style={thStyle}>Akcija</th>
             </tr>
           </thead>
@@ -2342,20 +2740,74 @@ export default function ObracunPage() {
                         readOnly={!canEdit}
                       />
                     </td>
-                    <td style={tdStyle}>
+                    <td style={{
+                      ...tdStyle,
+                      paddingLeft: isMobile ? undefined : "25px"
+                    }}>
                       <input
                         type="number"
                         inputMode="numeric"
                         value={editPrihod.cijena === 0 ? "" : editPrihod.cijena}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setEditPrihod({ ...editPrihod, cijena: Number(e.target.value) || 0 })}
-                        style={{...rashodInputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+                        style={{
+                          ...rashodInputStyle,
+                          width: "100%",
+                          maxWidth: "160px",
+                          opacity: canEdit ? 1 : 0.5,
+                          cursor: canEdit ? "text" : "not-allowed"
+                        }}
                         className="no-spin"
                         disabled={!canEdit}
                         readOnly={!canEdit}
                       />
                     </td>
                     <td style={tdStyle}>
+                      <label
+                        style={{
+                          ...buttonStyle,
+                          opacity: canEdit ? 1 : 0.5,
+                          cursor: canEdit ? "pointer" : "not-allowed",
+                          margin: "0 4px 4px 0",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                          fontSize: "12px",
+                          padding: "6px 10px"
+                        }}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setEditPrihodImage(file);
+                            e.target.value = "";
+                          }}
+                          style={{ display: "none" }}
+                          disabled={!canEdit}
+                        />
+                        📸 {editPrihodImage ? editPrihodImage.name.substring(0, 10) + "..." : editPrihod.imageUrl ? "Promijeni" : "Dodaj"}
+                      </label>
+                      {editPrihodImage && (
+                        <button
+                          style={{
+                            padding: "4px 8px",
+                            background: "#dc2626",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                            marginLeft: "4px"
+                          }}
+                          onClick={() => setEditPrihodImage(null)}
+                          disabled={!canEdit}
+                        >
+                          ✕
+                        </button>
+                      )}
                       <button 
                         style={{...buttonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
                         onClick={handleSaveEditPrihod}
@@ -2376,7 +2828,10 @@ export default function ObracunPage() {
                 ) : (
                   <>
                     <td style={tdStyle}>{p.naziv}</td>
-                    <td style={tdStyle}>{p.cijena.toFixed(2)}</td>
+                    <td style={{
+                      ...tdStyle,
+                      paddingLeft: isMobile ? undefined : "25px"
+                    }}>{p.cijena.toFixed(2)}</td>
                     <td style={tdStyle}>
                       <button
                         style={{...editButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
@@ -2403,36 +2858,277 @@ export default function ObracunPage() {
         </table>
       </div>
 
-      <div style={{ marginTop: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%", boxSizing: "border-box" }}>
-        <input
-          type="text"
-          placeholder="Naziv prihoda"
-          value={newPrihod.naziv}
-          onChange={(e) => setNewPrihod({ ...newPrihod, naziv: e.target.value })}
-          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
-          disabled={!canEdit}
-          readOnly={!canEdit}
-        />
-        <input
-          type="number"
-          inputMode="numeric"
-          placeholder="Cijena"
-          value={newPrihod.cijena === 0 ? "" : newPrihod.cijena}
-          onFocus={(e) => e.target.select()}
-          onChange={(e) => setNewPrihod({ ...newPrihod, cijena: Number(e.target.value) || 0 })}
-          style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
-          className="no-spin"
-          disabled={!canEdit}
-          readOnly={!canEdit}
-        />
-        <button 
-          style={{...buttonStyle, flex: "1 1 auto", minWidth: "140px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
-          onClick={handleAddPrihod}
-          disabled={!canEdit}
-        >
-          Dodaj prihod
-        </button>
-      </div>
+      {isMobile ? (
+        // Mobilna verzija - Card layout
+        <div style={{
+          background: "#ffffff",
+          padding: "16px",
+          borderRadius: "8px",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+          marginTop: "20px"
+        }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                Naziv prihoda
+              </label>
+              <input
+                type="text"
+                placeholder="Naziv prihoda"
+                value={newPrihod.naziv}
+                onChange={(e) => setNewPrihod({ ...newPrihod, naziv: e.target.value })}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  opacity: canEdit ? 1 : 0.5,
+                  cursor: canEdit ? "text" : "not-allowed"
+                }}
+                disabled={!canEdit}
+                readOnly={!canEdit}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                Cijena
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder="Cijena"
+                value={newPrihod.cijena === 0 ? "" : newPrihod.cijena}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setNewPrihod({ ...newPrihod, cijena: Number(e.target.value) || 0 })}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  opacity: canEdit ? 1 : 0.5,
+                  cursor: canEdit ? "text" : "not-allowed"
+                }}
+                className="no-spin"
+                disabled={!canEdit}
+                readOnly={!canEdit}
+              />
+            </div>
+          </div>
+          {newPrihodImage && (
+            <div style={{ marginBottom: "12px", padding: "8px 12px", background: "#f3f4f6", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "14px", color: "#374151" }}>{newPrihodImage.name}</span>
+              <button
+                style={{
+                  padding: "4px 8px",
+                  background: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  opacity: canEdit ? 1 : 0.5
+                }}
+                onClick={() => setNewPrihodImage(null)}
+                disabled={!canEdit}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <button 
+              style={{
+                ...buttonStyle,
+                width: "100%",
+                opacity: canEdit ? 1 : 0.5,
+                cursor: canEdit ? "pointer" : "not-allowed",
+                background: "#16a34a",
+                padding: "12px 16px",
+                justifyContent: "center",
+                boxSizing: "border-box",
+                marginRight: 0,
+                marginBottom: 0
+              }}
+              onMouseEnter={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#15803d";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#16a34a";
+                }
+              }}
+              onClick={handleAddPrihod}
+              disabled={!canEdit}
+            >
+              Dodaj prihod
+            </button>
+            <label
+              style={{
+                ...buttonStyle,
+                width: "100%",
+                opacity: canEdit ? 1 : 0.5,
+                cursor: canEdit ? "pointer" : "not-allowed",
+                marginTop: 0,
+                marginLeft: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                background: "#6b7280",
+                padding: "12px 16px",
+                boxSizing: "border-box",
+                marginRight: 0,
+                marginBottom: 0
+              }}
+              onMouseEnter={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#4b5563";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#6b7280";
+                }
+              }}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setNewPrihodImage(file);
+                  e.target.value = "";
+                }}
+                style={{ display: "none" }}
+                disabled={!canEdit}
+              />
+              📸 {newPrihodImage ? newPrihodImage.name.substring(0, 10) + "..." : "Dodaj sliku"}
+            </label>
+          </div>
+        </div>
+      ) : (
+        // Desktop verzija - Flex layout
+        <div style={{ marginTop: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", width: "100%", boxSizing: "border-box" }}>
+          <input
+            type="text"
+            placeholder="Naziv prihoda"
+            value={newPrihod.naziv}
+            onChange={(e) => setNewPrihod({ ...newPrihod, naziv: e.target.value })}
+            style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+            disabled={!canEdit}
+            readOnly={!canEdit}
+          />
+          <input
+            type="number"
+            inputMode="numeric"
+            placeholder="Cijena"
+            value={newPrihod.cijena === 0 ? "" : newPrihod.cijena}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setNewPrihod({ ...newPrihod, cijena: Number(e.target.value) || 0 })}
+            style={{...rashodInputStyle, flex: "1 1 auto", minWidth: "120px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+            className="no-spin"
+            disabled={!canEdit}
+            readOnly={!canEdit}
+          />
+          <button 
+            style={{
+              ...buttonStyle,
+              flex: "1 1 auto",
+              minWidth: "140px",
+              maxWidth: "140px",
+              opacity: canEdit ? 1 : 0.5,
+              cursor: canEdit ? "pointer" : "not-allowed",
+              background: "#16a34a",
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
+              marginBottom: 0
+            }}
+            onMouseEnter={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#15803d";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#16a34a";
+              }
+            }}
+            onClick={handleAddPrihod}
+            disabled={!canEdit}
+          >
+            Dodaj prihod
+          </button>
+          <label
+            style={{
+              ...buttonStyle,
+              flex: "1 1 auto",
+              minWidth: "140px",
+              maxWidth: "140px",
+              opacity: canEdit ? 1 : 0.5,
+              cursor: canEdit ? "pointer" : "not-allowed",
+              marginTop: 0,
+              marginLeft: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              background: "#6b7280",
+              marginRight: 0,
+              marginBottom: 0
+            }}
+            onMouseEnter={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#4b5563";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (canEdit) {
+                e.currentTarget.style.background = "#6b7280";
+              }
+            }}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setNewPrihodImage(file);
+                e.target.value = "";
+              }}
+              style={{ display: "none" }}
+              disabled={!canEdit}
+            />
+            📸 {newPrihodImage ? newPrihodImage.name.substring(0, 15) + (newPrihodImage.name.length > 15 ? "..." : "") : "Dodaj sliku"}
+          </label>
+          {newPrihodImage && (
+            <button
+              style={{
+                padding: "8px 12px",
+                background: "#dc2626",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "14px",
+                opacity: canEdit ? 1 : 0.5
+              }}
+              onClick={() => setNewPrihodImage(null)}
+              disabled={!canEdit}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Ukupno */}
       <div style={{ marginTop: "24px", fontSize: "16px", color: "#1f2937" }}>
