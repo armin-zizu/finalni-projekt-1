@@ -66,7 +66,10 @@ const tableStyle: React.CSSProperties = {
 };
 
 const thStyle: React.CSSProperties = {
-  padding: "16px",
+  paddingTop: "16px",
+  paddingBottom: "16px",
+  paddingLeft: "16px",
+  paddingRight: "16px",
   textAlign: "left" as "left",
   background: "#f8fafc",
   color: "#1f2937",
@@ -76,7 +79,10 @@ const thStyle: React.CSSProperties = {
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "16px",
+  paddingTop: "16px",
+  paddingBottom: "16px",
+  paddingLeft: "16px",
+  paddingRight: "16px",
   textAlign: "left" as "left",
   borderBottom: "1px solid #f3f4f6",
   fontSize: "14px",
@@ -1821,8 +1827,6 @@ export default function ArhivaPage() {
                         }}
                         onClick={async () => {
                           try {
-                            // Dohvati sliku koristeći fetch sa Authorization header-om
-                            // Ovo je potrebno jer window.open ne šalje Authorization header
                             const token = getAuthToken();
                             if (!token) {
                               alert('Niste prijavljeni!');
@@ -1836,32 +1840,39 @@ export default function ArhivaPage() {
                             });
                             
                             if (!response.ok) {
-                              throw new Error('Failed to fetch image');
+                              if (response.status === 404) {
+                                alert('Slika nije pronađena. Možda je obrisana ili premještena.');
+                                return;
+                              }
+                              throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
                             }
                             
-                            // Kreiraj blob URL i otvori ga u novom tabu
                             const blob = await response.blob();
                             const blobUrl = URL.createObjectURL(blob);
-                            const imageWindow = window.open(blobUrl, "_blank");
+                            const newWindow = window.open(blobUrl, "_blank");
                             
-                            // Očisti blob URL nakon što se prozor otvori
-                            if (imageWindow) {
-                              imageWindow.addEventListener('load', () => {
-                                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                              });
-                            } else {
-                              // Ako popup blocker blokira, očisti blob URL odmah
+                            if (!newWindow) {
                               URL.revokeObjectURL(blobUrl);
                               alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
+                              return;
                             }
+                            
+                            // Očisti blob URL nakon što se prozor otvori (pauza od 1 sekunde)
+                            setTimeout(() => {
+                              try {
+                                URL.revokeObjectURL(blobUrl);
+                              } catch (e) {
+                                // Ignoriraj grešku pri brisanju blob URL-a
+                              }
+                            }, 1000);
                           } catch (error: any) {
                             console.error('Error opening image:', error);
                             alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
                           }
                         }}
                         onError={(e) => {
-                          console.error('Error loading image:', normalizedUrl, 'Original:', imageUrl);
-                          (e.target as HTMLImageElement).src = '/placeholder-image.png'; // Fallback image
+                          // Samo loguj grešku, ne menjaj src da ne bi izazvao petlju
+                          console.warn('Error loading image in img tag:', normalizedUrl, 'Original:', imageUrl);
                         }}
                       />
                       <button
@@ -2001,32 +2012,80 @@ export default function ArhivaPage() {
             </div>
 
             {/* Tabela dugova */}
-            <div className="table-scroll-wrapper">
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Ime dužnika</th>
-                    <th style={thStyle}>Iznos (KM)</th>
-                    <th style={thStyle}>Količina</th>
-                    <th style={thStyle}>Datum</th>
-                    <th style={thStyle}>Status</th>
-                    <th style={thStyle}>Datum plaćanja</th>
-                    <th style={thStyle}>Akcija</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getFilteredDugovi().length === 0 ? (
+            {(() => {
+              // Izračunaj širinu prve kolone na osnovu najdužeg imena dužnika
+              const filteredDugovi = getFilteredDugovi();
+              const maxLength = filteredDugovi.length > 0 
+                ? Math.max(...filteredDugovi.map(dug => (dug.imeDuznika || "Nepoznato").length))
+                : 0;
+              // Aproksimacija: svaki karakter je ~6px, plus minimalni padding 12px
+              const estimatedWidth = maxLength > 0 ? Math.max(70, Math.min(250, maxLength * 6 + 12)) : 90;
+              const firstColumnWidth = `${estimatedWidth}px`;
+              
+              return (
+              <div className="table-scroll-wrapper">
+                <table style={tableStyle}>
+                  <thead>
                     <tr>
-                      <td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#6b7280" }}>
-                        Nema dugova za prikaz
-                      </td>
+                      <th 
+                        className={isMobile ? "sticky-first-column-header" : ""}
+                        style={isMobile ? {
+                          width: firstColumnWidth,
+                          minWidth: firstColumnWidth,
+                          maxWidth: firstColumnWidth,
+                          paddingTop: thStyle.paddingTop,
+                          paddingBottom: thStyle.paddingBottom,
+                          paddingLeft: '4px',
+                          paddingRight: '4px',
+                          textAlign: thStyle.textAlign,
+                          background: thStyle.background,
+                          color: thStyle.color,
+                          fontSize: thStyle.fontSize,
+                          fontWeight: thStyle.fontWeight,
+                          borderBottom: thStyle.borderBottom,
+                        } : thStyle}
+                      >
+                        Ime dužnika
+                      </th>
+                      <th style={thStyle}>Iznos (KM)</th>
+                      <th style={thStyle}>Količina</th>
+                      <th style={thStyle}>Datum</th>
+                      <th style={thStyle}>Status</th>
+                      <th style={thStyle}>Datum plaćanja</th>
+                      <th style={thStyle}>Akcija</th>
                     </tr>
-                  ) : (
-                    getFilteredDugovi().map((dug, index) => (
-                      <tr key={index}>
-                        <td style={tdStyle}>
-                          <strong>{dug.imeDuznika || "Nepoznato"}</strong>
+                  </thead>
+                  <tbody>
+                    {filteredDugovi.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#6b7280" }}>
+                          Nema dugova za prikaz
                         </td>
+                      </tr>
+                    ) : (
+                      filteredDugovi.map((dug, index) => (
+                        <tr key={index}>
+                          <td 
+                            className={isMobile ? `sticky-first-column-row sticky-first-column-${index % 2 === 0 ? 'even' : 'odd'}` : ""}
+                            style={isMobile ? {
+                              width: firstColumnWidth,
+                              minWidth: firstColumnWidth,
+                              maxWidth: firstColumnWidth,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              paddingTop: tdStyle.paddingTop,
+                              paddingBottom: tdStyle.paddingBottom,
+                              paddingLeft: '4px',
+                              paddingRight: '4px',
+                              textAlign: tdStyle.textAlign,
+                              borderBottom: tdStyle.borderBottom,
+                              fontSize: tdStyle.fontSize,
+                              color: tdStyle.color,
+                            } : tdStyle}
+                          >
+                            <strong>{dug.imeDuznika || "Nepoznato"}</strong>
+                          </td>
                         <td style={tdStyle}>{dug.iznos.toFixed(2)}</td>
                         <td style={tdStyle}>{dug.kolicina ? dug.kolicina.toString() : "-"}</td>
                         <td style={tdStyle}>{dug.datum}</td>
@@ -2072,10 +2131,12 @@ export default function ArhivaPage() {
                         </td>
                       </tr>
                     ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -2299,16 +2360,24 @@ export default function ArhivaPage() {
                     <tr>
                       <th 
                         className={isMobile ? "sticky-first-column-header" : ""}
-                        style={{
-                          ...thStyle,
-                          ...(isMobile ? {
-                            width: firstColumnWidth,
-                            minWidth: firstColumnWidth,
-                            maxWidth: firstColumnWidth,
-                            paddingLeft: '4px',
-                            paddingRight: '4px',
-                          } : {})
-                        }}>Artikal</th>
+                        style={isMobile ? {
+                          width: firstColumnWidth,
+                          minWidth: firstColumnWidth,
+                          maxWidth: firstColumnWidth,
+                          paddingTop: thStyle.paddingTop,
+                          paddingBottom: thStyle.paddingBottom,
+                          paddingLeft: '4px',
+                          paddingRight: '4px',
+                          textAlign: thStyle.textAlign,
+                          background: thStyle.background,
+                          color: thStyle.color,
+                          fontSize: thStyle.fontSize,
+                          fontWeight: thStyle.fontWeight,
+                          borderBottom: thStyle.borderBottom,
+                        } : thStyle}
+                      >
+                        Artikal
+                      </th>
                       <th style={thStyle}>Cijena</th>
                       <th style={thStyle}>Zestoko Količina (ml)</th>
                       <th style={thStyle}>Proizvodna Cijena</th>
@@ -2325,19 +2394,25 @@ export default function ArhivaPage() {
                       <tr key={i}>
                         <td 
                           className={isMobile ? `sticky-first-column-row sticky-first-column-${i % 2 === 0 ? 'even' : 'odd'}` : ""}
-                          style={{
-                            ...tdStyle,
-                            ...(isMobile ? {
-                              width: firstColumnWidth,
-                              minWidth: firstColumnWidth,
-                              maxWidth: firstColumnWidth,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              paddingLeft: '4px',
-                              paddingRight: '4px',
-                            } : {})
-                          }}>{a.naziv}</td>
+                          style={isMobile ? {
+                            width: firstColumnWidth,
+                            minWidth: firstColumnWidth,
+                            maxWidth: firstColumnWidth,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            paddingTop: tdStyle.paddingTop,
+                            paddingBottom: tdStyle.paddingBottom,
+                            paddingLeft: '4px',
+                            paddingRight: '4px',
+                            textAlign: tdStyle.textAlign,
+                            borderBottom: tdStyle.borderBottom,
+                            fontSize: tdStyle.fontSize,
+                            color: tdStyle.color,
+                          } : tdStyle}
+                        >
+                          {a.naziv}
+                        </td>
                         <td style={tdStyle}>{a.cijena?.toFixed(2) ?? "-"}</td>
                         <td style={tdStyle}>{a.zestokoKolicina?.toFixed(3) ?? "-"}</td>
                         <td style={tdStyle}>{a.proizvodnaCijena?.toFixed(2) ?? "-"}</td>
@@ -2396,26 +2471,78 @@ export default function ArhivaPage() {
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>
                 Rashodi
               </h3>
-              <div className="table-scroll-wrapper">
-                <table style={tableStyle}>
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>Naziv</th>
-                      <th style={thStyle}>Cijena</th>
-                      <th style={thStyle}>Plaćeno</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(item.rashodi && Array.isArray(item.rashodi) ? item.rashodi : []).map((r, i) => (
-                      <tr key={i}>
-                        <td style={tdStyle}>{r.naziv}</td>
-                        <td style={tdStyle}>{r.cijena !== undefined && r.cijena !== null ? r.cijena.toFixed(2) : "-"}</td>
-                        <td style={tdStyle}>{r.placeno ? "Da" : "Ne"}</td>
+              {(() => {
+                // Izračunaj širinu prve kolone na osnovu najdužeg naziva rashoda
+                const rashodi = item.rashodi && Array.isArray(item.rashodi) ? item.rashodi : [];
+                const maxLength = rashodi.length > 0 
+                  ? Math.max(...rashodi.map(rashod => (rashod.naziv || '').length))
+                  : 0;
+                // Aproksimacija: svaki karakter je ~6px, plus minimalni padding 12px
+                const estimatedWidth = maxLength > 0 ? Math.max(70, Math.min(250, maxLength * 6 + 12)) : 90;
+                const firstColumnWidth = `${estimatedWidth}px`;
+                
+                return (
+                <div className="table-scroll-wrapper">
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr>
+                        <th 
+                          className={isMobile ? "sticky-first-column-header" : ""}
+                          style={isMobile ? {
+                            width: firstColumnWidth,
+                            minWidth: firstColumnWidth,
+                            maxWidth: firstColumnWidth,
+                            paddingTop: thStyle.paddingTop,
+                            paddingBottom: thStyle.paddingBottom,
+                            paddingLeft: '4px',
+                            paddingRight: '4px',
+                            textAlign: thStyle.textAlign,
+                            background: thStyle.background,
+                            color: thStyle.color,
+                            fontSize: thStyle.fontSize,
+                            fontWeight: thStyle.fontWeight,
+                            borderBottom: thStyle.borderBottom,
+                          } : thStyle}
+                        >
+                          Naziv
+                        </th>
+                        <th style={thStyle}>Cijena</th>
+                        <th style={thStyle}>Plaćeno</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {rashodi.map((r, i) => (
+                        <tr key={i}>
+                          <td 
+                            className={isMobile ? `sticky-first-column-row sticky-first-column-${i % 2 === 0 ? 'even' : 'odd'}` : ""}
+                            style={isMobile ? {
+                              width: firstColumnWidth,
+                              minWidth: firstColumnWidth,
+                              maxWidth: firstColumnWidth,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              paddingTop: tdStyle.paddingTop,
+                              paddingBottom: tdStyle.paddingBottom,
+                              paddingLeft: '4px',
+                              paddingRight: '4px',
+                              textAlign: tdStyle.textAlign,
+                              borderBottom: tdStyle.borderBottom,
+                              fontSize: tdStyle.fontSize,
+                              color: tdStyle.color,
+                            } : tdStyle}
+                          >
+                            {r.naziv}
+                          </td>
+                          <td style={tdStyle}>{r.cijena !== undefined && r.cijena !== null ? r.cijena.toFixed(2) : "-"}</td>
+                          <td style={tdStyle}>{r.placeno ? "Da" : "Ne"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                );
+              })()}
 
               {/* Prihodi */}
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>

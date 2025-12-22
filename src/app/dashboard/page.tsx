@@ -1854,6 +1854,29 @@ export default function DashboardPage() {
           maxWidth: "100%", 
           boxSizing: "border-box" 
         }}>
+          {/* Naslov i opis */}
+          <div style={{
+            marginBottom: "16px",
+            paddingBottom: "12px",
+            borderBottom: "2px solid #f3f4f6"
+          }}>
+            <h2 style={{
+              fontSize: "18px",
+              fontWeight: 600,
+              color: "#1f2937",
+              margin: 0
+            }}>
+              Utrošak po artiklu
+            </h2>
+            <p style={{
+              fontSize: "13px",
+              color: "#6b7280",
+              margin: "4px 0 0 0"
+            }}>
+              Odaberite artikal i vremenski period za detaljnu analizu utroška
+            </p>
+          </div>
+
           {/* Tip prikaza - Radio buttoni */}
           <div style={{ marginBottom: "12px" }}>
             <label style={{ 

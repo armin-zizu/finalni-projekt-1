@@ -518,105 +518,437 @@ export default function CjenovnikPage() {
           Dodaj novi artikal
         </h2>
         {error && <div style={errorStyle}>{error}</div>}
-        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-          <input
-            type="text"
-            placeholder="Naziv artikla"
-            value={newArtiklNaziv}
-            onChange={(e) => setNewArtiklNaziv(e.target.value)}
-            style={formInputStyle}
-          />
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Prodajna cijena"
-            value={newArtiklCijena}
-            onChange={(e) => setNewArtiklCijena(e.target.value)}
-            style={newArtiklJeZestoko ? disabledInputStyle : formInputStyle}
-            disabled={newArtiklJeZestoko}
-            className="no-spin"
-          />
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Nabavna cijena"
-            value={newArtiklNabavnaCijena}
-            onChange={(e) => setNewArtiklNabavnaCijena(e.target.value)}
-            style={newArtiklJeZestoko ? disabledInputStyle : formInputStyle}
-            disabled={newArtiklJeZestoko}
-            className="no-spin"
-          />
-          <input
-            type="number"
-            step={newArtiklJeZestoko ? "0.01" : "1"}
-            placeholder={newArtiklJeZestoko ? "Količina (L)" : "Količina (kom)"}
-            value={newArtiklPocetnoStanje}
-            onChange={(e) => setNewArtiklPocetnoStanje(e.target.value)}
-            style={formInputStyle}
-            className="no-spin"
-          />
-          <div style={{ display: "flex", alignItems: "center", marginRight: "8px" }}>
-            <input
-              type="checkbox"
-              checked={newArtiklJeZestoko}
-              onChange={(e) => setNewArtiklJeZestoko(e.target.checked)}
-              style={checkboxStyle}
-            />
-            <span style={{ fontSize: "14px", color: "#374151" }}>Žestoko piće</span>
+        
+        {isMobile ? (
+          // Mobilna verzija - Grid layout
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Naziv artikla - puna širina */}
+            <div>
+              <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                Naziv artikla
+              </label>
+              <input
+                type="text"
+                placeholder="Naziv artikla"
+                value={newArtiklNaziv}
+                onChange={(e) => setNewArtiklNaziv(e.target.value)}
+                style={{ 
+                  width: "100%", 
+                  padding: "10px 12px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  outline: "none",
+                  boxSizing: "border-box"
+                }}
+              />
+            </div>
+
+            {/* Grid sa po 2 polja u redu - osnovni podaci */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                  Prodajna cijena
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={newArtiklCijena}
+                  onChange={(e) => setNewArtiklCijena(e.target.value)}
+                  style={{ 
+                    width: "100%", 
+                    padding: "10px 12px",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    ...(newArtiklJeZestoko ? { background: "#f3f4f6", cursor: "not-allowed" } : {})
+                  }}
+                  disabled={newArtiklJeZestoko}
+                  className="no-spin"
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                  Nabavna cijena
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={newArtiklNabavnaCijena}
+                  onChange={(e) => setNewArtiklNabavnaCijena(e.target.value)}
+                  style={{ 
+                    width: "100%", 
+                    padding: "10px 12px",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    ...(newArtiklJeZestoko ? { background: "#f3f4f6", cursor: "not-allowed" } : {})
+                  }}
+                  disabled={newArtiklJeZestoko}
+                  className="no-spin"
+                />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                  {newArtiklJeZestoko ? "Količina (L)" : "Količina (kom)"}
+                </label>
+                <input
+                  type="number"
+                  step={newArtiklJeZestoko ? "0.01" : "1"}
+                  placeholder={newArtiklJeZestoko ? "0.00" : "0"}
+                  value={newArtiklPocetnoStanje}
+                  onChange={(e) => setNewArtiklPocetnoStanje(e.target.value)}
+                  style={{ 
+                    width: "100%", 
+                    padding: "10px 12px",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    outline: "none",
+                    boxSizing: "border-box"
+                  }}
+                  className="no-spin"
+                />
+              </div>
+            </div>
+
+            {/* Checkbox za žestoko piće - Toggle Switch */}
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "space-between",
+              padding: "12px 14px",
+              background: newArtiklJeZestoko ? "#eff6ff" : "#f9fafb",
+              border: `2px solid ${newArtiklJeZestoko ? "#3b82f6" : "#e5e7eb"}`,
+              borderRadius: "8px",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              marginTop: "4px"
+            }}
+            onClick={() => setNewArtiklJeZestoko(!newArtiklJeZestoko)}
+            >
+              <span style={{ 
+                fontSize: "14px", 
+                color: "#374151", 
+                fontWeight: newArtiklJeZestoko ? 600 : 500
+              }}>
+                Žestoko piće
+              </span>
+              {/* Custom Toggle Switch */}
+              <div style={{
+                position: "relative",
+                width: "44px",
+                height: "24px",
+                background: newArtiklJeZestoko ? "#3b82f6" : "#d1d5db",
+                borderRadius: "12px",
+                transition: "background 0.2s ease",
+                flexShrink: 0
+              }}>
+                <div style={{
+                  position: "absolute",
+                  top: "2px",
+                  left: newArtiklJeZestoko ? "22px" : "2px",
+                  width: "20px",
+                  height: "20px",
+                  background: "#fff",
+                  borderRadius: "50%",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+                  transition: "left 0.2s ease"
+                }} />
+              </div>
+            </div>
+
+            {/* Dodatna polja za žestoka pića */}
+            {newArtiklJeZestoko && (
+              <div style={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                gap: "12px", 
+                padding: "14px", 
+                background: "#f9fafb", 
+                borderRadius: "8px",
+                border: "1px solid #e5e7eb",
+                boxSizing: "border-box"
+              }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                      Količina po dozi (L)
+                    </label>
+                    <select
+                      value={newArtiklZestokoKolicina}
+                      onChange={(e) => setNewArtiklZestokoKolicina(e.target.value)}
+                      style={{ 
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        outline: "none",
+                        background: "#fff",
+                        cursor: "pointer",
+                        boxSizing: "border-box"
+                      }}
+                    >
+                      <option value="0.03">0.03 L</option>
+                      <option value="0.04">0.04 L</option>
+                      <option value="0.05">0.05 L</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                      Proizvodna cijena
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={newArtiklProizvodnaCijena}
+                      onChange={(e) => setNewArtiklProizvodnaCijena(e.target.value)}
+                      style={{ 
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        outline: "none",
+                        boxSizing: "border-box"
+                      }}
+                      className="no-spin"
+                    />
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                      Nabavna cijena flaše
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={newArtiklNabavnaCijenaFlase}
+                      onChange={(e) => setNewArtiklNabavnaCijenaFlase(e.target.value)}
+                      style={{ 
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        outline: "none",
+                        boxSizing: "border-box"
+                      }}
+                      className="no-spin"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                      Zapremina flaše (L)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={newArtiklZapreminaFlase}
+                      onChange={(e) => setNewArtiklZapreminaFlase(e.target.value)}
+                      style={{ 
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        outline: "none",
+                        boxSizing: "border-box"
+                      }}
+                      className="no-spin"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "13px", color: "#374151", marginBottom: "6px", fontWeight: 500 }}>
+                    Nabavna cijena po dozi (auto)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={calculateNabavnaPoDozi().toFixed(2)}
+                    disabled
+                    style={{ 
+                      width: "100%",
+                      padding: "10px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      outline: "none",
+                      background: "#f3f4f6",
+                      cursor: "not-allowed",
+                      boxSizing: "border-box"
+                    }}
+                    className="no-spin"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Dugme za dodavanje */}
+            <button style={{ 
+              ...buttonStyle, 
+              width: "100%", 
+              justifyContent: "center", 
+              padding: "12px 16px",
+              fontSize: "15px",
+              marginTop: "0",
+              boxSizing: "border-box"
+            }} onClick={addArtikl}>
+              <FaPlus /> Dodaj artikal
+            </button>
           </div>
-          {newArtiklJeZestoko && (
-            <>
-              <select
-                value={newArtiklZestokoKolicina}
-                onChange={(e) => setNewArtiklZestokoKolicina(e.target.value)}
-                style={selectStyle}
-              >
-                <option value="0.03">0.03 L</option>
-                <option value="0.04">0.04 L</option>
-                <option value="0.05">0.05 L</option>
-              </select>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Proizvodna cijena po dozi"
-                value={newArtiklProizvodnaCijena}
-                onChange={(e) => setNewArtiklProizvodnaCijena(e.target.value)}
-                style={formInputStyle}
-                className="no-spin"
-              />
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Nabavna cijena flaše"
-                value={newArtiklNabavnaCijenaFlase}
-                onChange={(e) => setNewArtiklNabavnaCijenaFlase(e.target.value)}
-                style={formInputStyle}
-                className="no-spin"
-              />
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Zapremina flaše (L)"
-                value={newArtiklZapreminaFlase}
-                onChange={(e) => setNewArtiklZapreminaFlase(e.target.value)}
-                style={formInputStyle}
-                className="no-spin"
-              />
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Nabavna cijena po dozi"
-                value={calculateNabavnaPoDozi().toFixed(2)}
-                disabled
-                style={formInputStyle}
-                className="no-spin"
-              />
-            </>
-          )}
-          <button style={buttonStyle} onClick={addArtikl}>
-            <FaPlus /> Dodaj
-          </button>
-        </div>
+        ) : (
+          // Desktop verzija - Flex layout
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <input
+              type="text"
+              placeholder="Naziv artikla"
+              value={newArtiklNaziv}
+              onChange={(e) => setNewArtiklNaziv(e.target.value)}
+              style={formInputStyle}
+            />
+            <input
+              type="number"
+              step="0.01"
+              placeholder="Prodajna cijena"
+              value={newArtiklCijena}
+              onChange={(e) => setNewArtiklCijena(e.target.value)}
+              style={newArtiklJeZestoko ? disabledInputStyle : formInputStyle}
+              disabled={newArtiklJeZestoko}
+              className="no-spin"
+            />
+            <input
+              type="number"
+              step="0.01"
+              placeholder="Nabavna cijena"
+              value={newArtiklNabavnaCijena}
+              onChange={(e) => setNewArtiklNabavnaCijena(e.target.value)}
+              style={newArtiklJeZestoko ? disabledInputStyle : formInputStyle}
+              disabled={newArtiklJeZestoko}
+              className="no-spin"
+            />
+            <input
+              type="number"
+              step={newArtiklJeZestoko ? "0.01" : "1"}
+              placeholder={newArtiklJeZestoko ? "Količina (L)" : "Količina (kom)"}
+              value={newArtiklPocetnoStanje}
+              onChange={(e) => setNewArtiklPocetnoStanje(e.target.value)}
+              style={formInputStyle}
+              className="no-spin"
+            />
+            <div 
+              style={{ 
+                display: "flex", 
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 12px",
+                background: newArtiklJeZestoko ? "#eff6ff" : "#f9fafb",
+                border: `2px solid ${newArtiklJeZestoko ? "#3b82f6" : "#e5e7eb"}`,
+                borderRadius: "8px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                marginRight: "8px",
+                minWidth: "140px"
+              }}
+              onClick={() => setNewArtiklJeZestoko(!newArtiklJeZestoko)}
+            >
+              <span style={{ 
+                fontSize: "14px", 
+                color: "#374151",
+                fontWeight: newArtiklJeZestoko ? 600 : 500
+              }}>
+                Žestoko piće
+              </span>
+              {/* Custom Toggle Switch */}
+              <div style={{
+                position: "relative",
+                width: "44px",
+                height: "24px",
+                background: newArtiklJeZestoko ? "#3b82f6" : "#d1d5db",
+                borderRadius: "12px",
+                transition: "background 0.2s ease",
+                flexShrink: 0
+              }}>
+                <div style={{
+                  position: "absolute",
+                  top: "2px",
+                  left: newArtiklJeZestoko ? "22px" : "2px",
+                  width: "20px",
+                  height: "20px",
+                  background: "#fff",
+                  borderRadius: "50%",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+                  transition: "left 0.2s ease"
+                }} />
+              </div>
+            </div>
+            {newArtiklJeZestoko && (
+              <>
+                <select
+                  value={newArtiklZestokoKolicina}
+                  onChange={(e) => setNewArtiklZestokoKolicina(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="0.03">0.03 L</option>
+                  <option value="0.04">0.04 L</option>
+                  <option value="0.05">0.05 L</option>
+                </select>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Proizvodna cijena po dozi"
+                  value={newArtiklProizvodnaCijena}
+                  onChange={(e) => setNewArtiklProizvodnaCijena(e.target.value)}
+                  style={formInputStyle}
+                  className="no-spin"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Nabavna cijena flaše"
+                  value={newArtiklNabavnaCijenaFlase}
+                  onChange={(e) => setNewArtiklNabavnaCijenaFlase(e.target.value)}
+                  style={formInputStyle}
+                  className="no-spin"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Zapremina flaše (L)"
+                  value={newArtiklZapreminaFlase}
+                  onChange={(e) => setNewArtiklZapreminaFlase(e.target.value)}
+                  style={formInputStyle}
+                  className="no-spin"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Nabavna cijena po dozi"
+                  value={calculateNabavnaPoDozi().toFixed(2)}
+                  disabled
+                  style={formInputStyle}
+                  className="no-spin"
+                />
+              </>
+            )}
+            <button style={buttonStyle} onClick={addArtikl}>
+              <FaPlus /> Dodaj
+            </button>
+          </div>
+        )}
         <button
           onClick={async () => {
             try {
@@ -641,7 +973,130 @@ export default function CjenovnikPage() {
         <p style={{ fontSize: "14px", color: "#6b7280", textAlign: "center", padding: "16px" }}>
           Nema artikala u cjenovniku.
         </p>
+      ) : isMobile ? (
+        // Mobilna verzija - Card layout
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {cjenovnik.map((artikl) => {
+            // Provjeri da li je zaliha mala
+            const threshold = artikl.jeZestoko 
+              ? parseFloat(lowStockThresholdZestoka) || 100 
+              : parseFloat(lowStockThresholdOstala) || 10;
+            const isLowStock = lowStockEnabled && artikl.pocetnoStanje < threshold;
+            
+            return (
+              <div
+                key={artikl.naziv}
+                style={{
+                  background: "#fff",
+                  borderRadius: "8px",
+                  padding: "12px",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                  borderLeft: isLowStock ? "4px solid #dc2626" : "4px solid transparent",
+                  backgroundColor: isLowStock ? "#fef2f2" : "#fff",
+                  position: "relative",
+                }}
+              >
+                {/* Artikal naziv - puna širina */}
+                <div style={{ 
+                  marginBottom: "12px",
+                  fontSize: "16px",
+                  fontWeight: 600,
+                  color: "#1f2937"
+                }}>
+                  {artikl.naziv}
+                </div>
+
+                {/* Grid sa po 2 polja u redu */}
+                <div style={{ 
+                  display: "grid", 
+                  gridTemplateColumns: "1fr 1fr", 
+                  gap: "12px",
+                  marginBottom: "8px"
+                }}>
+                  {/* Prodajna cijena */}
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                      Prodajna cijena
+                    </div>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                      {artikl.cijena.toFixed(2)} KM
+                    </div>
+                  </div>
+
+                  {/* Nabavna cijena */}
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                      Nabavna cijena
+                    </div>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                      {artikl.nabavnaCijena.toFixed(2)} KM
+                    </div>
+                  </div>
+
+                  {/* Početna količina */}
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                      Početna količina
+                    </div>
+                    <div style={{ 
+                      fontSize: "14px", 
+                      fontWeight: 600, 
+                      color: isLowStock ? "#dc2626" : "#1f2937"
+                    }}>
+                      {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
+                      {artikl.jeZestoko ? " L" : " kom"}
+                    </div>
+                  </div>
+
+                  {/* Žestoko Količina (ako je relevantno) */}
+                  {artikl.jeZestoko ? (
+                    <div>
+                      <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                        Žestoko Količina (L)
+                      </div>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                        {(artikl.zestokoKolicina || 0).toFixed(2)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div></div>
+                  )}
+                </div>
+
+                {/* Proizvodna Cijena (puna širina, samo za žestoka pića) */}
+                {artikl.jeZestoko && (
+                  <div style={{ marginTop: "8px", marginBottom: "8px" }}>
+                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                      Proizvodna Cijena
+                    </div>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                      {(artikl.proizvodnaCijena || 0).toFixed(2)} KM
+                    </div>
+                  </div>
+                )}
+
+                {/* Akcija dugme - donji desni ugao */}
+                <div style={{ 
+                  display: "flex", 
+                  justifyContent: "flex-end", 
+                  marginTop: "8px",
+                  paddingTop: "8px",
+                  borderTop: "1px solid #f3f4f6"
+                }}>
+                  <button
+                    style={deleteButtonStyle}
+                    onClick={() => deleteArtikl(artikl.naziv)}
+                    className="delete-button"
+                  >
+                    <FaTrash />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
+        // Desktop verzija - Tabela
         <div style={tableWrapperStyle}>
           <table style={tableStyle}>
           <thead>
