@@ -1912,8 +1912,9 @@ export default function DashboardPage() {
         }}
       >
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
-          <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+          {chartData.length > 0 && !loading ? (
+            <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
+              <LineChart data={chartData} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 25 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1929,8 +1930,13 @@ export default function DashboardPage() {
               <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
               <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
               <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#6b7280", fontSize: "14px" }}>
+              {loading ? "Učitavanje podataka..." : "Nema podataka za prikaz"}
+            </div>
+          )}
         </div>
       </div>
 
