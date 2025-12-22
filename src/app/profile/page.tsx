@@ -8,7 +8,7 @@ import { useRole, UserRole, PagePermission } from "../context/RoleContext";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
-import { getUserId, updateCurrentUser, logout, getUserDevices, updateDevice, deleteDevice, saveDevice, getObracuni, getCjenovnik } from "../../lib/api";
+import { getUserId, updateCurrentUser, logout, getUserDevices, updateDevice, deleteDevice, saveDevice, getObracuni, getCjenovnik, getAuthToken } from "../../lib/api";
 // TEMPORARY: Disabled Firebase imports for development - using mocks
 // import { db } from "../../lib/firestore";
 // TODO: Uklonjen Firebase import - implementirati API pozive
@@ -2120,10 +2120,20 @@ export default function Profile() {
                         : null;
 
                       // Pozovi API endpoint za prijavu uplate
-                      const response = await fetch(`/api/users/${user.id}/subscription`, {
+                      const token = getAuthToken();
+                      if (!token) {
+                        setSubscriptionMessage("Greška: Niste prijavljeni. Molimo osvježite stranicu.");
+                        setTimeout(() => setSubscriptionMessage(""), 5000);
+                        setRequestingPayment(false);
+                        return;
+                      }
+
+                      const userIdForApi = user.email || user.id;
+                      const response = await fetch(`/api/users/${userIdForApi}/subscription`, {
                         method: 'PUT',
                         headers: {
                           'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`,
                         },
                         body: JSON.stringify({
                           subscriptionData: {
