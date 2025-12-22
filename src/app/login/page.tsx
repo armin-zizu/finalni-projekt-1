@@ -153,7 +153,11 @@ export default function LoginPage() {
               setError("Ovaj uređaj je blokiran. Kontaktirajte administratora za više informacija.");
               setLoading(false);
               return;
-            } else if (needsVerification && !isOwnerDevice) {
+            }
+            
+            // BLOKIRAJ pristup ako status nije "approved" - bez obzira da li je vlasnik ili ne
+            // Korisnik mora čekati odobrenje na prvom uređaju prije pristupa
+            if (status !== "approved") {
               setError("⏳ Čekanje na odobrenje od administratora. Vaš zahtjev za pristup sa ovog uređaja je poslan administratoru. Molimo sačekajte odobrenje prije pristupa aplikaciji.");
               setLoading(false);
               return;

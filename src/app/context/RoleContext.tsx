@@ -279,14 +279,17 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         const data = existingDevice;
         let deviceRole = data.role || null;
         const isBlocked = data.isBlocked === true;
-        let status = data.status || (deviceRole === null ? "verifikacija" : "approved");
-        let needsVerification = status === "verifikacija";
+        // Ne koristi fallback logiku - koristi samo status iz baze
+        // Ako status nije postavljen ili je null, tretiraj kao "verifikacija"
+        let status = data.status;
+        if (!status || status === null || status === undefined) {
+          status = "verifikacija";
+        }
         
         console.log("RoleContext - Device postoji:", {
           deviceId: currentDeviceId,
           status: status,
           isBlocked: isBlocked,
-          needsVerification: needsVerification,
           role: deviceRole
         });
         
@@ -306,12 +309,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           // Ponovo pročitaj status nakon ažuriranja (možda je vlasnik odobrio uređaj)
         const updatedDevice = await getDeviceByDeviceId(user.id, currentDeviceId);
         if (updatedDevice) {
-          status = updatedDevice.status || status;
-            needsVerification = status === "verifikacija";
+          // Koristi status iz baze, bez fallback logike
+          status = updatedDevice.status || "verifikacija";
           deviceRole = updatedDevice.role || deviceRole;
             console.log("RoleContext - Status nakon osvježavanja:", {
               status: status,
-              needsVerification: needsVerification,
               role: deviceRole
             });
         }
@@ -319,7 +321,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
         // BLOKIRAJ pristup ako:
         // 1. Uređaj je blokiran (isBlocked === true)
-        // 2. Status nije "approved" (sve dok se ne odobri na prvom uređaju, nema pristupa)
+        // 2. Status nije eksplicitno "approved" (sve dok se ne odobri na prvom uređaju, nema pristupa)
         // Ovo osigurava da korisnik ne može pristupiti aplikaciji dok se ne odobri na prvom uređaju
         if (isBlocked || status !== "approved") {
           // Blokiraj pristup ako je uređaj blokiran ili status nije "approved"
@@ -332,7 +334,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             userId: user.id 
           });
         } else {
-          // Status je "approved" - dozvoli pristup
+          // Status je eksplicitno "approved" - dozvoli pristup
           setRole(deviceRole);
           setPermissions(data.permissions || (deviceRole === "vlasnik" ? {
             dashboard: true,
