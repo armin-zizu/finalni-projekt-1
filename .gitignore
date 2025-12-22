@@ -14,3 +14,6 @@ ui-debug.log
 exported-data/
 firebase-service-account.json
 *.serviceAccount.json
+
+# Uploaded files
+public/uploads/
