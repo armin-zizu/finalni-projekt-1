@@ -329,27 +329,29 @@ export default function DashboardPage() {
   }, [loadArhiva]);
   */
 
-  // Priprema podataka za grafikon - samo finalni obračuni (bez isAzuriran: true)
-  const obracuni: Obracun[] = arhiva
-    .filter((o) => !o.isAzuriran) // Filtriraj samo finalne obračune (isAzuriran: false ili undefined)
-    .map((o) => {
-      const ukupnoArtikli = Number(o.ukupnoArtikli) || 0;
-      const ukupnoRashod = Number(o.ukupnoRashod) || 0;
-      const ukupnoPrihod = Number(o.ukupnoPrihod) || 0;
-      
-      return {
-        datum: o.datum,
-        artikli: ukupnoArtikli,
-        rashod: ukupnoRashod,
-        prihod: ukupnoPrihod,
-        neto: ukupnoArtikli + ukupnoPrihod - ukupnoRashod,
-      };
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-      const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
-      return dateA - dateB;
-    });
+  // Priprema podataka za grafikon - samo finalni obračuni (bez isAzuriran: true) - memoizovano
+  const obracuni: Obracun[] = useMemo(() => {
+    return arhiva
+      .filter((o) => !o.isAzuriran) // Filtriraj samo finalne obračune (isAzuriran: false ili undefined)
+      .map((o) => {
+        const ukupnoArtikli = Number(o.ukupnoArtikli) || 0;
+        const ukupnoRashod = Number(o.ukupnoRashod) || 0;
+        const ukupnoPrihod = Number(o.ukupnoPrihod) || 0;
+        
+        return {
+          datum: o.datum,
+          artikli: ukupnoArtikli,
+          rashod: ukupnoRashod,
+          prihod: ukupnoPrihod,
+          neto: ukupnoArtikli + ukupnoPrihod - ukupnoRashod,
+        };
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
+        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+        return dateA - dateB;
+      });
+  }, [arhiva]);
   
   // Debug logiranje
   console.log("Dashboard - Priprema podataka za grafikon:", {
