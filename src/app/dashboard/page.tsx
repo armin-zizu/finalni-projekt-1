@@ -1780,16 +1780,16 @@ export default function DashboardPage() {
           position: "relative"
         }}
       >
-        <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
-          <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 40 : 10, bottom: isMobile ? 60 : 6 }}>
+        <div style={{ width: "100%", height: isMobile ? 310 : 400, minHeight: isMobile ? 310 : 400, position: "relative", padding: 0 }}>
+          <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 310 : 400}>
+            <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 50 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
-                tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
+                tick={{ fill: "#6b7280", fontSize: isMobile ? 9 : 11 }} 
                 angle={isMobile ? -45 : -45}
                 textAnchor="end"
-                height={isMobile ? 60 : 66}
+                height={isMobile ? 50 : 66}
                 interval={isMobile ? "preserveStartEnd" : 0}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
