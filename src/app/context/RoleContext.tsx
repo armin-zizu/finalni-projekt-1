@@ -463,6 +463,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   // Učitaj role pri inicijalizaciji i kada se user promijeni
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | undefined;
+    let intervalId: NodeJS.Timeout | undefined;
     let isMounted = true;
     
     const load = async () => {
@@ -491,11 +492,25 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     };
     
     load();
+    
+    // Periodička provjera statusa uređaja svakih 5 sekundi
+    // Ovo osigurava da se provjera statusa izvršava i nakon refresh-a
+    intervalId = setInterval(() => {
+      if (isMounted && user && deviceId) {
+        console.log("RoleContext - Periodička provjera statusa uređaja");
+        loadRole().catch((error) => {
+          console.error("RoleContext - Greška pri periodičkoj provjeri statusa:", error);
+        });
+      }
+    }, 5000); // Provjeri svakih 5 sekundi
 
     return () => {
       isMounted = false;
       if (timeoutId) {
         clearTimeout(timeoutId);
+      }
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
   }, []); // Run only once on mount
