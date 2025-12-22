@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -824,8 +824,12 @@ export default function DashboardPage() {
     return ranking;
   }, [arhiva, customFrom, customTo, selectedMonth, selectedYear]);
 
-  // Podaci za grafikon
-  const chartData = aggregateData(obracuni, range);
+  // Podaci za grafikon - memoizovano za bolje performanse i pravilno re-renderovanje
+  const chartData = useMemo(() => {
+    const data = aggregateData(obracuni, range);
+    console.log("Dashboard - ChartData memoizovan:", { length: data.length, range, primjer: data[0] });
+    return data;
+  }, [obracuni, range]);
   
   // Odredi koji artikal prikazati
   // Ako je "top" - koristi najprodavaniji, inače koristi selectedArtikl
