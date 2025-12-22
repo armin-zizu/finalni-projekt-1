@@ -192,31 +192,125 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       );
     }
 
-    // Upsert device
-    const result = await query(
-      `INSERT INTO devices (user_id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-       ON CONFLICT (device_id) DO UPDATE
-       SET device_name = EXCLUDED.device_name,
-           device_info = EXCLUDED.device_info,
-           role = EXCLUDED.role,
-           permissions = EXCLUDED.permissions,
-           is_blocked = EXCLUDED.is_blocked,
-           status = EXCLUDED.status,
-           last_login = NOW(),
-           updated_at = NOW()
-       RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
-      [
-        userId,
-        deviceId,
-        deviceName || null,
-        deviceInfo ? JSON.stringify(deviceInfo) : null,
-        role || null,
-        permissions ? JSON.stringify(permissions) : '{}',
-        isBlocked || false,
-        status || 'pending',
-      ]
+    // Upsert device - use (user_id, device_id) combination to prevent duplicates
+    // Check if device exists first to decide whether to update or insert
+    const existingDevice = await query(
+      'SELECT id, device_name, device_info, role, permissions, is_blocked, status FROM devices WHERE user_id = $1 AND device_id = $2',
+      [userId, deviceId]
     );
+
+    if (existingDevice.rows.length > 0) {
+      // Update existing device - only update fields that are provided
+      const existing = existingDevice.rows[0];
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+      let paramIndex = 1;
+
+      // Always update last_login and updated_at
+      updateFields.push(`last_login = NOW()`, `updated_at = NOW()`);
+
+      // Update device_name if provided, otherwise keep existing
+      if (deviceName !== undefined && deviceName !== null) {
+        updateFields.push(`device_name = $${paramIndex++}`);
+        updateValues.push(deviceName);
+      }
+
+      // Update device_info if provided, otherwise keep existing
+      if (deviceInfo !== undefined && deviceInfo !== null) {
+        updateFields.push(`device_info = $${paramIndex++}`);
+        updateValues.push(JSON.stringify(deviceInfo));
+      }
+
+      // Update role if provided, otherwise keep existing
+      if (role !== undefined) {
+        updateFields.push(`role = $${paramIndex++}`);
+        updateValues.push(role);
+      }
+
+      // Update permissions if provided, otherwise keep existing
+      if (permissions !== undefined && permissions !== null) {
+        updateFields.push(`permissions = $${paramIndex++}`);
+        updateValues.push(JSON.stringify(permissions));
+      }
+
+      // Update is_blocked if provided, otherwise keep existing
+      if (isBlocked !== undefined) {
+        updateFields.push(`is_blocked = $${paramIndex++}`);
+        updateValues.push(isBlocked);
+      }
+
+      // Update status if provided, otherwise keep existing
+      if (status !== undefined && status !== null) {
+        updateFields.push(`status = $${paramIndex++}`);
+        updateValues.push(status);
+      }
+
+      // Add userId and deviceId for WHERE clause
+      const userIdParamIndex = paramIndex;
+      const deviceIdParamIndex = paramIndex + 1;
+      updateValues.push(userId, deviceId);
+
+      const result = await query(
+        `UPDATE devices 
+         SET ${updateFields.join(', ')}
+         WHERE user_id = $${userIdParamIndex} AND device_id = $${deviceIdParamIndex}
+         RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
+        updateValues
+      );
+
+      const device = result.rows[0];
+      return NextResponse.json({
+        success: true,
+        device: {
+          id: device.id,
+          deviceId: device.device_id,
+          deviceName: device.device_name,
+          deviceInfo: device.device_info || {},
+          role: device.role,
+          permissions: device.permissions || {},
+          isBlocked: device.is_blocked,
+          status: device.status,
+          lastLogin: device.last_login,
+          createdAt: device.created_at,
+          updatedAt: device.updated_at,
+        },
+      });
+    } else {
+      // Insert new device
+      const result = await query(
+        `INSERT INTO devices (user_id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+         RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
+        [
+          userId,
+          deviceId,
+          deviceName || null,
+          deviceInfo ? JSON.stringify(deviceInfo) : null,
+          role || null,
+          permissions ? JSON.stringify(permissions) : '{}',
+          isBlocked || false,
+          status || 'pending',
+        ]
+      );
+
+      const device = result.rows[0];
+      return NextResponse.json({
+        success: true,
+        device: {
+          id: device.id,
+          deviceId: device.device_id,
+          deviceName: device.device_name,
+          deviceInfo: device.device_info || {},
+          role: device.role,
+          permissions: device.permissions || {},
+          isBlocked: device.is_blocked,
+          status: device.status,
+          lastLogin: device.last_login,
+          createdAt: device.created_at,
+          updatedAt: device.updated_at,
+        },
+      });
+    }
 
     const device = result.rows[0];
 

@@ -15,6 +15,7 @@
     "test:db": "node test-connection.js",
     "check:user": "node scripts/check-user.js",
     "migrate:datum": "node scripts/migrate-datum-to-text.js",
+    "migrate:devices": "node scripts/fix-devices-unique-constraint.js",
     "setup:server": "bash setup-server.sh",
     "check:server": "bash check-server.sh",
     "export:firebase": "node scripts/export-firebase-data.js",

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS devices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  device_id VARCHAR(255) UNIQUE NOT NULL,
+  device_id VARCHAR(255) NOT NULL,
   device_name VARCHAR(255),
   device_info JSONB, -- {os, browser, screenSize, ip}
   role VARCHAR(50),
@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS devices (
   last_login TIMESTAMP,
   status VARCHAR(50), -- 'active', 'blocked', 'pending'
   created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, device_id) -- Ensure same user cannot have duplicate entries for same device
 );
 
 -- Sessions tabela
