@@ -1002,7 +1002,241 @@ export default function Profile() {
               <p style={{ fontSize: "16px" }}>Nema uređaja.</p>
               <p style={{ fontSize: "14px", marginTop: "8px" }}>Uređaji će se automatski pojaviti kada se korisnici prijave.</p>
             </div>
+          ) : isMobile ? (
+            // Mobilna verzija - Card layout
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {devices.map((device) => {
+                    const roleColors: Record<string, { bg: string; color: string }> = {
+                      vlasnik: { bg: "#dbeafe", color: "#2563eb" },
+                      konobar: { bg: "#dcfce7", color: "#16a34a" },
+                      verifikacija: { bg: "#fef3c7", color: "#f59e0b" },
+                    };
+
+                    const deviceStatus = device.status || (device.role === null ? "verifikacija" : null);
+                    const isBlocked = device.isBlocked === true;
+                    const needsVerification = deviceStatus === "verifikacija";
+                    const roleColor = device.role ? roleColors[device.role] || { bg: "#f3f4f6", color: "#6b7280" } : 
+                                      needsVerification ? roleColors.verifikacija : { bg: "#f3f4f6", color: "#6b7280" };
+
+                    return (
+                      <div
+                        key={device.id}
+                        style={{
+                          background: "#fff",
+                          borderRadius: "8px",
+                          padding: "12px",
+                          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                          position: "relative",
+                        }}
+                      >
+                        {/* Ime uređaja - puna širina */}
+                        <div style={{ 
+                          marginBottom: "12px",
+                          fontSize: "16px",
+                          fontWeight: 600,
+                          color: device.deviceName ? "#1f2937" : "#9ca3af"
+                        }}>
+                          {device.deviceName || "Nema imena"}
+                        </div>
+
+                        {/* Grid sa po 2 polja u redu */}
+                        <div style={{ 
+                          display: "grid", 
+                          gridTemplateColumns: "1fr 1fr", 
+                          gap: "12px",
+                          marginBottom: "8px"
+                        }}>
+                          {/* Uređaj tip */}
+                          <div>
+                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                              Uređaj
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                              {device.deviceInfo?.os === "Android" || device.deviceInfo?.os === "iOS" ? (
+                                <FaMobile style={{ fontSize: "14px", color: "#6b7280" }} />
+                              ) : (
+                                <FaDesktop style={{ fontSize: "14px", color: "#6b7280" }} />
+                              )}
+                              <span>{device.deviceInfo?.screenSize || "N/A"}</span>
+                            </div>
+                          </div>
+
+                          {/* Browser / OS */}
+                          <div>
+                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                              Browser / OS
+                            </div>
+                            <div style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                              {device.deviceInfo?.browser || "N/A"} / {device.deviceInfo?.os || "N/A"}
+                            </div>
+                          </div>
+
+                          {/* Status */}
+                          <div>
+                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                              Status
+                            </div>
+                            <div>
+                              {needsVerification ? (
+                                <span
+                                  style={{
+                                    padding: "4px 12px",
+                                    borderRadius: "12px",
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    backgroundColor: "#fef3c7",
+                                    color: "#f59e0b",
+                                    display: "inline-block",
+                                  }}
+                                >
+                                  Verifikacija
+                                </span>
+                              ) : isBlocked ? (
+                                <span
+                                  style={{
+                                    padding: "4px 12px",
+                                    borderRadius: "12px",
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    backgroundColor: "#fee2e2",
+                                    color: "#dc2626",
+                                    display: "inline-block",
+                                  }}
+                                >
+                                  Blokiran
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    padding: "4px 12px",
+                                    borderRadius: "12px",
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    backgroundColor: "#dcfce7",
+                                    color: "#16a34a",
+                                    display: "inline-block",
+                                  }}
+                                >
+                                  Aktivan
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Uloga */}
+                          <div>
+                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                              Uloga
+                            </div>
+                            <div>
+                              <span
+                                style={{
+                                  padding: "4px 12px",
+                                  borderRadius: "12px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  backgroundColor: roleColor.bg,
+                                  color: roleColor.color,
+                                  display: "inline-block",
+                                }}
+                              >
+                                {device.role || "Nedodijeljena"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Posljednja prijava */}
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                              Posljednja prijava
+                            </div>
+                            <div style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                              {device.lastLogin
+                                ? device.lastLogin.toLocaleDateString("bs-BA") + " " + device.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
+                                : "N/A"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Akcije - donji dio */}
+                        <div style={{ 
+                          display: "flex", 
+                          flexDirection: "column",
+                          gap: "8px",
+                          marginTop: "12px",
+                          paddingTop: "12px",
+                          borderTop: "1px solid #f3f4f6"
+                        }}>
+                          {needsVerification ? (
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <button
+                                onClick={() => handleApproveDevice(device, "konobar")}
+                                style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px" }}
+                              >
+                                ✓ Odobri (Konobar)
+                              </button>
+                              {isOwner && (
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm("Jeste li sigurni da želite odobriti ovaj uređaj kao VLASNIK? Vlasnik ima pun pristup svemu.")) {
+                                      handleApproveDevice(device, "vlasnik");
+                                    }
+                                  }}
+                                  style={{ ...buttonStyle, background: "#2563eb", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px" }}
+                                >
+                                  ✓ Odobri (Vlasnik)
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDevice(device);
+                                setShowDeviceModal(true);
+                                if (device.deviceName) {
+                                  setDeviceNames({ ...deviceNames, [device.id]: device.deviceName });
+                                }
+                                setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
+                                setEditingPermissions(device.permissions || {});
+                              }}
+                              style={{ 
+                                ...buttonStyle, 
+                                fontSize: "13px", 
+                                padding: "8px 16px",
+                                width: "100%",
+                                justifyContent: "center"
+                              }}
+                            >
+                              Uredi
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleBlockDevice(device, isBlocked);
+                            }}
+                            disabled={savingRole || needsVerification}
+                            style={{
+                              ...buttonStyle,
+                              background: isBlocked ? "#16a34a" : "#dc2626",
+                              fontSize: "13px",
+                              padding: "8px 16px",
+                              width: "100%",
+                              justifyContent: "center",
+                              opacity: (savingRole || needsVerification) ? 0.5 : 1,
+                              cursor: (savingRole || needsVerification) ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {isBlocked ? "Odblokiraj" : "Blokiraj"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+            </div>
           ) : (
+            // Desktop verzija - Tabela
             <div style={tableWrapperStyle} className={tableWrapperClassName}>
               <table style={tableStyle}>
                 <thead>
