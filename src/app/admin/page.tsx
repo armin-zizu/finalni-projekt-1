@@ -74,25 +74,16 @@ export default function AdminPage() {
   const [activateOnPayment, setActivateOnPayment] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [revenueFilter, setRevenueFilter] = useState<"currentWeek" | "previousWeek" | "mjesečni" | "tromjesečni" | "prilagođeno" | "odaberiMjesec">("currentWeek");
-  const [customFromDate, setCustomFromDate] = useState<string>("");
-  const [customToDate, setCustomToDate] = useState<string>("");
+  const [revenueFilter, setRevenueFilter] = useState<"currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom">("currentWeek");
+  const [customFrom, setCustomFrom] = useState<string>(
+    new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split("T")[0]
+  );
+  const [customTo, setCustomTo] = useState<string>(new Date().toISOString().split("T")[0]);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
-  const [customFromDay, setCustomFromDay] = useState<number>(new Date().getDate());
-  const [customFromMonth, setCustomFromMonth] = useState<number>(new Date().getMonth() + 1);
-  const [customFromYear, setCustomFromYear] = useState<number>(new Date().getFullYear());
-  const [customToDay, setCustomToDay] = useState<number>(new Date().getDate());
-  const [customToMonth, setCustomToMonth] = useState<number>(new Date().getMonth() + 1);
-  const [customToYear, setCustomToYear] = useState<number>(new Date().getFullYear());
-  const [customFromDayDropdownOpen, setCustomFromDayDropdownOpen] = useState(false);
-  const [customFromMonthDropdownOpen, setCustomFromMonthDropdownOpen] = useState(false);
-  const [customFromYearDropdownOpen, setCustomFromYearDropdownOpen] = useState(false);
-  const [customToDayDropdownOpen, setCustomToDayDropdownOpen] = useState(false);
-  const [customToMonthDropdownOpen, setCustomToMonthDropdownOpen] = useState(false);
-  const [customToYearDropdownOpen, setCustomToYearDropdownOpen] = useState(false);
+  const [chartKey, setChartKey] = useState(0);
   const [premiumDaysAdjustment, setPremiumDaysAdjustment] = useState(0);
   const [trialDaysAdjustment, setTrialDaysAdjustment] = useState(0);
   const [newSubscriptionStatus, setNewSubscriptionStatus] = useState<"trial" | "premium" | "grace" | "inactive">("premium");
@@ -107,13 +98,19 @@ export default function AdminPage() {
   useEffect(() => {
     const checkMobile = () => {
       if (typeof window === 'undefined') return;
-      setIsMobile(window.innerWidth <= 768);
+      const wasMobile = isMobile;
+      const nowMobile = window.innerWidth <= 768;
+      setIsMobile(nowMobile);
+      // Increment chartKey when switching between mobile/desktop
+      if (wasMobile !== nowMobile) {
+        setChartKey(prev => prev + 1);
+      }
     };
     
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [isMobile]);
 
   // Postavi korisnika kao vlasnika (isOwner = true) - pomoćna funkcija
   const setUserAsOwnerHelper = async (userEmail: string) => {
@@ -566,11 +563,12 @@ export default function AdminPage() {
     let endDate: Date = new Date();
     
     // Odredi početni i krajnji datum na osnovu filtera
-    if (revenueFilter === "prilagođeno") {
-      // Koristi dropdown vrijednosti za custom date range
-      startDate = new Date(customFromYear, customFromMonth - 1, customFromDay);
+    if (revenueFilter === "custom") {
+      const fromTime = new Date(customFrom).getTime();
+      const toTime = new Date(customTo).getTime();
+      startDate = new Date(fromTime);
       startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(customToYear, customToMonth - 1, customToDay);
+      endDate = new Date(toTime);
       endDate.setHours(23, 59, 59, 999);
     } else if (revenueFilter === "currentWeek") {
       // Trenutna sedmica - poslednjih 7 dana
@@ -587,22 +585,27 @@ export default function AdminPage() {
       endDate = new Date(now);
       endDate.setDate(endDate.getDate() - 7);
       endDate.setHours(23, 59, 59, 999);
-    } else if (revenueFilter === "mjesečni") {
+    } else if (revenueFilter === "monthly") {
       // Od trenutnog datuma unazad do početka mjeseca
       startDate = new Date(now);
       startDate.setDate(1); // Prvi dan trenutnog mjeseca
       startDate.setHours(0, 0, 0, 0);
       endDate = new Date(now);
       endDate.setHours(23, 59, 59, 999);
-    } else if (revenueFilter === "odaberiMjesec") {
+    } else if (revenueFilter === "selectMonth") {
       if (!selectedMonth || !selectedYear) return [];
       startDate = new Date(selectedYear, selectedMonth - 1, 1); // Prvi dan odabranog mjeseca
       startDate.setHours(0, 0, 0, 0);
       endDate = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999); // Posljednji dan odabranog mjeseca
-    } else if (revenueFilter === "tromjesečni") {
-      startDate = new Date(now);
-      startDate.setMonth(startDate.getMonth() - 24); // Zadnjih 8 kvartala (2 godine)
-      startDate.setHours(0, 0, 0, 0);
+    } else if (revenueFilter === "quarterly") {
+      // Tromjesečni - zadnja 3 mjeseca (kvartal)
+      const threeMonthsAgo = new Date(now);
+      threeMonthsAgo.setMonth(now.getMonth() - 3);
+      threeMonthsAgo.setDate(1);
+      threeMonthsAgo.setHours(0, 0, 0, 0);
+      startDate = threeMonthsAgo;
+      endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
     } else {
       startDate = new Date(now);
       startDate.setMonth(startDate.getMonth() - 12);
@@ -624,20 +627,20 @@ export default function AdminPage() {
       let sortKey: string; // Za sortiranje
       const date = new Date(payment.date);
       
-      if (revenueFilter === "currentWeek" || revenueFilter === "previousWeek" || revenueFilter === "prilagođeno" || revenueFilter === "odaberiMjesec") {
+      if (revenueFilter === "currentWeek" || revenueFilter === "previousWeek" || revenueFilter === "custom" || revenueFilter === "selectMonth") {
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
         key = `${day}.${month}.${year}`;
         sortKey = `${year}-${month}-${day}`;
-      } else if (revenueFilter === "mjesečni") {
+      } else if (revenueFilter === "monthly") {
         // Mjesečni
         const monthNames = ["januar", "februar", "mart", "april", "maj", "juni", "juli", "august", "septembar", "oktobar", "novembar", "decembar"];
         const month = monthNames[date.getMonth()];
         const year = date.getFullYear();
         key = `${month} ${year}`;
         sortKey = `${year}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      } else if (revenueFilter === "tromjesečni") {
+      } else if (revenueFilter === "quarterly") {
         // Tromjesečni (kvartali)
         const quarter = Math.floor(date.getMonth() / 3) + 1;
         const year = date.getFullYear();
@@ -722,7 +725,7 @@ export default function AdminPage() {
       }))
       .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
       .map(({ period, zarada }) => ({ period, zarada }));
-  }, [allPayments, revenueFilter, customFromDay, customFromMonth, customFromYear, customToDay, customToMonth, customToYear, selectedMonth, selectedYear]);
+  }, [allPayments, revenueFilter, customFrom, customTo, selectedMonth, selectedYear]);
 
   // Ukupna zarada za odabrani period
   const totalRevenue = useMemo(() => {
@@ -752,26 +755,16 @@ export default function AdminPage() {
       if (!target.closest('[data-dropdown-container]')) {
         setMonthDropdownOpen(false);
         setYearDropdownOpen(false);
-        setCustomFromDayDropdownOpen(false);
-        setCustomFromMonthDropdownOpen(false);
-        setCustomFromYearDropdownOpen(false);
-        setCustomToDayDropdownOpen(false);
-        setCustomToMonthDropdownOpen(false);
-        setCustomToYearDropdownOpen(false);
       }
     };
 
-    if (monthDropdownOpen || yearDropdownOpen || 
-        customFromDayDropdownOpen || customFromMonthDropdownOpen || customFromYearDropdownOpen ||
-        customToDayDropdownOpen || customToMonthDropdownOpen || customToYearDropdownOpen) {
+    if (monthDropdownOpen || yearDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [monthDropdownOpen, yearDropdownOpen, 
-      customFromDayDropdownOpen, customFromMonthDropdownOpen, customFromYearDropdownOpen,
-      customToDayDropdownOpen, customToMonthDropdownOpen, customToYearDropdownOpen]);
+  }, [monthDropdownOpen, yearDropdownOpen]);
 
   if (isAdmin === null || loading) {
     return (
@@ -855,705 +848,137 @@ export default function AdminPage() {
             }}>
               Vremenski period
             </label>
-            <div style={{ 
-              display: "flex", 
-              gap: 4, 
-              flexWrap: "wrap", 
-              alignItems: "center", 
-              width: "100%" 
-            }}>
-              {[
-                { value: "currentWeek", label: "Trenutna sedmica" },
-                { value: "previousWeek", label: "Prošla sedmica" },
-                { value: "mjesečni", label: "Mjesečni" },
-                { value: "tromjesečni", label: "Tromjesečni" },
-                { value: "odaberiMjesec", label: "Odaberi mjesec" },
-                { value: "prilagođeno", label: "Prilagođeno" },
-              ].map((r, index) => (
-                <button
-                  key={r.value}
-                  onClick={() => setRevenueFilter(r.value as any)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    cursor: "pointer",
-                    fontWeight: 500,
-                    fontSize: 13,
-                    background: revenueFilter === r.value ? "#3b82f6" : "#e5e7eb",
-                    color: revenueFilter === r.value ? "#fff" : "#374151",
-                    transition: "all 0.2s",
-                    boxShadow: revenueFilter === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                    whiteSpace: "nowrap",
-                    flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
-                    minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
-                    maxWidth: index >= 4 ? "100%" : index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
-                  }}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-            {revenueFilter === "prilagođeno" && (
-              <div style={{ display: "flex", gap: "16px", alignItems: "flex-end", flexWrap: "wrap" }}>
-                {/* Od datuma */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Od datuma:</label>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-                    {/* Dan */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Dan:</label>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomFromDayDropdownOpen(!customFromDayDropdownOpen);
-                            setCustomFromMonthDropdownOpen(false);
-                            setCustomFromYearDropdownOpen(false);
-                            setCustomToDayDropdownOpen(false);
-                            setCustomToMonthDropdownOpen(false);
-                            setCustomToYearDropdownOpen(false);
-                          }}
-                          style={{
-                            padding: "10px 32px 10px 12px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            minWidth: "70px",
-                            backgroundColor: "#fff",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            boxShadow: customFromDayDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                            transition: "all 0.2s ease",
-                            fontWeight: 500,
-                            color: "#1f2937",
-                          }}
-                        >
-                          <span>{customFromDay}</span>
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{
-                              transform: customFromDayDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s ease",
-                              position: "absolute",
-                              right: "8px",
-                            }}
-                          >
-                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                          </svg>
-                        </button>
-                        {customFromDayDropdownOpen && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              marginTop: "4px",
-                              backgroundColor: "#fff",
-                              border: "1px solid #e5e7eb",
-                              borderRadius: "8px",
-                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                              zIndex: 1000,
-                              maxHeight: "200px",
-                              overflowY: "auto",
-                              animation: "slideDown 0.2s ease-out",
-                            }}
-                          >
-                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                              <button
-                                key={day}
-                                type="button"
-                                onClick={() => {
-                                  setCustomFromDay(day);
-                                  setCustomFromDayDropdownOpen(false);
-                                }}
-                                style={{
-                                  width: "100%",
-                                  padding: "8px 12px",
-                                  textAlign: "left",
-                                  border: "none",
-                                  backgroundColor: customFromDay === day ? "#eff6ff" : "#fff",
-                                  color: customFromDay === day ? "#2563eb" : "#1f2937",
-                                  fontSize: "14px",
-                                  cursor: "pointer",
-                                  transition: "all 0.15s ease",
-                                  fontWeight: customFromDay === day ? 600 : 400,
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (customFromDay !== day) {
-                                    e.currentTarget.style.backgroundColor = "#f9fafb";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (customFromDay !== day) {
-                                    e.currentTarget.style.backgroundColor = "#fff";
-                                  }
-                                }}
-                              >
-                                {day}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Mjesec */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomFromMonthDropdownOpen(!customFromMonthDropdownOpen);
-                            setCustomFromDayDropdownOpen(false);
-                            setCustomFromYearDropdownOpen(false);
-                            setCustomToDayDropdownOpen(false);
-                            setCustomToMonthDropdownOpen(false);
-                            setCustomToYearDropdownOpen(false);
-                          }}
-                          style={{
-                            padding: "10px 32px 10px 12px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            minWidth: "120px",
-                            backgroundColor: "#fff",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            boxShadow: customFromMonthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                            transition: "all 0.2s ease",
-                            fontWeight: 500,
-                            color: "#1f2937",
-                          }}
-                        >
-                          <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][customFromMonth - 1]}</span>
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{
-                              transform: customFromMonthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s ease",
-                              position: "absolute",
-                              right: "8px",
-                            }}
-                          >
-                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                          </svg>
-                        </button>
-                        {customFromMonthDropdownOpen && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              marginTop: "4px",
-                              backgroundColor: "#fff",
-                              border: "1px solid #e5e7eb",
-                              borderRadius: "8px",
-                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                              zIndex: 1000,
-                              maxHeight: "240px",
-                              overflowY: "auto",
-                              animation: "slideDown 0.2s ease-out",
-                            }}
-                          >
-                            {[
-                              "Januar", "Februar", "Mart", "April", "Maj", "Juni",
-                              "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
-                            ].map((month, index) => (
-                              <button
-                                key={index + 1}
-                                type="button"
-                                onClick={() => {
-                                  setCustomFromMonth(index + 1);
-                                  setCustomFromMonthDropdownOpen(false);
-                                }}
-                                style={{
-                                  width: "100%",
-                                  padding: "10px 14px",
-                                  textAlign: "left",
-                                  border: "none",
-                                  backgroundColor: customFromMonth === index + 1 ? "#eff6ff" : "#fff",
-                                  color: customFromMonth === index + 1 ? "#2563eb" : "#1f2937",
-                                  fontSize: "14px",
-                                  cursor: "pointer",
-                                  transition: "all 0.15s ease",
-                                  fontWeight: customFromMonth === index + 1 ? 600 : 400,
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (customFromMonth !== index + 1) {
-                                    e.currentTarget.style.backgroundColor = "#f9fafb";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (customFromMonth !== index + 1) {
-                                    e.currentTarget.style.backgroundColor = "#fff";
-                                  }
-                                }}
-                              >
-                                {month}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Godina */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Godina:</label>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomFromYearDropdownOpen(!customFromYearDropdownOpen);
-                            setCustomFromDayDropdownOpen(false);
-                            setCustomFromMonthDropdownOpen(false);
-                            setCustomToDayDropdownOpen(false);
-                            setCustomToMonthDropdownOpen(false);
-                            setCustomToYearDropdownOpen(false);
-                          }}
-                          style={{
-                            padding: "10px 32px 10px 12px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            minWidth: "100px",
-                            backgroundColor: "#fff",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            boxShadow: customFromYearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                            transition: "all 0.2s ease",
-                            fontWeight: 500,
-                            color: "#1f2937",
-                          }}
-                        >
-                          <span>{customFromYear}</span>
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{
-                              transform: customFromYearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s ease",
-                              position: "absolute",
-                              right: "8px",
-                            }}
-                          >
-                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                          </svg>
-                        </button>
-                        {customFromYearDropdownOpen && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              marginTop: "4px",
-                              backgroundColor: "#fff",
-                              border: "1px solid #e5e7eb",
-                              borderRadius: "8px",
-                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                              zIndex: 1000,
-                              maxHeight: "240px",
-                              overflowY: "auto",
-                              animation: "slideDown 0.2s ease-out",
-                            }}
-                          >
-                            {Array.from({ length: 10 }, (_, i) => {
-                              const year = new Date().getFullYear() - 5 + i;
-                              return (
-                                <button
-                                  key={year}
-                                  type="button"
-                                  onClick={() => {
-                                    setCustomFromYear(year);
-                                    setCustomFromYearDropdownOpen(false);
-                                  }}
-                                  style={{
-                                    width: "100%",
-                                    padding: "10px 14px",
-                                    textAlign: "left",
-                                    border: "none",
-                                    backgroundColor: customFromYear === year ? "#eff6ff" : "#fff",
-                                    color: customFromYear === year ? "#2563eb" : "#1f2937",
-                                    fontSize: "14px",
-                                    cursor: "pointer",
-                                    transition: "all 0.15s ease",
-                                    fontWeight: customFromYear === year ? 600 : 400,
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (customFromYear !== year) {
-                                      e.currentTarget.style.backgroundColor = "#f9fafb";
-                                    }
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    if (customFromYear !== year) {
-                                      e.currentTarget.style.backgroundColor = "#fff";
-                                    }
-                                  }}
-                                >
-                                  {year}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Do datuma */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Do datuma:</label>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-                    {/* Dan */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Dan:</label>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomToDayDropdownOpen(!customToDayDropdownOpen);
-                            setCustomFromDayDropdownOpen(false);
-                            setCustomFromMonthDropdownOpen(false);
-                            setCustomFromYearDropdownOpen(false);
-                            setCustomToMonthDropdownOpen(false);
-                            setCustomToYearDropdownOpen(false);
-                          }}
-                          style={{
-                            padding: "10px 32px 10px 12px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            minWidth: "70px",
-                            backgroundColor: "#fff",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            boxShadow: customToDayDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                            transition: "all 0.2s ease",
-                            fontWeight: 500,
-                            color: "#1f2937",
-                          }}
-                        >
-                          <span>{customToDay}</span>
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{
-                              transform: customToDayDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s ease",
-                              position: "absolute",
-                              right: "8px",
-                            }}
-                          >
-                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                          </svg>
-                        </button>
-                        {customToDayDropdownOpen && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              marginTop: "4px",
-                              backgroundColor: "#fff",
-                              border: "1px solid #e5e7eb",
-                              borderRadius: "8px",
-                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                              zIndex: 1000,
-                              maxHeight: "200px",
-                              overflowY: "auto",
-                              animation: "slideDown 0.2s ease-out",
-                            }}
-                          >
-                            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                              <button
-                                key={day}
-                                type="button"
-                                onClick={() => {
-                                  setCustomToDay(day);
-                                  setCustomToDayDropdownOpen(false);
-                                }}
-                                style={{
-                                  width: "100%",
-                                  padding: "8px 12px",
-                                  textAlign: "left",
-                                  border: "none",
-                                  backgroundColor: customToDay === day ? "#eff6ff" : "#fff",
-                                  color: customToDay === day ? "#2563eb" : "#1f2937",
-                                  fontSize: "14px",
-                                  cursor: "pointer",
-                                  transition: "all 0.15s ease",
-                                  fontWeight: customToDay === day ? 600 : 400,
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (customToDay !== day) {
-                                    e.currentTarget.style.backgroundColor = "#f9fafb";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (customToDay !== day) {
-                                    e.currentTarget.style.backgroundColor = "#fff";
-                                  }
-                                }}
-                              >
-                                {day}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Mjesec */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomToMonthDropdownOpen(!customToMonthDropdownOpen);
-                            setCustomFromDayDropdownOpen(false);
-                            setCustomFromMonthDropdownOpen(false);
-                            setCustomFromYearDropdownOpen(false);
-                            setCustomToDayDropdownOpen(false);
-                            setCustomToYearDropdownOpen(false);
-                          }}
-                          style={{
-                            padding: "10px 32px 10px 12px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            minWidth: "120px",
-                            backgroundColor: "#fff",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            boxShadow: customToMonthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                            transition: "all 0.2s ease",
-                            fontWeight: 500,
-                            color: "#1f2937",
-                          }}
-                        >
-                          <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][customToMonth - 1]}</span>
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{
-                              transform: customToMonthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s ease",
-                              position: "absolute",
-                              right: "8px",
-                            }}
-                          >
-                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                          </svg>
-                        </button>
-                        {customToMonthDropdownOpen && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              marginTop: "4px",
-                              backgroundColor: "#fff",
-                              border: "1px solid #e5e7eb",
-                              borderRadius: "8px",
-                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                              zIndex: 1000,
-                              maxHeight: "240px",
-                              overflowY: "auto",
-                              animation: "slideDown 0.2s ease-out",
-                            }}
-                          >
-                            {[
-                              "Januar", "Februar", "Mart", "April", "Maj", "Juni",
-                              "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
-                            ].map((month, index) => (
-                              <button
-                                key={index + 1}
-                                type="button"
-                                onClick={() => {
-                                  setCustomToMonth(index + 1);
-                                  setCustomToMonthDropdownOpen(false);
-                                }}
-                                style={{
-                                  width: "100%",
-                                  padding: "10px 14px",
-                                  textAlign: "left",
-                                  border: "none",
-                                  backgroundColor: customToMonth === index + 1 ? "#eff6ff" : "#fff",
-                                  color: customToMonth === index + 1 ? "#2563eb" : "#1f2937",
-                                  fontSize: "14px",
-                                  cursor: "pointer",
-                                  transition: "all 0.15s ease",
-                                  fontWeight: customToMonth === index + 1 ? 600 : 400,
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (customToMonth !== index + 1) {
-                                    e.currentTarget.style.backgroundColor = "#f9fafb";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (customToMonth !== index + 1) {
-                                    e.currentTarget.style.backgroundColor = "#fff";
-                                  }
-                                }}
-                              >
-                                {month}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Godina */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                      <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Godina:</label>
-                      <div style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomToYearDropdownOpen(!customToYearDropdownOpen);
-                            setCustomFromDayDropdownOpen(false);
-                            setCustomFromMonthDropdownOpen(false);
-                            setCustomFromYearDropdownOpen(false);
-                            setCustomToDayDropdownOpen(false);
-                            setCustomToMonthDropdownOpen(false);
-                          }}
-                          style={{
-                            padding: "10px 32px 10px 12px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            minWidth: "100px",
-                            backgroundColor: "#fff",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            boxShadow: customToYearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                            transition: "all 0.2s ease",
-                            fontWeight: 500,
-                            color: "#1f2937",
-                          }}
-                        >
-                          <span>{customToYear}</span>
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                            style={{
-                              transform: customToYearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s ease",
-                              position: "absolute",
-                              right: "8px",
-                            }}
-                          >
-                            <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                          </svg>
-                        </button>
-                        {customToYearDropdownOpen && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              marginTop: "4px",
-                              backgroundColor: "#fff",
-                              border: "1px solid #e5e7eb",
-                              borderRadius: "8px",
-                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                              zIndex: 1000,
-                              maxHeight: "240px",
-                              overflowY: "auto",
-                              animation: "slideDown 0.2s ease-out",
-                            }}
-                          >
-                            {Array.from({ length: 10 }, (_, i) => {
-                              const year = new Date().getFullYear() - 5 + i;
-                              return (
-                                <button
-                                  key={year}
-                                  type="button"
-                                  onClick={() => {
-                                    setCustomToYear(year);
-                                    setCustomToYearDropdownOpen(false);
-                                  }}
-                                  style={{
-                                    width: "100%",
-                                    padding: "10px 14px",
-                                    textAlign: "left",
-                                    border: "none",
-                                    backgroundColor: customToYear === year ? "#eff6ff" : "#fff",
-                                    color: customToYear === year ? "#2563eb" : "#1f2937",
-                                    fontSize: "14px",
-                                    cursor: "pointer",
-                                    transition: "all 0.15s ease",
-                                    fontWeight: customToYear === year ? 600 : 400,
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (customToYear !== year) {
-                                      e.currentTarget.style.backgroundColor = "#f9fafb";
-                                    }
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    if (customToYear !== year) {
-                                      e.currentTarget.style.backgroundColor = "#fff";
-                                    }
-                                  }}
-                                >
-                                  {year}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {revenueFilter === "odaberiMjesec" && (
+            {isMobile ? (
               <div style={{ 
                 display: "flex", 
-                gap: 8, 
+                gap: 4, 
+                flexWrap: "wrap", 
+                alignItems: "center", 
+                width: "100%" 
+              }}>
+                {[
+                  { value: "currentWeek", label: "Trenutna sedmica" },
+                  { value: "previousWeek", label: "Prošla sedmica" },
+                  { value: "monthly", label: "Mjesečni" },
+                  { value: "quarterly", label: "Tromjesečni" },
+                  { value: "selectMonth", label: "Odaberi mjesec" },
+                  { value: "custom", label: "Prilagođeno" },
+                ].map((r, index) => (
+                  <button
+                    key={r.value}
+                    onClick={() => setRevenueFilter(r.value as any)}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 8,
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                      fontSize: 13,
+                      background: revenueFilter === r.value ? "#3b82f6" : "#e5e7eb",
+                      color: revenueFilter === r.value ? "#fff" : "#374151",
+                      transition: "all 0.2s",
+                      boxShadow: revenueFilter === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+                      whiteSpace: "nowrap",
+                      flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
+                      minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                      maxWidth: index >= 4 ? "100%" : index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+                {[
+                  { value: "currentWeek", label: "Trenutna sedmica" },
+                  { value: "previousWeek", label: "Prošla sedmica" },
+                  { value: "monthly", label: "Mjesečni" },
+                  { value: "quarterly", label: "Tromjesečni" },
+                  { value: "selectMonth", label: "Odaberi mjesec" },
+                  { value: "custom", label: "Prilagođeno" },
+                ].map((r) => (
+                  <button
+                    key={r.value}
+                    onClick={() => setRevenueFilter(r.value as any)}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 8,
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                      fontSize: 14,
+                      background: revenueFilter === r.value ? "#3b82f6" : "#e5e7eb",
+                      color: revenueFilter === r.value ? "#fff" : "#374151",
+                      transition: "all 0.2s",
+                      boxShadow: revenueFilter === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {revenueFilter === "custom" && (
+              <div style={{ 
+                display: "flex", 
+                gap: isMobile ? 4 : 12, 
+                alignItems: "center", 
+                width: "100%", 
+                flexWrap: "wrap",
+                marginTop: isMobile ? 8 : 0,
+                marginLeft: isMobile ? 0 : 0
+              }}>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={{ 
+                    padding: isMobile ? "6px 8px" : "8px 12px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: isMobile ? 13 : 14, 
+                    outline: "none",
+                    flex: isMobile ? "1 1 auto" : "none",
+                    minWidth: isMobile ? 0 : "150px",
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ 
+                  whiteSpace: "nowrap", 
+                  color: "#6b7280",
+                  fontSize: isMobile ? 13 : 14
+                }}>
+                  do
+                </span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={{ 
+                    padding: isMobile ? "6px 8px" : "8px 12px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: isMobile ? 13 : 14, 
+                    outline: "none",
+                    flex: isMobile ? "1 1 auto" : "none",
+                    minWidth: isMobile ? 0 : "150px",
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </div>
+            )}
+            {revenueFilter === "selectMonth" && (
+              <div style={{ 
+                display: "flex", 
+                gap: isMobile ? 8 : 12, 
                 alignItems: "flex-end", 
                 width: "100%", 
-                flexWrap: "wrap" 
+                flexWrap: "wrap",
+                marginTop: isMobile ? 8 : 0,
+                marginLeft: isMobile ? 0 : 10
               }}>
                 {/* Custom Dropdown za Mjesec */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
@@ -1791,6 +1216,7 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Grafikon zarade */}
         {revenueChartData.length > 0 ? (
           <>
             <div style={{ marginBottom: "16px", padding: "12px", background: "#f9fafb", borderRadius: "8px", display: "inline-block" }}>
@@ -1799,22 +1225,25 @@ export default function AdminPage() {
                 {totalRevenue.toFixed(2)} KM
               </span>
             </div>
-            <div style={{ 
-              width: "100%", 
-              maxWidth: "100%",
-              height: isMobile ? 310 : 400,
-              minHeight: isMobile ? 310 : 400,
-              marginTop: "20px",
-              backgroundColor: "#fff",
-              borderRadius: "12px",
-              padding: isMobile ? 0 : 20,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-              boxSizing: "border-box",
-              overflow: isMobile ? "visible" : "hidden",
-              position: "relative"
-            }}>
+            <div
+              className="chart-container"
+              style={{
+                width: "100%",
+                maxWidth: "100%",
+                height: isMobile ? 310 : 400,
+                minHeight: isMobile ? 310 : 400,
+                backgroundColor: "#fff",
+                borderRadius: 12,
+                padding: isMobile ? 0 : 20,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                marginBottom: isMobile ? 8 : 30,
+                overflow: isMobile ? "visible" : "hidden",
+                boxSizing: "border-box",
+                position: "relative"
+              }}
+            >
               <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
-                <ResponsiveContainer key={`revenue-chart-${isMobile}-${revenueChartData.length}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
+                <ResponsiveContainer key={`revenue-chart-${isMobile}-${revenueChartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
                   <LineChart data={revenueChartData} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis 
@@ -1824,19 +1253,16 @@ export default function AdminPage() {
                       textAnchor="end"
                       height={isMobile ? 25 : 66}
                     />
-                  <YAxis 
-                    tick={{ fill: "#6b7280", fontSize: 11 }} 
-                    width={50}
-                  />
-                  <Tooltip content={<RevenueTooltip />} />
-                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
+                    <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+                    <Tooltip content={<RevenueTooltip />} />
+                    <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
                     <Line 
                       type="monotone" 
                       dataKey="zarada" 
+                      name="Zarada" 
                       stroke="#10b981" 
-                      strokeWidth={2}
-                      dot={{ r: isMobile ? 2 : 3 }}
-                      name="Zarada (KM)"
+                      strokeWidth={2} 
+                      dot={{ r: isMobile ? 2 : 3 }} 
                     />
                   </LineChart>
                 </ResponsiveContainer>

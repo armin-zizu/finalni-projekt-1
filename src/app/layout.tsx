@@ -357,44 +357,44 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative", WebkitTapHighlightColor: "transparent" }}>
         <AppNameProvider>
-          <SubscriptionProvider>
-            <RoleProvider>
+          <RoleProvider>
+            <SubscriptionProvider>
               <CjenovnikProvider>
                 <AppContent>{children}</AppContent>
               </CjenovnikProvider>
-            </RoleProvider>
-            <style jsx>{`
-              .sidebar-link:hover {
-                background-color: #3b82f6;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-              }
-              @media (max-width: 768px) {
-                main {
-                  padding-bottom: 60px; /* Zadrži prostor za bottom bar */
+              <style jsx>{`
+                .sidebar-link:hover {
+                  background-color: #3b82f6;
+                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
                 }
-                div[style*="padding: 20px"] {
-                  padding: 10px; /* Smanji padding na mobilu */
+                @media (max-width: 768px) {
+                  main {
+                    padding-bottom: 60px; /* Zadrži prostor za bottom bar */
+                  }
+                  div[style*="padding: 20px"] {
+                    padding: 10px; /* Smanji padding na mobilu */
+                  }
+                  /* Spriječi automatsko zumiranje na input poljima - iOS Safari zumira ako je font-size < 16px */
+                  input[type="text"],
+                  input[type="number"],
+                  input[type="tel"],
+                  input[type="email"],
+                  input[type="date"],
+                  input[type="time"],
+                  input[type="datetime-local"],
+                  textarea,
+                  select {
+                    font-size: 16px !important;
+                  }
                 }
-                /* Spriječi automatsko zumiranje na input poljima - iOS Safari zumira ako je font-size < 16px */
-                input[type="text"],
-                input[type="number"],
-                input[type="tel"],
-                input[type="email"],
-                input[type="date"],
-                input[type="time"],
-                input[type="datetime-local"],
-                textarea,
-                select {
-                  font-size: 16px !important;
+                @media (min-width: 768px) {
+                  main {
+                    padding-bottom: 0; /* Bez paddinga na desktopu */
+                  }
                 }
-              }
-              @media (min-width: 768px) {
-                main {
-                  padding-bottom: 0; /* Bez paddinga na desktopu */
-                }
-              }
-            `}</style>
-          </SubscriptionProvider>
+              `}</style>
+            </SubscriptionProvider>
+          </RoleProvider>
         </AppNameProvider>
       </body>
     </html>

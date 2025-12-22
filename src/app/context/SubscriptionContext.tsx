@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from "react";
 import { RoleContext } from "./RoleContext";
 import { getSubscription, updateSubscription, addPaymentToSubscription } from "../../lib/api";
 
@@ -169,21 +169,35 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const isLoadingRef = useRef(false);
+  const lastLoadedUserIdRef = useRef<string | null>(null);
+
+  // Memorize userIdForApi to prevent unnecessary re-creation of loadSubscription
+  const userIdForApi = useMemo(() => user?.email || user?.id, [user?.email, user?.id]);
 
   const loadSubscription = useCallback(async () => {
-    if (!user?.id) {
-      console.log("SubscriptionContext - No user.id, skipping subscription load");
+    // API endpoint može primiti email ili id
+    
+    if (!userIdForApi) {
+      console.log("SubscriptionContext - No user.id or user.email, skipping subscription load", { user });
       setSubscription(null);
       setLoading(false);
+      isLoadingRef.current = false;
+      lastLoadedUserIdRef.current = null;
       return;
     }
 
-    // API endpoint očekuje email u URL-u, ne UUID
-    const userIdForApi = user.email || user.id;
+    // Skip if already loading for the same user
+    if (isLoadingRef.current && lastLoadedUserIdRef.current === userIdForApi) {
+      console.log("SubscriptionContext - Already loading subscription for user:", userIdForApi);
+      return;
+    }
 
     try {
+      isLoadingRef.current = true;
+      lastLoadedUserIdRef.current = userIdForApi;
       setLoading(true);
-      console.log("SubscriptionContext - Loading subscription for user:", userIdForApi, "email:", user.email);
+      console.log("SubscriptionContext - Loading subscription for user:", userIdForApi, "email:", user?.email, "id:", user?.id);
       const subscriptionData = await getSubscription(userIdForApi);
       console.log("SubscriptionContext - Subscription data received:", {
         hasData: !!subscriptionData,
@@ -219,6 +233,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       });
 
       // Prepare data for calculateSubscriptionStatus
+      // If endDate is null but we have a payment with validUntil, use that as expiryDate
+      let expiryDate: Date | null = null;
+      if (subscriptionData.endDate) {
+        try {
+          expiryDate = new Date(subscriptionData.endDate);
+        } catch (e) {
+          console.warn("SubscriptionContext - Error parsing endDate:", subscriptionData.endDate);
+        }
+      } else if (paymentHistory.length > 0) {
+        // Use the latest payment's validUntil as fallback for expiryDate
+        const latestPayment = paymentHistory[0]; // payments are already sorted DESC by date
+        if (latestPayment.validUntil) {
+          expiryDate = latestPayment.validUntil;
+        }
+      }
+
       const dataForCalculation = {
         isActive: subscriptionData.isActive !== undefined ? subscriptionData.isActive : true,
         monthlyPrice: subscriptionData.monthlyPrice || 12,
@@ -230,14 +260,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
             return null;
           }
         })() : null,
-        expiryDate: subscriptionData.endDate ? (() => {
-          try {
-            return new Date(subscriptionData.endDate);
-          } catch (e) {
-            console.warn("SubscriptionContext - Error parsing endDate:", subscriptionData.endDate);
-            return null;
-          }
-        })() : null,
+        expiryDate: expiryDate,
         graceEndDate: subscriptionData.graceEndDate ? (() => {
           try {
             return new Date(subscriptionData.graceEndDate);
@@ -301,19 +324,29 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       console.error("Greška pri učitavanju pretplate:", error);
       console.error("SubscriptionContext - Error details:", error.message, error.stack);
       setSubscription(null);
+      lastLoadedUserIdRef.current = null; // Reset on error to allow retry
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  }, [user?.id, user?.email]);
+  }, [userIdForApi]);
 
   // Load subscription when user changes
   useEffect(() => {
-    loadSubscription();
-  }, [loadSubscription]);
+    if (!userIdForApi) {
+      return;
+    }
+    
+    // Only load if we haven't already loaded for this user and not currently loading
+    if (lastLoadedUserIdRef.current !== userIdForApi && !isLoadingRef.current) {
+      loadSubscription();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userIdForApi]);
 
-  const refreshSubscription = async () => {
+  const refreshSubscription = useCallback(async () => {
     await loadSubscription();
-  };
+  }, [loadSubscription]);
 
   const addPayment = async (amount: number, months: number = 1, note?: string) => {
     if (!user?.id) throw new Error("Korisnik nije prijavljen");

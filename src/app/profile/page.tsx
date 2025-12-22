@@ -103,19 +103,26 @@ export default function Profile() {
   const { subscription, loading: subscriptionLoading, addPayment, refreshSubscription } = useSubscription();
   
   // Osvježi subscription podatke kada se otvori profil stranica i svakih 30 sekundi
+  const refreshSubscriptionRef = React.useRef(refreshSubscription);
   useEffect(() => {
-    if (refreshSubscription) {
-      // Osvježi odmah
-      refreshSubscription();
-      
-      // Osvježavaj svakih 30 sekundi da bi korisnik vidio ažurirane podatke
-      const interval = setInterval(() => {
-        refreshSubscription();
-      }, 30000); // 30 sekundi
-      
-      return () => clearInterval(interval);
-    }
+    refreshSubscriptionRef.current = refreshSubscription;
   }, [refreshSubscription]);
+
+  useEffect(() => {
+    // Osvježi odmah
+    if (refreshSubscriptionRef.current) {
+      refreshSubscriptionRef.current();
+    }
+    
+    // Osvježavaj svakih 30 sekundi da bi korisnik vidio ažurirane podatke
+    const interval = setInterval(() => {
+      if (refreshSubscriptionRef.current) {
+        refreshSubscriptionRef.current();
+      }
+    }, 30000); // 30 sekundi
+    
+    return () => clearInterval(interval);
+  }, []); // Run only once on mount
   const [newPaymentAmount, setNewPaymentAmount] = useState("");
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
@@ -129,6 +136,9 @@ export default function Profile() {
         isTrial: subscription.isTrial,
         isPremium: subscription.isPremium,
         isGracePeriod: subscription.isGracePeriod,
+        daysRemaining: subscription.daysRemaining,
+        daysUntilExpiry: subscription.daysUntilExpiry,
+        daysInGrace: subscription.daysInGrace,
       } : null,
       hasSubscription: !!subscription
     });
@@ -1814,23 +1824,26 @@ export default function Profile() {
                       <p style={{ fontSize: "18px", fontWeight: 700, color: "#1f2937", margin: 0 }}>
                         {subscription.isTrial ? "Probni period (Trial)" : subscription.isPremium ? "Premium pretplata" : subscription.isGracePeriod ? "Grace period" : subscription.isActive ? "Aktivna pretplata" : "Pretplata istekla"}
                       </p>
-                      {subscription.isTrial && subscription.daysRemaining !== undefined ? (
-                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
-                          Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{subscription.daysRemaining}</strong>
-                        </p>
-                      ) : subscription.isPremium && subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry > 0 ? (
-                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
-                          Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{subscription.daysUntilExpiry}</strong>
-                        </p>
-                      ) : subscription.isGracePeriod && subscription.daysInGrace !== undefined ? (
-                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
-                          Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{subscription.daysInGrace}</strong>
-                        </p>
-                      ) : subscription.isActive && subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry > 0 ? (
-                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
-                          Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{subscription.daysUntilExpiry}</strong>
-                        </p>
-                      ) : null}
+                      {(() => {
+                        // Odredi koji podatak o preostalim danima treba prikazati
+                        let daysToShow: number | null = null;
+                        
+                        if (subscription.isTrial && subscription.daysRemaining !== undefined && subscription.daysRemaining !== null) {
+                          daysToShow = subscription.daysRemaining;
+                        } else if (subscription.isPremium && subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry !== null) {
+                          daysToShow = subscription.daysUntilExpiry;
+                        } else if (subscription.isGracePeriod && subscription.daysInGrace !== undefined && subscription.daysInGrace !== null) {
+                          daysToShow = subscription.daysInGrace;
+                        } else if (subscription.isActive && subscription.daysUntilExpiry !== undefined && subscription.daysUntilExpiry !== null) {
+                          daysToShow = subscription.daysUntilExpiry;
+                        }
+                        
+                        return daysToShow !== null ? (
+                          <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                            Preostalo dana: <strong style={{ color: "#1f2937", fontSize: "16px" }}>{Math.max(0, daysToShow)}</strong>
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -1985,19 +1998,6 @@ export default function Profile() {
                       {subscription.monthlyPrice || 12} KM
                     </p>
                   </div>
-                  
-                  {/* Debug info - samo za development */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div style={{ padding: "12px", background: "#fee2e2", borderRadius: "6px", fontSize: "11px" }}>
-                      <p style={{ marginBottom: "4px", fontWeight: 600 }}>DEBUG INFO:</p>
-                      <p>isActive: {String(subscription.isActive)}</p>
-                      <p>isTrial: {String(subscription.isTrial)}</p>
-                      <p>isPremium: {String(subscription.isPremium)}</p>
-                      <p>isGracePeriod: {String(subscription.isGracePeriod)}</p>
-                      <p>daysUntilExpiry: {subscription.daysUntilExpiry}</p>
-                      <p>expiryDate: {subscription.expiryDate ? subscription.expiryDate.toISOString() : "null"}</p>
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
