@@ -1217,64 +1217,57 @@ export default function AdminPage() {
         </div>
 
         {/* Grafikon zarade */}
-        {revenueChartData.length > 0 ? (
-          <>
-            <div style={{ marginBottom: "16px", padding: "12px", background: "#f9fafb", borderRadius: "8px", display: "inline-block" }}>
-              <span style={{ fontSize: "14px", color: "#6b7280", marginRight: "8px" }}>Ukupna zarada za period:</span>
-              <span style={{ fontSize: "18px", fontWeight: 600, color: "#10b981" }}>
-                {totalRevenue.toFixed(2)} KM
-              </span>
-            </div>
-            <div
-              className="chart-container"
-              style={{
-                width: "100%",
-                maxWidth: "100%",
-                height: isMobile ? 310 : 400,
-                minHeight: isMobile ? 310 : 400,
-                backgroundColor: "#fff",
-                borderRadius: 12,
-                padding: isMobile ? 0 : 20,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                marginBottom: isMobile ? 8 : 30,
-                overflow: isMobile ? "visible" : "hidden",
-                boxSizing: "border-box",
-                position: "relative"
-              }}
-            >
-              <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
-                <ResponsiveContainer key={`revenue-chart-${isMobile}-${revenueChartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-                  <LineChart data={revenueChartData} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="period" 
-                      tick={{ fill: "#6b7280", fontSize: 11 }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={isMobile ? 25 : 66}
-                    />
-                    <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
-                    <Tooltip content={<RevenueTooltip />} />
-                    <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-                    <Line 
-                      type="monotone" 
-                      dataKey="zarada" 
-                      name="Zarada" 
-                      stroke="#10b981" 
-                      strokeWidth={2} 
-                      dot={{ r: isMobile ? 2 : 3 }} 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
-            <FaDollarSign style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.5 }} />
-            <p style={{ fontSize: "16px" }}>Nema podataka o uplatama za odabrani period.</p>
+        <>
+          <div style={{ marginBottom: "16px", padding: "12px", background: "#f9fafb", borderRadius: "8px", display: "inline-block" }}>
+            <span style={{ fontSize: "14px", color: "#6b7280", marginRight: "8px" }}>Ukupna zarada za period:</span>
+            <span style={{ fontSize: "18px", fontWeight: 600, color: "#10b981" }}>
+              {totalRevenue.toFixed(2)} KM
+            </span>
           </div>
-        )}
+          <div
+            className="chart-container"
+            style={{
+              width: "100%",
+              maxWidth: "100%",
+              height: isMobile ? 310 : 400,
+              minHeight: isMobile ? 310 : 400,
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: isMobile ? 0 : 20,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+              marginBottom: isMobile ? 8 : 30,
+              overflow: isMobile ? "visible" : "hidden",
+              boxSizing: "border-box",
+              position: "relative"
+            }}
+          >
+            <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
+              <ResponsiveContainer key={`revenue-chart-${isMobile}-${revenueChartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
+                <LineChart data={revenueChartData.length > 0 ? revenueChartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="period" 
+                    tick={{ fill: "#6b7280", fontSize: 11 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={isMobile ? 25 : 66}
+                  />
+                  <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
+                  <Tooltip content={<RevenueTooltip />} />
+                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="zarada" 
+                    name="Zarada" 
+                    stroke="#10b981" 
+                    strokeWidth={2} 
+                    dot={{ r: isMobile ? 2 : 3 }} 
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
         <style jsx>{`
           .recharts-wrapper {
             width: 100% !important;

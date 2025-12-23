@@ -222,7 +222,7 @@ export default function Profile() {
   const handleChangePassword = async () => {
     // TODO: Implement password reset via API
     setMessage("Promjena lozinke trenutno nije dostupna. Kontaktirajte administratora.");
-    setTimeout(() => setMessage(""), 5000);
+      setTimeout(() => setMessage(""), 5000);
   };
 
   const handleSaveAppName = async () => {
@@ -265,13 +265,13 @@ export default function Profile() {
       setIsAppNameUpdated(true);
       // Formatiraj datum samo na klijentu da izbjegnemo hydration mismatch
       if (typeof window !== 'undefined') {
-        setLastUpdatedTime(new Date().toLocaleString("bs-BA", { 
-          day: "2-digit", 
-          month: "2-digit", 
-          year: "numeric", 
-          hour: "2-digit", 
-          minute: "2-digit" 
-        }));
+      setLastUpdatedTime(new Date().toLocaleString("bs-BA", { 
+        day: "2-digit", 
+        month: "2-digit", 
+        year: "numeric", 
+        hour: "2-digit", 
+        minute: "2-digit" 
+      }));
       }
       setMessage("Ime aplikacije uspješno spremljeno i sinkronizovano na svim uređajima!");
       // Sakrij poruku nakon 5 sekundi
@@ -302,7 +302,7 @@ export default function Profile() {
         status: device.status || (device.role === null ? "verifikacija" : "approved"),
         isBlocked: device.isBlocked === false ? false : true,
         deviceName: device.deviceName || "",
-        deviceInfo: {
+          deviceInfo: {
           ...device.deviceInfo,
           firstSeen: device.deviceInfo?.firstSeen ? new Date(device.deviceInfo.firstSeen) : null,
           lastLogin: device.deviceInfo?.lastLogin ? new Date(device.deviceInfo.lastLogin) : null,
@@ -431,8 +431,8 @@ export default function Profile() {
       };
       
       await updateDevice(user.id, deviceId, {
-        role: deviceRole,
-        status: "approved",
+          role: deviceRole,
+          status: "approved",
         permissions: defaultPermissions,
       });
       await loadDevices();
@@ -458,7 +458,7 @@ export default function Profile() {
     try {
       setSavingRole(true);
       await updateDevice(user.id, deviceId, {
-        isBlocked: !currentBlocked,
+          isBlocked: !currentBlocked,
         status: !currentBlocked ? 'blocked' : 'approved',
       });
       await loadDevices();
@@ -559,7 +559,7 @@ export default function Profile() {
     try {
       setSavingRole(true);
       await updateDevice(user.id, deviceId, {
-        deviceName: deviceName.trim() || "",
+          deviceName: deviceName.trim() || "",
       });
       await loadDevices();
       setMessage("Ime uređaja uspješno spremljeno");
@@ -578,9 +578,9 @@ export default function Profile() {
     if (user) {
       setIsOwner(user.isOwner === true);
       console.log("Profile - Provjera vlasnika:", { email: user.email, isOwner: user.isOwner, role: role });
-    } else {
-      setIsOwner(false);
-    }
+        } else {
+          setIsOwner(false);
+        }
   }, [user, role]);
 
   // Učitaj zahtjeve za odobrenje (samo za vlasnika)
@@ -607,7 +607,7 @@ export default function Profile() {
     if (!isOwner) return;
     // TODO: Migrirati na API kada se implementira loginApprovals tabela
     setMessage("Login approvals trenutno nisu podržani. Koristi device management za odobravanje uređaja.");
-    setTimeout(() => setMessage(""), 5000);
+      setTimeout(() => setMessage(""), 5000);
   };
 
   // Odbij zahtjev
@@ -616,7 +616,7 @@ export default function Profile() {
     if (!isOwner) return;
     // TODO: Migrirati na API kada se implementira loginApprovals tabela
     setMessage("Login approvals trenutno nisu podržani. Koristi device management za odobravanje uređaja.");
-    setTimeout(() => setMessage(""), 5000);
+      setTimeout(() => setMessage(""), 5000);
   };
 
   // Učitaj zahtjeve kada je korisnik vlasnik
@@ -1265,9 +1265,9 @@ export default function Profile() {
                       <React.Fragment key={device.id}>
                         <tr>
                         <td style={tdStyle}>
-                          <span style={{ fontWeight: device.deviceName ? 500 : 400, color: device.deviceName ? "#1f2937" : "#9ca3af" }}>
-                            {device.deviceName || "Nema imena"}
-                          </span>
+                            <span style={{ fontWeight: device.deviceName ? 500 : 400, color: device.deviceName ? "#1f2937" : "#9ca3af" }}>
+                              {device.deviceName || "Nema imena"}
+                            </span>
                         </td>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1346,16 +1346,16 @@ export default function Profile() {
                         <td style={tdStyle}>
                           {needsVerification ? (
                             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                              <button
+                            <button
                                 onClick={() => handleApproveDevice(device, "konobar")}
                                 style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "6px 12px" }}
                                 title="Odobri kao konobar"
-                              >
+                            >
                                 ✓ Odobri (Konobar)
-                              </button>
+                            </button>
                               {isOwner && (
-                                <button
-                                  onClick={() => {
+                            <button
+                              onClick={() => {
                                     if (window.confirm("Jeste li sigurni da želite odobriti ovaj uređaj kao VLASNIK? Vlasnik ima pun pristup svemu.")) {
                                       handleApproveDevice(device, "vlasnik");
                                     }
@@ -2025,13 +2025,13 @@ export default function Profile() {
           Pretplata
         </h2>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {subscriptionLoading ? (
               <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb", textAlign: "center" }}>
                 <p style={{ fontSize: "14px", color: "#6b7280" }}>Učitavanje pretplate...</p>
               </div>
             ) : subscription ? (
-              <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+            <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                 <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
                   Status pretplate
                 </h3>
@@ -2052,7 +2052,7 @@ export default function Profile() {
                       <p style={{ fontSize: "18px", fontWeight: 700, color: "#1f2937", margin: 0 }}>
                         {subscription.isTrial ? "Probni period (Trial)" : subscription.isPremium ? "Premium pretplata" : subscription.isGracePeriod ? "Grace period" : subscription.isActive ? "Aktivna pretplata" : "Pretplata istekla"}
                       </p>
-                      {(() => {
+                {(() => {
                         // Odredi koji podatak o preostalim danima treba prikazati
                         let daysToShow: number | null = null;
                         
@@ -2083,9 +2083,9 @@ export default function Profile() {
                       padding: "6px 12px",
                       background: "#dbeafe",
                       color: "#1e40af",
-                      borderRadius: "6px",
-                      fontSize: "14px",
-                      fontWeight: 600,
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        fontWeight: 600,
                     }}>
                       📅 Trial period
                     </span>
@@ -2148,8 +2148,8 @@ export default function Profile() {
                       ⏳ Čeka provjeru uplate
                     </span>
                   )}
-                </div>
-
+              </div>
+              
                 {/* Detalji statusa */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "12px" }}>
                   {/* Trial period - prikaži ako je u trial periodu */}
@@ -2161,8 +2161,8 @@ export default function Profile() {
                       </p>
                       <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
                         Preostalo dana: <strong>{subscription.daysRemaining !== undefined ? subscription.daysRemaining : 0}</strong>
-                      </p>
-                    </div>
+                  </p>
+                </div>
                   )}
                   
                   {/* Expiry date - prikaži ako postoji */}
@@ -2210,15 +2210,15 @@ export default function Profile() {
                   )}
                   
                   {/* Last payment date - prikaži ako postoji */}
-                  {subscription.lastPaymentDate && (
+                {subscription.lastPaymentDate && (
                     <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
                       <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Posljednja uplata:</p>
                       <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
-                        {subscription.lastPaymentDate.toLocaleDateString("bs-BA")}
-                      </p>
-                    </div>
-                  )}
-                  
+                      {subscription.lastPaymentDate.toLocaleDateString("bs-BA")}
+                    </p>
+                  </div>
+                )}
+                
                   {/* Monthly price - uvijek prikaži */}
                   <div style={{ padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
                     <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Mjesečna cijena:</p>
@@ -2226,8 +2226,8 @@ export default function Profile() {
                       {subscription.monthlyPrice || 12} KM
                     </p>
                   </div>
-                </div>
               </div>
+            </div>
             ) : (
               <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                 <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px" }}>
@@ -2238,7 +2238,7 @@ export default function Profile() {
                 </p>
               </div>
             )}
-            
+
             {/* Plaćanje pretplate */}
             <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px" }}>
@@ -2365,10 +2365,10 @@ export default function Profile() {
                         },
                         body: JSON.stringify({
                           subscriptionData: {
-                            paymentPendingVerification: true,
+                          paymentPendingVerification: true,
                             paymentRequestedAt: new Date().toISOString(),
                             paymentRequestedAmount: amount,
-                            paymentRequestedMonths: selectedMonths,
+                          paymentRequestedMonths: selectedMonths,
                             paymentReferenceNumber: referenceNumber,
                           }
                         })
@@ -2619,43 +2619,43 @@ export default function Profile() {
             {/* Promjena lozinke */}
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "8px", textAlign: "center" }}>
-                🔒 Promijeni lozinku
-              </h3>
-              <button 
-                style={{ 
-                  ...buttonStyle, 
-                  width: "auto",
-                  padding: "10px 20px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                }} 
-                onClick={handleChangePassword}
-              >
-                ✉️ Pošalji link za promjenu lozinke
-              </button>
-              {message && message.includes("lozinke") && (
-                <p style={{ 
-                  color: message.includes("Greška") ? "#dc2626" : "#15803d", 
-                  marginTop: "8px",
-                  fontSize: "14px",
-                  textAlign: "center",
-                  padding: "8px 16px",
-                  background: message.includes("Greška") ? "#fee2e2" : "#dcfce7",
-                  borderRadius: "6px",
-                  border: `1px solid ${message.includes("Greška") ? "#fca5a5" : "#86efac"}`,
-                  maxWidth: "500px"
-                }}>
-                  {message.includes("Greška") ? "⚠️ " : "✓ "}
-                  {message}
-                </p>
-              )}
-              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", textAlign: "center" }}>
-                Link za promjenu lozinke će biti poslan na vaš e-mail ({email || "N/A"})
+            🔒 Promijeni lozinku
+          </h3>
+            <button 
+              style={{ 
+                ...buttonStyle, 
+                width: "auto",
+                padding: "10px 20px",
+                fontSize: "14px",
+                fontWeight: 500,
+              }} 
+              onClick={handleChangePassword}
+            >
+              ✉️ Pošalji link za promjenu lozinke
+            </button>
+            {message && message.includes("lozinke") && (
+              <p style={{ 
+                color: message.includes("Greška") ? "#dc2626" : "#15803d", 
+                marginTop: "8px",
+                fontSize: "14px",
+                textAlign: "center",
+                padding: "8px 16px",
+                background: message.includes("Greška") ? "#fee2e2" : "#dcfce7",
+                borderRadius: "6px",
+                border: `1px solid ${message.includes("Greška") ? "#fca5a5" : "#86efac"}`,
+                maxWidth: "500px"
+              }}>
+                {message.includes("Greška") ? "⚠️ " : "✓ "}
+                {message}
               </p>
-            </div>
+            )}
+            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", textAlign: "center" }}>
+              Link za promjenu lozinke će biti poslan na vaš e-mail ({email || "N/A"})
+            </p>
+        </div>
 
             {/* Odvajanje */}
-            <div style={{ 
+        <div style={{ 
               width: "100%", 
               height: "1px", 
               background: "#e5e7eb", 
@@ -2664,33 +2664,33 @@ export default function Profile() {
 
             {/* Odjava */}
             <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-              <button
-                onClick={handleLogout}
-                style={{
-                  ...buttonStyle,
-                  background: "#dc2626",
-                  width: "auto",
-                  padding: "12px 28px",
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  boxShadow: "0 2px 4px rgba(220, 38, 38, 0.2)",
-                  transition: "all 0.2s ease-in-out",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#b91c1c";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                  e.currentTarget.style.boxShadow = "0 4px 8px rgba(220, 38, 38, 0.3)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#dc2626";
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 2px 4px rgba(220, 38, 38, 0.2)";
-                }}
-              >
-                🚪 Odjava
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={handleLogout}
+            style={{
+              ...buttonStyle,
+              background: "#dc2626",
+              width: "auto",
+              padding: "12px 28px",
+              fontSize: "15px",
+              fontWeight: 600,
+              boxShadow: "0 2px 4px rgba(220, 38, 38, 0.2)",
+              transition: "all 0.2s ease-in-out",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#b91c1c";
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "0 4px 8px rgba(220, 38, 38, 0.3)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#dc2626";
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 2px 4px rgba(220, 38, 38, 0.2)";
+            }}
+          >
+            🚪 Odjava
+          </button>
+        </div>
+      </div>
         </div>
       </div>
 
