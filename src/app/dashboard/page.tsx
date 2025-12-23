@@ -89,8 +89,10 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+  const [rangeDropdownOpen, setRangeDropdownOpen] = useState(false);
   const [selectedArtikl, setSelectedArtikl] = useState<string>("");
   const [artiklRange, setArtiklRange] = useState<"currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom">("currentWeek");
+  const [ripplePos, setRipplePos] = useState<{ x: number; y: number; key: string } | null>(null);
   const [artiklViewType, setArtiklViewType] = useState<"custom" | "top">("custom");
   const [arhiva, setArhiva] = useState<ArhiviraniObracun[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -298,16 +300,17 @@ export default function DashboardPage() {
       if (!target.closest('[data-dropdown-container]')) {
         setMonthDropdownOpen(false);
         setYearDropdownOpen(false);
+        setRangeDropdownOpen(false);
       }
     };
 
-    if (monthDropdownOpen || yearDropdownOpen) {
+    if (monthDropdownOpen || yearDropdownOpen || rangeDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [monthDropdownOpen, yearDropdownOpen]);
+  }, [monthDropdownOpen, yearDropdownOpen, rangeDropdownOpen]);
 
   // TEMPORARY: Disabled Firebase listener - comment out to re-enable
   /*
@@ -1168,61 +1171,481 @@ export default function DashboardPage() {
       {/* Range za prvi grafikon - Box samo na mobilnom */}
       {isMobile ? (
         <div style={{ 
-          marginBottom: "16px", 
-          background: "#fff", 
-          padding: "10px 12px", 
-          borderRadius: "8px", 
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+          marginBottom: "20px", 
+          background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)", 
+          padding: "16px", 
+          borderRadius: "16px", 
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04)", 
           width: "100%", 
           maxWidth: "100%", 
-          boxSizing: "border-box" 
+          boxSizing: "border-box",
+          border: "1px solid rgba(0, 0, 0, 0.05)"
         }}>
-          <div style={{ 
-            display: "flex", 
-            gap: 4, 
-            flexWrap: "wrap", 
-            alignItems: "center", 
-            width: "100%" 
-          }}>
-            {[
-              { value: "currentWeek", label: "Trenutna sedmica" },
-              { value: "previousWeek", label: "Prošla sedmica" },
-              { value: "monthly", label: "Mjesečni" },
-              { value: "quarterly", label: "Tromjesečni" },
-              { value: "selectMonth", label: "Odaberi mjesec" },
-              { value: "custom", label: "Prilagođeno" },
-            ].map((r, index) => (
-              <button
-                key={r.value}
-                onClick={() => setRange(r.value as any)}
+          {/* Dropdown za vremenski period */}
+          <div style={{ position: "relative", width: "100%" }} data-dropdown-container>
+            <button
+              type="button"
+              onClick={() => {
+                setRangeDropdownOpen(!rangeDropdownOpen);
+                setMonthDropdownOpen(false);
+                setYearDropdownOpen(false);
+              }}
+              style={{
+                width: "100%",
+                padding: "14px 44px 14px 16px",
+                border: rangeDropdownOpen ? "2px solid #3b82f6" : "2px solid #e5e7eb",
+                borderRadius: "12px",
+                fontSize: "15px",
+                backgroundColor: rangeDropdownOpen ? "#f8fafc" : "#fff",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                boxShadow: rangeDropdownOpen 
+                  ? "0 8px 20px rgba(59, 130, 246, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08)" 
+                  : "0 2px 4px rgba(0, 0, 0, 0.04)",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                fontWeight: 600,
+                color: "#111827",
+                outline: "none",
+              }}
+              onMouseEnter={(e) => {
+                if (!rangeDropdownOpen) {
+                  e.currentTarget.style.borderColor = "#cbd5e1";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.08)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!rangeDropdownOpen) {
+                  e.currentTarget.style.borderColor = "#e5e7eb";
+                  e.currentTarget.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.04)";
+                }
+              }}
+            >
+              <span style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "10px",
+                flex: 1 
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path 
+                    d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V19C3 20.1046 3.89543 21 5 21Z" 
+                    stroke={rangeDropdownOpen ? "#3b82f6" : "#6b7280"} 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span>
+                  {[
+                    { value: "currentWeek", label: "Trenutna sedmica", icon: "📅" },
+                    { value: "previousWeek", label: "Prošla sedmica", icon: "⏪" },
+                    { value: "monthly", label: "Mjesečni", icon: "📆" },
+                    { value: "quarterly", label: "Tromjesečni", icon: "🗓️" },
+                    { value: "selectMonth", label: "Odaberi mjesec", icon: "🗓️" },
+                    { value: "custom", label: "Prilagođeno", icon: "⚙️" },
+                  ].find(r => r.value === range)?.label || "Trenutna sedmica"}
+                </span>
+              </span>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
                 style={{
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                  fontSize: 13,
-                  background: range === r.value ? "#3b82f6" : "#e5e7eb",
-                  color: range === r.value ? "#fff" : "#374151",
-                  transition: "all 0.2s",
-                  boxShadow: range === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                  whiteSpace: "nowrap",
-                  flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
-                  minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
-                  maxWidth: index >= 4 ? "100%" : index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                  transform: rangeDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  position: "absolute",
+                  right: "16px",
                 }}
               >
-                {r.label}
-              </button>
-            ))}
-            {range === "selectMonth" && (
-              <div style={{ 
-                display: "flex", 
-                gap: 8, 
-                alignItems: "flex-end", 
-                width: "100%", 
-                flexWrap: "wrap" 
-              }}>
+                <path 
+                  d="M5 7.5L10 12.5L15 7.5" 
+                  stroke={rangeDropdownOpen ? "#3b82f6" : "#6b7280"} 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            {rangeDropdownOpen && (
+              <>
+                {/* Backdrop overlay with blur */}
+                <div
+                  style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.08)",
+                    backdropFilter: "blur(4px)",
+                    WebkitBackdropFilter: "blur(4px)",
+                    zIndex: 999,
+                  }}
+                  onClick={() => setRangeDropdownOpen(false)}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    left: 0,
+                    right: 0,
+                    background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%)",
+                    backdropFilter: "blur(20px) saturate(180%)",
+                    WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                    border: "1px solid rgba(255, 255, 255, 0.8)",
+                    borderRadius: "16px",
+                    boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1), 0 10px 30px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
+                    zIndex: 1000,
+                    maxHeight: "320px",
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                    opacity: 1,
+                    transform: "translateY(0) scale(1)",
+                    animation: "dropdownSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    position: "relative",
+                    scrollBehavior: "smooth",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                  onMouseEnter={(e) => e.stopPropagation()}
+                  onScroll={(e) => {
+                    // Dynamic scroll indicators based on scroll position
+                    const target = e.currentTarget;
+                    const scrollTop = target.scrollTop;
+                    const scrollHeight = target.scrollHeight;
+                    const clientHeight = target.clientHeight;
+                    const atTop = scrollTop === 0;
+                    const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+                    
+                    const topIndicator = target.previousElementSibling as HTMLElement;
+                    const bottomIndicator = Array.from(target.parentElement?.children || []).find(
+                      (el) => el !== target && (el as HTMLElement).style.position === "absolute" && (el as HTMLElement).style.bottom === "0px"
+                    ) as HTMLElement;
+                    
+                    if (topIndicator) {
+                      topIndicator.style.opacity = atTop ? "0" : "1";
+                    }
+                    if (bottomIndicator) {
+                      bottomIndicator.style.opacity = atBottom ? "0" : "1";
+                    }
+                  }}
+                >
+                  {/* Scroll indicators */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: "20px",
+                      background: "linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, transparent 100%)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                      borderRadius: "16px 16px 0 0",
+                      willChange: "auto",
+                      opacity: 1,
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: "20px",
+                      background: "linear-gradient(0deg, rgba(255, 255, 255, 0.95) 0%, transparent 100%)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                      borderRadius: "0 0 16px 16px",
+                      willChange: "auto",
+                      opacity: 1,
+                    }}
+                  />
+                  <style>{`
+                    @keyframes dropdownSlideIn {
+                      from {
+                        opacity: 0;
+                        transform: translateY(-10px) scale(0.95);
+                      }
+                      to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                      }
+                    }
+                    @keyframes itemSlideIn {
+                      from {
+                        opacity: 0;
+                        transform: translateX(-10px);
+                      }
+                      to {
+                        opacity: 1;
+                        transform: translateX(0);
+                      }
+                    }
+                    @keyframes pulseGlow {
+                      0%, 100% {
+                        box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1), 0 10px 30px rgba(0, 0, 0, 0.15);
+                      }
+                      50% {
+                        box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.35), 0 0 0 1px rgba(59, 130, 246, 0.15), 0 15px 40px rgba(0, 0, 0, 0.2);
+                      }
+                    }
+                    @keyframes checkmarkPop {
+                      0% {
+                        transform: scale(0);
+                        opacity: 0;
+                      }
+                      50% {
+                        transform: scale(1.2);
+                      }
+                      100% {
+                        transform: scale(1);
+                        opacity: 1;
+                      }
+                    }
+                    @keyframes iconBounce {
+                      0%, 100% {
+                        transform: scale(1);
+                      }
+                      50% {
+                        transform: scale(1.15);
+                      }
+                    }
+                    @keyframes ripple {
+                      0% {
+                        transform: scale(0);
+                        opacity: 1;
+                      }
+                      100% {
+                        transform: scale(4);
+                        opacity: 0;
+                      }
+                    }
+                    @keyframes hapticPulse {
+                      0%, 100% {
+                        transform: scale(1);
+                      }
+                      50% {
+                        transform: scale(0.98);
+                      }
+                    }
+                  `}</style>
+                {[
+                  { value: "currentWeek", label: "Trenutna sedmica", icon: "📅" },
+                  { value: "previousWeek", label: "Prošla sedmica", icon: "⏪" },
+                  { value: "monthly", label: "Mjesečni", icon: "📆" },
+                  { value: "quarterly", label: "Tromjesečni", icon: "🗓️" },
+                  { value: "selectMonth", label: "Odaberi mjesec", icon: "🗓️" },
+                  { value: "custom", label: "Prilagođeno", icon: "⚙️" },
+                ].map((r, index) => {
+                  const isSelected = range === r.value;
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={(e) => {
+                        // Ripple efekat
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const y = e.clientY - rect.top;
+                        setRipplePos({ x, y, key: `${r.value}-${Date.now()}` });
+                        
+                        // Haptic feedback simulacija (vibracija)
+                        if (navigator.vibrate) {
+                          navigator.vibrate(10);
+                        }
+                        
+                        setTimeout(() => {
+                          setRange(r.value as any);
+                          setRangeDropdownOpen(false);
+                          setMonthDropdownOpen(false);
+                          setYearDropdownOpen(false);
+                          setRipplePos(null);
+                        }, 300);
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "16px 18px",
+                        textAlign: "left",
+                        border: "none",
+                        backgroundColor: isSelected ? "#eff6ff" : "#fff",
+                        background: isSelected 
+                          ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)" 
+                          : "#fff",
+                        opacity: 1,
+                        color: isSelected ? "#1e40af" : "#374151",
+                        fontSize: "15px",
+                        cursor: "pointer",
+                        transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                        fontWeight: isSelected ? 600 : 500,
+                        borderBottom: index < 5 ? "1px solid #f1f5f9" : "none",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        position: "relative",
+                        zIndex: 2,
+                        animation: `itemSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) ${index * 0.05}s both`,
+                        transform: "translateX(0) scale(1)",
+                        overflow: "hidden",
+                        willChange: "auto",
+                      }}
+                      onAnimationEnd={(e) => {
+                        // Ensure opacity is 1 after animation completes
+                        e.currentTarget.style.opacity = "1";
+                        e.currentTarget.style.willChange = "auto";
+                      }}
+                      onMouseDown={(e) => {
+                        // Haptic pulse on mouse down
+                        const target = e.currentTarget;
+                        if (target) {
+                          target.style.animation = "hapticPulse 0.15s ease";
+                          setTimeout(() => {
+                            if (target && target.style) {
+                              target.style.animation = "";
+                            }
+                          }, 150);
+                        }
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "#f1f5f9";
+                          e.currentTarget.style.background = "#f1f5f9";
+                          e.currentTarget.style.transform = "translateX(8px) scale(1.02)";
+                          e.currentTarget.style.boxShadow = "inset 4px 0 0 #3b82f6";
+                          e.currentTarget.style.opacity = "1";
+                        } else {
+                          e.currentTarget.style.transform = "scale(1.02)";
+                          e.currentTarget.style.opacity = "1";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "#fff";
+                          e.currentTarget.style.background = "#fff";
+                          e.currentTarget.style.transform = "translateX(0) scale(1)";
+                          e.currentTarget.style.boxShadow = "none";
+                          e.currentTarget.style.opacity = "1";
+                        } else {
+                          e.currentTarget.style.transform = "scale(1)";
+                          e.currentTarget.style.opacity = "1";
+                        }
+                      }}
+                    >
+                      <span style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: "14px", 
+                        flex: 1,
+                        transition: "all 0.2s ease"
+                      }}>
+                        <span style={{ 
+                          fontSize: "20px", 
+                          lineHeight: 1,
+                          display: "inline-block",
+                          transform: isSelected ? "scale(1.1)" : "scale(1)",
+                          transition: "transform 0.2s ease",
+                          animation: isSelected ? "iconBounce 0.5s ease" : "none"
+                        }}>
+                          {r.icon}
+                        </span>
+                        <span style={{
+                          position: "relative"
+                        }}>
+                          {r.label}
+                          {isSelected && (
+                            <span style={{
+                              position: "absolute",
+                              bottom: "-2px",
+                              left: 0,
+                              right: 0,
+                              height: "2px",
+                              background: "linear-gradient(90deg, #3b82f6, #60a5fa)",
+                              borderRadius: "1px",
+                              animation: "itemSlideIn 0.3s ease"
+                            }} />
+                          )}
+                        </span>
+                      </span>
+                      {isSelected && (
+                        <svg 
+                          width="22" 
+                          height="22" 
+                          viewBox="0 0 22 22" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                          style={{
+                            animation: "checkmarkPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
+                          }}
+                        >
+                          <defs>
+                            <linearGradient id="checkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#3b82f6" />
+                              <stop offset="100%" stopColor="#2563eb" />
+                            </linearGradient>
+                          </defs>
+                          <circle cx="11" cy="11" r="10" fill="url(#checkGradient)" opacity="0.15"/>
+                          <circle cx="11" cy="11" r="9" stroke="url(#checkGradient)" strokeWidth="1" opacity="0.3"/>
+                          <path 
+                            d="M7.5 11L10 13.5L14.5 9" 
+                            stroke="url(#checkGradient)" 
+                            strokeWidth="2.5" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                      {!isSelected && (
+                        <div style={{
+                          width: "6px",
+                          height: "6px",
+                          borderRadius: "50%",
+                          backgroundColor: "#e5e7eb",
+                          transition: "all 0.2s ease",
+                          opacity: 0.5
+                        }} />
+                      )}
+                      {/* Ripple efekat */}
+                      {ripplePos && ripplePos.key.startsWith(r.value) && (
+                        <span
+                          key={ripplePos.key}
+                          style={{
+                            position: "absolute",
+                            left: `${ripplePos.x}px`,
+                            top: `${ripplePos.y}px`,
+                            width: "20px",
+                            height: "20px",
+                            borderRadius: "50%",
+                            background: "rgba(59, 130, 246, 0.4)",
+                            transform: "translate(-50%, -50%)",
+                            animation: "ripple 0.6s ease-out",
+                            pointerEvents: "none",
+                            zIndex: 10,
+                          }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+                </div>
+              </>
+            )}
+          </div>
+
+          {range === "selectMonth" && (
+            <div style={{ 
+              marginTop: "12px",
+              display: "flex", 
+              gap: 8, 
+              alignItems: "flex-end", 
+              width: "100%", 
+              flexWrap: "wrap",
+              opacity: 1,
+              visibility: "visible"
+            }}>
                 {/* Custom Dropdown za Mjesec */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
                   <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
@@ -1426,56 +1849,68 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+            
             {range === "custom" && (
               <div style={{ 
-                display: "flex", 
-                gap: 4, 
-                alignItems: "center", 
+                marginTop: "12px",
+                display: "flex",  
+                gap: 8, 
+                alignItems: "flex-end", 
                 width: "100%", 
-                flexWrap: "wrap" 
+                flexWrap: "wrap",
+                opacity: 1,
+                visibility: "visible"
               }}>
-                <input
-                  type="date"
-                  value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  style={{ 
-                    padding: "6px 8px", 
-                    border: "1px solid #e5e7eb", 
-                    borderRadius: "6px", 
-                    fontSize: 13, 
-                    outline: "none",
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    maxWidth: "100%",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <span style={{ 
-                  whiteSpace: "nowrap", 
-                  color: "#6b7280",
-                  fontSize: 13
-                }}>
-                  do
-                </span>
-                <input
-                  type="date"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  style={{ 
-                    padding: "6px 8px", 
-                    border: "1px solid #e5e7eb", 
-                    borderRadius: "6px", 
-                    fontSize: 13, 
-                    outline: "none",
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    maxWidth: "100%",
-                    boxSizing: "border-box"
-                  }}
-                />
+                {/* Custom Date Input za Od */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Od datuma:</label>
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    style={{ 
+                      padding: "8px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
+                      outline: "none",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
+                {/* Custom Date Input za Do */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Do datuma:</label>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    style={{ 
+                      padding: "8px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
+                      outline: "none",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
               </div>
             )}
-          </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: isMobile ? 16 : 30, alignItems: "center" }}>
@@ -1736,7 +2171,7 @@ export default function DashboardPage() {
             </div>
           )}
           {range === "custom" && (
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10, opacity: 1, visibility: "visible" }}>
               <input
                 type="date"
                 value={customFrom}
