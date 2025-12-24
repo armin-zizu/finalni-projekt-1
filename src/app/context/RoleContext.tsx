@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { getCurrentUser, getUserId, getUserDevices, getDeviceByDeviceId, saveDevice, getAuthToken } from "../../lib/api";
+import { getOrCreateDeviceId, getDeviceFingerprint } from "../../lib/device-utils";
 
 export type UserRole = "vlasnik" | "konobar" | null;
 
@@ -93,7 +93,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }, []);
   */
 
-  // Generiši Device ID
+  // Generiši Device ID - koristi UUID pristup (isti kao u login stranici)
   const generateDeviceId = async (): Promise<string> => {
     // Provjeri da li je client-side
     if (typeof window === "undefined" || !navigator || !screen) {
@@ -101,19 +101,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       return `server-${Date.now()}`;
     }
 
-    try {
-      const fp = await FingerprintJS.load();
-      const result = await fp.get();
-      return result.visitorId;
-    } catch (err) {
-      console.error("Greška pri generisanju Device ID:", err);
-      // Fallback: koristi kombinaciju browser informacija
-      const fallbackId = `${navigator.userAgent}-${screen.width}x${screen.height}-${navigator.language}`;
-      return btoa(fallbackId).substring(0, 32);
-    }
+    // Koristi isti pristup kao u login stranici - UUID + localStorage
+    return getOrCreateDeviceId();
   };
 
-  // Dohvati Device Info
+  // Dohvati Device Info - koristi device fingerprint pristup (isti kao u login stranici)
   const getDeviceInfo = (currentDeviceId: string): DeviceInfo => {
     // Provjeri da li su navigator i screen dostupni (client-side only)
     if (typeof window === "undefined" || !navigator || !screen) {
@@ -127,6 +119,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         firstSeen: null,
       };
     }
+
+    // Koristi isti pristup kao u login stranici - device fingerprint
+    const fingerprint = getDeviceFingerprint();
 
     const browser = navigator.userAgent.includes("Chrome")
       ? "Chrome"
@@ -154,17 +149,17 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       deviceId: currentDeviceId,
       browser,
       os,
-      screenSize: `${screen.width}x${screen.height}`,
-      userAgent: navigator.userAgent,
+      screenSize: fingerprint.screenResolution,
+      userAgent: fingerprint.userAgent,
       lastLogin: new Date(),
       firstSeen: null,
     };
   };
 
-  // Učitaj ili kreiraj Device ID - koristi API
+  // Učitaj ili kreiraj Device ID - koristi UUID pristup (isti kao u login stranici)
   const initializeDeviceId = async (): Promise<string> => {
-    // Generiši deviceId koristeći FingerprintJS (isti kao u login)
-    const newDeviceId = await generateDeviceId();
+    // Koristi isti pristup kao u login stranici - UUID + localStorage
+    const newDeviceId = getOrCreateDeviceId();
     
     // Provjeri da li dokument sa ovim deviceId-om već postoji
     if (user && user.id) {
@@ -241,8 +236,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         });
         
           // Ažuriraj informacije o uređaju (ali ne mijenjaj status ako je već postavljen)
+        const fingerprint = getDeviceFingerprint();
         const deviceInfoUpdate = {
-                ...info,
+          ...info,
+          timezone: fingerprint.timezone,
+          language: fingerprint.language,
+          platform: fingerprint.platform,
+          fingerprintHash: fingerprint.fingerprintHash,
           firstSeen: data.deviceInfo?.firstSeen || new Date().toISOString(),
           lastLogin: new Date().toISOString(),
         };
@@ -347,8 +347,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         }
         
         // Kreiraj device sa ulogom
+        const fingerprint = getDeviceFingerprint();
         const deviceInfoData = {
           ...info,
+          timezone: fingerprint.timezone,
+          language: fingerprint.language,
+          platform: fingerprint.platform,
+          fingerprintHash: fingerprint.fingerprintHash,
           firstSeen: new Date().toISOString(),
           lastLogin: new Date().toISOString(),
         };
