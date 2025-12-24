@@ -1906,7 +1906,7 @@ export default function ProfitPage() {
             className="dashboard-card"
           >
             <div>{item.icon}</div>
-            <div style={{ textAlign: "center", flex: 1 }}>
+            <div style={{ textAlign: isMobile ? "center" : "left", flex: 1 }}>
               <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
               <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
             </div>

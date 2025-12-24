@@ -2384,13 +2384,40 @@ export default function DashboardPage() {
                 value={selectedArtikl}
                 onChange={(e) => setSelectedArtikl(e.target.value)}
                 style={{ 
-                  padding: "6px 10px", 
-                  borderRadius: 6, 
-                  border: "1px solid #d1d5db", 
-                  fontSize: 13,
                   width: "100%",
-                  maxWidth: "100%",
-                  boxSizing: "border-box"
+                  padding: "6px 36px 6px 10px",
+                  borderRadius: "8px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "13px",
+                  backgroundColor: "#fff",
+                  color: "#1f2937",
+                  cursor: "pointer",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                  boxSizing: "border-box",
+                  appearance: "none",
+                  backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                  backgroundPosition: "right 8px center",
+                  backgroundRepeat: "no-repeat",
+                  backgroundSize: "16px"
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "#3b82f6";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+                onMouseEnter={(e) => {
+                  if (document.activeElement !== e.currentTarget) {
+                    e.currentTarget.style.borderColor = "#9ca3af";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (document.activeElement !== e.currentTarget) {
+                    e.currentTarget.style.borderColor = "#d1d5db";
+                  }
                 }}
               >
                 <option value="">Odaberi artikal</option>
@@ -2514,7 +2541,7 @@ export default function DashboardPage() {
             marginBottom: "12px", 
             wordWrap: "break-word" 
           }}>
-            Filter profita po artiklu
+            Utrošak po artiklu
           </h2>
           <div style={{ position: "relative", width: "100%" }} data-dropdown-container>
             <button
@@ -3113,20 +3140,43 @@ export default function DashboardPage() {
               <select
                 value={selectedArtikl}
                 onChange={(e) => setSelectedArtikl(e.target.value)}
-                style={{ 
-                  padding: "10px 14px", 
-                  borderRadius: 8, 
-                  border: "1px solid #d1d5db",
-                  fontSize: "14px",
+                style={{
                   width: "100%",
                   maxWidth: "400px",
-                  outline: "none",
-                  transition: "border-color 0.2s",
+                  padding: "12px 40px 12px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "15px",
                   backgroundColor: "#fff",
-                  cursor: "pointer"
+                  color: "#1f2937",
+                  cursor: "pointer",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                  boxSizing: "border-box",
+                  appearance: "none",
+                  backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
+                  backgroundPosition: "right 8px center",
+                  backgroundRepeat: "no-repeat",
+                  backgroundSize: "16px"
                 }}
-                onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
-                onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "#3b82f6";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+                onMouseEnter={(e) => {
+                  if (document.activeElement !== e.currentTarget) {
+                    e.currentTarget.style.borderColor = "#9ca3af";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (document.activeElement !== e.currentTarget) {
+                    e.currentTarget.style.borderColor = "#d1d5db";
+                  }
+                }}
               >
                 <option value="">Odaberi artikal</option>
                 {allArtikli.map((a) => (
