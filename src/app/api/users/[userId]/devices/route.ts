@@ -194,10 +194,31 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
 
     // Upsert device - use (user_id, device_id) combination to prevent duplicates
     // Check if device exists first to decide whether to update or insert
-    const existingDevice = await query(
+    let existingDevice = await query(
       'SELECT id, device_name, device_info, role, permissions, is_blocked, status FROM devices WHERE user_id = $1 AND device_id = $2',
       [userId, deviceId]
     );
+
+    // If device not found by device_id, try to find by fingerprint hash (backup mechanism)
+    if (existingDevice.rows.length === 0 && deviceInfo?.fingerprintHash) {
+      const fingerprintHash = deviceInfo.fingerprintHash;
+      const fingerprintResult = await query(
+        `SELECT id, device_id, device_name, device_info, role, permissions, is_blocked, status 
+         FROM devices 
+         WHERE user_id = $1 AND device_info->>'fingerprintHash' = $2`,
+        [userId, fingerprintHash]
+      );
+      
+      if (fingerprintResult.rows.length > 0) {
+        // Found device by fingerprint - use existing device_id
+        existingDevice = fingerprintResult;
+        // Update device_id in the found device to match the new one (migration)
+        await query(
+          'UPDATE devices SET device_id = $1, updated_at = NOW() WHERE id = $2',
+          [deviceId, fingerprintResult.rows[0].id]
+        );
+      }
+    }
 
     if (existingDevice.rows.length > 0) {
       // Update existing device - only update fields that are provided
@@ -311,25 +332,6 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         },
       });
     }
-
-    const device = result.rows[0];
-
-    return NextResponse.json({
-      success: true,
-      device: {
-        id: device.id,
-        deviceId: device.device_id,
-        deviceName: device.device_name,
-        deviceInfo: device.device_info || {},
-        role: device.role,
-        permissions: device.permissions || {},
-        isBlocked: device.is_blocked,
-        status: device.status,
-        lastLogin: device.last_login,
-        createdAt: device.created_at,
-        updatedAt: device.updated_at,
-      },
-    });
   } catch (error: any) {
     console.error('Save device error:', error);
     return NextResponse.json(

@@ -2,9 +2,9 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { useRole } from "../context/RoleContext";
 import { setAuthToken, getDeviceByDeviceId, saveDevice, getUserDevices } from "../../lib/api";
+import { getOrCreateDeviceId, getDeviceFingerprint } from "../../lib/device-utils";
 
 // Background slike za slider (koristi Unsplash ili placeholder)
 const backgroundImages = [
@@ -54,13 +54,16 @@ export default function LoginPage() {
     try {
       console.log("Pokušavam prijavu s e-mailom:", email);
       
+      // Generiši ili dohvati device_id prije login-a
+      const deviceId = getOrCreateDeviceId();
+      
       // API login poziv umjesto Firebase Auth
       const loginResponse = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, deviceId }),
       });
 
       if (!loginResponse.ok) {
@@ -97,50 +100,54 @@ export default function LoginPage() {
 
       // Provjeri status uređaja prije dozvoljavanja pristupa
       try {
-        // Generiši deviceId
-        const fp = await FingerprintJS.load();
-        const result = await fp.get();
-        const deviceId = result.visitorId;
+        // Generiši ili dohvati deviceId (UUID + cookie pristup)
+        const deviceId = getOrCreateDeviceId();
+        
+        // Sakupljaj device fingerprint kao backup
+        const fingerprint = getDeviceFingerprint();
+        
+        // Dohvati device info
+        const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
+          ? "Windows"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
+          ? "macOS"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
+          ? "Linux"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
+          ? "Android"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
+          ? "iOS"
+          : "Unknown";
+        
+        const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
+          ? "Chrome"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
+          ? "Firefox"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
+          ? "Safari"
+          : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
+          ? "Edge"
+          : "Unknown";
 
-        if (deviceId) {
-          // Dohvati device info
-          const os = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")
-            ? "Windows"
-            : typeof navigator !== "undefined" && navigator.userAgent.includes("Mac")
-            ? "macOS"
-            : typeof navigator !== "undefined" && navigator.userAgent.includes("Linux")
-            ? "Linux"
-            : typeof navigator !== "undefined" && navigator.userAgent.includes("Android")
-            ? "Android"
-            : typeof navigator !== "undefined" && navigator.userAgent.includes("iOS")
-            ? "iOS"
-            : "Unknown";
-          
-          const browser = typeof navigator !== "undefined" && navigator.userAgent.includes("Chrome")
-            ? "Chrome"
-            : typeof navigator !== "undefined" && navigator.userAgent.includes("Firefox")
-            ? "Firefox"
-            : typeof navigator !== "undefined" && navigator.userAgent.includes("Safari")
-            ? "Safari"
-            : typeof navigator !== "undefined" && navigator.userAgent.includes("Edge")
-            ? "Edge"
-            : "Unknown";
+        const deviceInfo = {
+          deviceId: deviceId,
+          browser,
+          os,
+          screenSize: fingerprint.screenResolution,
+          userAgent: fingerprint.userAgent,
+          timezone: fingerprint.timezone,
+          language: fingerprint.language,
+          platform: fingerprint.platform,
+          fingerprintHash: fingerprint.fingerprintHash,
+          firstSeen: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+        };
 
-          const deviceInfo = {
-            deviceId: deviceId,
-            browser,
-            os,
-            screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-            firstSeen: new Date().toISOString(),
-            lastLogin: new Date().toISOString(),
-          };
-
-          // Automatski postavi kao owner ako je gitara.zizu@gmail.com (bez OS provjere)
-          const isOwnerDevice = user.email === "gitara.zizu@gmail.com" || isOwner;
-          
-          // Provjeri postojeći uređaj preko API-ja
-          const existingDevice = await getDeviceByDeviceId(user.id, deviceId);
+        // Automatski postavi kao owner ako je gitara.zizu@gmail.com (bez OS provjere)
+        const isOwnerDevice = user.email === "gitara.zizu@gmail.com" || isOwner;
+        
+        // Provjeri postojeći uređaj preko API-ja
+        const existingDevice = await getDeviceByDeviceId(user.id, deviceId);
           
           if (existingDevice) {
             const isBlocked = existingDevice.isBlocked === true;
@@ -263,11 +270,10 @@ export default function LoginPage() {
               }
             }
           }
+        } catch (deviceError) {
+          console.error("Login - Greška pri provjeri uređaja:", deviceError);
+          // U slučaju greške, dozvoli pristup (fallback) - možda je problem sa permisijama
         }
-      } catch (deviceError) {
-        console.error("Login - Greška pri provjeri uređaja:", deviceError);
-        // U slučaju greške, dozvoli pristup (fallback) - možda je problem sa permisijama
-      }
 
       // Dohvati IP adresu i lokaciju pri login-u
       try {
@@ -414,9 +420,11 @@ export default function LoginPage() {
         console.log("✅ Prvi korisnik (vlasnik) detektovan, kreiram device dokument sa role = vlasnik...");
         try {
           // Generiši deviceId
-          const fp = await FingerprintJS.load();
-          const fpResult = await fp.get();
-          const deviceId = fpResult.visitorId;
+          // Generiši ili dohvati deviceId (UUID + cookie pristup)
+          const deviceId = getOrCreateDeviceId();
+          
+          // Sakupljaj device fingerprint kao backup
+          const fingerprint = getDeviceFingerprint();
           
           if (deviceId) {
             // Dohvati device info
@@ -446,8 +454,12 @@ export default function LoginPage() {
               deviceId: deviceId,
               browser,
               os,
-              screenSize: typeof screen !== "undefined" ? `${screen.width}x${screen.height}` : "0x0",
-              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+              screenSize: fingerprint.screenResolution,
+              userAgent: fingerprint.userAgent,
+              timezone: fingerprint.timezone,
+              language: fingerprint.language,
+              platform: fingerprint.platform,
+              fingerprintHash: fingerprint.fingerprintHash,
               firstSeen: new Date().toISOString(),
               lastLogin: new Date().toISOString(),
             };

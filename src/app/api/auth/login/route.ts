@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { email, password } = body;
+    const { email, password, deviceId } = body;
     
     console.log('Login request for email:', email);
 
@@ -144,6 +144,19 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
     });
+
+    // Set device_id in HttpOnly cookie for security (if provided)
+    // Napomena: HttpOnly cookie se ne može čitati iz JavaScript-a, ali se koristi za server-side provjere
+    // Client-side koristi localStorage za device_id
+    if (deviceId && typeof deviceId === 'string' && deviceId.trim().length > 0) {
+      response.cookies.set('device_id', deviceId.trim(), {
+        httpOnly: true, // HttpOnly for security (ne može se čitati iz JavaScript-a)
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+        path: '/',
+      });
+    }
 
     return response;
   } catch (error: any) {
