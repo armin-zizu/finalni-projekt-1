@@ -83,6 +83,7 @@ export default function AdminPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+  const [revenueFilterDropdownOpen, setRevenueFilterDropdownOpen] = useState(false);
   const [chartKey, setChartKey] = useState(0);
   const [premiumDaysAdjustment, setPremiumDaysAdjustment] = useState(0);
   const [trialDaysAdjustment, setTrialDaysAdjustment] = useState(0);
@@ -755,16 +756,17 @@ export default function AdminPage() {
       if (!target.closest('[data-dropdown-container]')) {
         setMonthDropdownOpen(false);
         setYearDropdownOpen(false);
+        setRevenueFilterDropdownOpen(false);
       }
     };
 
-    if (monthDropdownOpen || yearDropdownOpen) {
+    if (monthDropdownOpen || yearDropdownOpen || revenueFilterDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [monthDropdownOpen, yearDropdownOpen]);
+  }, [monthDropdownOpen, yearDropdownOpen, revenueFilterDropdownOpen]);
 
   if (isAdmin === null || loading) {
     return (
@@ -850,43 +852,260 @@ export default function AdminPage() {
             </label>
             {isMobile ? (
               <div style={{ 
-                display: "flex", 
-                gap: 4, 
-                flexWrap: "wrap", 
-                alignItems: "center", 
-                width: "100%" 
+                marginBottom: "16px", 
+                background: "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.95) 100%)",
+                backdropFilter: "blur(15px) saturate(180%)",
+                WebkitBackdropFilter: "blur(15px) saturate(180%)",
+                border: "1px solid rgba(255, 255, 255, 0.8)",
+                borderRadius: "16px", 
+                boxShadow: "0 15px 30px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.02)", 
+                width: "100%", 
+                maxWidth: "100%", 
+                boxSizing: "border-box",
+                position: "relative",
+                padding: "12px",
+                zIndex: 10
               }}>
-                {[
-                  { value: "currentWeek", label: "Trenutna sedmica" },
-                  { value: "previousWeek", label: "Prošla sedmica" },
-                  { value: "monthly", label: "Mjesečni" },
-                  { value: "quarterly", label: "Tromjesečni" },
-                  { value: "selectMonth", label: "Odaberi mjesec" },
-                  { value: "custom", label: "Prilagođeno" },
-                ].map((r, index) => (
+                <div style={{ position: "relative", width: "100%" }} data-dropdown-container>
                   <button
-                    key={r.value}
-                    onClick={() => setRevenueFilter(r.value as any)}
+                    type="button"
+                    onClick={() => {
+                      setRevenueFilterDropdownOpen(!revenueFilterDropdownOpen);
+                      setMonthDropdownOpen(false);
+                      setYearDropdownOpen(false);
+                    }}
                     style={{
-                      padding: "6px 12px",
-                      borderRadius: 8,
-                      border: "none",
+                      width: "100%",
+                      padding: "14px 40px 14px 16px",
+                      border: revenueFilterDropdownOpen ? "2px solid #3b82f6" : "1px solid #d1d5db",
+                      borderRadius: "12px",
+                      fontSize: "15px",
+                      backgroundColor: "#fff",
                       cursor: "pointer",
-                      fontWeight: 500,
-                      fontSize: 13,
-                      background: revenueFilter === r.value ? "#3b82f6" : "#e5e7eb",
-                      color: revenueFilter === r.value ? "#fff" : "#374151",
-                      transition: "all 0.2s",
-                      boxShadow: revenueFilter === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-                      whiteSpace: "nowrap",
-                      flex: index === 0 || index === 3 ? "1 1 100%" : "1 1 calc(50% - 2px)",
-                      minWidth: index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
-                      maxWidth: index >= 4 ? "100%" : index === 0 || index === 3 ? "100%" : "calc(50% - 2px)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: revenueFilterDropdownOpen ? "0 8px 20px rgba(59,130,246,0.2), 0 0 0 1px rgba(59,130,246,0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                      fontWeight: 600,
+                      color: "#1f2937",
+                      position: "relative",
+                      overflow: "hidden",
                     }}
                   >
-                    {r.label}
+                    <span>
+                      {[
+                        { value: "currentWeek", label: "Trenutna sedmica" },
+                        { value: "previousWeek", label: "Prošla sedmica" },
+                        { value: "monthly", label: "Mjesečni" },
+                        { value: "quarterly", label: "Tromjesečni" },
+                        { value: "selectMonth", label: "Odaberi mjesec" },
+                        { value: "custom", label: "Prilagođeno" },
+                      ].find(r => r.value === revenueFilter)?.label || "Trenutna sedmica"}
+                    </span>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={{
+                        transform: revenueFilterDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        position: "absolute",
+                        right: "16px",
+                      }}
+                    >
+                      <path 
+                        d="M5 7.5L10 12.5L15 7.5" 
+                        stroke={revenueFilterDropdownOpen ? "#3b82f6" : "#6b7280"} 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </button>
-                ))}
+                  {revenueFilterDropdownOpen && (
+                    <>
+                      <div
+                        style={{
+                          position: "fixed",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundColor: "rgba(0, 0, 0, 0.08)",
+                          backdropFilter: "blur(4px)",
+                          WebkitBackdropFilter: "blur(4px)",
+                          zIndex: 9999,
+                        }}
+                        onClick={() => setRevenueFilterDropdownOpen(false)}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "calc(100% + 8px)",
+                          left: 0,
+                          right: 0,
+                          background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%)",
+                          backdropFilter: "blur(20px) saturate(180%)",
+                          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                          border: "1px solid rgba(255, 255, 255, 0.8)",
+                          borderRadius: "16px",
+                          boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1), 0 10px 30px rgba(0, 0, 0, 0.15)",
+                          zIndex: 10000,
+                          maxHeight: "320px",
+                          overflowY: "auto",
+                          overflowX: "hidden",
+                        }}
+                      >
+                        <style>{`
+                          @keyframes dropdownSlideIn {
+                            from {
+                              opacity: 0;
+                              transform: translateY(-10px) scale(0.95);
+                            }
+                            to {
+                              opacity: 1;
+                              transform: translateY(0) scale(1);
+                            }
+                          }
+                          @keyframes itemSlideIn {
+                            from {
+                              opacity: 0;
+                              transform: translateX(-10px);
+                            }
+                            to {
+                              opacity: 1;
+                              transform: translateX(0);
+                            }
+                          }
+                        `}</style>
+                        {[
+                          { value: "currentWeek", label: "Trenutna sedmica" },
+                          { value: "previousWeek", label: "Prošla sedmica" },
+                          { value: "monthly", label: "Mjesečni" },
+                          { value: "quarterly", label: "Tromjesečni" },
+                          { value: "selectMonth", label: "Odaberi mjesec" },
+                          { value: "custom", label: "Prilagođeno" },
+                        ].map((r, index) => {
+                          const isSelected = revenueFilter === r.value;
+                          return (
+                            <button
+                              key={r.value}
+                              type="button"
+                              onClick={() => {
+                                setRevenueFilter(r.value as any);
+                                setRevenueFilterDropdownOpen(false);
+                                setMonthDropdownOpen(false);
+                                setYearDropdownOpen(false);
+                              }}
+                              style={{
+                                width: "100%",
+                                padding: "16px 18px",
+                                textAlign: "left",
+                                border: "none",
+                                backgroundColor: isSelected ? "#eff6ff" : "#fff",
+                                background: isSelected ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)" : "#fff",
+                                opacity: 1,
+                                color: isSelected ? "#1e40af" : "#374151",
+                                fontSize: "15px",
+                                cursor: "pointer",
+                                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                                fontWeight: isSelected ? 600 : 500,
+                                borderBottom: index < 5 ? "1px solid #f1f5f9" : "none",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                animation: `itemSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) ${index * 0.05}s both`,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isSelected) {
+                                  e.currentTarget.style.backgroundColor = "#f1f5f9";
+                                  e.currentTarget.style.background = "#f1f5f9";
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isSelected) {
+                                  e.currentTarget.style.backgroundColor = "#fff";
+                                  e.currentTarget.style.background = "#fff";
+                                }
+                              }}
+                            >
+                              <span>{r.label}</span>
+                              {isSelected && (
+                                <svg 
+                                  width="22" 
+                                  height="22" 
+                                  viewBox="0 0 22 22" 
+                                  fill="none" 
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <circle cx="11" cy="11" r="10" fill="#3b82f6" opacity="0.15"/>
+                                  <path 
+                                    d="M7.5 11L10 13.5L14.5 9" 
+                                    stroke="#3b82f6" 
+                                    strokeWidth="2.5" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {revenueFilter === "custom" && (
+                  <div style={{ 
+                    marginTop: "12px",
+                    display: "flex", 
+                    gap: 8, 
+                    alignItems: "flex-end", 
+                    width: "100%", 
+                    flexWrap: "wrap",
+                    opacity: 1,
+                    visibility: "visible"
+                  }}>
+                    <input
+                      type="date"
+                      value={customFrom}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                      style={{ 
+                        flex: "1 1 auto",
+                        minWidth: 0,
+                        padding: "8px 12px", 
+                        border: "1px solid #d1d5db", 
+                        borderRadius: "8px", 
+                        fontSize: "13px", 
+                        outline: "none",
+                        backgroundColor: "#fff",
+                        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                    <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
+                    <input
+                      type="date"
+                      value={customTo}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                      style={{ 
+                        flex: "1 1 auto",
+                        minWidth: 0,
+                        padding: "8px 12px", 
+                        border: "1px solid #d1d5db", 
+                        borderRadius: "8px", 
+                        fontSize: "13px", 
+                        outline: "none",
+                        backgroundColor: "#fff",
+                        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                        boxSizing: "border-box"
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
@@ -1238,12 +1457,13 @@ export default function AdminPage() {
               marginBottom: isMobile ? 8 : 30,
               overflow: isMobile ? "visible" : "hidden",
               boxSizing: "border-box",
-              position: "relative"
+              position: "relative",
+              zIndex: 1
             }}
           >
             <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
               <ResponsiveContainer key={`revenue-chart-${isMobile}-${revenueChartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-                <LineChart data={revenueChartData.length > 0 ? revenueChartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+                <LineChart data={revenueChartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="period" 

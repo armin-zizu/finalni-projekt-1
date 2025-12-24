@@ -152,97 +152,770 @@ const formInputStyle: React.CSSProperties = {
 
 // ---- Filter komponenta ----
 const FilterSection: React.FC<{
-  filter: "trenutnaSedmica" | "proslaSedmica" | "prosliMjesec" | "custom";
-  setFilter: (value: "trenutnaSedmica" | "proslaSedmica" | "prosliMjesec" | "custom") => void;
+  filter: "currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom";
+  setFilter: (value: "currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom") => void;
   customPeriod: { from: string; to: string };
   setCustomPeriod: (value: { from: string; to: string }) => void;
+  selectedMonth?: number;
+  setSelectedMonth?: (value: number) => void;
+  selectedYear?: number;
+  setSelectedYear?: (value: number) => void;
+  monthDropdownOpen?: boolean;
+  setMonthDropdownOpen?: (value: boolean) => void;
+  yearDropdownOpen?: boolean;
+  setYearDropdownOpen?: (value: boolean) => void;
   label?: string;
   isMobile?: boolean;
-}> = ({ filter, setFilter, customPeriod, setCustomPeriod, label = "Filter arhive", isMobile = false }) => {
+}> = ({ filter, setFilter, customPeriod, setCustomPeriod, selectedMonth, setSelectedMonth, selectedYear, setSelectedYear, monthDropdownOpen, setMonthDropdownOpen, yearDropdownOpen, setYearDropdownOpen, label = "Filter arhive", isMobile = false }) => {
   const hasLabel = !!label;
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-dropdown-container]')) {
+        setDropdownOpen(false);
+        if (setMonthDropdownOpen) setMonthDropdownOpen(false);
+        if (setYearDropdownOpen) setYearDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen, setMonthDropdownOpen, setYearDropdownOpen]);
+
+  const filterOptions = [
+    { value: "currentWeek", label: "Trenutna sedmica" },
+    { value: "previousWeek", label: "Prošla sedmica" },
+    { value: "monthly", label: "Mjesečni" },
+    { value: "quarterly", label: "Tromjesečni" },
+    { value: "selectMonth", label: "Odaberi mjesec" },
+    { value: "custom", label: "Prilagođeno" },
+  ];
+
+  const currentLabel = filterOptions.find(f => f.value === filter)?.label || "Trenutna sedmica";
 
   return (
     <div style={{ 
       marginBottom: hasLabel ? (isMobile ? "16px" : "20px") : 0, 
-      background: hasLabel ? "#fff" : "transparent", 
-      padding: hasLabel ? (isMobile ? "10px 12px" : "16px") : 0, 
-      borderRadius: hasLabel ? "8px" : 0, 
-      boxShadow: hasLabel ? "0 2px 8px rgba(0,0,0,0.1)" : "none", 
+      background: hasLabel ? (isMobile ? "linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.95) 100%)" : "#fff") : "transparent", 
+      backdropFilter: hasLabel && isMobile ? "blur(15px) saturate(180%)" : "none",
+      WebkitBackdropFilter: hasLabel && isMobile ? "blur(15px) saturate(180%)" : "none",
+      border: hasLabel && isMobile ? "1px solid rgba(255, 255, 255, 0.8)" : "none",
+      padding: hasLabel ? (isMobile ? "12px" : "16px") : 0, 
+      borderRadius: hasLabel ? (isMobile ? "16px" : "8px") : 0, 
+      boxShadow: hasLabel ? (isMobile ? "0 15px 30px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.02)" : "0 2px 8px rgba(0,0,0,0.1)") : "none", 
       width: "100%", 
       maxWidth: "100%", 
-      boxSizing: "border-box" 
+      boxSizing: "border-box",
+      position: "relative",
+      zIndex: 10
     }}>
       {hasLabel && (
         <h2 style={{ 
           fontSize: isMobile ? "16px" : "18px", 
           fontWeight: 500, 
-          marginBottom: isMobile ? "8px" : "12px", 
+          marginBottom: isMobile ? "12px" : "12px", 
           wordWrap: "break-word" 
         }}>
           {label}
         </h2>
       )}
-      <div style={{ 
-        display: "flex", 
-        gap: isMobile ? 4 : 12, 
-        flexWrap: "wrap", 
-        alignItems: "center", 
-        width: "100%" 
-      }}>
-        {["trenutnaSedmica", "proslaSedmica", "prosliMjesec", "custom"].map((f, index) => (
+      {isMobile ? (
+        <div style={{ position: "relative", width: "100%" }} data-dropdown-container>
           <button
-            key={f}
-            onClick={() => setFilter(f as any)}
+            type="button"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
             style={{
-              ...buttonStyle,
-              backgroundColor: filter === f ? "#3b82f6" : "#e5e7eb",
-              color: filter === f ? "#fff" : "#374151",
-              padding: isMobile ? "6px 12px" : "8px 16px",
-              fontSize: isMobile ? 13 : 14,
-              whiteSpace: "nowrap",
-              flex: isMobile && (index === 0 || index === 3) ? "1 1 100%" : isMobile ? "1 1 calc(50% - 3px)" : "1 1 auto",
-              minWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "fit-content",
-              maxWidth: isMobile && (index === 0 || index === 3) ? "100%" : isMobile ? "calc(50% - 3px)" : "none",
+              width: "100%",
+              padding: "14px 40px 14px 16px",
+              border: dropdownOpen ? "2px solid #3b82f6" : "1px solid #d1d5db",
+              borderRadius: "12px",
+              fontSize: "15px",
+              backgroundColor: "#fff",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              boxShadow: dropdownOpen ? "0 8px 20px rgba(59,130,246,0.2), 0 0 0 1px rgba(59,130,246,0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              fontWeight: 600,
+              color: "#1f2937",
+              position: "relative",
+              overflow: "hidden",
             }}
           >
-            {f === "trenutnaSedmica" ? "Trenutna sedmica" :
-             f === "proslaSedmica" ? "Prošla sedmica" :
-             f === "prosliMjesec" ? "Prošli mjesec" :
-             "Prilagođeni period"}
+            <span>{currentLabel}</span>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{
+                transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                position: "absolute",
+                right: "16px",
+              }}
+            >
+              <path 
+                d="M5 7.5L10 12.5L15 7.5" 
+                stroke={dropdownOpen ? "#3b82f6" : "#6b7280"} 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
-        ))}
-        {filter === "custom" && (
-          <div style={{ display: "flex", gap: isMobile ? 4 : 8, alignItems: "center", width: isMobile ? "100%" : "auto", flexWrap: "wrap" }}>
-            <input 
-              type="date" 
-              value={customPeriod.from} 
-              onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
-              style={{ 
-                ...formInputStyle, 
-                flex: isMobile ? "1 1 auto" : "none", 
-                minWidth: 0, 
-                maxWidth: isMobile ? "100%" : "none",
-                padding: isMobile ? "6px 8px" : "8px",
-                fontSize: isMobile ? 13 : 14,
-              }} 
-            />
-            <span style={{ whiteSpace: "nowrap", fontSize: isMobile ? 13 : 14 }}>do</span>
-            <input 
-              type="date" 
-              value={customPeriod.to} 
-              onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
-              style={{ 
-                ...formInputStyle, 
-                flex: isMobile ? "1 1 auto" : "none", 
-                minWidth: 0, 
-                maxWidth: isMobile ? "100%" : "none",
-                padding: isMobile ? "6px 8px" : "8px",
-                fontSize: isMobile ? 13 : 14,
-              }} 
-            />
-          </div>
-        )}
-      </div>
+          {dropdownOpen && (
+            <>
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(0, 0, 0, 0.08)",
+                  backdropFilter: "blur(4px)",
+                  WebkitBackdropFilter: "blur(4px)",
+                  zIndex: 9999,
+                }}
+                onClick={() => setDropdownOpen(false)}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 8px)",
+                  left: 0,
+                  right: 0,
+                  background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%)",
+                  backdropFilter: "blur(20px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                  border: "1px solid rgba(255, 255, 255, 0.8)",
+                  borderRadius: "16px",
+                  boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1), 0 10px 30px rgba(0, 0, 0, 0.15)",
+                  zIndex: 10000,
+                  maxHeight: "320px",
+                  overflowY: "auto",
+                  overflowX: "hidden",
+                }}
+              >
+                <style>{`
+                  @keyframes dropdownSlideIn {
+                    from {
+                      opacity: 0;
+                      transform: translateY(-10px) scale(0.95);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateY(0) scale(1);
+                    }
+                  }
+                  @keyframes itemSlideIn {
+                    from {
+                      opacity: 0;
+                      transform: translateX(-10px);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateX(0);
+                    }
+                  }
+                `}</style>
+                {filterOptions.map((option, index) => {
+                  const isSelected = filter === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setFilter(option.value as any);
+                        setDropdownOpen(false);
+                        if (setMonthDropdownOpen) setMonthDropdownOpen(false);
+                        if (setYearDropdownOpen) setYearDropdownOpen(false);
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "16px 18px",
+                        textAlign: "left",
+                        border: "none",
+                        backgroundColor: isSelected ? "#eff6ff" : "#fff",
+                        background: isSelected ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)" : "#fff",
+                        opacity: 1,
+                        color: isSelected ? "#1e40af" : "#374151",
+                        fontSize: "15px",
+                        cursor: "pointer",
+                        transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                        fontWeight: isSelected ? 600 : 500,
+                        borderBottom: index < filterOptions.length - 1 ? "1px solid #f1f5f9" : "none",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        animation: `itemSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) ${index * 0.05}s both`,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "#f1f5f9";
+                          e.currentTarget.style.background = "#f1f5f9";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "#fff";
+                          e.currentTarget.style.background = "#fff";
+                        }
+                      }}
+                    >
+                      <span>{option.label}</span>
+                      {isSelected && (
+                        <svg 
+                          width="22" 
+                          height="22" 
+                          viewBox="0 0 22 22" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <circle cx="11" cy="11" r="10" fill="#3b82f6" opacity="0.15"/>
+                          <path 
+                            d="M7.5 11L10 13.5L14.5 9" 
+                            stroke="#3b82f6" 
+                            strokeWidth="2.5" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {filter === "selectMonth" && selectedMonth && setSelectedMonth && selectedYear && setSelectedYear && monthDropdownOpen !== undefined && setMonthDropdownOpen && yearDropdownOpen !== undefined && setYearDropdownOpen && (
+            <div style={{ 
+              marginTop: "12px",
+              display: "flex", 
+              gap: 8, 
+              alignItems: "flex-end", 
+              width: "100%", 
+              flexWrap: "wrap",
+              opacity: 1,
+              visibility: "visible"
+            }}>
+              {/* Custom Dropdown za Mjesec */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMonthDropdownOpen(!monthDropdownOpen);
+                      if (setYearDropdownOpen) setYearDropdownOpen(false);
+                      setDropdownOpen(false);
+                    }}
+                    style={{
+                      padding: "8px 32px 8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: monthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                    }}
+                  >
+                    <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][selectedMonth - 1]}</span>
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={{
+                        transform: monthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
+                        position: "absolute",
+                        right: "8px",
+                      }}
+                    >
+                      <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                    </svg>
+                  </button>
+                  {monthDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        backgroundColor: "#fff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                        zIndex: 10000,
+                        maxHeight: "240px",
+                        overflowY: "auto",
+                      }}
+                    >
+                      {[
+                        "Januar", "Februar", "Mart", "April", "Maj", "Juni",
+                        "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
+                      ].map((month, index) => (
+                        <button
+                          key={index + 1}
+                          type="button"
+                          onClick={() => {
+                            if (setSelectedMonth) setSelectedMonth(index + 1);
+                            if (setMonthDropdownOpen) setMonthDropdownOpen(false);
+                            setDropdownOpen(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            backgroundColor: selectedMonth === index + 1 ? "#eff6ff" : "#fff",
+                            color: selectedMonth === index + 1 ? "#2563eb" : "#1f2937",
+                            fontSize: "13px",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            fontWeight: selectedMonth === index + 1 ? 600 : 400,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (selectedMonth !== index + 1) {
+                              e.currentTarget.style.backgroundColor = "#f9fafb";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (selectedMonth !== index + 1) {
+                              e.currentTarget.style.backgroundColor = "#fff";
+                            }
+                          }}
+                        >
+                          {month}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Custom Dropdown za Godinu */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Godina:</label>
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (setYearDropdownOpen) setYearDropdownOpen(!yearDropdownOpen);
+                      if (setMonthDropdownOpen) setMonthDropdownOpen(false);
+                      setDropdownOpen(false);
+                    }}
+                    style={{
+                      padding: "8px 32px 8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: yearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                    }}
+                  >
+                    <span>{selectedYear}</span>
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={{
+                        transform: yearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
+                        position: "absolute",
+                        right: "8px",
+                      }}
+                    >
+                      <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                    </svg>
+                  </button>
+                  {yearDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        backgroundColor: "#fff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                        zIndex: 10000,
+                        maxHeight: "200px",
+                        overflowY: "auto",
+                      }}
+                    >
+                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                        <button
+                          key={year}
+                          type="button"
+                          onClick={() => {
+                            if (setSelectedYear) setSelectedYear(year);
+                            if (setYearDropdownOpen) setYearDropdownOpen(false);
+                            setDropdownOpen(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            backgroundColor: selectedYear === year ? "#eff6ff" : "#fff",
+                            color: selectedYear === year ? "#2563eb" : "#1f2937",
+                            fontSize: "13px",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            fontWeight: selectedYear === year ? 600 : 400,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (selectedYear !== year) {
+                              e.currentTarget.style.backgroundColor = "#f9fafb";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (selectedYear !== year) {
+                              e.currentTarget.style.backgroundColor = "#fff";
+                            }
+                          }}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {filter === "custom" && (
+            <div style={{ 
+              marginTop: "12px",
+              display: "flex", 
+              gap: 8, 
+              alignItems: "flex-end", 
+              width: "100%", 
+              flexWrap: "wrap",
+              opacity: 1,
+              visibility: "visible"
+            }}>
+              <input 
+                type="date" 
+                value={customPeriod.from} 
+                onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
+                style={{ 
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  padding: "8px 12px", 
+                  border: "1px solid #d1d5db", 
+                  borderRadius: "8px", 
+                  fontSize: "13px", 
+                  outline: "none",
+                  backgroundColor: "#fff",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  boxSizing: "border-box"
+                }} 
+              />
+              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
+              <input 
+                type="date" 
+                value={customPeriod.to} 
+                onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
+                style={{ 
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  padding: "8px 12px", 
+                  border: "1px solid #d1d5db", 
+                  borderRadius: "8px", 
+                  fontSize: "13px", 
+                  outline: "none",
+                  backgroundColor: "#fff",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  boxSizing: "border-box"
+                }} 
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ 
+          display: "flex", 
+          gap: 12, 
+          flexWrap: "wrap", 
+          alignItems: "center", 
+          width: "100%" 
+        }}>
+          {filterOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setFilter(option.value as any)}
+              style={{
+                ...buttonStyle,
+                backgroundColor: filter === option.value ? "#3b82f6" : "#e5e7eb",
+                color: filter === option.value ? "#fff" : "#374151",
+                padding: "8px 16px",
+                fontSize: 14,
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+          {filter === "selectMonth" && selectedMonth && setSelectedMonth && selectedYear && setSelectedYear && monthDropdownOpen !== undefined && setMonthDropdownOpen && yearDropdownOpen !== undefined && setYearDropdownOpen && (
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginLeft: 10, flexWrap: "wrap" }}>
+              {/* Custom Dropdown za Mjesec */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Mjesec:</label>
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMonthDropdownOpen(!monthDropdownOpen);
+                      if (setYearDropdownOpen) setYearDropdownOpen(false);
+                    }}
+                    style={{
+                      padding: "10px 40px 10px 14px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      minWidth: "160px",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: monthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                    }}
+                  >
+                    <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][selectedMonth - 1]}</span>
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={{
+                        transform: monthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
+                        position: "absolute",
+                        right: "8px",
+                      }}
+                    >
+                      <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                    </svg>
+                  </button>
+                  {monthDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        backgroundColor: "#fff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                        zIndex: 1000,
+                        maxHeight: "240px",
+                        overflowY: "auto",
+                      }}
+                    >
+                      {[
+                        "Januar", "Februar", "Mart", "April", "Maj", "Juni",
+                        "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
+                      ].map((month, index) => (
+                        <button
+                          key={index + 1}
+                          type="button"
+                          onClick={() => {
+                            if (setSelectedMonth) setSelectedMonth(index + 1);
+                            if (setMonthDropdownOpen) setMonthDropdownOpen(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            backgroundColor: selectedMonth === index + 1 ? "#eff6ff" : "#fff",
+                            color: selectedMonth === index + 1 ? "#2563eb" : "#1f2937",
+                            fontSize: "13px",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            fontWeight: selectedMonth === index + 1 ? 600 : 400,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (selectedMonth !== index + 1) {
+                              e.currentTarget.style.backgroundColor = "#f9fafb";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (selectedMonth !== index + 1) {
+                              e.currentTarget.style.backgroundColor = "#fff";
+                            }
+                          }}
+                        >
+                          {month}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Custom Dropdown za Godinu */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Godina:</label>
+                <div style={{ position: "relative" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (setYearDropdownOpen) setYearDropdownOpen(!yearDropdownOpen);
+                      if (setMonthDropdownOpen) setMonthDropdownOpen(false);
+                    }}
+                    style={{
+                      padding: "10px 40px 10px 14px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      minWidth: "160px",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: yearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                    }}
+                  >
+                    <span>{selectedYear}</span>
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={{
+                        transform: yearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
+                        position: "absolute",
+                        right: "8px",
+                      }}
+                    >
+                      <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
+                    </svg>
+                  </button>
+                  {yearDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        marginTop: "4px",
+                        backgroundColor: "#fff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
+                        zIndex: 1000,
+                        maxHeight: "200px",
+                        overflowY: "auto",
+                      }}
+                    >
+                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                        <button
+                          key={year}
+                          type="button"
+                          onClick={() => {
+                            if (setSelectedYear) setSelectedYear(year);
+                            if (setYearDropdownOpen) setYearDropdownOpen(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            border: "none",
+                            backgroundColor: selectedYear === year ? "#eff6ff" : "#fff",
+                            color: selectedYear === year ? "#2563eb" : "#1f2937",
+                            fontSize: "13px",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            fontWeight: selectedYear === year ? 600 : 400,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (selectedYear !== year) {
+                              e.currentTarget.style.backgroundColor = "#f9fafb";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (selectedYear !== year) {
+                              e.currentTarget.style.backgroundColor = "#fff";
+                            }
+                          }}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {filter === "custom" && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input 
+                type="date" 
+                value={customPeriod.from} 
+                onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
+                style={{ 
+                  ...formInputStyle, 
+                  padding: "8px",
+                  fontSize: 14,
+                }} 
+              />
+              <span style={{ whiteSpace: "nowrap", fontSize: 14 }}>do</span>
+              <input 
+                type="date" 
+                value={customPeriod.to} 
+                onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
+                style={{ 
+                  ...formInputStyle, 
+                  padding: "8px",
+                  fontSize: 14,
+                }} 
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -250,13 +923,18 @@ const FilterSection: React.FC<{
 // ---- Glavna komponenta ----
 export default function ProfitPage() {
   const [obracuniProfit, setObracuniProfit] = useState<ObracunProfit[]>([]);
-  const [filter, setFilter] = useState<"trenutnaSedmica" | "proslaSedmica" | "prosliMjesec" | "custom">("trenutnaSedmica");
+  const [filter, setFilter] = useState<"currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom">("currentWeek");
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [chartKey, setChartKey] = useState(0);
   const [customPeriod, setCustomPeriod] = useState<{ from: string; to: string }>({
     from: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split("T")[0],
     to: new Date().toISOString().split("T")[0],
   });
+  // State za selectMonth
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
+  const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   // Dropdown state za custom period
   const [customFromDay, setCustomFromDay] = useState<number>(new Date().getDate());
   const [customFromMonth, setCustomFromMonth] = useState<number>(new Date().getMonth() + 1);
@@ -272,7 +950,7 @@ export default function ProfitPage() {
   const [customToYearDropdownOpen, setCustomToYearDropdownOpen] = useState(false);
   const [filteredObracuni, setFilteredObracuni] = useState<ObracunProfit[]>([]);
   const [selectedArtikl, setSelectedArtikl] = useState<string>("");
-  const [artiklFilter, setArtiklFilter] = useState<"trenutnaSedmica" | "proslaSedmica" | "prosliMjesec" | "custom">("trenutnaSedmica");
+  const [artiklFilter, setArtiklFilter] = useState<"currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom">("currentWeek");
   // Dropdown state za artikl filter custom period
   const [artiklCustomFromDay, setArtiklCustomFromDay] = useState<number>(new Date().getDate());
   const [artiklCustomFromMonth, setArtiklCustomFromMonth] = useState<number>(new Date().getMonth() + 1);
@@ -615,14 +1293,14 @@ export default function ProfitPage() {
     const filtered = obracuniProfit.filter((o) => {
       const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
 
-      if (filter === "trenutnaSedmica") {
+      if (filter === "currentWeek") {
         const monday = getMonday(today);
         const sunday = new Date(monday);
         sunday.setDate(monday.getDate() + 6);
         sunday.setHours(23, 59, 59, 999);
         return dTime >= monday.getTime() && dTime <= sunday.getTime();
       }
-      if (filter === "proslaSedmica") {
+      if (filter === "previousWeek") {
         const lastWeekDate = new Date(today);
         lastWeekDate.setDate(today.getDate() - 7);
         const lastWeekMonday = getMonday(lastWeekDate);
@@ -631,11 +1309,27 @@ export default function ProfitPage() {
         lastWeekSunday.setHours(23, 59, 59, 999);
         return dTime >= lastWeekMonday.getTime() && dTime <= lastWeekSunday.getTime();
       }
-      if (filter === "prosliMjesec") {
-        const firstDayPrevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        const lastDayPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-        lastDayPrevMonth.setHours(23, 59, 59, 999);
-        return dTime >= firstDayPrevMonth.getTime() && dTime <= lastDayPrevMonth.getTime();
+      if (filter === "monthly") {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        firstDay.setHours(0, 0, 0, 0);
+        const lastDay = new Date(today);
+        lastDay.setHours(23, 59, 59, 999);
+        return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
+      }
+      if (filter === "quarterly") {
+        const threeMonthsAgo = new Date(today);
+        threeMonthsAgo.setMonth(today.getMonth() - 3);
+        threeMonthsAgo.setDate(1);
+        threeMonthsAgo.setHours(0, 0, 0, 0);
+        const lastDay = new Date(today);
+        lastDay.setHours(23, 59, 59, 999);
+        return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
+      }
+      if (filter === "selectMonth") {
+        const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
+        firstDay.setHours(0, 0, 0, 0);
+        const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
+        return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       }
       if (filter === "custom") {
         const fromTime = new Date(customPeriod.from).getTime();
@@ -646,7 +1340,7 @@ export default function ProfitPage() {
     });
 
     setFilteredObracuni(filtered);
-  }, [filter, customPeriod, obracuniProfit]);
+  }, [filter, customPeriod, selectedMonth, selectedYear, obracuniProfit]);
 
   // ---- dobijanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive ----
   const allArtikli = useMemo(() => {
@@ -657,9 +1351,9 @@ export default function ProfitPage() {
   }, [obracuniProfit, cjenovnik]);
 
   // ---- agregacija podataka za grafikon profita po artiklu ----
-  const aggregateArtiklProfitData = (
+  const aggregateArtiklProfitData = useCallback((
     selectedArtikl: string,
-    selectedFilter: "trenutnaSedmica" | "proslaSedmica" | "prosliMjesec" | "custom"
+    selectedFilter: "currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom"
   ): ArtiklProfitData[] => {
     let filteredData = obracuniProfit
       .map((o) => {
@@ -687,7 +1381,7 @@ export default function ProfitPage() {
       return date;
     };
 
-    if (selectedFilter === "trenutnaSedmica") {
+    if (selectedFilter === "currentWeek") {
       // Generiši poslednjih 7 dana (od danas unazad)
       const sevenDaysData: ArtiklProfitData[] = [];
       const todayDate = new Date();
@@ -716,7 +1410,7 @@ export default function ProfitPage() {
       }
       
       return sevenDaysData;
-    } else if (selectedFilter === "proslaSedmica") {
+    } else if (selectedFilter === "previousWeek") {
       // Generiši prethodnih 7 dana (prošla sedmica)
       const sevenDaysData: ArtiklProfitData[] = [];
       const todayDate = new Date();
@@ -746,13 +1440,33 @@ export default function ProfitPage() {
       }
       
       return sevenDaysData;
-    } else if (selectedFilter === "prosliMjesec") {
-      const firstDayPrevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const lastDayPrevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-      lastDayPrevMonth.setHours(23, 59, 59, 999);
+    } else if (selectedFilter === "monthly") {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      firstDay.setHours(0, 0, 0, 0);
+      const lastDay = new Date(today);
+      lastDay.setHours(23, 59, 59, 999);
       filteredData = filteredData.filter((o) => {
         const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= firstDayPrevMonth.getTime() && dTime <= lastDayPrevMonth.getTime();
+        return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
+      });
+    } else if (selectedFilter === "quarterly") {
+      const threeMonthsAgo = new Date(today);
+      threeMonthsAgo.setMonth(today.getMonth() - 3);
+      threeMonthsAgo.setDate(1);
+      threeMonthsAgo.setHours(0, 0, 0, 0);
+      const lastDay = new Date(today);
+      lastDay.setHours(23, 59, 59, 999);
+      filteredData = filteredData.filter((o) => {
+        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
+      });
+    } else if (selectedFilter === "selectMonth") {
+      const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
+      firstDay.setHours(0, 0, 0, 0);
+      const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
+      filteredData = filteredData.filter((o) => {
+        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedFilter === "custom") {
       const fromTime = new Date(customPeriod.from).getTime();
@@ -768,19 +1482,19 @@ export default function ProfitPage() {
       bruto: Number(o.bruto),
       neto: Number(o.neto),
     }));
-  };
+  }, [obracuniProfit, customPeriod, selectedMonth, selectedYear]);
 
   // ---- sortiranje podataka za glavni grafikon u uzlaznom redoslijedu ----
   const chartData = useMemo(() => {
     // Za trenutnu i prošlu sedmicu, uvek prikaži 7 dana
-    if (filter === "trenutnaSedmica" || filter === "proslaSedmica") {
+    if (filter === "currentWeek" || filter === "previousWeek") {
       const sevenDaysData: Array<{ datum: string; bruto: number; neto: number; rashod: number }> = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
       // Odredi početni dan (za trenutnu sedmicu: danas - 6, za prošlu: danas - 13)
-      const startOffset = filter === "trenutnaSedmica" ? 6 : 13;
-      const endOffset = filter === "trenutnaSedmica" ? 0 : 7;
+      const startOffset = filter === "currentWeek" ? 6 : 13;
+      const endOffset = filter === "currentWeek" ? 0 : 7;
       
       for (let i = startOffset; i >= endOffset; i--) {
         const date = new Date(today);
@@ -830,7 +1544,7 @@ export default function ProfitPage() {
         neto: o.ukupnoNeto,
         rashod: o.ukupnoRashod,
       }));
-  }, [filteredObracuni, filter]);
+  }, [filteredObracuni, filter, selectedMonth, selectedYear]);
 
   // ---- podaci za grafikon profita odabranog artikla ----
   const selectedArtiklData = aggregateArtiklProfitData(selectedArtikl, artiklFilter);
@@ -1105,6 +1819,14 @@ export default function ProfitPage() {
         setFilter={setFilter}
         customPeriod={customPeriod}
         setCustomPeriod={setCustomPeriod}
+        selectedMonth={selectedMonth}
+        setSelectedMonth={setSelectedMonth}
+        selectedYear={selectedYear}
+        setSelectedYear={setSelectedYear}
+        monthDropdownOpen={monthDropdownOpen}
+        setMonthDropdownOpen={setMonthDropdownOpen}
+        yearDropdownOpen={yearDropdownOpen}
+        setYearDropdownOpen={setYearDropdownOpen}
         label="Filter ukupnog profita"
         isMobile={isMobile}
       />
@@ -1122,11 +1844,12 @@ export default function ProfitPage() {
         marginBottom: isMobile ? 8 : 30, 
         overflow: isMobile ? "visible" : "hidden", 
         boxSizing: "border-box",
-        position: "relative"
+        position: "relative",
+        zIndex: 1
       }}>
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-            <LineChart data={chartData && chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+            <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
@@ -1183,7 +1906,7 @@ export default function ProfitPage() {
             className="dashboard-card"
           >
             <div>{item.icon}</div>
-            <div>
+            <div style={{ textAlign: "center", flex: 1 }}>
               <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
               <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
             </div>
@@ -1293,6 +2016,14 @@ export default function ProfitPage() {
             setFilter={setArtiklFilter}
             customPeriod={customPeriod}
             setCustomPeriod={setCustomPeriod}
+            selectedMonth={selectedMonth}
+            setSelectedMonth={setSelectedMonth}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
+            monthDropdownOpen={monthDropdownOpen}
+            setMonthDropdownOpen={setMonthDropdownOpen}
+            yearDropdownOpen={yearDropdownOpen}
+            setYearDropdownOpen={setYearDropdownOpen}
             label=""
             isMobile={isMobile}
           />
@@ -1318,7 +2049,7 @@ export default function ProfitPage() {
       >
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-            <LineChart data={selectedArtiklData && selectedArtiklData.length > 0 ? selectedArtiklData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+            <LineChart data={selectedArtiklData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
