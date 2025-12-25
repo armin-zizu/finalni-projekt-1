@@ -3211,6 +3211,91 @@ export default function DashboardPage() {
             </p>
           </div>
 
+          {/* Tip prikaza - Radio buttoni (desktop verzija) */}
+          <div style={{
+            marginBottom: "24px"
+          }}>
+            <label style={{
+              display: "block",
+              fontWeight: 600,
+              fontSize: "14px",
+              color: "#374151",
+              marginBottom: "12px"
+            }}>
+              Tip prikaza:
+            </label>
+            <div style={{
+              display: "flex",
+              gap: "12px",
+              flexWrap: "wrap"
+            }}>
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer",
+                fontSize: "14px",
+                color: "#374151",
+                padding: "10px 16px",
+                borderRadius: "8px",
+                backgroundColor: artiklViewType === "custom" ? "#eff6ff" : "transparent",
+                border: `2px solid ${artiklViewType === "custom" ? "#3b82f6" : "#e5e7eb"}`,
+                transition: "all 0.2s",
+                fontWeight: artiklViewType === "custom" ? 600 : 400
+              }}>
+                <input
+                  type="radio"
+                  name="artiklViewTypeDesktop"
+                  value="custom"
+                  checked={artiklViewType === "custom"}
+                  onChange={(e) => {
+                    setArtiklViewType("custom");
+                    setSelectedArtikl("");
+                  }}
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    cursor: "pointer",
+                    accentColor: "#3b82f6"
+                  }}
+                />
+                <span>Po Artiklu</span>
+              </label>
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer",
+                fontSize: "14px",
+                color: "#374151",
+                padding: "10px 16px",
+                borderRadius: "8px",
+                backgroundColor: artiklViewType === "top" ? "#eff6ff" : "transparent",
+                border: `2px solid ${artiklViewType === "top" ? "#3b82f6" : "#e5e7eb"}`,
+                transition: "all 0.2s",
+                fontWeight: artiklViewType === "top" ? 600 : 400
+              }}>
+                <input
+                  type="radio"
+                  name="artiklViewTypeDesktop"
+                  value="top"
+                  checked={artiklViewType === "top"}
+                  onChange={(e) => {
+                    setArtiklViewType("top");
+                    setSelectedArtikl("");
+                  }}
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    cursor: "pointer",
+                    accentColor: "#3b82f6"
+                  }}
+                />
+                <span>Najprodavaniji</span>
+              </label>
+            </div>
+          </div>
+
           {/* Odabir artikla - prikazuje se samo kada je "Odaberi artikal" aktivno */}
           {artiklViewType === "custom" && (
             <div style={{
