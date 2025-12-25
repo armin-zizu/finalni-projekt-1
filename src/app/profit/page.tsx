@@ -1552,18 +1552,23 @@ export default function ProfitPage() {
         const year = date.getFullYear();
         const datumStr = `${day}.${month}.${year}`;
         
-        // Pronađi podatke za ovaj dan
-        const dayData = filteredObracuni.find((o) => {
+        // Pronađi SVE podatke za ovaj dan i sumiraj ih
+        const dayObracuni = filteredObracuni.filter((o) => {
           const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
-        if (dayData) {
+        if (dayObracuni.length > 0) {
+          // Sumiraj sve obračune za ovaj dan
+          const totalBruto = dayObracuni.reduce((sum, o) => sum + (o.ukupnoBruto || 0), 0);
+          const totalNeto = dayObracuni.reduce((sum, o) => sum + (o.ukupnoNeto || 0), 0);
+          const totalRashod = dayObracuni.reduce((sum, o) => sum + (o.ukupnoRashod || 0), 0);
+          
           sevenDaysData.push({
             datum: datumStr,
-            bruto: dayData.ukupnoBruto,
-            neto: dayData.ukupnoNeto,
-            rashod: dayData.ukupnoRashod,
+            bruto: totalBruto,
+            neto: totalNeto,
+            rashod: totalRashod,
           });
         } else {
           sevenDaysData.push({
