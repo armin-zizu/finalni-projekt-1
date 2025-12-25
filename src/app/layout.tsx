@@ -354,29 +354,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
-        {/* PRIVREMENO: VConsole za debug na mobilnim uređajima */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                if (typeof window !== 'undefined') {
-                  const script = document.createElement('script');
-                  script.src = 'https://cdn.jsdelivr.net/npm/vconsole@latest/dist/vconsole.min.js';
-                  script.onload = function() {
-                    if (window.VConsole) {
-                      new window.VConsole();
-                      console.log('✅ VConsole je učitano - Console je dostupan na mobilnom uređaju');
-                    }
-                  };
-                  script.onerror = function() {
-                    console.warn('⚠️ VConsole nije mogao biti učitan');
-                  };
-                  document.head.appendChild(script);
-                }
-              })();
-            `,
-          }}
-        />
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative", WebkitTapHighlightColor: "transparent" }}>
         <AppNameProvider>
