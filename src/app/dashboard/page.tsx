@@ -3694,8 +3694,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Grafikon utroška po artiklu - prikazuj ako je artikal izabran ili je "top" način */}
-      {(artiklViewType === "top" || (artiklViewType === "custom" && selectedArtikl)) && artiklToDisplay && (
+      {/* Grafikon utroška po artiklu - prikazuj ako postoji artikal za prikaz */}
+      {artiklToDisplay && selectedData.length >= 0 && (
         <>
           <div
             className="chart-container"
