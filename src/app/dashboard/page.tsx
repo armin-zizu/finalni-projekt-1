@@ -864,6 +864,20 @@ export default function DashboardPage() {
   // Podaci za grafikon
   const chartData = aggregateData(obracuni, range);
   
+  // Debug: Provjeri stvarne vrijednosti u chartData
+  if (typeof window !== 'undefined' && isMobile) {
+    console.log('📊 CHART DATA DEBUG - Stvarne vrijednosti:', {
+      chartDataLength: chartData.length,
+      chartDataSviPodaci: chartData,
+      totalBruto: chartData.reduce((sum, o) => sum + Number(o.artikli || 0), 0),
+      totalRashod: chartData.reduce((sum, o) => sum + Number(o.rashod || 0), 0),
+      totalNeto: chartData.reduce((sum, o) => sum + Number(o.neto || 0), 0),
+      obracuniPrimjer: obracuni[0] || null,
+      obracuniCount: obracuni.length,
+      range: range
+    });
+  }
+  
   // Odredi koji artikal prikazati
   // Ako je "top" - koristi najprodavaniji, inače koristi selectedArtikl
   // Ako nema selectedArtikl i nije "top", ne prikazuj ništa
