@@ -876,6 +876,29 @@ export default function DashboardPage() {
       obracuniCount: obracuni.length,
       range: range
     });
+    
+    // Detaljni debug - ispiši svaki element iz chartData
+    console.log('📊 CHART DATA - Detaljno po elementima:');
+    chartData.forEach((item, index) => {
+      console.log(`  [${index}] ${item.datum}: artikli=${item.artikli}, rashod=${item.rashod}, prihod=${item.prihod}, neto=${item.neto}`);
+    });
+    
+    // Debug - provjeri obračune i njihove datume
+    console.log('📊 OBRACUNI DEBUG - Datumi obračuna:');
+    obracuni.forEach((ob, index) => {
+      console.log(`  [${index}] datum: ${ob.datum}, artikli: ${ob.artikli}, rashod: ${ob.rashod}, neto: ${ob.neto}`);
+    });
+    
+    // Debug - provjeri range i datume
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    console.log('📊 RANGE DEBUG:', {
+      range: range,
+      today: today.toLocaleDateString('bs-BA'),
+      sevenDaysAgo: sevenDaysAgo.toLocaleDateString('bs-BA'),
+      currentWeekDates: chartData.map(item => item.datum)
+    });
   }
   
   // Odredi koji artikal prikazati
