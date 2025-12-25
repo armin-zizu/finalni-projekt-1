@@ -3694,108 +3694,111 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Grafikon utroška po artiklu - prikazuj ako postoji artikal za prikaz */}
-      {artiklToDisplay && selectedData.length >= 0 && (
-        <>
+      {/* Grafikon utroška po artiklu - uvijek prikazuj, kao prvi chart */}
+      <div
+        className="chart-container"
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          height: isMobile ? 310 : 400,
+          minHeight: isMobile ? 310 : 400,
+          backgroundColor: "#fff",
+          borderRadius: 12,
+          padding: isMobile ? 0 : 20,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+          marginBottom: isMobile ? 16 : 30,
+          overflow: isMobile ? "visible" : "hidden",
+          boxSizing: "border-box",
+          position: "relative"
+        }}
+      >
+        <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
+          {(() => {
+            // Debug log za mobilne uređaje
+            if (typeof window !== 'undefined' && isMobile) {
+              console.log('📱 Dashboard Artikl Chart Mobile Debug:', {
+                loading,
+                selectedDataLength: selectedData.length,
+                isMobile,
+                chartKey,
+                windowWidth: window.innerWidth,
+                hasSelectedData: selectedData.length > 0,
+                artiklToDisplay,
+                artiklViewType,
+                willRender: !loading
+              });
+            }
+            return !loading ? (
+              <ResponsiveContainer 
+                key={`artikl-chart-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
+                width="100%"
+                height={isMobile ? 300 : 400}
+              >
+                <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="datum" 
+                    tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
+                    angle={-45}
+                    textAnchor="end"
+                    height={isMobile ? 25 : 66}
+                  />
+                  <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
+                  <Line type="monotone" dataKey="utroseno" name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#6b7280", fontSize: "14px" }}>
+                Učitavanje podataka...
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Karta sa ukupnim utroškom - prikazuj samo ako postoji artikal */}
+      {artiklToDisplay && (
+        <div style={{ 
+          display: "flex", 
+          gap: 20, 
+          flexWrap: "wrap", 
+          marginBottom: isMobile ? 16 : 30, 
+          width: "100%", 
+          boxSizing: "border-box" 
+        }}>
           <div
-            className="chart-container"
             style={{
-              width: "100%",
-              maxWidth: "100%",
-              height: isMobile ? 310 : 400,
-              minHeight: isMobile ? 310 : 400,
+              flex: 1,
+              minWidth: isMobile ? "100%" : 300,
               backgroundColor: "#fff",
               borderRadius: 12,
-              padding: isMobile ? 0 : 20,
+              padding: isMobile ? 16 : 20,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
               boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-              marginBottom: isMobile ? 16 : 30,
-              overflow: isMobile ? "visible" : "hidden",
-              boxSizing: "border-box",
-              position: "relative"
+              transition: "transform 0.2s, box-shadow 0.2s",
+              cursor: "default",
             }}
+            className="dashboard-card"
           >
-            <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
-              {(() => {
-                // Debug log za mobilne uređaje
-                if (typeof window !== 'undefined' && isMobile) {
-                  console.log('📱 Dashboard Artikl Chart Mobile Debug:', {
-                    loading,
-                    selectedDataLength: selectedData.length,
-                    isMobile,
-                    chartKey,
-                    windowWidth: window.innerWidth,
-                    hasSelectedData: selectedData.length > 0,
-                    artiklToDisplay,
-                    willRender: !loading && artiklToDisplay
-                  });
-                }
-                return (
-                  <ResponsiveContainer 
-                    key={`artikl-chart-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
-                    width="100%"
-                    height={isMobile ? 300 : 400}
-                  >
-                    <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis 
-                        dataKey="datum" 
-                        tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
-                        angle={-45}
-                        textAnchor="end"
-                        height={isMobile ? 25 : 66}
-                      />
-                      <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
-                      <Line type="monotone" dataKey="utroseno" name={`Utrošeno (${artiklToDisplay})`} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                );
-              })()}
+            <div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 13H11V3H3V13ZM3 21H11V15H3V21ZM13 21H21V11H13V21ZM13 3V9H21V3H13Z" fill="#8b5cf6"/>
+              </svg>
             </div>
-          </div>
-
-          {/* Karta sa ukupnim utroškom */}
-          <div style={{ 
-            display: "flex", 
-            gap: 20, 
-            flexWrap: "wrap", 
-            marginBottom: isMobile ? 16 : 30, 
-            width: "100%", 
-            boxSizing: "border-box" 
-          }}>
-            <div
-              style={{
-                flex: 1,
-                minWidth: isMobile ? "100%" : 300,
-                backgroundColor: "#fff",
-                borderRadius: 12,
-                padding: isMobile ? 16 : 20,
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                transition: "transform 0.2s, box-shadow 0.2s",
-                cursor: "default",
-              }}
-              className="dashboard-card"
-            >
-              <div>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 13H11V3H3V13ZM3 21H11V15H3V21ZM13 21H21V11H13V21ZM13 3V9H21V3H13Z" fill="#8b5cf6"/>
-                </svg>
+            <div>
+              <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>
+                Ukupno utrošeno ({artiklToDisplay})
               </div>
-              <div>
-                <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>
-                  Ukupno utrošeno ({artiklToDisplay})
-                </div>
-                <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>
-                  {totalArtikl.toFixed(2)}
-                </div>
+              <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>
+                {totalArtikl.toFixed(2)}
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
       </>
     </div>
