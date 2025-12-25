@@ -645,15 +645,17 @@ export default function DashboardPage() {
         const year = date.getFullYear();
         const datumStr = `${day}.${month}.${year}`;
         
-        // Pronađi podatke za ovaj dan
-        const dayData = allData.find((o) => {
-          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        // Pronađi SVE podatke za ovaj dan i sumiraj ih
+        const dayObracuni = allData.filter((o) => {
+          const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
+        const totalUtroseno = dayObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
+        
         sevenDaysData.push({
           datum: datumStr,
-          utroseno: dayData ? Number(dayData.utroseno) : 0,
+          utroseno: totalUtroseno,
         });
       }
       
@@ -674,15 +676,17 @@ export default function DashboardPage() {
         const year = date.getFullYear();
         const datumStr = `${day}.${month}.${year}`;
         
-        // Pronađi podatke za ovaj dan
-        const dayData = allData.find((o) => {
-          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        // Pronađi SVE podatke za ovaj dan i sumiraj ih
+        const dayObracuni = allData.filter((o) => {
+          const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
+        const totalUtroseno = dayObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
+        
         sevenDaysData.push({
           datum: datumStr,
-          utroseno: dayData ? Number(dayData.utroseno) : 0,
+          utroseno: totalUtroseno,
         });
       }
       

@@ -1443,16 +1443,19 @@ export default function ProfitPage() {
         const year = date.getFullYear();
         const datumStr = `${day}.${month}.${year}`;
         
-        // Pronađi podatke za ovaj dan
-        const dayData = filteredData.find((o) => {
+        // Pronađi SVE podatke za ovaj dan i sumiraj ih
+        const dayObracuni = filteredData.filter((o) => {
           const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
+        const totalBruto = dayObracuni.reduce((sum, o) => sum + (Number(o.bruto) || 0), 0);
+        const totalNeto = dayObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+        
         sevenDaysData.push({
           datum: datumStr,
-          bruto: dayData ? Number(dayData.bruto) : 0,
-          neto: dayData ? Number(dayData.neto) : 0,
+          bruto: totalBruto,
+          neto: totalNeto,
         });
       }
       
@@ -1473,16 +1476,19 @@ export default function ProfitPage() {
         const year = date.getFullYear();
         const datumStr = `${day}.${month}.${year}`;
         
-        // Pronađi podatke za ovaj dan
-        const dayData = filteredData.find((o) => {
+        // Pronađi SVE podatke za ovaj dan i sumiraj ih
+        const dayObracuni = filteredData.filter((o) => {
           const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
+        const totalBruto = dayObracuni.reduce((sum, o) => sum + (Number(o.bruto) || 0), 0);
+        const totalNeto = dayObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+        
         sevenDaysData.push({
           datum: datumStr,
-          bruto: dayData ? Number(dayData.bruto) : 0,
-          neto: dayData ? Number(dayData.neto) : 0,
+          bruto: totalBruto,
+          neto: totalNeto,
         });
       }
       
