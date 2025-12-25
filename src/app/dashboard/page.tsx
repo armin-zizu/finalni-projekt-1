@@ -1419,7 +1419,6 @@ export default function DashboardPage() {
                     animation: "dropdownSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
                     scrollBehavior: "smooth",
                     WebkitOverflowScrolling: "touch",
-                    position: "relative",
                   }}
                   onMouseEnter={(e) => e.stopPropagation()}
                   onScroll={(e) => {
