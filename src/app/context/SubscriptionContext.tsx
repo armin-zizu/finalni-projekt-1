@@ -83,7 +83,9 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
       expiryDate = data.expiryDate instanceof Date ? data.expiryDate : new Date(data.expiryDate);
       
       // Uvijek računaj daysUntilExpiry, čak i ako je negativan (isteklo)
-      daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (expiryDate) {
+        daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      }
       
       if (expiryDate && now < expiryDate) {
         // Pretplata je aktivna (po datumu)
