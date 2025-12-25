@@ -2451,6 +2451,16 @@ export default function DashboardPage() {
           maxWidth: "100%", 
           boxSizing: "border-box" 
         }}>
+          {/* Naslov - h1 */}
+          <h1 style={{
+            fontSize: "20px",
+            fontWeight: 600,
+            color: "#1f2937",
+            margin: "0 0 16px 0"
+          }}>
+            Utrošak po artiklu
+          </h1>
+          
           {/* Tip prikaza - Radio buttoni */}
           <div style={{ marginBottom: "12px" }}>
             <label style={{ 
@@ -3178,20 +3188,20 @@ export default function DashboardPage() {
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
           border: "1px solid #e5e7eb"
         }}>
-          {/* Naslov sekcije */}
+          {/* Naslov sekcije - h1 */}
           <div style={{
             marginBottom: "20px",
             paddingBottom: "16px",
             borderBottom: "2px solid #f3f4f6"
           }}>
-            <h2 style={{
-              fontSize: "20px",
+            <h1 style={{
+              fontSize: "24px",
               fontWeight: 600,
               color: "#1f2937",
-              margin: 0
+              margin: "0 0 8px 0"
             }}>
               Utrošak po artiklu
-            </h2>
+            </h1>
             <p style={{
               fontSize: "14px",
               color: "#6b7280",
@@ -3199,91 +3209,6 @@ export default function DashboardPage() {
             }}>
               Odaberite artikal i vremenski period za detaljnu analizu utroška
             </p>
-          </div>
-
-          {/* Tip prikaza - Radio buttoni */}
-          <div style={{
-            marginBottom: "24px"
-          }}>
-            <label style={{
-              display: "block",
-              fontWeight: 600,
-              fontSize: "14px",
-              color: "#374151",
-              marginBottom: "12px"
-            }}>
-              Tip prikaza:
-            </label>
-            <div style={{
-              display: "flex",
-              gap: "12px",
-              flexWrap: "wrap"
-            }}>
-              <label style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                cursor: "pointer",
-                fontSize: "14px",
-                color: "#374151",
-                padding: "10px 16px",
-                borderRadius: "8px",
-                backgroundColor: artiklViewType === "custom" ? "#eff6ff" : "transparent",
-                border: `2px solid ${artiklViewType === "custom" ? "#3b82f6" : "#e5e7eb"}`,
-                transition: "all 0.2s",
-                fontWeight: artiklViewType === "custom" ? 600 : 400
-              }}>
-                <input
-                  type="radio"
-                  name="artiklViewType"
-                  value="custom"
-                  checked={artiklViewType === "custom"}
-                  onChange={(e) => {
-                    setArtiklViewType("custom");
-                    setSelectedArtikl("");
-                  }}
-                  style={{
-                    width: "18px",
-                    height: "18px",
-                    cursor: "pointer",
-                    accentColor: "#3b82f6"
-                  }}
-                />
-                <span>Po Artiklu</span>
-              </label>
-              <label style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                cursor: "pointer",
-                fontSize: "14px",
-                color: "#374151",
-                padding: "10px 16px",
-                borderRadius: "8px",
-                backgroundColor: artiklViewType === "top" ? "#eff6ff" : "transparent",
-                border: `2px solid ${artiklViewType === "top" ? "#3b82f6" : "#e5e7eb"}`,
-                transition: "all 0.2s",
-                fontWeight: artiklViewType === "top" ? 600 : 400
-              }}>
-                <input
-                  type="radio"
-                  name="artiklViewType"
-                  value="top"
-                  checked={artiklViewType === "top"}
-                  onChange={(e) => {
-                    setArtiklViewType("top");
-                    setSelectedArtikl("");
-                  }}
-                  style={{
-                    width: "18px",
-                    height: "18px",
-                    cursor: "pointer",
-                    accentColor: "#3b82f6"
-                  }}
-                />
-                <span>Najprodavaniji</span>
-              </label>
-            </div>
           </div>
 
           {/* Odabir artikla - prikazuje se samo kada je "Odaberi artikal" aktivno */}
@@ -3769,8 +3694,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Grafikon utroška po artiklu - uvijek prikazuj */}
-      {artiklToDisplay && (
+      {/* Grafikon utroška po artiklu - prikazuj ako je artikal izabran ili je "top" način */}
+      {(artiklViewType === "top" || (artiklViewType === "custom" && selectedArtikl)) && artiklToDisplay && (
         <>
           <div
             className="chart-container"
