@@ -1438,8 +1438,8 @@ export default function ProfitPage() {
       
       // Generiši 7 dana od ponedeljka do nedelje
       for (let i = 0; i < 7; i++) {
-        const date = new Date(todayDate);
-        date.setDate(date.getDate() - i);
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
         
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -1475,8 +1475,8 @@ export default function ProfitPage() {
       
       // Generiši 7 dana od ponedeljka do nedelje (prošla sedmica)
       for (let i = 0; i < 7; i++) {
-        const date = new Date(todayDate);
-        date.setDate(date.getDate() - i);
+        const date = new Date(lastWeekMonday);
+        date.setDate(lastWeekMonday.getDate() + i);
         
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
