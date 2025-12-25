@@ -1419,7 +1419,7 @@ export default function DashboardPage() {
                     animation: "dropdownSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
                     scrollBehavior: "smooth",
                     WebkitOverflowScrolling: "touch",
-                    position: "relative" as const,
+                    position: "relative",
                   }}
                   onMouseEnter={(e) => e.stopPropagation()}
                   onScroll={(e) => {
@@ -2333,11 +2333,8 @@ export default function DashboardPage() {
             return !loading ? (
               <ResponsiveContainer 
                 key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
-                style={{ 
-                  width: '100%',
-                  height: isMobile ? '300px' : '400px',
-                  minHeight: isMobile ? '300px' : '400px'
-                }}
+                width="100%"
+                height={isMobile ? 300 : 400}
               >
                 <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 25 : 6 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -3811,11 +3808,8 @@ export default function DashboardPage() {
                 return (
                   <ResponsiveContainer 
                     key={`artikl-chart-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
-                    style={{ 
-                      width: '100%',
-                      height: isMobile ? '300px' : '400px',
-                      minHeight: isMobile ? '300px' : '400px'
-                    }}
+                    width="100%"
+                    height={isMobile ? 300 : 400}
                   >
                     <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
