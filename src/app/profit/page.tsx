@@ -1574,6 +1574,19 @@ export default function ProfitPage() {
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
+        // Debug log za mobilne uređaje
+        if (typeof window !== 'undefined' && isMobile && i === 0) {
+          console.log('📊 Profit Chart Debug - Dan:', datumStr, {
+            dateTime: date.getTime(),
+            dateStr: date.toISOString(),
+            dayObracuniCount: dayObracuni.length,
+            allObracuniCount: obracuniProfit.length,
+            allObracuniDates: obracuniProfit.map(o => ({ datum: o.datum, bruto: o.ukupnoBruto, neto: o.ukupnoNeto })),
+            mondayTime: monday.getTime(),
+            mondayStr: monday.toISOString()
+          });
+        }
+        
         if (dayObracuni.length > 0) {
           // Sumiraj sve obračune za ovaj dan
           const totalBruto = dayObracuni.reduce((sum, o) => sum + (o.ukupnoBruto || 0), 0);
