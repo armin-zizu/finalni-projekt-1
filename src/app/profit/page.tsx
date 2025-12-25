@@ -1913,7 +1913,7 @@ export default function ProfitPage() {
                 chartDataSample: chartData[0] || null
               });
             }
-            return ( // Profit nema loading state, uvijek prikazuj chart
+            return (
               <ResponsiveContainer 
                 key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
                 width="100%"
@@ -1936,10 +1936,6 @@ export default function ProfitPage() {
                   <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
                 </LineChart>
               </ResponsiveContainer>
-            ) : (
-              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#6b7280", fontSize: "14px" }}>
-                Učitavanje podataka...
-              </div>
             );
           })()}
         </div>
