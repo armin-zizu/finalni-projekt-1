@@ -79,6 +79,19 @@ type ArtiklData = {
   utroseno: number;
 };
 
+// Helper funkcija za parsiranje datuma - normalizuje format (uklanja tačku na kraju)
+function parseDatumToDate(datum: string): Date {
+  // Normalizuj datum - ukloni tačku na kraju ako postoji
+  const normalizedDatum = datum.trim().replace(/\.$/, '');
+  const datumParts = normalizedDatum.split('.').filter(Boolean); // Filter uklanja prazne stringove
+  if (datumParts.length !== 3) {
+    // Fallback ako format nije validan
+    return new Date(datum);
+  }
+  // Format: DD.MM.YYYY -> YYYY-MM-DD
+  return new Date(`${datumParts[2]}-${datumParts[1]}-${datumParts[0]}`);
+}
+
 export default function DashboardPage() {
   const [range, setRange] = useState<"currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom">("currentWeek");
   const [customFrom, setCustomFrom] = useState<string>(
@@ -247,8 +260,8 @@ export default function DashboardPage() {
       
       // Sortiraj po datumu (rastući redoslijed za dashboard)
       const sortedArhiva = firestoreArhiva.sort((a, b) => {
-        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+        const dateA = parseDatumToDate(a.datum).getTime();
+        const dateB = parseDatumToDate(b.datum).getTime();
         return dateA - dateB;
       });
       
@@ -383,8 +396,8 @@ export default function DashboardPage() {
       };
     })
     .sort((a, b) => {
-      const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-      const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+      const dateA = parseDatumToDate(a.datum).getTime();
+      const dateB = parseDatumToDate(b.datum).getTime();
       return dateA - dateB;
     });
   
@@ -445,7 +458,7 @@ export default function DashboardPage() {
         
         // Pronađi podatke za ovaj dan
         const dayData = data.find((o) => {
-          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000; // 24h u ms
         });
         
@@ -488,7 +501,7 @@ export default function DashboardPage() {
         
         // Pronađi podatke za ovaj dan
         const dayData = data.find((o) => {
-          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
@@ -519,7 +532,7 @@ export default function DashboardPage() {
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
       filteredData = data.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "selectMonth") {
@@ -528,7 +541,7 @@ export default function DashboardPage() {
       firstDay.setHours(0, 0, 0, 0);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
       filteredData = data.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "quarterly") {
@@ -540,14 +553,14 @@ export default function DashboardPage() {
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
       filteredData = data.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "custom") {
       const fromTime = new Date(customFrom).getTime();
       const toTime = new Date(customTo).getTime();
       filteredData = data.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= fromTime && dTime <= toTime;
       });
     }
@@ -573,8 +586,8 @@ export default function DashboardPage() {
         utroseno: o.artikli.find((a) => a.naziv === selectedArtikl)?.utroseno || 0,
       }))
       .sort((a, b) => {
-        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+        const dateA = parseDatumToDate(a.datum).getTime();
+        const dateB = parseDatumToDate(b.datum).getTime();
         return dateA - dateB;
       });
 
@@ -708,7 +721,7 @@ export default function DashboardPage() {
       startOfWeek.setDate(today.getDate() - 6);
       startOfWeek.setHours(0, 0, 0, 0);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= startOfWeek.getTime();
       });
     } else if (selectedRange === "previousWeek") {
@@ -719,7 +732,7 @@ export default function DashboardPage() {
       endOfWeek.setDate(today.getDate() - 7);
       endOfWeek.setHours(23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= startOfWeek.getTime() && dTime <= endOfWeek.getTime();
       });
     } else if (selectedRange === "monthly") {
@@ -727,14 +740,14 @@ export default function DashboardPage() {
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "selectMonth") {
       const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "quarterly") {
@@ -745,7 +758,7 @@ export default function DashboardPage() {
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "custom") {
@@ -754,7 +767,7 @@ export default function DashboardPage() {
       const toDate = new Date(customTo);
       toDate.setHours(23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= fromDate.getTime() && dTime <= toDate.getTime();
       });
     }
@@ -792,7 +805,7 @@ export default function DashboardPage() {
       startOfWeek.setDate(today.getDate() - 6);
       startOfWeek.setHours(0, 0, 0, 0);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= startOfWeek.getTime();
       });
     } else if (selectedRange === "previousWeek") {
@@ -803,7 +816,7 @@ export default function DashboardPage() {
       endOfWeek.setDate(today.getDate() - 7);
       endOfWeek.setHours(23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= startOfWeek.getTime() && dTime <= endOfWeek.getTime();
       });
     } else if (selectedRange === "monthly") {
@@ -811,14 +824,14 @@ export default function DashboardPage() {
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "selectMonth") {
       const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "quarterly") {
@@ -829,7 +842,7 @@ export default function DashboardPage() {
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedRange === "custom") {
@@ -838,7 +851,7 @@ export default function DashboardPage() {
       const toDate = new Date(customTo);
       toDate.setHours(23, 59, 59, 999);
       filteredObracuni = arhiva.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= fromDate.getTime() && dTime <= toDate.getTime();
       });
     }
