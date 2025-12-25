@@ -1913,7 +1913,7 @@ export default function ProfitPage() {
                 chartDataSample: chartData[0] || null
               });
             }
-            return !false ? ( // Profit nema loading state, uvijek prikazuj kao dashboard
+            return ( // Profit nema loading state, uvijek prikazuj chart
               <ResponsiveContainer 
                 key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
                 width="100%"
