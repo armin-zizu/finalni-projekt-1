@@ -872,45 +872,48 @@ export default function DashboardPage() {
   const artiklToDisplay = artiklViewType === "top" ? topArtikl : selectedArtikl;
   const selectedData = artiklToDisplay ? aggregateArtiklData(artiklToDisplay, artiklRange) : [];
 
-  // Debug logiranje za chart podatke
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const debugInfo = {
-        loading,
-        chartDataLength: chartData.length,
-        obracuniLength: obracuni.length,
-        isMobile,
-        windowWidth: window.innerWidth,
-        screenWidth: window.screen?.width,
-        userAgent: navigator.userAgent?.substring(0, 50),
-        hasChartData: chartData.length > 0,
-        totalBruto,
-        totalRashod,
-        totalNeto,
-        range,
-        arhivaLength: arhiva.length
-      };
-      console.log("Dashboard - Debug Info:", debugInfo);
-      
-      // Dodatni debug za mobilne uređaje
-      if (isMobile) {
-        console.log("🔍 MOBILE DEBUG - Chart i Kartice:", {
-          willRenderChart: !loading,
-          chartDataExists: chartData.length > 0,
-          willRenderCards: true,
-          cardValues: { totalBruto, totalRashod, totalNeto },
-          containerHeight: isMobile ? 300 : 400
-        });
-      }
-    }
-  }, [loading, chartData.length, obracuni.length, isMobile, totalBruto, totalRashod, totalNeto, range, arhiva.length]);
-
   // Ukupne vrijednosti
   const totalBruto = chartData.reduce((sum, o) => sum + Number(o.artikli || 0), 0);
   const totalRashod = chartData.reduce((sum, o) => sum + Number(o.rashod || 0), 0);
   const totalPrihod = chartData.reduce((sum, o) => sum + Number(o.prihod || 0), 0);
   const totalNeto = chartData.reduce((sum, o) => sum + Number(o.neto || 0), 0);
   const totalArtikl = selectedData.reduce((sum, o) => sum + Number(o.utroseno || 0), 0);
+
+  // Debug logiranje za chart podatke - NAKON izračuna varijabli
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !loading) {
+      try {
+        console.log("Dashboard - Debug Info:", {
+          loading,
+          chartDataLength: chartData?.length || 0,
+          obracuniLength: obracuni?.length || 0,
+          isMobile,
+          windowWidth: window.innerWidth,
+          screenWidth: window.screen?.width,
+          hasChartData: (chartData?.length || 0) > 0,
+          totalBruto,
+          totalRashod,
+          totalNeto,
+          range,
+          arhivaLength: arhiva?.length || 0
+        });
+        
+        // Dodatni debug za mobilne uređaje
+        if (isMobile) {
+          console.log("🔍 MOBILE DEBUG - Chart i Kartice:", {
+            willRenderChart: !loading,
+            chartDataExists: (chartData?.length || 0) > 0,
+            willRenderCards: true,
+            cardValues: { totalBruto, totalRashod, totalNeto },
+            containerHeight: isMobile ? 300 : 400
+          });
+        }
+      } catch (error) {
+        // Ignoriši greške u debug logovanju
+        console.warn("Dashboard - Debug log error:", error);
+      }
+    }
+  }, [loading, isMobile, range, totalBruto, totalRashod, totalNeto, chartData, obracuni, arhiva]);
 
   const growth = (current: number, previous: number) =>
     previous === 0 ? "0" : (((current - previous) / previous) * 100).toFixed(1);
