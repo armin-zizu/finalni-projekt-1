@@ -636,7 +636,19 @@ export default function DashboardPage() {
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       
-      for (let i = 6; i >= 0; i--) {
+      const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+      
+      const monday = getMonday(todayDate);
+      
+      // Generiši 7 dana od ponedeljka do nedelje
+      for (let i = 0; i < 7; i++) {
         const date = new Date(todayDate);
         date.setDate(date.getDate() - i);
         
