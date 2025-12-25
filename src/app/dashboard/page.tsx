@@ -1417,9 +1417,9 @@ export default function DashboardPage() {
                     opacity: 1,
                     transform: "translateY(0) scale(1)",
                     animation: "dropdownSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                    position: "relative",
                     scrollBehavior: "smooth",
                     WebkitOverflowScrolling: "touch",
+                    position: "relative" as const,
                   }}
                   onMouseEnter={(e) => e.stopPropagation()}
                   onScroll={(e) => {
@@ -2333,8 +2333,6 @@ export default function DashboardPage() {
             return !loading ? (
               <ResponsiveContainer 
                 key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
-                width="100%" 
-                height={isMobile ? 300 : 400}
                 style={{ 
                   width: '100%',
                   height: isMobile ? '300px' : '400px',
@@ -3490,10 +3488,7 @@ export default function DashboardPage() {
                     background: artiklRange === r.value ? "#3b82f6" : "#f3f4f6",
                     color: artiklRange === r.value ? "#fff" : "#374151",
                     transition: "all 0.2s",
-                    boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "0 1px 2px rgba(0,0,0,0.05)",
-                    hover: {
-                      background: artiklRange === r.value ? "#2563eb" : "#e5e7eb"
-                    }
+                    boxShadow: artiklRange === r.value ? "0 2px 8px rgba(59,130,246,0.3)" : "0 1px 2px rgba(0,0,0,0.05)"
                   }}
                   onMouseEnter={(e) => {
                     if (artiklRange !== r.value) {
@@ -3816,8 +3811,6 @@ export default function DashboardPage() {
                 return (
                   <ResponsiveContainer 
                     key={`artikl-chart-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
-                    width="100%" 
-                    height="100%"
                     style={{ 
                       width: '100%',
                       height: isMobile ? '300px' : '400px',
