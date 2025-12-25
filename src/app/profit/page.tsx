@@ -924,7 +924,43 @@ const FilterSection: React.FC<{
 export default function ProfitPage() {
   const [obracuniProfit, setObracuniProfit] = useState<ObracunProfit[]>([]);
   const [filter, setFilter] = useState<"currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom">("currentWeek");
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+  // Detekcija mobilnog uređaja - poboljšana sa User-Agent fallback
+  const detectMobile = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    
+    // Metoda 1: Provjeri User-Agent (najpouzdanije za initial state)
+    if (typeof navigator !== 'undefined' && navigator.userAgent) {
+      const ua = navigator.userAgent.toLowerCase();
+      const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+      if (mobileRegex.test(ua)) {
+        return true;
+      }
+    }
+    
+    // Metoda 2: Provjeri širinu ekrana
+    const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
+    if (width <= 768) {
+      return true;
+    }
+    
+    // Metoda 3: Provjeri touch support
+    if ('ontouchstart' in window || (navigator && navigator.maxTouchPoints > 0)) {
+      const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
+      if (width <= 1024) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+  
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    // Inicijalizuj sa User-Agent detekcijom (radi i na SSR)
+    if (typeof window !== 'undefined') {
+      return detectMobile();
+    }
+    return false;
+  });
   const [chartKey, setChartKey] = useState(0);
   const [customPeriod, setCustomPeriod] = useState<{ from: string; to: string }>({
     from: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split("T")[0],
@@ -972,57 +1008,55 @@ export default function ProfitPage() {
   const { user } = useRole();
   const pathname = usePathname();
 
-  // Detekcija mobilnog uređaja
+  // Detekcija mobilnog uređaja - poboljšana za produkciju
   useEffect(() => {
-    const checkMobile = () => {
-      if (typeof window === 'undefined') return false;
-      const width = window.innerWidth || (window.screen && window.screen.width) || 1024;
-      const mobile = width <= 768;
-      return mobile;
-    };
+    if (typeof window === 'undefined') return;
     
-    if (typeof window !== 'undefined') {
-      const wasMobile = isMobile;
+    const checkMobile = () => detectMobile();
+    
+    // Postavi odmah (bez čekanja na event)
+    const initialMobile = checkMobile();
+    if (initialMobile !== isMobile) {
+      setIsMobile(initialMobile);
+      setChartKey(prev => prev + 1);
+    }
+    
+    const handleResize = () => {
       const newMobile = checkMobile();
-      
-      if (wasMobile !== newMobile) {
+      if (newMobile !== isMobile) {
         setIsMobile(newMobile);
         setChartKey(prev => prev + 1);
-      } else {
-        setIsMobile(newMobile);
       }
-      
-      const handleResize = () => {
+    };
+    
+    const handleOrientationChange = () => {
+      setTimeout(() => {
         const newMobile = checkMobile();
         if (newMobile !== isMobile) {
           setIsMobile(newMobile);
           setChartKey(prev => prev + 1);
         }
-      };
-      
-      const handleOrientationChange = () => {
-        setTimeout(() => {
-          const newMobile = checkMobile();
-          setIsMobile(newMobile);
-          setChartKey(prev => prev + 1);
-        }, 100);
-      };
-      
-      const timer = setTimeout(() => {
-        const newMobile = checkMobile();
+      }, 150);
+    };
+    
+    // Dodaj listener-e
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleOrientationChange);
+    
+    // Re-check nakon kratkog delay-a (za mobilne browser-e koji možda ne detektuju odmah)
+    const timer = setTimeout(() => {
+      const newMobile = checkMobile();
+      if (newMobile !== isMobile) {
         setIsMobile(newMobile);
-      }, 0);
-      
-      checkMobile();
-      window.addEventListener('resize', handleResize);
-      window.addEventListener('orientationchange', handleOrientationChange);
-      
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('resize', handleResize);
-        window.removeEventListener('orientationchange', handleOrientationChange);
-      };
-    }
+        setChartKey(prev => prev + 1);
+      }
+    }, 100);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
   }, [isMobile]);
 
   // TEMPORARY: Password protection disabled - TODO: Migrate to API
