@@ -1616,7 +1616,7 @@ export default function AdminPage() {
 
                           try {
                             setSaving(true);
-                            // Ažuriraj subscription_data da ukloni paymentPendingVerification
+                            // Ažuriraj subscription_data da ukloni paymentPendingVerification i označi uplatu kao odbijenu
                             const response = await fetch(`/api/users/${user.id}/subscription`, {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
@@ -1627,6 +1627,8 @@ export default function AdminPage() {
                                   paymentRequestedAmount: null,
                                   paymentRequestedMonths: null,
                                   paymentReferenceNumber: null,
+                                  paymentRejected: true,
+                                  paymentRejectedAt: new Date().toISOString(),
                                 }
                               })
                             });

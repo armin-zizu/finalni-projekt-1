@@ -31,6 +31,8 @@ interface SubscriptionStatus {
   paymentRequestedAmount?: number; // Iznos koji je korisnik prijavio
   paymentRequestedMonths?: number; // Period koji je korisnik prijavio
   paymentReferenceNumber?: string | null; // Reference broj koji je korisnik koristio
+  paymentRejected?: boolean; // Da li je uplata odbijena
+  paymentRejectedAt?: Date | null; // Datum kada je uplata odbijena
 }
 
 interface SubscriptionContextType {
@@ -161,6 +163,8 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
     paymentRequestedAmount: data.paymentRequestedAmount || 0,
     paymentRequestedMonths: data.paymentRequestedMonths || 0,
     paymentReferenceNumber: data.paymentReferenceNumber || null,
+    paymentRejected: data.paymentRejected || false,
+    paymentRejectedAt: data.paymentRejectedAt ? (data.paymentRejectedAt instanceof Date ? data.paymentRejectedAt : new Date(data.paymentRejectedAt)) : null,
   };
 }
 
@@ -281,10 +285,28 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         })() : null,
         paymentHistory: paymentHistory,
         paymentPendingVerification: subscriptionData.subscriptionData?.paymentPendingVerification || false,
-        paymentRequestedAt: subscriptionData.subscriptionData?.paymentRequestedAt || null,
+        paymentRequestedAt: subscriptionData.subscriptionData?.paymentRequestedAt ? (() => {
+          try {
+            const date = subscriptionData.subscriptionData.paymentRequestedAt;
+            return date instanceof Date ? date : new Date(date);
+          } catch (e) {
+            console.warn("SubscriptionContext - Error parsing paymentRequestedAt:", subscriptionData.subscriptionData?.paymentRequestedAt);
+            return null;
+          }
+        })() : null,
         paymentRequestedAmount: subscriptionData.subscriptionData?.paymentRequestedAmount || 0,
         paymentRequestedMonths: subscriptionData.subscriptionData?.paymentRequestedMonths || 0,
         paymentReferenceNumber: subscriptionData.subscriptionData?.paymentReferenceNumber || null,
+        paymentRejected: subscriptionData.subscriptionData?.paymentRejected || false,
+        paymentRejectedAt: subscriptionData.subscriptionData?.paymentRejectedAt ? (() => {
+          try {
+            const date = subscriptionData.subscriptionData.paymentRejectedAt;
+            return date instanceof Date ? date : new Date(date);
+          } catch (e) {
+            console.warn("SubscriptionContext - Error parsing paymentRejectedAt:", subscriptionData.subscriptionData?.paymentRejectedAt);
+            return null;
+          }
+        })() : null,
       };
 
       const userCreatedAt = subscriptionData.userCreatedAt ? (() => {

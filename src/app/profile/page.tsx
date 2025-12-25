@@ -2148,7 +2148,55 @@ export default function Profile() {
                       ⏳ Čeka provjeru uplate
                     </span>
                   )}
+                  
+                  {/* Payment rejected badge */}
+                  {subscription.paymentRejected && !subscription.paymentPendingVerification && (
+                    <span style={{
+                      padding: "6px 12px",
+                      background: "#fee2e2",
+                      color: "#991b1b",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                    }}>
+                      ✗ Uplata odbijena
+                    </span>
+                  )}
               </div>
+              
+              {/* Payment rejected message */}
+              {subscription.paymentRejected && !subscription.paymentPendingVerification && (
+                <div style={{
+                  marginTop: "16px",
+                  padding: "16px",
+                  background: "#fef2f2",
+                  borderRadius: "8px",
+                  border: "1px solid #fecaca",
+                }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                    <span style={{ fontSize: "20px", lineHeight: "1.2" }}>⚠️</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: "14px", fontWeight: 600, color: "#991b1b", margin: "0 0 8px 0" }}>
+                        Vaš zahtjev za uplatu je odbijen
+                      </p>
+                      <p style={{ fontSize: "13px", color: "#7f1d1d", margin: "0 0 8px 0", lineHeight: "1.5" }}>
+                        Molimo vas da provjerite podatke o uplati i kontaktirate administratora ako imate pitanja.
+                      </p>
+                      {subscription.paymentRejectedAt && (
+                        <p style={{ fontSize: "12px", color: "#991b1b", margin: 0, opacity: 0.8 }}>
+                          Odbijeno: {new Date(subscription.paymentRejectedAt).toLocaleDateString("bs-BA", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               
                 {/* Detalji statusa */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "12px" }}>
@@ -2370,6 +2418,8 @@ export default function Profile() {
                             paymentRequestedAmount: amount,
                           paymentRequestedMonths: selectedMonths,
                             paymentReferenceNumber: referenceNumber,
+                            paymentRejected: false, // Resetuj flag za odbijenu uplatu kada korisnik pošalje novi zahtjev
+                            paymentRejectedAt: null,
                           }
                         })
                       });
