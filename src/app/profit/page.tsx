@@ -1533,27 +1533,43 @@ export default function ProfitPage() {
 
   // ---- sortiranje podataka za glavni grafikon u uzlaznom redoslijedu ----
   const chartData = useMemo(() => {
-    // Za trenutnu i prošlu sedmicu, uvek prikaži 7 dana
+    // Za trenutnu i prošlu sedmicu, koristi istu logiku kao filteredObracuni (ponedeljak do nedelje)
     if (filter === "currentWeek" || filter === "previousWeek") {
       const sevenDaysData: Array<{ datum: string; bruto: number; neto: number; rashod: number }> = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Odredi početni dan (za trenutnu sedmicu: danas - 6, za prošlu: danas - 13)
-      const startOffset = filter === "currentWeek" ? 6 : 13;
-      const endOffset = filter === "currentWeek" ? 0 : 7;
+      const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
       
-      for (let i = startOffset; i >= endOffset; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
+      // Odredi početni dan (ponedeljak) za trenutnu ili prošlu sedmicu
+      let monday: Date;
+      if (filter === "currentWeek") {
+        monday = getMonday(today);
+      } else {
+        const lastWeekDate = new Date(today);
+        lastWeekDate.setDate(today.getDate() - 7);
+        monday = getMonday(lastWeekDate);
+      }
+      
+      // Generiši 7 dana od ponedeljka do nedelje
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
         
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
         const datumStr = `${day}.${month}.${year}`;
         
-        // Pronađi SVE podatke za ovaj dan i sumiraj ih
-        const dayObracuni = filteredObracuni.filter((o) => {
+        // Pronađi SVE podatke za ovaj dan i sumiraj ih - koristi obracuniProfit umjesto filteredObracuni
+        const dayObracuni = obracuniProfit.filter((o) => {
           const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
