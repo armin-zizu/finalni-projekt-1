@@ -572,20 +572,37 @@ export default function AdminPage() {
       endDate = new Date(toTime);
       endDate.setHours(23, 59, 59, 999);
     } else if (revenueFilter === "currentWeek") {
-      // Trenutna sedmica - poslednjih 7 dana
-      startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 6);
-      startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(now);
-      endDate.setHours(23, 59, 59, 999);
+      // Trenutna sedmica - od ponedjeljka do nedjelje
+      const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+      startDate = getMonday(now);
+      const sunday = new Date(startDate);
+      sunday.setDate(startDate.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+      endDate = sunday;
     } else if (revenueFilter === "previousWeek") {
-      // Prošla sedmica - prethodnih 7 dana
-      startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 13);
-      startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(now);
-      endDate.setDate(endDate.getDate() - 7);
-      endDate.setHours(23, 59, 59, 999);
+      // Prošla sedmica - od ponedjeljka do nedjelje
+      const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+      const lastWeekDate = new Date(now);
+      lastWeekDate.setDate(now.getDate() - 7);
+      startDate = getMonday(lastWeekDate);
+      const sunday = new Date(startDate);
+      sunday.setDate(startDate.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+      endDate = sunday;
     } else if (revenueFilter === "monthly") {
       // Od trenutnog datuma unazad do početka mjeseca
       startDate = new Date(now);
@@ -662,16 +679,27 @@ export default function AdminPage() {
       grouped[key].amount += payment.amount;
     });
 
-    // Za currentWeek i previousWeek filtere, uvek prikaži 7 dana
+    // Za currentWeek i previousWeek filtere, uvek prikaži 7 dana od ponedjeljka do nedjelje
+    const getMonday = (d: Date) => {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      date.setDate(date.getDate() + diff);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
+
     if (revenueFilter === "currentWeek") {
       const sevenDaysData: Array<{ period: string; zarada: number; sortKey: string }> = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Generiši poslednjih 7 dana (od danas unazad)
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
+      const monday = getMonday(today);
+      
+      // Generiši 7 dana od ponedjeljka do nedjelje (trenutna sedmica)
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
         
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -688,16 +716,20 @@ export default function AdminPage() {
         });
       }
       
-      return sevenDaysData.map(({ period, zarada }) => ({ period, zarada: zarada || null }));
+      return sevenDaysData.map(({ period, zarada }) => ({ period, zarada: zarada || 0 }));
     } else if (revenueFilter === "previousWeek") {
       const sevenDaysData: Array<{ period: string; zarada: number; sortKey: string }> = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Generiši prethodnih 7 dana (prošla sedmica)
-      for (let i = 13; i >= 7; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
+      const lastWeekDate = new Date(today);
+      lastWeekDate.setDate(today.getDate() - 7);
+      const lastWeekMonday = getMonday(lastWeekDate);
+      
+      // Generiši 7 dana od ponedjeljka do nedjelje (prošla sedmica)
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(lastWeekMonday);
+        date.setDate(lastWeekMonday.getDate() + i);
         
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -714,7 +746,7 @@ export default function AdminPage() {
         });
       }
       
-      return sevenDaysData.map(({ period, zarada }) => ({ period, zarada: zarada || null }));
+      return sevenDaysData.map(({ period, zarada }) => ({ period, zarada: zarada || 0 }));
     }
 
     // Konvertuj u array i sortiraj
