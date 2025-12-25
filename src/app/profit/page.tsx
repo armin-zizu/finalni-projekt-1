@@ -1599,20 +1599,32 @@ export default function ProfitPage() {
       return sevenDaysData;
     }
     
-    // Za ostale filtere, koristi originalnu logiku
-    return [...filteredObracuni]
+    // Za ostale filtere, koristi filteredObracuni ali sumiraj po danu ako ima više obračuna
+    const groupedByDate = new Map<string, { bruto: number; neto: number; rashod: number }>();
+    
+    filteredObracuni.forEach((o) => {
+      const datumKey = o.datum.trim().replace(/\.$/, ''); // Normalizuj datum
+      const existing = groupedByDate.get(datumKey) || { bruto: 0, neto: 0, rashod: 0 };
+      groupedByDate.set(datumKey, {
+        bruto: existing.bruto + (o.ukupnoBruto || 0),
+        neto: existing.neto + (o.ukupnoNeto || 0),
+        rashod: existing.rashod + (o.ukupnoRashod || 0),
+      });
+    });
+    
+    return Array.from(groupedByDate.entries())
+      .map(([datum, values]) => ({
+        datum,
+        bruto: values.bruto,
+        neto: values.neto,
+        rashod: values.rashod,
+      }))
       .sort((a, b) => {
         const dateA = parseDatumToDate(a.datum).getTime();
         const dateB = parseDatumToDate(b.datum).getTime();
         return dateA - dateB;
-      })
-      .map((o) => ({
-        datum: o.datum,
-        bruto: o.ukupnoBruto,
-        neto: o.ukupnoNeto,
-        rashod: o.ukupnoRashod,
-      }));
-  }, [filteredObracuni, filter, selectedMonth, selectedYear]);
+      });
+  }, [obracuniProfit, filter, selectedMonth, selectedYear]);
 
   // ---- podaci za grafikon profita odabranog artikla ----
   const selectedArtiklData = aggregateArtiklProfitData(selectedArtikl, artiklFilter);
