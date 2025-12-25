@@ -71,6 +71,19 @@ type ArtiklProfitData = {
   neto: number;  // prava zarada = bruto - nabavna * kolicina - deo rashoda (proporcionalno bruto)
 };
 
+// Helper funkcija za parsiranje datuma - normalizuje format (uklanja tačku na kraju)
+function parseDatumToDate(datum: string): Date {
+  // Normalizuj datum - ukloni tačku na kraju ako postoji
+  const normalizedDatum = datum.trim().replace(/\.$/, '');
+  const datumParts = normalizedDatum.split('.').filter(Boolean); // Filter uklanja prazne stringove
+  if (datumParts.length !== 3) {
+    // Fallback ako format nije validan
+    return new Date(datum);
+  }
+  // Format: DD.MM.YYYY -> YYYY-MM-DD
+  return new Date(`${datumParts[2]}-${datumParts[1]}-${datumParts[0]}`);
+}
+
 // ---- CSS ----
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",
@@ -1126,8 +1139,8 @@ export default function ProfitPage() {
           rashodi: item.rashodi ?? [],
         }))
         .sort((a: Obracun, b: Obracun) => {
-          const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-          const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+          const dateA = parseDatumToDate(a.datum).getTime();
+          const dateB = parseDatumToDate(b.datum).getTime();
           return dateB - dateA; // Silazni redoslijed (najnoviji prvo)
         });
         
@@ -1325,7 +1338,7 @@ export default function ProfitPage() {
     };
 
     const filtered = obracuniProfit.filter((o) => {
-      const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+      const dTime = parseDatumToDate(o.datum).getTime();
 
       if (filter === "currentWeek") {
         const monday = getMonday(today);
@@ -1400,8 +1413,8 @@ export default function ProfitPage() {
       })
       .filter((o) => o.bruto > 0 || o.neto > 0)
       .sort((a, b) => {
-        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+        const dateA = parseDatumToDate(a.datum).getTime();
+        const dateB = parseDatumToDate(b.datum).getTime();
         return dateA - dateB; // Uzlazni redoslijed
       });
 
@@ -1432,7 +1445,7 @@ export default function ProfitPage() {
         
         // Pronađi podatke za ovaj dan
         const dayData = filteredData.find((o) => {
-          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
@@ -1462,7 +1475,7 @@ export default function ProfitPage() {
         
         // Pronađi podatke za ovaj dan
         const dayData = filteredData.find((o) => {
-          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
@@ -1480,7 +1493,7 @@ export default function ProfitPage() {
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
       filteredData = filteredData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedFilter === "quarterly") {
@@ -1491,7 +1504,7 @@ export default function ProfitPage() {
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
       filteredData = filteredData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedFilter === "selectMonth") {
@@ -1499,14 +1512,14 @@ export default function ProfitPage() {
       firstDay.setHours(0, 0, 0, 0);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
       filteredData = filteredData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
     } else if (selectedFilter === "custom") {
       const fromTime = new Date(customPeriod.from).getTime();
       const toTime = new Date(customPeriod.to).getTime();
       filteredData = filteredData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= fromTime && dTime <= toTime;
       });
     }
@@ -1541,7 +1554,7 @@ export default function ProfitPage() {
         
         // Pronađi podatke za ovaj dan
         const dayData = filteredObracuni.find((o) => {
-          const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+          const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
@@ -1568,8 +1581,8 @@ export default function ProfitPage() {
     // Za ostale filtere, koristi originalnu logiku
     return [...filteredObracuni]
       .sort((a, b) => {
-        const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
-        const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
+        const dateA = parseDatumToDate(a.datum).getTime();
+        const dateB = parseDatumToDate(b.datum).getTime();
         return dateA - dateB;
       })
       .map((o) => ({
