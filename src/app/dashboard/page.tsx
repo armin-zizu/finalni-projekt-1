@@ -631,7 +631,7 @@ export default function DashboardPage() {
     const today = new Date();
 
     if (selectedRange === "currentWeek") {
-      // Generiši poslednjih 7 dana (od danas unazad)
+      // Generiši 7 dana od ponedeljka do nedelje (trenutna sedmica)
       const sevenDaysData: ArtiklData[] = [];
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);

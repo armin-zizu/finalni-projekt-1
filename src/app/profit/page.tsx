@@ -1429,7 +1429,7 @@ export default function ProfitPage() {
     };
 
     if (selectedFilter === "currentWeek") {
-      // Generiši poslednjih 7 dana (od danas unazad)
+      // Generiši 7 dana od ponedeljka do nedelje (trenutna sedmica)
       const sevenDaysData: ArtiklProfitData[] = [];
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
