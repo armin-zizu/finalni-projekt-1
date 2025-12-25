@@ -442,36 +442,54 @@ export default function DashboardPage() {
     };
 
     if (selectedRange === "currentWeek") {
-      // Generiši poslednjih 7 dana (od danas unazad)
+      // Generiši 7 dana od ponedeljka do nedelje (trenutna sedmica)
       const sevenDaysData: AggregatedData[] = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
+      const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+      
+      const monday = getMonday(today);
+      
+      // Generiši 7 dana od ponedeljka do nedelje
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
         
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
         const datumStr = `${day}.${month}.${year}`;
         
-        // Pronađi podatke za ovaj dan
-        const dayData = data.find((o) => {
+        // Pronađi SVE podatke za ovaj dan i sumiraj ih
+        const dayObracuni = data.filter((o) => {
           const dTime = parseDatumToDate(o.datum).getTime();
-          return dTime >= date.getTime() && dTime < date.getTime() + 86400000; // 24h u ms
+          return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
-        if (dayData) {
+        if (dayObracuni.length > 0) {
+          // Sumiraj sve obračune za ovaj dan
+          const totalArtikli = dayObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
+          const totalRashod = dayObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
+          const totalPrihod = dayObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
+          const totalNeto = dayObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+          
           sevenDaysData.push({
             datum: datumStr,
-            artikli: dayData.artikli || 0,
-            rashod: dayData.rashod || 0,
-            prihod: dayData.prihod || 0,
-            neto: dayData.neto || 0,
+            artikli: totalArtikli,
+            rashod: totalRashod,
+            prihod: totalPrihod,
+            neto: totalNeto,
           });
         } else {
-          // Ako nema podataka, dodaj sa 0 vrednostima (prikazaće se linija na nuli)
+          // Ako nema podataka, dodaj sa 0 vrednostima
           sevenDaysData.push({
             datum: datumStr,
             artikli: 0,
@@ -484,34 +502,53 @@ export default function DashboardPage() {
       
       return sevenDaysData;
     } else if (selectedRange === "previousWeek") {
-      // Generiši prethodnih 7 dana (prošla sedmica)
+      // Generiši 7 dana od ponedeljka do nedelje (prošla sedmica)
       const sevenDaysData: AggregatedData[] = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Počni od pre 7 dana i generiši 7 dana unazad
-      for (let i = 13; i >= 7; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
+      const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+      
+      const lastWeekDate = new Date(today);
+      lastWeekDate.setDate(today.getDate() - 7);
+      const lastWeekMonday = getMonday(lastWeekDate);
+      
+      // Generiši 7 dana od ponedeljka do nedelje (prošla sedmica)
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(lastWeekMonday);
+        date.setDate(lastWeekMonday.getDate() + i);
         
         const day = String(date.getDate()).padStart(2, "0");
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const year = date.getFullYear();
         const datumStr = `${day}.${month}.${year}`;
         
-        // Pronađi podatke za ovaj dan
-        const dayData = data.find((o) => {
+        // Pronađi SVE podatke za ovaj dan i sumiraj ih
+        const dayObracuni = data.filter((o) => {
           const dTime = parseDatumToDate(o.datum).getTime();
           return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
         });
         
-        if (dayData) {
+        if (dayObracuni.length > 0) {
+          // Sumiraj sve obračune za ovaj dan
+          const totalArtikli = dayObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
+          const totalRashod = dayObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
+          const totalPrihod = dayObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
+          const totalNeto = dayObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+          
           sevenDaysData.push({
             datum: datumStr,
-            artikli: dayData.artikli || 0,
-            rashod: dayData.rashod || 0,
-            prihod: dayData.prihod || 0,
-            neto: dayData.neto || 0,
+            artikli: totalArtikli,
+            rashod: totalRashod,
+            prihod: totalPrihod,
+            neto: totalNeto,
           });
         } else {
           sevenDaysData.push({
