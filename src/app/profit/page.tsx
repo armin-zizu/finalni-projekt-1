@@ -1434,7 +1434,10 @@ export default function ProfitPage() {
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       
-      for (let i = 6; i >= 0; i--) {
+      const monday = getMonday(todayDate);
+      
+      // Generiši 7 dana od ponedeljka do nedelje
+      for (let i = 0; i < 7; i++) {
         const date = new Date(todayDate);
         date.setDate(date.getDate() - i);
         
@@ -1466,8 +1469,12 @@ export default function ProfitPage() {
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       
-      // Počni od pre 7 dana i generiši 7 dana unazad
-      for (let i = 13; i >= 7; i--) {
+      const lastWeekDate = new Date(todayDate);
+      lastWeekDate.setDate(todayDate.getDate() - 7);
+      const lastWeekMonday = getMonday(lastWeekDate);
+      
+      // Generiši 7 dana od ponedeljka do nedelje (prošla sedmica)
+      for (let i = 0; i < 7; i++) {
         const date = new Date(todayDate);
         date.setDate(date.getDate() - i);
         
