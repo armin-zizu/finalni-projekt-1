@@ -678,8 +678,21 @@ export default function DashboardPage() {
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       
-      // Počni od pre 7 dana i generiši 7 dana unazad
-      for (let i = 13; i >= 7; i--) {
+      const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        date.setDate(date.getDate() + diff);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+      
+      const lastWeekDate = new Date(todayDate);
+      lastWeekDate.setDate(todayDate.getDate() - 7);
+      const lastWeekMonday = getMonday(lastWeekDate);
+      
+      // Generiši 7 dana od ponedeljka do nedelje (prošla sedmica)
+      for (let i = 0; i < 7; i++) {
         const date = new Date(todayDate);
         date.setDate(date.getDate() - i);
         
