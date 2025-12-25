@@ -873,13 +873,37 @@ export default function DashboardPage() {
   const selectedData = artiklToDisplay ? aggregateArtiklData(artiklToDisplay, artiklRange) : [];
 
   // Debug logiranje za chart podatke
-  if (chartData.length > 0) {
-    console.log("Dashboard - Chart podaci:", {
-      brojPodataka: chartData.length,
-      primjer: chartData[0],
-      range: range,
-    });
-  }
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const debugInfo = {
+        loading,
+        chartDataLength: chartData.length,
+        obracuniLength: obracuni.length,
+        isMobile,
+        windowWidth: window.innerWidth,
+        screenWidth: window.screen?.width,
+        userAgent: navigator.userAgent?.substring(0, 50),
+        hasChartData: chartData.length > 0,
+        totalBruto,
+        totalRashod,
+        totalNeto,
+        range,
+        arhivaLength: arhiva.length
+      };
+      console.log("Dashboard - Debug Info:", debugInfo);
+      
+      // Dodatni debug za mobilne uređaje
+      if (isMobile) {
+        console.log("🔍 MOBILE DEBUG - Chart i Kartice:", {
+          willRenderChart: !loading,
+          chartDataExists: chartData.length > 0,
+          willRenderCards: true,
+          cardValues: { totalBruto, totalRashod, totalNeto },
+          containerHeight: isMobile ? 300 : 400
+        });
+      }
+    }
+  }, [loading, chartData.length, obracuni.length, isMobile, totalBruto, totalRashod, totalNeto, range, arhiva.length]);
 
   // Ukupne vrijednosti
   const totalBruto = chartData.reduce((sum, o) => sum + Number(o.artikli || 0), 0);
@@ -2235,78 +2259,138 @@ export default function DashboardPage() {
         }}
       >
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
-          {!loading ? (
-            <ResponsiveContainer key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-              <LineChart data={chartData.length > 0 ? chartData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 25 : 6 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="datum" 
-                tick={{ fill: "#6b7280", fontSize: 11 }} 
-                angle={-45}
-                textAnchor="end"
-                height={isMobile ? 25 : 66}
-              />
-              <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-              <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-              <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-              <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-              <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#6b7280", fontSize: "14px" }}>
-              Učitavanje podataka...
-            </div>
-          )}
+          {(() => {
+            // Debug log za mobilne uređaje
+            if (typeof window !== 'undefined' && isMobile) {
+              console.log('Dashboard Mobile Debug:', {
+                loading,
+                chartDataLength: chartData.length,
+                isMobile,
+                chartKey,
+                windowWidth: window.innerWidth,
+                screenWidth: window.screen?.width,
+                userAgent: navigator.userAgent,
+                hasChartData: chartData.length > 0,
+                chartDataSample: chartData[0] || null,
+                totalBruto,
+                totalRashod,
+                totalNeto
+              });
+            }
+            return !loading ? (
+              <ResponsiveContainer 
+                key={`chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
+                width="100%" 
+                height={isMobile ? 300 : 400}
+                style={{ 
+                  width: '100%',
+                  height: isMobile ? '300px' : '400px',
+                  minHeight: isMobile ? '300px' : '400px'
+                }}
+              >
+                <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 25 : 6 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="datum" 
+                    tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
+                    angle={-45}
+                    textAnchor="end"
+                    height={isMobile ? 25 : 66}
+                  />
+                  <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
+                  <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#6b7280", fontSize: "14px" }}>
+                Učitavanje podataka...
+              </div>
+            );
+          })()}
         </div>
       </div>
 
       {/* Kartice */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 10 : 30, width: "100%", boxSizing: "border-box" }}>
-        {[
-          {
-            label: "Bruto",
-            value: totalBruto,
-            icon: <FaArrowUp color="#16a34a" size={20} />,
-          },
-          {
-            label: "Rashod",
-            value: totalRashod,
-            icon: <FaArrowDown color="#dc2626" size={20} />,
-          },
-          {
-            label: "Neto",
-            value: totalNeto,
-            icon: <FaDollarSign color="#3b82f6" size={20} />,
-          },
-        ].map((item) => (
-          <div
-            key={item.label}
-            style={{
-              flex: 1,
-              minWidth: 160,
-              backgroundColor: "#fff",
-              borderRadius: 12,
-              padding: 20,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-              transition: "transform 0.2s, box-shadow 0.2s",
-              cursor: "default",
-            }}
-            className="dashboard-card"
-          >
-            <div>{item.icon}</div>
-            <div>
-              <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
-            </div>
+      {(() => {
+        // Debug log za mobilne uređaje
+        if (typeof window !== 'undefined' && isMobile) {
+          console.log('📱 Dashboard Cards Mobile Debug:', {
+            totalBruto,
+            totalRashod,
+            totalNeto,
+            isMobile,
+            loading,
+            chartDataLength: chartData.length,
+            windowWidth: window.innerWidth,
+            screenWidth: window.screen?.width,
+            userAgent: navigator.userAgent?.substring(0, 50),
+            willRender: true
+          });
+        }
+        return (
+          <div style={{ 
+            display: "flex", 
+            gap: isMobile ? 12 : 20, 
+            flexWrap: "wrap", 
+            marginBottom: isMobile ? 10 : 30, 
+            width: "100%", 
+            boxSizing: "border-box",
+            visibility: "visible",
+            opacity: 1
+          }}>
+            {[
+              {
+                label: "Bruto",
+                value: totalBruto,
+                icon: <FaArrowUp color="#16a34a" size={isMobile ? 18 : 20} />,
+              },
+              {
+                label: "Rashod",
+                value: totalRashod,
+                icon: <FaArrowDown color="#dc2626" size={isMobile ? 18 : 20} />,
+              },
+              {
+                label: "Neto",
+                value: totalNeto,
+                icon: <FaDollarSign color="#3b82f6" size={isMobile ? 18 : 20} />,
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  flex: isMobile ? "1 1 calc(50% - 6px)" : 1,
+                  minWidth: isMobile ? "calc(50% - 6px)" : 160,
+                  backgroundColor: "#fff",
+                  borderRadius: 12,
+                  padding: isMobile ? 16 : 20,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: isMobile ? 10 : 12,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                  transition: "transform 0.2s, box-shadow 0.2s",
+                  cursor: "default",
+                  visibility: "visible",
+                  opacity: 1,
+                  position: "relative",
+                  zIndex: 1
+                }}
+                className="dashboard-card"
+              >
+                <div style={{ flexShrink: 0 }}>{item.icon}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* Artikal grafikon - Box samo na mobilnom */}
       {isMobile ? (
@@ -3661,23 +3745,49 @@ export default function DashboardPage() {
               position: "relative"
             }}
           >
-            <div style={{ width: "100%", height: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
-              <ResponsiveContainer key={`artikl-chart-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height="100%">
-                <LineChart data={selectedData.length > 0 ? selectedData : []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis 
-                    dataKey="datum" 
-                    tick={{ fill: "#6b7280", fontSize: 11 }} 
-                    angle={-45}
-                    textAnchor="end"
-                    height={isMobile ? 25 : 66}
-                  />
-                  <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-                  <Line type="monotone" dataKey="utroseno" name={`Utrošeno (${artiklToDisplay})`} stroke="#8b5cf6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
+            <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
+              {(() => {
+                // Debug log za mobilne uređaje
+                if (typeof window !== 'undefined' && isMobile) {
+                  console.log('📱 Dashboard Artikl Chart Mobile Debug:', {
+                    loading,
+                    selectedDataLength: selectedData.length,
+                    isMobile,
+                    chartKey,
+                    windowWidth: window.innerWidth,
+                    hasSelectedData: selectedData.length > 0,
+                    artiklToDisplay,
+                    willRender: !loading && artiklToDisplay
+                  });
+                }
+                return (
+                  <ResponsiveContainer 
+                    key={`artikl-chart-${isMobile}-${selectedData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
+                    width="100%" 
+                    height="100%"
+                    style={{ 
+                      width: '100%',
+                      height: isMobile ? '300px' : '400px',
+                      minHeight: isMobile ? '300px' : '400px'
+                    }}
+                  >
+                    <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis 
+                        dataKey="datum" 
+                        tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
+                        angle={-45}
+                        textAnchor="end"
+                        height={isMobile ? 25 : 66}
+                      />
+                      <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
+                      <Line type="monotone" dataKey="utroseno" name={`Utrošeno (${artiklToDisplay})`} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                );
+              })()}
             </div>
           </div>
 
