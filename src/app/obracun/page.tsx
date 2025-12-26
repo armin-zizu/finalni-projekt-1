@@ -2445,7 +2445,8 @@ export default function ObracunPage() {
                   <input
                     key={`ulaz-${index}-${resetKey}`}
                     type="number"
-                    inputMode="numeric"
+                    step="any"
+                    inputMode="decimal"
                     value={a.ulaz === 0 ? "" : a.ulaz}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleUlazChange(index, Number(e.target.value) || 0)}
@@ -2466,7 +2467,8 @@ export default function ObracunPage() {
                 }} data-label="Krajnje stanje">
                   <input
                     type="number"
-                    inputMode="numeric"
+                    step="any"
+                    inputMode="decimal"
                     value={a.krajnjeStanje === 0 ? "" : a.krajnjeStanje}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleKrajnjeStanjeChange(index, e.target.value)}
