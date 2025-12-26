@@ -1763,12 +1763,198 @@ export default function ObracunPage() {
           }
           table:first-of-type { display: flex; flex-direction: column; }
           table:first-of-type thead { display: none; }
-          table:first-of-type tbody { display: flex; flex-direction: column; gap: 16px; }
-          table:first-of-type tr { display: flex; flex-direction: column; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); padding: 12px; }
-          table:first-of-type td { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: none; font-size: 13px; }
-          table:first-of-type td:before { content: attr(data-label); font-weight: 600; color: #1f2937; width: 50%; }
-          table:first-of-type td[data-label="Artikal"] { color: #1e40af !important; font-weight: 600 !important; font-size: 15px !important; }
-          table:first-of-type td input { max-width: 100%; width: 100%; }
+          table:first-of-type tbody { display: flex; flex-direction: column; gap: 16px; padding: 0; }
+          table:first-of-type tr { 
+            display: flex; 
+            flex-direction: column; 
+            background: #ffffff; 
+            border-radius: 12px; 
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.08); 
+            padding: 0; 
+            border: 2px solid #e5e7eb;
+            overflow: hidden;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+          }
+          table:first-of-type tr::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+          }
+          table:first-of-type tr:active { 
+            transform: translateY(1px); 
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border-color: #cbd5e1;
+          }
+          table:first-of-type td { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 0; 
+            border-bottom: none; 
+            font-size: 14px; 
+          }
+          table:first-of-type td:before { 
+            content: attr(data-label); 
+            font-weight: 600; 
+            color: #64748b; 
+            width: 48%; 
+            font-size: 12.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+          /* Header sekcija - Naziv artikla i Cijena */
+          table:first-of-type td[data-label="Artikal"] { 
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 18px 20px 12px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 0;
+            position: relative;
+          }
+          table:first-of-type td[data-label="Artikal"]:before { 
+            display: none; 
+          }
+          table:first-of-type td[data-label="Artikal"] { 
+            color: #0f172a !important; 
+            font-weight: 700 !important; 
+            font-size: 19px !important; 
+            justify-content: flex-start !important;
+            letter-spacing: -0.3px;
+            line-height: 1.3;
+          }
+          table:first-of-type td[data-label="Cijena"] {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 0 20px 14px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 0;
+            position: relative;
+            justify-content: space-between !important;
+          }
+          table:first-of-type td[data-label="Cijena"]:before {
+            display: none !important;
+          }
+          table:first-of-type td[data-label="Cijena"] span:first-child {
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+          }
+          table:first-of-type td[data-label="Cijena"] span:last-child {
+            margin-left: auto;
+          }
+          /* Stanja sekcija - grupisanje povezanih polja */
+          table:first-of-type td[data-label="Početno stanje"],
+          table:first-of-type td[data-label="Ulaz"] {
+            padding: 12px 20px;
+            background: #fafbfc;
+            border-bottom: 1px solid #f1f5f9;
+            margin-bottom: 0;
+          }
+          table:first-of-type td[data-label="Ukupno"] {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-bottom: 1px solid #cbd5e1;
+            margin-bottom: 0;
+          }
+          table:first-of-type td[data-label="Ukupno"]:before {
+            color: #0369a1;
+          }
+          table:first-of-type td[data-label="Ukupno"] {
+            color: #0369a1 !important;
+            font-weight: 700 !important;
+            font-size: 15px !important;
+          }
+          /* Utrošeno i Krajnje stanje sekcija */
+          table:first-of-type td[data-label="Utrošeno"] {
+            padding: 12px 20px;
+            background: #fafbfc;
+            border-bottom: 1px solid #f1f5f9;
+            margin-bottom: 0;
+          }
+          table:first-of-type td[data-label="Krajnje stanje"] {
+            padding: 12px 20px;
+            background: #fafbfc;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 0;
+          }
+          /* Vrijednost KM - naglašena sekcija */
+          table:first-of-type td[data-label="Vrijednost KM"] {
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-bottom: none;
+            margin-top: 0;
+            border-top: 1px solid rgba(245, 158, 11, 0.3);
+            position: relative;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+            justify-content: space-between !important;
+          }
+          table:first-of-type td[data-label="Vrijednost KM"]:before {
+            display: none !important;
+          }
+          table:first-of-type td[data-label="Vrijednost KM"] span:first-child {
+            color: #92400e;
+            font-size: 12.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+          }
+          table:first-of-type td[data-label="Vrijednost KM"] span:last-child {
+            margin-left: auto;
+          }
+          /* Input polja stilizacija */
+          table:first-of-type td input { 
+            max-width: 48%; 
+            width: 48%;
+            padding: 12px 14px;
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: right;
+            background: #ffffff;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            color: #0f172a;
+          }
+          table:first-of-type td input:hover:not(:disabled):not([readonly]) { 
+            border-color: #94a3b8;
+            background: #f8fafc;
+          }
+          table:first-of-type td input:focus { 
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+            outline: none;
+            background: #ffffff;
+            transform: scale(1.02);
+          }
+          table:first-of-type td input:disabled,
+          table:first-of-type td input[readonly] {
+            background: #f1f5f9;
+            color: #64748b;
+            cursor: not-allowed;
+          }
+          /* Opšti stil za ostale td elemente */
+          table:first-of-type td:not([data-label="Artikal"]):not([data-label="Cijena"]):not([data-label="Vrijednost KM"]):not([data-label="Ukupno"]) { 
+            color: #334155;
+            font-weight: 600;
+            font-size: 15px;
+          }
+          /* Ikonice u labelima */
+          table:first-of-type td[data-label="Početno stanje"]:before { content: "📦 " attr(data-label); }
+          table:first-of-type td[data-label="Ulaz"]:before { content: "➕ " attr(data-label); }
+          table:first-of-type td[data-label="Ukupno"]:before { content: "📊 " attr(data-label); }
+          table:first-of-type td[data-label="Utrošeno"]:before { content: "➖ " attr(data-label); }
+          table:first-of-type td[data-label="Krajnje stanje"]:before { content: "✓ " attr(data-label); }
+          table:first-of-type td[data-label="Cijena"]:before { content: "💵 " attr(data-label); }
           div[style*="overflowX: auto"] {
             width: 100%;
             overflow-x: auto;
@@ -2170,7 +2356,7 @@ export default function ObracunPage() {
       )}
 
       {/* Artikli */}
-      <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px" }}>
+      <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: isMobile ? "12px" : "16px" }}>
         Artikli
       </h2>
       <table style={tableStyle}>
@@ -2178,8 +2364,6 @@ export default function ObracunPage() {
           <tr>
             <th style={thStyle}>Artikal</th>
             <th style={thStyle}>Cijena</th>
-            <th style={thStyle}>Zestoko Količina (ml)</th>
-            <th style={thStyle}>Proizvodna Cijena</th>
             <th style={thStyle}>Početno stanje</th>
             <th style={thStyle}>Ulaz</th>
             <th style={thStyle}>Ukupno</th>
@@ -2243,9 +2427,16 @@ export default function ObracunPage() {
                 <td style={{...tdStyle, color: "#1e40af", fontWeight: 600}} data-label="Artikal">
                   {a.naziv}
                 </td>
-                <td style={tdStyle} data-label="Cijena">{a.cijena.toFixed(2)}</td>
-                <td style={tdStyle} data-label="Zestoko Količina (ml)">{a.zestokoKolicina ? a.zestokoKolicina.toFixed(3) : "-"}</td>
-                <td style={tdStyle} data-label="Proizvodna Cijena">{a.proizvodnaCijena ? a.proizvodnaCijena.toFixed(2) : "-"}</td>
+                <td style={{...tdStyle, display: isMobile ? "flex" : "table-cell", justifyContent: isMobile ? "space-between" : "flex-end", alignItems: isMobile ? "center" : "center"}} data-label="Cijena">
+                  {isMobile ? (
+                    <>
+                      <span>💵 CIJENA</span>
+                      <span style={{fontWeight: 700, color: "#059669", fontSize: "17px"}}>{a.cijena.toFixed(2)} KM</span>
+                    </>
+                  ) : (
+                    <span style={{fontWeight: 700, color: "#059669"}}>{a.cijena.toFixed(2)} KM</span>
+                  )}
+                </td>
                 <td style={tdStyle} data-label="Početno stanje">
                   {a.pocetnoStanje}
                   {/* Ne prikazuj zagrade - ulaz ostaje vidljiv u input polju */}
@@ -2285,7 +2476,16 @@ export default function ObracunPage() {
                     readOnly={!canEdit}
                   />
                 </td>
-                <td style={tdStyle} data-label="Vrijednost KM">{a.vrijednostKM.toFixed(2)}</td>
+                <td style={{...tdStyle, display: isMobile ? "flex" : "table-cell", justifyContent: isMobile ? "space-between" : "flex-end", alignItems: isMobile ? "center" : "center"}} data-label="Vrijednost KM">
+                  {isMobile ? (
+                    <>
+                      <span>💰 VRIJEDNOST KM</span>
+                      <span style={{fontWeight: 700, color: "#78350f", fontSize: "18px"}}>{a.vrijednostKM.toFixed(2)} KM</span>
+                    </>
+                  ) : (
+                    <span style={{fontWeight: 700, color: "#78350f"}}>{a.vrijednostKM.toFixed(2)} KM</span>
+                  )}
+                </td>
               </tr>
             );
           })}
