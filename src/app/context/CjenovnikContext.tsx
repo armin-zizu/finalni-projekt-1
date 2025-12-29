@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { RoleContext } from "./RoleContext";
 import { getCjenovnik, saveCjenovnik, getObracuni } from "../../lib/api";
 
@@ -49,7 +49,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   const [cjenovnik, setCjenovnik] = useState<ArtiklCijena[]>(initialCjenovnik);
   const [pendingCjenovnik, setPendingCjenovnik] = useState<ArtiklCijena[]>([]); // Privremeni cjenovnik
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag za prvo učitavanje
-  const [prethodniCjenovnik, setPrethodniCjenovnik] = useState<ArtiklCijena[]>([]); // Prethodno stanje cjenovnika
+  const prethodniCjenovnikRef = useRef<ArtiklCijena[]>([]); // Prethodno stanje cjenovnika - koristi useRef da se izbjegne re-render
 
   // Učitaj cjenovnik iz API-ja
   useEffect(() => {
@@ -146,13 +146,13 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
             console.warn("Greška pri učitavanju arhive za ažuriranje cjenovnika:", error);
           }
 
-          setPrethodniCjenovnik(transformedCjenovnik);
+          prethodniCjenovnikRef.current = transformedCjenovnik;
           setCjenovnik(transformedCjenovnik);
           setIsInitialLoad(false);
           console.log("Cjenovnik učitano iz API-ja:", transformedCjenovnik.length, "artikala");
         } else {
           // Nema cjenovnik u API-ju - koristi initial
-          setPrethodniCjenovnik(initialCjenovnik);
+          prethodniCjenovnikRef.current = initialCjenovnik;
           setCjenovnik(initialCjenovnik);
           setIsInitialLoad(false);
           console.log("Cjenovnik postavljen na initial za korisnika:", userId);
@@ -266,13 +266,13 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
                 if (firestoreCjenovnik.length > 0) {
                   // Firestore ima cjenovnik - koristi ga (to je izvor istine)
                   // Sačuvaj prethodno stanje prije ažuriranja
-                  setPrethodniCjenovnik(cjenovnik);
+                  prethodniCjenovnikRef.current = cjenovnik;
                   setCjenovnik(firestoreCjenovnik);
                   console.log("Cjenovnik postavljen iz Firestore za korisnika:", userId);
                   setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
                 } else {
                   // Nema cjenovnik u Firestore - koristi initial
-                  setPrethodniCjenovnik(cjenovnik);
+                  prethodniCjenovnikRef.current = cjenovnik;
                   setCjenovnik(initialCjenovnik);
                   console.log("Cjenovnik postavljen na initial za korisnika:", userId);
                   setIsInitialLoad(false); // Označi da je prvo učitavanje završeno
@@ -342,10 +342,12 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     }
     
     // Provjeri da li se promijenio broj artikala, nazivi, ILI bilo koje vrijednosti (osim pocetnoStanje koje se ne čuva u bazi)
+    const prethodniCjenovnik = prethodniCjenovnikRef.current;
     const trenutniNazivi = cjenovnik.map((a) => a.naziv).sort().join(",");
     const prethodniNazivi = prethodniCjenovnik.map((a) => a.naziv).sort().join(",");
     
     // Provjeri da li su se promijenile vrijednosti artikala (cijena, nabavnaCijena, proizvodnaCijena, zestokoKolicina, itd.)
+    // Također provjeri da li se promijenio displayOrder (za redoslijed)
     const trenutniPodaci = cjenovnik.map((a) => ({
       naziv: a.naziv,
       cijena: a.cijena,
@@ -354,6 +356,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       zestokoKolicina: a.zestokoKolicina,
       nabavnaCijenaFlase: a.nabavnaCijenaFlase,
       zapreminaFlase: a.zapreminaFlase,
+      displayOrder: a.displayOrder, // Uključi displayOrder u poređenje
     })).sort((a, b) => a.naziv.localeCompare(b.naziv));
     
     const prethodniPodaci = prethodniCjenovnik.map((a) => ({
@@ -364,42 +367,57 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       zestokoKolicina: a.zestokoKolicina,
       nabavnaCijenaFlase: a.nabavnaCijenaFlase,
       zapreminaFlase: a.zapreminaFlase,
+      displayOrder: a.displayOrder, // Uključi displayOrder u poređenje
     })).sort((a, b) => a.naziv.localeCompare(b.naziv));
     
     const podaciIsti = JSON.stringify(trenutniPodaci) === JSON.stringify(prethodniPodaci);
     
+    // Provjeri redoslijed (nazivi na različitim pozicijama) - VAŽNO za displayOrder
+    let redoslijedPromijenjen = false;
+    for (let i = 0; i < Math.max(cjenovnik.length, prethodniCjenovnik.length); i++) {
+      if (cjenovnik[i]?.naziv !== prethodniCjenovnik[i]?.naziv) {
+        redoslijedPromijenjen = true;
+        break;
+      }
+    }
+    
     // Spremi ako su se promijenili nazivi, broj artikala, ILI bilo koje vrijednosti (osim pocetnoStanje)
-    if (podaciIsti && cjenovnik.length === prethodniCjenovnik.length) {
+    // ILI ako se promijenio redoslijed
+    if (podaciIsti && cjenovnik.length === prethodniCjenovnik.length && !redoslijedPromijenjen) {
       // Nema promjene - ne sprema (možda se samo promijenilo pocetnoStanje koje se ne čuva u bazi)
       return;
     }
     
     // SPREMI U API - automatski čim se promijeni
-    const saveToAPI = async () => {
+    // Koristi setTimeout da se izbjegne ažuriranje tokom renderovanja
+    const timeoutId = setTimeout(async () => {
       try {
-      // Transformiraj u format koji API očekuje - šalji SVE podatke (uključujući pocetnoStanje)
-      const apiCjenovnik = cjenovnik.map((item) => ({
-        naziv: item.naziv,
-        cijena: item.cijena,
-        proizvodnaCijena: item.proizvodnaCijena,
-        zestokoKolicina: item.zestokoKolicina,
-        nabavnaCijena: item.nabavnaCijena,
-        nabavnaCijenaFlase: item.nabavnaCijenaFlase,
-        zapreminaFlase: item.zapreminaFlase,
-        pocetnoStanje: item.pocetnoStanje, // Takođe šalji pocetnoStanje
-      }));
+        // Snimi trenutni cjenovnik u closure da bi se koristio u async funkciji
+        const currentCjenovnik = cjenovnik;
         
+        // Transformiraj u format koji API očekuje - šalji SVE podatke (uključujući pocetnoStanje i displayOrder)
+        const apiCjenovnik = currentCjenovnik.map((item) => ({
+          naziv: item.naziv,
+          cijena: item.cijena,
+          proizvodnaCijena: item.proizvodnaCijena,
+          zestokoKolicina: item.zestokoKolicina,
+          nabavnaCijena: item.nabavnaCijena,
+          nabavnaCijenaFlase: item.nabavnaCijenaFlase,
+          zapreminaFlase: item.zapreminaFlase,
+          pocetnoStanje: item.pocetnoStanje, // Takođe šalji pocetnoStanje
+          displayOrder: item.displayOrder !== null && item.displayOrder !== undefined ? item.displayOrder : null, // Šalji displayOrder
+        }));
+          
         await saveCjenovnik(userId, apiCjenovnik);
-        console.log("Cjenovnik automatski spremljen u API:", cjenovnik.length, "artikala");
-        // Ažuriraj prethodni cjenovnik nakon spremanja
-        setPrethodniCjenovnik(cjenovnik);
+        console.log("Cjenovnik automatski spremljen u API:", currentCjenovnik.length, "artikala");
+        // Ažuriraj prethodni cjenovnik nakon spremanja - koristi useRef da se izbjegne re-render
+        prethodniCjenovnikRef.current = currentCjenovnik;
       } catch (error: any) {
         console.warn("Greška pri spremanju cjenovnika u API:", error);
       }
-    };
+    }, 0);
     
-    // Spremi u API
-    saveToAPI();
+    return () => clearTimeout(timeoutId);
   }, [cjenovnik, isInitialLoad, user?.email, user?.id]);
 
   const addArtikal = (artikal: ArtiklCijena) => {
@@ -446,7 +464,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      // Transformiraj u format koji API očekuje - šalji SVE podatke (uključujući pocetnoStanje)
+      // Transformiraj u format koji API očekuje - šalji SVE podatke (uključujući pocetnoStanje i displayOrder)
       const apiCjenovnik = noviCjenovnik.map((item) => ({
         naziv: item.naziv,
         cijena: item.cijena,
@@ -456,6 +474,7 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
         nabavnaCijenaFlase: item.nabavnaCijenaFlase,
         zapreminaFlase: item.zapreminaFlase,
         pocetnoStanje: item.pocetnoStanje, // Takođe šalji pocetnoStanje
+        displayOrder: item.displayOrder !== null && item.displayOrder !== undefined ? item.displayOrder : null, // Šalji displayOrder
       }));
       
       console.log("💾 Spremanje cjenovnika u API - userId:", userId, "artikala:", apiCjenovnik.length, "nazivi:", apiCjenovnik.map((a: any) => a.naziv));
@@ -465,13 +484,13 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       // Ako je uspješno sačuvano, ažuriraj state
       // Postavi isInitialLoad flag da ne bi automatski čuvanje prepisalo podatke
       setIsInitialLoad(true);
-      setPrethodniCjenovnik(noviCjenovnik);
+      prethodniCjenovnikRef.current = noviCjenovnik; // Koristi useRef da se izbjegne re-render
       setCjenovnik(noviCjenovnik);
       setPendingCjenovnik([]); // Očisti privremeni cjenovnik
       // Resetuj flag nakon kratke pauze da omogući buduća automatska čuvanja i osvježi prethodni cjenovnik
       setTimeout(() => {
         setIsInitialLoad(false);
-        setPrethodniCjenovnik(noviCjenovnik); // Osiguraj da prethodniCjenovnik odgovara trenutnom nakon čuvanja
+        prethodniCjenovnikRef.current = noviCjenovnik; // Osiguraj da prethodniCjenovnik odgovara trenutnom nakon čuvanja
       }, 100);
     } catch (error: any) {
       console.error("❌ Greška pri čuvanju cjenovnika u API:", error);
@@ -479,8 +498,13 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Funkcija za eksplicitno ažuriranje prethodniCjenovnikRef
+  const refreshPrethodniCjenovnik = () => {
+    prethodniCjenovnikRef.current = cjenovnik;
+  };
+
   return (
-    <CjenovnikContext.Provider value={{ cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik }}>
+    <CjenovnikContext.Provider value={{ cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik, refreshPrethodniCjenovnik }}>
       {children}
     </CjenovnikContext.Provider>
   );

@@ -2,6 +2,78 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
 
+// Cache za provjeru postojanja display_order kolone
+let displayOrderColumnExists: boolean | null = null;
+
+// Funkcija za provjeru i automatsko dodavanje display_order kolone
+async function ensureDisplayOrderColumn(): Promise<boolean> {
+  // Ako već znamo da postoji, vrati true
+  if (displayOrderColumnExists === true) {
+    return true;
+  }
+
+  try {
+    // Provjeri da li kolona postoji
+    const checkResult = await query(
+      `SELECT column_name 
+       FROM information_schema.columns 
+       WHERE table_name = 'cjenovnik' AND column_name = 'display_order'`
+    );
+
+    if (checkResult.rows.length > 0) {
+      displayOrderColumnExists = true;
+      return true;
+    }
+
+    // Kolona ne postoji - dodaj je automatski
+    console.log('🔧 Automatsko dodavanje display_order kolone...');
+    
+    try {
+      // Step 1: Add column
+      await query(`
+        ALTER TABLE cjenovnik 
+        ADD COLUMN IF NOT EXISTS display_order INTEGER;
+      `);
+
+      // Step 2: Migrate existing data
+      const updateResult = await query(`
+        UPDATE cjenovnik
+        SET display_order = subquery.row_num - 1
+        FROM (
+          SELECT 
+            id,
+            user_id,
+            ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY naziv ASC) as row_num
+          FROM cjenovnik
+          WHERE display_order IS NULL
+        ) AS subquery
+        WHERE cjenovnik.id = subquery.id AND cjenovnik.user_id = subquery.user_id;
+      `);
+
+      // Step 3: Create index
+      await query(`
+        CREATE INDEX IF NOT EXISTS idx_cjenovnik_display_order ON cjenovnik(user_id, display_order);
+      `);
+
+      console.log(`✅ display_order kolona automatski dodana! Ažurirano ${updateResult.rowCount || 0} redova.`);
+      displayOrderColumnExists = true;
+      return true;
+    } catch (migrationError: any) {
+      // Ako ne možemo dodati kolonu (nema dozvola), loguj i vrati false
+      if (migrationError.code === '42501' || migrationError.message?.includes('permission') || migrationError.message?.includes('owner')) {
+        console.warn('⚠️ Nema dozvola za automatsko dodavanje display_order kolone. Migracija mora biti pokrenuta ručno na serveru.');
+        displayOrderColumnExists = false;
+        return false;
+      }
+      throw migrationError;
+    }
+  } catch (error: any) {
+    console.warn('⚠️ Greška pri provjeri display_order kolone:', error.message);
+    displayOrderColumnExists = false;
+    return false;
+  }
+}
+
 // GET - Get cjenovnik for user
 async function getHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> | { userId: string } }): Promise<NextResponse> {
   try {
@@ -81,13 +153,29 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
 
     console.log('📖 Getting cjenovnik for user:', userId);
     
-    const result = await query(
-      `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje, created_at, updated_at
-       FROM cjenovnik
-       WHERE user_id = $1::text
-       ORDER BY naziv ASC`,
-      [userId]
-    );
+    // Provjeri i dodaj display_order kolonu ako ne postoji
+    const hasDisplayOrder = await ensureDisplayOrderColumn();
+    
+    // Try to select with display_order, fallback to old query if column doesn't exist
+    let result;
+    if (hasDisplayOrder) {
+      result = await query(
+        `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje, display_order, created_at, updated_at
+         FROM cjenovnik
+         WHERE user_id = $1::text
+         ORDER BY COALESCE(display_order, 999999) ASC, naziv ASC`,
+        [userId]
+      );
+    } else {
+      // Fallback if display_order column doesn't exist yet
+      result = await query(
+        `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje, created_at, updated_at
+         FROM cjenovnik
+         WHERE user_id = $1::text
+         ORDER BY naziv ASC`,
+        [userId]
+      );
+    }
 
     console.log('📋 Database returned', result.rows.length, 'rows for user:', userId, 'Items:', result.rows.map((r: any) => r.naziv));
 
@@ -101,6 +189,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       nabavnaCijenaFlase: row.nabavna_cijena_flase ? parseFloat(row.nabavna_cijena_flase) : undefined,
       zapreminaFlase: row.zapremina_flase ? parseFloat(row.zapremina_flase) : undefined,
       pocetnoStanje: row.pocetno_stanje ? parseFloat(row.pocetno_stanje) : 0,
+      displayOrder: row.display_order !== null && row.display_order !== undefined ? row.display_order : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -204,47 +293,101 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
 
     console.log('💾 Saving cjenovnik for user:', userId, 'Items count:', cjenovnik.length, 'Items:', cjenovnik.map((i: any) => i.naziv));
     
+    // Provjeri i dodaj display_order kolonu ako ne postoji
+    const hasDisplayOrder = await ensureDisplayOrderColumn();
+    
     // NE brišemo postojeće - koristimo UPSERT (ON CONFLICT DO UPDATE) da očuvamo sve podatke
     // Insert/Update cjenovnik items - UPSERT pristup (ne brišemo postojeće, samo ažuriramo/dodajemo)
     if (cjenovnik.length > 0) {
-      const values = cjenovnik.map((item: any, index: number) => {
-        const baseIndex = index * 9; // 9 vrijednosti po artiklu (dodato pocetno_stanje)
-        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7}, $${baseIndex + 8}, $${baseIndex + 9})`;
-      }).join(', ');
+      // Prvo, pokušaj sa display_order (10 parametara po artiklu) ako kolona postoji
+      if (hasDisplayOrder) {
+        try {
+        const values = cjenovnik.map((item: any, index: number) => {
+          const baseIndex = index * 10; // 10 vrijednosti po artiklu (dodato display_order)
+          return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7}, $${baseIndex + 8}, $${baseIndex + 9}, $${baseIndex + 10})`;
+        }).join(', ');
 
-      const queryParams: any[] = [];
-      cjenovnik.forEach((item: any) => {
-        queryParams.push(
-          userId, 
-          item.naziv, 
-          item.cijena, 
-          item.proizvodnaCijena || null, 
-          item.zestokoKolicina || null,
-          item.nabavnaCijena || null,
-          item.nabavnaCijenaFlase || null,
-          item.zapreminaFlase || null,
-          item.pocetnoStanje !== undefined ? item.pocetnoStanje : null
+        const queryParams: any[] = [];
+        cjenovnik.forEach((item: any) => {
+          queryParams.push(
+            userId, 
+            item.naziv, 
+            item.cijena, 
+            item.proizvodnaCijena || null, 
+            item.zestokoKolicina || null,
+            item.nabavnaCijena || null,
+            item.nabavnaCijenaFlase || null,
+            item.zapreminaFlase || null,
+            item.pocetnoStanje !== undefined ? item.pocetnoStanje : null,
+            item.displayOrder !== null && item.displayOrder !== undefined ? item.displayOrder : null
+          );
+        });
+
+        console.log('📝 Inserting cjenovnik items with display_order, params count:', queryParams.length, 'expected:', cjenovnik.length * 10);
+        
+        await query(
+          `INSERT INTO cjenovnik (user_id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje, display_order)
+           VALUES ${values}
+           ON CONFLICT (user_id, naziv) DO UPDATE
+           SET cijena = EXCLUDED.cijena,
+               proizvodna_cijena = EXCLUDED.proizvodna_cijena,
+               zestoko_kolicina = EXCLUDED.zestoko_kolicina,
+               nabavna_cijena = EXCLUDED.nabavna_cijena,
+               nabavna_cijena_flase = EXCLUDED.nabavna_cijena_flase,
+               zapremina_flase = EXCLUDED.zapremina_flase,
+               pocetno_stanje = COALESCE(EXCLUDED.pocetno_stanje, cjenovnik.pocetno_stanje),
+               display_order = COALESCE(EXCLUDED.display_order, cjenovnik.display_order),
+               updated_at = NOW()`,
+          queryParams
         );
-      });
+        
+        console.log('✅ Successfully inserted/updated cjenovnik items with display_order');
+        } catch (error: any) {
+          throw error; // Ako imamo dozvolu za kolonu, ne smijemo imati greške
+        }
+      } else {
+        // Fallback ako display_order kolona ne postoji (nema dozvola za dodavanje)
+        console.log('⚠️ display_order kolona ne postoji, koristim fallback INSERT (bez display_order)');
+          
+          const values = cjenovnik.map((item: any, index: number) => {
+            const baseIndex = index * 9; // 9 vrijednosti po artiklu (bez display_order)
+            return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7}, $${baseIndex + 8}, $${baseIndex + 9})`;
+          }).join(', ');
 
-      console.log('📝 Inserting cjenovnik items, params count:', queryParams.length, 'expected:', cjenovnik.length * 9);
-      
-      await query(
-        `INSERT INTO cjenovnik (user_id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje)
-         VALUES ${values}
-         ON CONFLICT (user_id, naziv) DO UPDATE
-         SET cijena = EXCLUDED.cijena,
-             proizvodna_cijena = EXCLUDED.proizvodna_cijena,
-             zestoko_kolicina = EXCLUDED.zestoko_kolicina,
-             nabavna_cijena = EXCLUDED.nabavna_cijena,
-             nabavna_cijena_flase = EXCLUDED.nabavna_cijena_flase,
-             zapremina_flase = EXCLUDED.zapremina_flase,
-             pocetno_stanje = COALESCE(EXCLUDED.pocetno_stanje, cjenovnik.pocetno_stanje),
-             updated_at = NOW()`,
-        queryParams
-      );
-      
-      console.log('✅ Successfully inserted/updated cjenovnik items');
+          const queryParams: any[] = [];
+          cjenovnik.forEach((item: any) => {
+            queryParams.push(
+              userId, 
+              item.naziv, 
+              item.cijena, 
+              item.proizvodnaCijena || null, 
+              item.zestokoKolicina || null,
+              item.nabavnaCijena || null,
+              item.nabavnaCijenaFlase || null,
+              item.zapreminaFlase || null,
+              item.pocetnoStanje !== undefined ? item.pocetnoStanje : null
+            );
+          });
+
+          console.log('📝 Fallback INSERT without display_order, params count:', queryParams.length);
+          
+          await query(
+            `INSERT INTO cjenovnik (user_id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje)
+             VALUES ${values}
+             ON CONFLICT (user_id, naziv) DO UPDATE
+             SET cijena = EXCLUDED.cijena,
+                 proizvodna_cijena = EXCLUDED.proizvodna_cijena,
+                 zestoko_kolicina = EXCLUDED.zestoko_kolicina,
+                 nabavna_cijena = EXCLUDED.nabavna_cijena,
+                 nabavna_cijena_flase = EXCLUDED.nabavna_cijena_flase,
+                 zapremina_flase = EXCLUDED.zapremina_flase,
+                 pocetno_stanje = COALESCE(EXCLUDED.pocetno_stanje, cjenovnik.pocetno_stanje),
+                 updated_at = NOW()`,
+            queryParams
+          );
+          
+        console.log('✅ Successfully inserted/updated cjenovnik items (fallback without display_order)');
+      }
     } else {
       console.log('⚠️ No cjenovnik items to insert (empty array)');
     }

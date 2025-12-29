@@ -2,8 +2,27 @@
 
 import React, { useState, useEffect } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
+import { useRole } from "../context/RoleContext";
 import { usePathname } from "next/navigation";
-import { FaTrash, FaPlus } from "react-icons/fa";
+import { saveCjenovnik } from "../../lib/api";
+import { FaTrash, FaPlus, FaArrowUp, FaArrowDown, FaGripVertical } from "react-icons/fa";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 // TEMPORARY: Firebase imports disabled during migration
 // import { auth, onAuthStateChanged } from "../../lib/firebase";
 // import { db } from "../../lib/firestore";
@@ -167,9 +186,94 @@ const checkboxStyle: React.CSSProperties = {
   marginRight: "8px",
 };
 
+// Sortable Row komponenta za desktop
+function SortableRow({ 
+  artikl, 
+  isLowStock, 
+  lowStockThresholdZestoka, 
+  lowStockThresholdOstala, 
+  lowStockEnabled,
+  onDelete,
+  tdStyle,
+  deleteButtonStyle
+}: {
+  artikl: any;
+  isLowStock: boolean;
+  lowStockThresholdZestoka: string;
+  lowStockThresholdOstala: string;
+  lowStockEnabled: boolean;
+  onDelete: (naziv: string) => void;
+  tdStyle: React.CSSProperties;
+  deleteButtonStyle: React.CSSProperties;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: artikl.naziv });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <tr 
+      ref={setNodeRef}
+      style={{
+        ...style,
+        ...(isLowStock ? { 
+          backgroundColor: "#fef2f2",
+          borderLeft: "4px solid #dc2626"
+        } : {})
+      }}
+    >
+      <td style={tdStyle}>
+        {artikl.naziv}
+      </td>
+      <td style={tdStyle}>{artikl.cijena.toFixed(2)}</td>
+      <td style={tdStyle}>{artikl.nabavnaCijena.toFixed(2)}</td>
+      <td style={tdStyle}>
+        {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
+        {artikl.jeZestoko ? " L" : " kom"}
+      </td>
+      <td style={tdStyle}>{artikl.jeZestoko ? (artikl.zestokoKolicina || 0).toFixed(2) : "-"}</td>
+      <td style={tdStyle}>{artikl.jeZestoko ? (artikl.proizvodnaCijena || 0).toFixed(2) : "-"}</td>
+      <td style={tdStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-start" }}>
+          <button
+            style={deleteButtonStyle}
+            onClick={() => onDelete(artikl.naziv)}
+            className="delete-button"
+          >
+            <FaTrash />
+          </button>
+          <div
+            {...attributes}
+            {...listeners}
+            style={{
+              cursor: "grab",
+              padding: "4px",
+              display: "flex",
+              alignItems: "center",
+              color: "#6b7280",
+            }}
+          >
+            <FaGripVertical />
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // ---- Glavna komponenta ----
 export default function CjenovnikPage() {
-  const { cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik } = useCjenovnik();
+  const { cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik, refreshPrethodniCjenovnik } = useCjenovnik();
 
   const [newArtiklNaziv, setNewArtiklNaziv] = useState<string>("");
   const [newArtiklCijena, setNewArtiklCijena] = useState<string>("");
@@ -185,6 +289,8 @@ export default function CjenovnikPage() {
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  const [hasOrderChanges, setHasOrderChanges] = useState<boolean>(false); // Flag za promjenu redoslijeda
+  const [savingOrder, setSavingOrder] = useState<boolean>(false); // Flag za spremanje
   const pathname = usePathname();
 
   // Detekcija mobilnog uređaja
@@ -229,6 +335,112 @@ export default function CjenovnikPage() {
   // TEMPORARY: Password protection disabled - TODO: Migrate to API
   const handlePasswordSubmit = async () => {
     setPasswordError("Password protection trenutno nije dostupno.");
+  };
+
+  // ---- Drag & Drop funkcionalnost ----
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setCjenovnik((items) => {
+        const oldIndex = items.findIndex((item) => item.naziv === active.id);
+        const newIndex = items.findIndex((item) => item.naziv === over.id);
+
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        // Ažuriraj displayOrder za sve artikle na osnovu novog redoslijeda
+        const updatedItems = newItems.map((item, index) => ({
+          ...item,
+          displayOrder: index,
+        }));
+        return updatedItems;
+      });
+      // Postavi flag da ima promjena redoslijeda - VAN setCjenovnik callback-a
+      setHasOrderChanges(true);
+    }
+  };
+
+  // ---- Funkcije za premještanje artikala (mobilna verzija) ----
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    setCjenovnik((items) => {
+      const newItems = [...items];
+      [newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]];
+      // Ažuriraj displayOrder za sve artikle na osnovu novog redoslijeda
+      const updatedItems = newItems.map((item, idx) => ({
+        ...item,
+        displayOrder: idx,
+      }));
+      return updatedItems;
+    });
+    // Postavi flag da ima promjena redoslijeda - VAN setCjenovnik callback-a
+    setHasOrderChanges(true);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === cjenovnik.length - 1) return;
+    setCjenovnik((items) => {
+      const newItems = [...items];
+      [newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]];
+      // Ažuriraj displayOrder za sve artikle na osnovu novog redoslijeda
+      const updatedItems = newItems.map((item, idx) => ({
+        ...item,
+        displayOrder: idx,
+      }));
+      return updatedItems;
+    });
+    // Postavi flag da ima promjena redoslijeda - VAN setCjenovnik callback-a
+    setHasOrderChanges(true);
+  };
+
+  // ---- Funkcija za čuvanje redoslijeda ----
+  const { user } = useRole();
+  const handleSaveOrder = async () => {
+    if (savingOrder) return;
+    
+    setSavingOrder(true);
+    try {
+      const userId = user?.email || user?.id;
+      if (!userId) {
+        throw new Error("Korisnik nije autentifikovan");
+      }
+
+      // Transformiraj cjenovnik u format koji API očekuje sa displayOrder
+      const apiCjenovnik = cjenovnik.map((item) => ({
+        naziv: item.naziv,
+        cijena: item.cijena,
+        proizvodnaCijena: item.proizvodnaCijena,
+        zestokoKolicina: item.zestokoKolicina,
+        nabavnaCijena: item.nabavnaCijena,
+        nabavnaCijenaFlase: item.nabavnaCijenaFlase,
+        zapreminaFlase: item.zapreminaFlase,
+        pocetnoStanje: item.pocetnoStanje,
+        displayOrder: item.displayOrder !== null && item.displayOrder !== undefined ? item.displayOrder : null,
+      }));
+
+      console.log("💾 Spremanje redoslijeda - userId:", userId, "artikala:", apiCjenovnik.length);
+      console.log("💾 DisplayOrder za artikle:", apiCjenovnik.map((a: any) => ({ naziv: a.naziv, displayOrder: a.displayOrder })));
+      
+      await saveCjenovnik(userId, apiCjenovnik);
+      
+      // Ažuriraj prethodniCjenovnikRef u contextu nakon uspješnog spremanja
+      // Ovo će osigurati da automatsko čuvanje ne prepisuje promjene
+      refreshPrethodniCjenovnik();
+      
+      setHasOrderChanges(false);
+      alert("✅ Redoslijed artikala je sačuvan!");
+    } catch (error: any) {
+      console.error("Greška pri čuvanju redoslijeda:", error);
+      alert(`Greška pri čuvanju redoslijeda: ${error.message || error}`);
+    } finally {
+      setSavingOrder(false);
+    }
   };
 
   // ---- Automatski izračun nabavne cijene po dozi za žestoka pića ----
@@ -949,20 +1161,32 @@ export default function CjenovnikPage() {
             </button>
           </div>
         )}
-        <button
-          onClick={async () => {
-            try {
-              await updateCjenovnik();
-            } catch (error: any) {
-              console.error("Greška pri ažuriranju cjenovnika:", error);
-              alert(`Greška pri ažuriranju cjenovnika: ${error.message || error}`);
-            }
-          }}
-          style={updateButtonStyle}
-          disabled={pendingCjenovnik.length === 0} // Onemogući ako nema promjena
-        >
-          Ažuriraj cjenovnik
-        </button>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <button
+            onClick={async () => {
+              try {
+                await updateCjenovnik();
+              } catch (error: any) {
+                console.error("Greška pri ažuriranju cjenovnika:", error);
+                alert(`Greška pri ažuriranju cjenovnika: ${error.message || error}`);
+              }
+            }}
+            style={updateButtonStyle}
+            disabled={pendingCjenovnik.length === 0} // Onemogući ako nema promjena
+          >
+            Ažuriraj cjenovnik
+          </button>
+          <button
+            onClick={handleSaveOrder}
+            disabled={!hasOrderChanges || savingOrder}
+            style={{
+              ...updateButtonStyle,
+              background: (!hasOrderChanges || savingOrder) ? "#9ca3af" : "#3b82f6",
+            }}
+          >
+            {savingOrder ? "Spremanje..." : "💾 Sačuvaj redoslijed"}
+          </button>
+        </div>
       </div>
 
       {/* Lista artikala */}
@@ -976,7 +1200,7 @@ export default function CjenovnikPage() {
       ) : isMobile ? (
         // Mobilna verzija - Card layout
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {cjenovnik.map((artikl) => {
+          {cjenovnik.map((artikl, index) => {
             // Provjeri da li je zaliha mala
             const threshold = artikl.jeZestoko 
               ? parseFloat(lowStockThresholdZestoka) || 100 
@@ -1075,14 +1299,52 @@ export default function CjenovnikPage() {
                   </div>
                 )}
 
-                {/* Akcija dugme - donji desni ugao */}
+                {/* Strelice za premještanje i akcija dugme - donji desni ugao */}
                 <div style={{ 
                   display: "flex", 
-                  justifyContent: "flex-end", 
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   marginTop: "8px",
                   paddingTop: "8px",
                   borderTop: "1px solid #f3f4f6"
                 }}>
+                  {/* Strelice gore/dolje jedna pored druge */}
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <button
+                      onClick={() => handleMoveUp(index)}
+                      disabled={index === 0}
+                      style={{
+                        padding: "6px",
+                        background: index === 0 ? "#f3f4f6" : "#f0f0f0",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: index === 0 ? "not-allowed" : "pointer",
+                        color: index === 0 ? "#9ca3af" : "#374151",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      <FaArrowUp />
+                    </button>
+                    <button
+                      onClick={() => handleMoveDown(index)}
+                      disabled={index === cjenovnik.length - 1}
+                      style={{
+                        padding: "6px",
+                        background: index === cjenovnik.length - 1 ? "#f3f4f6" : "#f0f0f0",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: index === cjenovnik.length - 1 ? "not-allowed" : "pointer",
+                        color: index === cjenovnik.length - 1 ? "#9ca3af" : "#374151",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      <FaArrowDown />
+                    </button>
+                  </div>
                   <button
                     style={deleteButtonStyle}
                     onClick={() => deleteArtikl(artikl.naziv)}
@@ -1096,9 +1358,10 @@ export default function CjenovnikPage() {
           })}
         </div>
       ) : (
-        // Desktop verzija - Tabela
+        // Desktop verzija - Tabela sa drag & drop
         <div style={tableWrapperStyle}>
-          <table style={tableStyle}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <table style={tableStyle}>
           <thead>
             <tr>
               <th style={thStyle}>Artikal</th>
@@ -1110,53 +1373,33 @@ export default function CjenovnikPage() {
               <th style={thStyle}>Akcija</th>
             </tr>
           </thead>
-          <tbody>
-            {cjenovnik.map((artikl) => {
-              // Provjeri da li je zaliha mala
-              const threshold = artikl.jeZestoko 
-                ? parseFloat(lowStockThresholdZestoka) || 100 
-                : parseFloat(lowStockThresholdOstala) || 10;
-              const isLowStock = lowStockEnabled && artikl.pocetnoStanje < threshold;
-              
-              return (
-                <tr 
-                  key={artikl.naziv}
-                  style={isLowStock ? { 
-                    backgroundColor: "#fef2f2",
-                    borderLeft: "4px solid #dc2626"
-                  } : {}}
-                >
-                <td style={tdStyle}>
-                  {artikl.naziv}
-                </td>
-                  <td style={tdStyle}>{artikl.cijena.toFixed(2)}</td>
-                  <td style={tdStyle}>{artikl.nabavnaCijena.toFixed(2)}</td>
-                  <td style={{
-                    ...tdStyle,
-                    ...(isLowStock ? { 
-                      color: "#dc2626", 
-                      fontWeight: 600 
-                    } : {})
-                  }}>
-                    {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
-                    {artikl.jeZestoko ? " L" : " kom"}
-                  </td>
-                  <td style={tdStyle}>{artikl.jeZestoko ? (artikl.zestokoKolicina || 0).toFixed(2) : "-"}</td>
-                  <td style={tdStyle}>{artikl.jeZestoko ? (artikl.proizvodnaCijena || 0).toFixed(2) : "-"}</td>
-                  <td style={tdStyle}>
-                    <button
-                      style={deleteButtonStyle}
-                      onClick={() => deleteArtikl(artikl.naziv)}
-                      className="delete-button"
-                    >
-                      <FaTrash />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+            <SortableContext items={cjenovnik.map(a => a.naziv)} strategy={verticalListSortingStrategy}>
+              <tbody>
+                {cjenovnik.map((artikl) => {
+                  // Provjeri da li je zaliha mala
+                  const threshold = artikl.jeZestoko 
+                    ? parseFloat(lowStockThresholdZestoka) || 100 
+                    : parseFloat(lowStockThresholdOstala) || 10;
+                  const isLowStock = lowStockEnabled && artikl.pocetnoStanje < threshold;
+                  
+                  return (
+                    <SortableRow
+                      key={artikl.naziv}
+                      artikl={artikl}
+                      isLowStock={isLowStock}
+                      lowStockThresholdZestoka={lowStockThresholdZestoka}
+                      lowStockThresholdOstala={lowStockThresholdOstala}
+                      lowStockEnabled={lowStockEnabled}
+                      onDelete={deleteArtikl}
+                      tdStyle={tdStyle}
+                      deleteButtonStyle={deleteButtonStyle}
+                    />
+                  );
+                })}
+              </tbody>
+            </SortableContext>
+          </table>
+          </DndContext>
         </div>
       )}
       {pendingCjenovnik.length > 0 && (
