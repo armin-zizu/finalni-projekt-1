@@ -672,6 +672,28 @@ export async function saveCjenovnik(userId: string, cjenovnik: any[]) {
   return data;
 }
 
+export async function deleteCjenovnikArtikal(userId: string, naziv: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/cjenovnik`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ naziv }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to delete artikal');
+  }
+
+  const data = await response.json();
+  return data;
+}
+
 export async function logout() {
   const token = getAuthToken();
   
