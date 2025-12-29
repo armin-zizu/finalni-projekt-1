@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRole } from "../context/RoleContext";
 import { usePathname } from "next/navigation";
-import { saveCjenovnik } from "../../lib/api";
+import { saveCjenovnik, deleteCjenovnikArtikal } from "../../lib/api";
 import { FaTrash, FaPlus, FaArrowUp, FaArrowDown, FaGripVertical } from "react-icons/fa";
 import {
   DndContext,
@@ -257,13 +257,18 @@ function SortableRow({
             {...listeners}
             style={{
               cursor: "grab",
-              padding: "4px",
+              padding: "4px 8px",
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
+              justifyContent: "center",
+              gap: "2px",
               color: "#6b7280",
             }}
           >
-            <FaGripVertical />
+            <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
+            <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
+            <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
           </div>
         </div>
       </td>
@@ -274,6 +279,7 @@ function SortableRow({
 // ---- Glavna komponenta ----
 export default function CjenovnikPage() {
   const { cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik, refreshPrethodniCjenovnik } = useCjenovnik();
+  const { user } = useRole();
 
   const [newArtiklNaziv, setNewArtiklNaziv] = useState<string>("");
   const [newArtiklCijena, setNewArtiklCijena] = useState<string>("");
@@ -400,7 +406,6 @@ export default function CjenovnikPage() {
   };
 
   // ---- Funkcija za čuvanje redoslijeda ----
-  const { user } = useRole();
   const handleSaveOrder = async () => {
     if (savingOrder) return;
     
@@ -537,8 +542,34 @@ export default function CjenovnikPage() {
   };
 
   // ---- Brisanje artikla ----
-  const deleteArtikl = (naziv: string) => {
-    setCjenovnik(cjenovnik.filter((artikl) => artikl.naziv !== naziv)); // Ispravljeno korištenje setCjenovnik
+  const deleteArtikl = async (naziv: string) => {
+    const userId = user?.email || user?.id;
+    
+    if (!userId) {
+      console.error("❌ Korisnik nije autentifikovan, ne mogu obrisati artikal");
+      return;
+    }
+    
+    // Spremi originalni cjenovnik za rollback u slučaju greške
+    const originalCjenovnik = [...cjenovnik];
+    
+    // Ukloni artikal iz state-a odmah (optimistički update)
+    const noviCjenovnik = cjenovnik.filter((artikl) => artikl.naziv !== naziv);
+    setCjenovnik(noviCjenovnik);
+    
+    try {
+      // Eksplicitno pozovi DELETE endpoint za brisanje artikla iz baze
+      await deleteCjenovnikArtikal(userId, naziv);
+      console.log("✅ Artikal eksplicitno obrisan iz API-ja:", naziv);
+      
+      // Ažuriraj prethodni cjenovnik u context-u odmah da automatsko čuvanje ne prepisuje
+      refreshPrethodniCjenovnik(noviCjenovnik);
+    } catch (error) {
+      console.error("❌ Greška pri brisanju artikla u API:", error);
+      // Vrati artikal nazad ako je greška (rollback)
+      setCjenovnik(originalCjenovnik);
+      alert(`Greška pri brisanju artikla "${naziv}": ${error instanceof Error ? error.message : 'Nepoznata greška'}`);
+    }
   };
 
   // Ako se još učitava provjera, prikaži loading
@@ -1211,118 +1242,285 @@ export default function CjenovnikPage() {
               <div
                 key={artikl.naziv}
                 style={{
-                  background: "#fff",
-                  borderRadius: "8px",
-                  padding: "12px",
-                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-                  borderLeft: isLowStock ? "4px solid #dc2626" : "4px solid transparent",
-                  backgroundColor: isLowStock ? "#fef2f2" : "#fff",
+                  background: isLowStock ? "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)" : "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                  borderRadius: "12px",
+                  padding: "0",
+                  margin: "0",
+                  boxShadow: isLowStock 
+                    ? "0 4px 12px rgba(220, 38, 38, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)" 
+                    : "0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)",
+                  border: isLowStock ? "2px solid #fca5a5" : "2px solid #e5e7eb",
                   position: "relative",
+                  overflow: "hidden",
+                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxSizing: "border-box"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = isLowStock 
+                    ? "0 6px 16px rgba(220, 38, 38, 0.2), 0 3px 6px rgba(0, 0, 0, 0.12)" 
+                    : "0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = isLowStock 
+                    ? "0 4px 12px rgba(220, 38, 38, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)" 
+                    : "0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)";
                 }}
               >
-                {/* Artikal naziv - puna širina */}
+                {/* Top accent bar */}
+                {isLowStock && (
+                  <div style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: "4px",
+                    background: "linear-gradient(90deg, #dc2626, #ef4444)",
+                  }} />
+                )}
+
+                {/* Artikal naziv - header sekcija */}
                 <div style={{ 
-                  marginBottom: "12px",
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  color: "#1f2937"
+                  background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                  padding: "18px 20px 14px 20px",
+                  borderBottom: "2px solid #e2e8f0",
+                  marginBottom: 0,
                 }}>
-                  {artikl.naziv}
+                  <div style={{ 
+                    fontSize: "19px",
+                    fontWeight: 700,
+                    color: "#0f172a",
+                    letterSpacing: "-0.3px",
+                    lineHeight: 1.3,
+                  }}>
+                    {artikl.naziv}
+                  </div>
                 </div>
 
-                {/* Grid sa po 2 polja u redu */}
+                {/* Info sekcije - jedno ispod drugog sa svijetlijim background-om i crticama */}
                 <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "1fr 1fr", 
-                  gap: "12px",
-                  marginBottom: "8px"
+                  display: "flex", 
+                  flexDirection: "column",
+                  marginBottom: 0
                 }}>
                   {/* Prodajna cijena */}
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
-                      Prodajna cijena
+                  <div style={{
+                    background: "#fafbfc",
+                    padding: "14px 20px",
+                    borderBottom: "1px solid #f1f5f9",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
+                    <div style={{ 
+                      fontSize: "11px", 
+                      color: "#64748b", 
+                      fontWeight: 600, 
+                      textTransform: "uppercase", 
+                      letterSpacing: "0.8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}>
+                      💵 Prodajna cijena
                     </div>
-                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                    <div style={{ 
+                      fontSize: "16px", 
+                      fontWeight: 700, 
+                      color: "#1e40af",
+                      letterSpacing: "-0.2px"
+                    }}>
                       {artikl.cijena.toFixed(2)} KM
                     </div>
                   </div>
 
                   {/* Nabavna cijena */}
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
-                      Nabavna cijena
+                  <div style={{
+                    background: "#fafbfc",
+                    padding: "14px 20px",
+                    borderBottom: "1px solid #f1f5f9",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
+                    <div style={{ 
+                      fontSize: "11px", 
+                      color: "#64748b", 
+                      fontWeight: 600, 
+                      textTransform: "uppercase", 
+                      letterSpacing: "0.8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}>
+                      📊 Nabavna cijena
                     </div>
-                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                    <div style={{ 
+                      fontSize: "16px", 
+                      fontWeight: 700, 
+                      color: "#059669",
+                      letterSpacing: "-0.2px"
+                    }}>
                       {artikl.nabavnaCijena.toFixed(2)} KM
                     </div>
                   </div>
 
                   {/* Početna količina */}
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
-                      Početna količina
+                  <div style={{
+                    background: "#fafbfc",
+                    padding: "14px 20px",
+                    borderBottom: artikl.jeZestoko ? "1px solid #f1f5f9" : "none",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
+                    <div style={{ 
+                      fontSize: "11px", 
+                      color: "#64748b", 
+                      fontWeight: 600, 
+                      textTransform: "uppercase", 
+                      letterSpacing: "0.8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}>
+                      📦 Početna količina
                     </div>
                     <div style={{ 
-                      fontSize: "14px", 
-                      fontWeight: 600, 
-                      color: isLowStock ? "#dc2626" : "#1f2937"
+                      fontSize: "16px", 
+                      fontWeight: 700, 
+                      color: isLowStock ? "#dc2626" : "#7c3aed",
+                      letterSpacing: "-0.2px"
                     }}>
                       {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
-                      {artikl.jeZestoko ? " L" : " kom"}
+                      <span style={{ fontSize: "12px", fontWeight: 500, marginLeft: "4px" }}>
+                        {artikl.jeZestoko ? "L" : "kom"}
+                      </span>
                     </div>
                   </div>
 
                   {/* Žestoko Količina (ako je relevantno) */}
-                  {artikl.jeZestoko ? (
-                    <div>
-                      <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
-                        Žestoko Količina (L)
+                  {artikl.jeZestoko && (
+                    <>
+                      <div style={{
+                        background: "#fafbfc",
+                        padding: "14px 20px",
+                        borderBottom: "1px solid #f1f5f9",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                      }}>
+                        <div style={{ 
+                          fontSize: "11px", 
+                          color: "#64748b", 
+                          fontWeight: 600, 
+                          textTransform: "uppercase", 
+                          letterSpacing: "0.8px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px"
+                        }}>
+                          🍷 Žestoko Količina
+                        </div>
+                        <div style={{ 
+                          fontSize: "16px", 
+                          fontWeight: 700, 
+                          color: "#1f2937",
+                          letterSpacing: "-0.2px"
+                        }}>
+                          {(artikl.zestokoKolicina || 0).toFixed(2)} L
+                        </div>
                       </div>
-                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
-                        {(artikl.zestokoKolicina || 0).toFixed(2)}
+
+                      {/* Proizvodna Cijena */}
+                      <div style={{
+                        background: "#fafbfc",
+                        padding: "14px 20px",
+                        borderBottom: "none",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                      }}>
+                        <div style={{ 
+                          fontSize: "11px", 
+                          color: "#64748b", 
+                          fontWeight: 600, 
+                          textTransform: "uppercase", 
+                          letterSpacing: "0.8px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px"
+                        }}>
+                          🏭 Proizvodna Cijena
+                        </div>
+                        <div style={{ 
+                          fontSize: "16px", 
+                          fontWeight: 700, 
+                          color: "#1f2937",
+                          letterSpacing: "-0.2px"
+                        }}>
+                          {(artikl.proizvodnaCijena || 0).toFixed(2)} KM
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div></div>
+                    </>
                   )}
                 </div>
 
-                {/* Proizvodna Cijena (puna širina, samo za žestoka pića) */}
-                {artikl.jeZestoko && (
-                  <div style={{ marginTop: "8px", marginBottom: "8px" }}>
-                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
-                      Proizvodna Cijena
-                    </div>
-                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
-                      {(artikl.proizvodnaCijena || 0).toFixed(2)} KM
-                    </div>
-                  </div>
-                )}
-
-                {/* Strelice za premještanje i akcija dugme - donji desni ugao */}
+                {/* Action buttons - strelice jedna pored druge, delete ispod puna širina */}
                 <div style={{ 
                   display: "flex", 
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginTop: "8px",
-                  paddingTop: "8px",
-                  borderTop: "1px solid #f3f4f6"
+                  flexDirection: "column",
+                  gap: "0",
+                  padding: "0",
+                  margin: "0",
+                  background: "#fafbfc",
+                  borderTop: "2px solid #e2e8f0",
+                  borderBottomLeftRadius: "12px",
+                  borderBottomRightRadius: "12px",
+                  overflow: "hidden"
                 }}>
-                  {/* Strelice gore/dolje jedna pored druge */}
-                  <div style={{ display: "flex", gap: "4px" }}>
+                  {/* Strelice gore/dolje - lijeva do lijevog ruba, desna do desnog ruba */}
+                  <div style={{ 
+                    display: "flex", 
+                    flexDirection: "row",
+                    justifyContent: "space-between", 
+                    alignItems: "stretch",
+                    gap: "0",
+                    width: "100%",
+                    margin: "0",
+                    padding: "0"
+                  }}>
                     <button
                       onClick={() => handleMoveUp(index)}
                       disabled={index === 0}
                       style={{
-                        padding: "6px",
-                        background: index === 0 ? "#f3f4f6" : "#f0f0f0",
+                        padding: "12px 16px",
+                        background: index === 0 ? "#f3f4f6" : "linear-gradient(135deg, #f0f0f0 0%, #e5e7eb 100%)",
                         border: "none",
-                        borderRadius: "4px",
+                        borderRight: "1px solid #d1d5db",
+                        borderRadius: "0",
                         cursor: index === 0 ? "not-allowed" : "pointer",
                         color: index === 0 ? "#9ca3af" : "#374151",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center"
+                        justifyContent: "center",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        transition: "all 0.2s ease",
+                        flex: "1",
+                        minWidth: 0,
+                        margin: "0"
+                      }}
+                      onMouseEnter={(e) => {
+                        if (index !== 0) {
+                          e.currentTarget.style.background = "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (index !== 0) {
+                          e.currentTarget.style.background = "linear-gradient(135deg, #f0f0f0 0%, #e5e7eb 100%)";
+                        }
                       }}
                     >
                       <FaArrowUp />
@@ -1331,24 +1529,64 @@ export default function CjenovnikPage() {
                       onClick={() => handleMoveDown(index)}
                       disabled={index === cjenovnik.length - 1}
                       style={{
-                        padding: "6px",
-                        background: index === cjenovnik.length - 1 ? "#f3f4f6" : "#f0f0f0",
+                        padding: "12px 16px",
+                        background: index === cjenovnik.length - 1 ? "#f3f4f6" : "linear-gradient(135deg, #f0f0f0 0%, #e5e7eb 100%)",
                         border: "none",
-                        borderRadius: "4px",
+                        borderRadius: "0",
                         cursor: index === cjenovnik.length - 1 ? "not-allowed" : "pointer",
                         color: index === cjenovnik.length - 1 ? "#9ca3af" : "#374151",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center"
+                        justifyContent: "center",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        transition: "all 0.2s ease",
+                        flex: "1",
+                        minWidth: 0,
+                        margin: "0"
+                      }}
+                      onMouseEnter={(e) => {
+                        if (index !== cjenovnik.length - 1) {
+                          e.currentTarget.style.background = "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (index !== cjenovnik.length - 1) {
+                          e.currentTarget.style.background = "linear-gradient(135deg, #f0f0f0 0%, #e5e7eb 100%)";
+                        }
                       }}
                     >
                       <FaArrowDown />
                     </button>
                   </div>
+                  
+                  {/* Delete dugme - puna širina bez bijelog prostora */}
                   <button
-                    style={deleteButtonStyle}
                     onClick={() => deleteArtikl(artikl.naziv)}
-                    className="delete-button"
+                    style={{
+                      width: "100%",
+                      padding: "10px 16px",
+                      background: "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)",
+                      border: "none",
+                      borderTop: "1px solid #e2e8f0",
+                      borderRadius: "0",
+                      cursor: "pointer",
+                      color: "#dc2626",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      transition: "all 0.2s ease",
+                      boxShadow: "none",
+                      margin: "0"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)";
+                    }}
                   >
                     <FaTrash />
                   </button>
