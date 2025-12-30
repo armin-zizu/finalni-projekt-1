@@ -63,16 +63,16 @@ export default function SupportChatWindow() {
     <div
       style={{
         position: "fixed",
-        bottom: "20px",
+        bottom: "90px", // Iznad sidebara (60px visina + 20px padding + 10px razmak)
         right: "20px",
         width: "calc(100vw - 40px)",
         maxWidth: "400px",
         height: "600px",
-        maxHeight: "calc(100vh - 40px)",
+        maxHeight: "calc(100vh - 110px)", // Prilagođeno za sidebar
         background: "white",
         borderRadius: "16px",
         boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
-        zIndex: 1001,
+        zIndex: 1100, // Iznad sidebara (1000) i dugmeta (1100)
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",

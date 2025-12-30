@@ -13,6 +13,11 @@ import { getUserId, updateCurrentUser, logout, getUserDevices, updateDevice, del
 // import { db } from "../../lib/firestore";
 // TODO: Uklonjen Firebase import - implementirati API pozive
 import { FaSearch, FaSpinner, FaMobile, FaDesktop } from "react-icons/fa";
+import dynamic from "next/dynamic";
+
+// Dynamic import za chat komponente
+const SupportChatButton = dynamic(() => import("../components/SupportChatButton"), { ssr: false });
+const SupportChatWindow = dynamic(() => import("../components/SupportChatWindow"), { ssr: false });
 
 // Firebase imports removed - using API calls instead
 
@@ -3061,6 +3066,10 @@ export default function Profile() {
           </div>
         </div>
       )}
+      
+      {/* Chat komponente - samo na profilu */}
+      <SupportChatButton />
+      <SupportChatWindow />
     </div>
   );
 }

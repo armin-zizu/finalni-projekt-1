@@ -55,16 +55,25 @@ pm2 logs office-app --lines 50
 
 cd ~/bar-app && git pull origin main && npm run build && pm2 restart office-app --update-env
 
-## Dodaj display_order kolonu u cjenovnik tabelu (NA SERVERU):
+## Dodaj display_order kolonu u cjenovnik tabelu:
 ```bash
-# Na serveru (nakon što se push-uje kod i pull-uješ promjene):
+# Lokalno (iz root direktorija projekta):
+npm run migrate:display-order
+
+# Ili direktno:
+node scripts/add-display-order-column.js
+
+# Na serveru (nakon što se push-uje kod):
 cd ~/bar-app  # ili ~/office-app
-git pull origin main
-npm install  # ako ima novih zavisnosti
 npm run migrate:display-order
 ```
 
-**VAŽNO:** Ova migracija MORA biti pokrenuta na serveru sa admin pristupom bazi. 
-Lokalno neće raditi jer nemaš dozvole, ali aplikacija će raditi sa fallback logikom.
+## Kreiraj support_messages tabelu za chat sistem:
+```bash
+# Na serveru, prijavite se u PostgreSQL:
+sudo -u postgres psql office_app
 
-Nakon migracije, redoslijed artikala će se čuvati i biti perzistentan!
+# Zatim kopirajte i izvršite SQL komande iz SUPPORT_CHAT_MIGRATION.md
+# Ili direktno:
+psql -U postgres -d office_app -f scripts/create-support-messages-table.sql
+```

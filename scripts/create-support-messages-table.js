@@ -20,10 +20,11 @@ async function createSupportMessagesTable() {
     console.log('🔄 Kreiranje support_messages tabele...');
     
     // Kreiraj tabelu
+    // Napomena: users.id je TEXT tip, ne UUID
     await client.query(`
       CREATE TABLE IF NOT EXISTS support_messages (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         message TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         is_read BOOLEAN DEFAULT FALSE,

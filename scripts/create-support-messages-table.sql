@@ -2,9 +2,10 @@
 -- Pokrenuti kao: psql -d office_app -f scripts/create-support-messages-table.sql
 
 -- Kreiraj tabelu
+-- Napomena: users.id je TEXT tip, ne UUID
 CREATE TABLE IF NOT EXISTS support_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   message TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   is_read BOOLEAN DEFAULT FALSE,

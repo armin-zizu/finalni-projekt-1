@@ -1,0 +1,44 @@
+-- =====================================================
+-- JEDNOSTAVNO RJEŠENJE - KREIRAJ BEZ FOREIGN KEY
+-- =====================================================
+-- Prvo provjerite da li users tabela postoji:
+\dt users
+
+-- Provjerite strukturu users tabele:
+\d users
+
+-- Ako users tabela postoji, pokrenite ove komande:
+
+-- KORAK 1: Kreiraj tabelu bez foreign key constrainta
+CREATE TABLE IF NOT EXISTS support_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  is_read BOOLEAN DEFAULT FALSE,
+  is_admin_response BOOLEAN DEFAULT FALSE,
+  conversation_id UUID NOT NULL,
+  CONSTRAINT support_messages_message_check CHECK (LENGTH(TRIM(message)) > 0)
+);
+
+-- KORAK 2: Kreiraj indexe
+CREATE INDEX IF NOT EXISTS idx_support_messages_user_id ON support_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_support_messages_conversation_id ON support_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_support_messages_created_at ON support_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_support_messages_unread ON support_messages(is_read, created_at DESC) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_support_messages_user_conversation ON support_messages(user_id, conversation_id, created_at DESC);
+
+-- KORAK 3: Pokušaj dodati foreign key (ako ne radi, preskočite ovaj korak)
+-- DO NOT run this if it fails - it's optional for data integrity
+-- ALTER TABLE support_messages
+-- ADD CONSTRAINT fk_support_messages_user_id 
+-- FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+-- Provjera
+\dt support_messages
+\d support_messages
+
+-- Ako je sve OK, viditećete:
+-- - Tabelu u listi (\dt)
+-- - Strukturu tabele (\d)
+

@@ -11,8 +11,6 @@ import dynamic from "next/dynamic";
 // Dynamic import za komponente koje koriste useRole (da izbjegnemo SSR probleme)
 const SubscriptionBanner = dynamic(() => import("./components/SubscriptionBanner"), { ssr: false });
 const Sidebar = dynamic(() => import("./sidebar/Sidebar"), { ssr: false });
-const SupportChatButton = dynamic(() => import("./components/SupportChatButton"), { ssr: false });
-const SupportChatWindow = dynamic(() => import("./components/SupportChatWindow"), { ssr: false });
 import { usePathname, useRouter } from "next/navigation";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { setAuthToken, getAuthToken } from "../lib/api";
@@ -365,8 +363,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <CjenovnikProvider>
                 <SupportChatProvider>
                   <AppContent>{children}</AppContent>
-                  <SupportChatButton />
-                  <SupportChatWindow />
                   <style jsx>{`
                     .sidebar-link:hover {
                       background-color: #3b82f6;

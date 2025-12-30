@@ -1,0 +1,64 @@
+===========================================
+KREIRANJE support_messages TABELE NA SERVERU
+===========================================
+
+KORAK 1: Prijavite se na server
+
+KORAK 2: Pokrenite jednu od opcija:
+
+OPCIJA A (preporučeno - direktno SQL):
+----------------------------------------
+sudo -u postgres psql office_app
+
+# Prvo provjerite users tabelu:
+\dt users
+\d users
+
+# Zatim kopirajte i izvršite (BEZ foreign key za početak):
+CREATE TABLE IF NOT EXISTS support_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  is_read BOOLEAN DEFAULT FALSE,
+  is_admin_response BOOLEAN DEFAULT FALSE,
+  conversation_id UUID NOT NULL,
+  CONSTRAINT support_messages_message_check CHECK (LENGTH(TRIM(message)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_messages_user_id ON support_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_support_messages_conversation_id ON support_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_support_messages_created_at ON support_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_support_messages_unread ON support_messages(is_read, created_at DESC) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_support_messages_user_conversation ON support_messages(user_id, conversation_id, created_at DESC);
+
+# Provjerite:
+\dt support_messages
+\d support_messages
+\q
+
+# OPCIONALNO: Dodaj foreign key constraint nakon kreiranja:
+# ALTER TABLE support_messages
+# ADD CONSTRAINT fk_support_messages_user_id 
+# FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+
+OPCIJA B (koristeći SQL fajl):
+--------------------------------
+cd ~/bar-app  # ili gdje je vaš projekat
+sudo -u postgres psql office_app -f scripts/CREATE_SUPPORT_MESSAGES_TABLE.sql
+
+
+KORAK 3: Restartujte aplikaciju
+--------------------------------
+pm2 restart office-app --update-env
+
+
+KORAK 4: Testirajte
+--------------------
+1. Otvorite /profile stranicu
+2. Kliknite na chat dugme (desno donje, iznad sidebara)
+3. Pošaljite test poruku
+
+===========================================
+

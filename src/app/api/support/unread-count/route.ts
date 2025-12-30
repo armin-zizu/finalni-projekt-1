@@ -28,7 +28,7 @@ async function ensureSupportMessagesTable(): Promise<boolean> {
       await query(`
         CREATE TABLE IF NOT EXISTS support_messages (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           message TEXT NOT NULL,
           created_at TIMESTAMP DEFAULT NOW(),
           is_read BOOLEAN DEFAULT FALSE,
@@ -95,37 +95,45 @@ async function getUnreadCount(req: AuthRequest): Promise<NextResponse> {
 
     let count = 0;
 
-    if (isAdmin) {
-      // Admin vidi nepročitane poruke od korisnika
-      const result = await query(
-        `SELECT COUNT(*) as count
-         FROM support_messages
-         WHERE is_read = FALSE AND is_admin_response = FALSE`,
-        []
-      );
-      count = parseInt(result.rows[0].count) || 0;
-    } else {
-      // Korisnik vidi nepročitane admin odgovore
-      let resolvedUserId = req.user.userId;
-      
-      if (!uuidRegex.test(req.user.userId)) {
-        const userResult = await query(
-          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-          [req.user.userId]
+    try {
+      if (isAdmin) {
+        // Admin vidi nepročitane poruke od korisnika
+        const result = await query(
+          `SELECT COUNT(*) as count
+           FROM support_messages
+           WHERE is_read = FALSE AND is_admin_response = FALSE`,
+          []
         );
+        count = parseInt(result.rows[0].count) || 0;
+      } else {
+        // Korisnik vidi nepročitane admin odgovore
+        let resolvedUserId = req.user.userId;
         
-        if (userResult.rows.length > 0) {
-          resolvedUserId = userResult.rows[0].id;
+        if (!uuidRegex.test(req.user.userId)) {
+          const userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [req.user.userId]
+          );
+          
+          if (userResult.rows.length > 0) {
+            resolvedUserId = userResult.rows[0].id;
+          }
         }
-      }
 
-      const result = await query(
-        `SELECT COUNT(*) as count
-         FROM support_messages
-         WHERE user_id = $1 AND is_read = FALSE AND is_admin_response = TRUE`,
-        [resolvedUserId]
-      );
-      count = parseInt(result.rows[0].count) || 0;
+        const result = await query(
+          `SELECT COUNT(*) as count
+           FROM support_messages
+           WHERE user_id = $1 AND is_read = FALSE AND is_admin_response = TRUE`,
+          [resolvedUserId]
+        );
+        count = parseInt(result.rows[0].count) || 0;
+      }
+    } catch (dbError: any) {
+      if (dbError.code === '42P01') {
+        // Tabela ne postoji - vrati 0 umjesto error-a
+        return NextResponse.json({ unreadCount: 0 });
+      }
+      throw dbError;
     }
 
     return NextResponse.json({ unreadCount: count });

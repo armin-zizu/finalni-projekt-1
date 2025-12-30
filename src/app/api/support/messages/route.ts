@@ -30,10 +30,11 @@ async function ensureSupportMessagesTable(): Promise<boolean> {
     
     try {
       // Kreiraj tabelu
+      // Napomena: users.id je TEXT tip, ne UUID
       await query(`
         CREATE TABLE IF NOT EXISTS support_messages (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           message TEXT NOT NULL,
           created_at TIMESTAMP DEFAULT NOW(),
           is_read BOOLEAN DEFAULT FALSE,
@@ -126,13 +127,24 @@ async function getMessages(req: AuthRequest): Promise<NextResponse> {
     }
 
     // Dohvati sve poruke za ovog korisnika
-    const result = await query(
-      `SELECT id, user_id, message, created_at, is_read, is_admin_response, conversation_id
-       FROM support_messages
-       WHERE user_id = $1
-       ORDER BY created_at ASC`,
-      [resolvedUserId]
-    );
+    let result;
+    try {
+      result = await query(
+        `SELECT id, user_id, message, created_at, is_read, is_admin_response, conversation_id
+         FROM support_messages
+         WHERE user_id = $1
+         ORDER BY created_at ASC`,
+        [resolvedUserId]
+      );
+    } catch (dbError: any) {
+      if (dbError.code === '42P01') {
+        // Tabela ne postoji - vrati prazan array umjesto error-a
+        return NextResponse.json({
+          messages: [],
+        });
+      }
+      throw dbError;
+    }
 
     return NextResponse.json({
       messages: result.rows.map(row => ({
@@ -214,12 +226,27 @@ async function postMessage(req: AuthRequest): Promise<NextResponse> {
     }
 
     // Unesi poruku u bazu
-    const result = await query(
-      `INSERT INTO support_messages (user_id, message, conversation_id, is_admin_response)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, user_id, message, created_at, is_read, is_admin_response, conversation_id`,
-      [resolvedUserId, message.trim(), finalConversationId, false]
-    );
+    let result;
+    try {
+      result = await query(
+        `INSERT INTO support_messages (user_id, message, conversation_id, is_admin_response)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, user_id, message, created_at, is_read, is_admin_response, conversation_id`,
+        [resolvedUserId, message.trim(), finalConversationId, false]
+      );
+    } catch (dbError: any) {
+      if (dbError.code === '42P01') {
+        // Tabela ne postoji
+        return NextResponse.json(
+          { 
+            error: 'Chat sistem nije dostupan. Tabela support_messages ne postoji. Molimo kontaktirajte administratora.',
+            code: 'TABLE_NOT_EXISTS'
+          },
+          { status: 503 }
+        );
+      }
+      throw dbError;
+    }
 
     const newMessage = result.rows[0];
 

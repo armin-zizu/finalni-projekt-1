@@ -2,10 +2,10 @@
 
 import React from "react";
 import { useSupportChat } from "../context/SupportChatContext";
-import { FaComments, FaTimes } from "react-icons/fa";
+import { FaComments } from "react-icons/fa";
 
 export default function SupportChatButton() {
-  const { isOpen, unreadCount, openChat, closeChat } = useSupportChat();
+  const { isOpen, unreadCount, openChat } = useSupportChat();
 
   return (
     <>
@@ -14,7 +14,7 @@ export default function SupportChatButton() {
           onClick={openChat}
           style={{
             position: "fixed",
-            bottom: "20px",
+            bottom: "90px", // Iznad sidebara (60px visina + 20px padding + 10px razmak)
             right: "20px",
             width: "56px",
             height: "56px",
@@ -26,7 +26,7 @@ export default function SupportChatButton() {
             alignItems: "center",
             justifyContent: "center",
             boxShadow: "0 4px 12px rgba(59, 130, 246, 0.4)",
-            zIndex: 1000,
+            zIndex: 1100, // Iznad sidebara (1000)
             transition: "all 0.3s ease",
             color: "white",
             fontSize: "24px",
