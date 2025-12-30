@@ -296,8 +296,11 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
     // Provjeri i dodaj display_order kolonu ako ne postoji
     const hasDisplayOrder = await ensureDisplayOrderColumn();
     
-    // NE brišemo postojeće - koristimo UPSERT (ON CONFLICT DO UPDATE) da očuvamo sve podatke
-    // Insert/Update cjenovnik items - UPSERT pristup (ne brišemo postojeće, samo ažuriramo/dodajemo)
+    // VAŽNO: NE brišemo artikle automatski - samo INSERT/UPDATE (UPSERT)
+    // Artikli se brišu SAMO kada korisnik eksplicitno klikne delete dugme
+    // Ovo osigurava da se artikli ne gube pri automatskom čuvanju ili refresh-ovima
+    
+    // Insert/Update cjenovnik items - UPSERT pristup (dodajemo/ažuriramo artikle iz array-a)
     if (cjenovnik.length > 0) {
       // Prvo, pokušaj sa display_order (10 parametara po artiklu) ako kolona postoji
       if (hasDisplayOrder) {
@@ -402,11 +405,120 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
   }
 }
 
+// DELETE handler - eksplicitno brisanje artikla
+async function deleteHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> | { userId: string } }): Promise<NextResponse> {
+  try {
+    if (!req.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const resolvedParams = await params;
+    let userId = resolvedParams.userId;
+    const body = await req.json();
+    const { naziv } = body; // Naziv artikla koji treba obrisati
+
+    if (!naziv) {
+      return NextResponse.json(
+        { error: 'naziv is required' },
+        { status: 400 }
+      );
+    }
+
+    // Resolve userId to UUID if needed
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      let userResult;
+      
+      if (emailRegex.test(userId)) {
+        userResult = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [userId]
+        );
+      } else {
+        const jwtUserId = req.user.userId;
+        if (emailRegex.test(jwtUserId)) {
+          userResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [jwtUserId]
+          );
+        } else {
+          userResult = await query(
+            'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+        }
+      }
+      
+      if (userResult.rows.length > 0) {
+        userId = userResult.rows[0].id;
+      } else {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Check permissions
+    if (!req.user.isOwner) {
+      let jwtUserId = req.user.userId;
+      if (!uuidRegex.test(jwtUserId)) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailRegex.test(jwtUserId)) {
+          const jwtUserResult = await query(
+            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [jwtUserId]
+          );
+          if (jwtUserResult.rows.length > 0) {
+            jwtUserId = jwtUserResult.rows[0].id;
+          }
+        }
+      }
+      if (jwtUserId !== userId) {
+        return NextResponse.json(
+          { error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Eksplicitno obriši artikal
+    const deleteResult = await query(
+      `DELETE FROM cjenovnik 
+       WHERE user_id = $1::text 
+       AND naziv = $2`,
+      [userId, naziv]
+    );
+
+    if (deleteResult.rowCount && deleteResult.rowCount > 0) {
+      console.log(`🗑️ Eksplicitno obrisan artikal: ${naziv} za korisnika: ${userId}`);
+      return NextResponse.json({ success: true, message: 'Artikal obrisan' });
+    } else {
+      console.log(`⚠️ Artikal nije pronađen za brisanje: ${naziv} za korisnika: ${userId}`);
+      return NextResponse.json({ success: false, message: 'Artikal nije pronađen' }, { status: 404 });
+    }
+  } catch (error: any) {
+    console.error('Delete artikal error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: error.message },
+      { status: 500 }
+    );
+  }
+}
+
 export const GET = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
   return withAuth((authReq: AuthRequest) => getHandler(authReq, context))(req);
 };
 
 export const POST = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
   return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
+};
+
+export const DELETE = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
+  return withAuth((authReq: AuthRequest) => deleteHandler(authReq, context))(req);
 };
 
