@@ -2,7 +2,21 @@
 
 ## Brza migracija na serveru
 
-Nakon što push-uješ kod na server, pokreni:
+### Opcija 1: Kao postgres superuser (preporučeno)
+
+```bash
+# Pristupi kao postgres superuser
+sudo -u postgres psql -d office_app
+
+# Ili direktno (ako znaš postgres lozinku):
+psql -h 46.224.115.49 -U postgres -d office_app
+```
+
+Zatim pokreni SQL komande ispod.
+
+### Opcija 2: Node.js script
+
+Ako imaš pristup sa postgres credentials u `.env.local`:
 
 ```bash
 cd ~/bar-app  # ili ~/office-app (gdje je projekat)
@@ -11,9 +25,11 @@ npm install
 npm run migrate:display-order
 ```
 
-## Ili direktno SQL komandama
+**VAŽNO:** Script mora koristiti postgres superuser konekciju, ne `office_user`!
 
-Ako imaš pristup PostgreSQL direktno (psql ili pgAdmin), pokreni:
+## Direktno SQL komandama
+
+**Mora biti pokrenuto kao postgres superuser** (ne kao `office_user`):
 
 ```sql
 ALTER TABLE cjenovnik 

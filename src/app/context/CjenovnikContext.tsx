@@ -15,6 +15,7 @@ type ArtiklCijena = {
   nabavnaCijenaFlase?: number;
   zapreminaFlase?: number;
   pocetnoStanje: number;
+  displayOrder?: number | null; // Dodaj displayOrder tip
 };
 
 // ---- Tip contexta ----
@@ -24,6 +25,7 @@ type CjenovnikContextType = {
   setCjenovnik: React.Dispatch<React.SetStateAction<ArtiklCijena[]>>;
   addArtikal: (artikal: ArtiklCijena) => void;
   updateCjenovnik: () => void; // Potvrda promjena
+  refreshPrethodniCjenovnik: (noviCjenovnik?: ArtiklCijena[]) => void; // Ažuriraj prethodni cjenovnik ref
 };
 
 const CjenovnikContext = createContext<CjenovnikContextType | undefined>(undefined);
@@ -90,6 +92,8 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
               // Učitaj dodatna polja iz baze
               nabavnaCijenaFlase: item.nabavnaCijenaFlase,
               zapreminaFlase: item.zapreminaFlase,
+              // VAŽNO: Učitaj displayOrder iz baze (ako postoji)
+              displayOrder: item.displayOrder !== null && item.displayOrder !== undefined ? item.displayOrder : null,
             };
           });
 
@@ -146,10 +150,30 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
             console.warn("Greška pri učitavanju arhive za ažuriranje cjenovnika:", error);
           }
 
+          // Sortiraj po displayOrder (ako postoji), inače po nazivu
+          transformedCjenovnik.sort((a, b) => {
+            const orderA = a.displayOrder ?? 999999;
+            const orderB = b.displayOrder ?? 999999;
+            if (orderA !== orderB) {
+              return orderA - orderB;
+            }
+            return a.naziv.localeCompare(b.naziv);
+          });
+
+          // VAŽNO: Postavi isInitialLoad PRIJE nego što ažuriraš state da bi automatsko čuvanje ne prepisalo podatke
+          setIsInitialLoad(true);
           prethodniCjenovnikRef.current = transformedCjenovnik;
           setCjenovnik(transformedCjenovnik);
-          setIsInitialLoad(false);
-          console.log("Cjenovnik učitano iz API-ja:", transformedCjenovnik.length, "artikala");
+          // Resetuj flag nakon kratke pauze da omogući automatsko čuvanje nakon učitavanja
+          setTimeout(() => {
+            setIsInitialLoad(false);
+            // Osiguraj da prethodniCjenovnikRef odgovara trenutnom cjenovniku nakon učitavanja
+            setCjenovnik((currentCjenovnik) => {
+              prethodniCjenovnikRef.current = currentCjenovnik;
+              return currentCjenovnik; // Ne mijenjaj state, samo osvježi ref
+            });
+          }, 200);
+          console.log("Cjenovnik učitano iz API-ja:", transformedCjenovnik.length, "artikala, sortirano po displayOrder");
         } else {
           // Nema cjenovnik u API-ju - koristi initial
           prethodniCjenovnikRef.current = initialCjenovnik;
@@ -383,9 +407,15 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
     
     // Spremi ako su se promijenili nazivi, broj artikala, ILI bilo koje vrijednosti (osim pocetnoStanje)
     // ILI ako se promijenio redoslijed
+    // ILI ako je broj artikala smanjen (obrisani artikli)
     if (podaciIsti && cjenovnik.length === prethodniCjenovnik.length && !redoslijedPromijenjen) {
       // Nema promjene - ne sprema (možda se samo promijenilo pocetnoStanje koje se ne čuva u bazi)
       return;
+    }
+    
+    // Ako je broj artikala smanjen, obavezno spremi (artikli su obrisani)
+    if (cjenovnik.length < prethodniCjenovnik.length) {
+      console.log("📊 Broj artikala se smanjio (obrisani artikli), sprema se u API");
     }
     
     // SPREMI U API - automatski čim se promijeni
@@ -444,7 +474,17 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       return; // Nema ništa za dodati
     }
     
-    const noviCjenovnik = [...cjenovnik, ...noviArtikli];
+    // Dodaj displayOrder novim artiklima - postavi ih na kraj (najveći displayOrder + 1)
+    const maxDisplayOrder = cjenovnik.length > 0 
+      ? Math.max(...cjenovnik.map((item) => item.displayOrder ?? -1)) 
+      : -1;
+    
+    const noviArtikliSaDisplayOrder = noviArtikli.map((item, index) => ({
+      ...item,
+      displayOrder: maxDisplayOrder + 1 + index, // Postavi na kraj
+    }));
+    
+    const noviCjenovnik = [...cjenovnik, ...noviArtikliSaDisplayOrder];
     
     // Eksplicitno sačuvaj u API PRVO pre nego što ažuriramo state
     // Email je glavni identifikator - uzmi iz roleContext ponovo da osiguraš da imamo najnovije podatke
@@ -484,14 +524,20 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       // Ako je uspješno sačuvano, ažuriraj state
       // Postavi isInitialLoad flag da ne bi automatski čuvanje prepisalo podatke
       setIsInitialLoad(true);
+      // Ažuriraj prethodniCjenovnikRef PRIJE nego što ažuriramo cjenovnik state
       prethodniCjenovnikRef.current = noviCjenovnik; // Koristi useRef da se izbjegne re-render
       setCjenovnik(noviCjenovnik);
       setPendingCjenovnik([]); // Očisti privremeni cjenovnik
-      // Resetuj flag nakon kratke pauze da omogući buduća automatska čuvanja i osvježi prethodni cjenovnik
+      // Resetuj flag nakon duže pauze da omogući da API poziv završi prije nego što se automatsko čuvanje aktivira
       setTimeout(() => {
         setIsInitialLoad(false);
-        prethodniCjenovnikRef.current = noviCjenovnik; // Osiguraj da prethodniCjenovnik odgovara trenutnom nakon čuvanja
-      }, 100);
+        // Osiguraj da prethodniCjenovnikRef odgovara trenutnom cjenovniku nakon čuvanja
+        // Koristi funkcijski update da dobijemo najnoviji state
+        setCjenovnik((currentCjenovnik) => {
+          prethodniCjenovnikRef.current = currentCjenovnik;
+          return currentCjenovnik; // Ne mijenjaj state, samo osvježi ref
+        });
+      }, 500); // Povećano sa 100ms na 500ms da se osigura da API poziv završi
     } catch (error: any) {
       console.error("❌ Greška pri čuvanju cjenovnika u API:", error);
       throw error; // Re-throw da se korisnik obavesti o grešci
@@ -499,8 +545,9 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   };
 
   // Funkcija za eksplicitno ažuriranje prethodniCjenovnikRef
-  const refreshPrethodniCjenovnik = () => {
-    prethodniCjenovnikRef.current = cjenovnik;
+  // Ako se proslijedi noviCjenovnik, koristi ga, inače koristi trenutni cjenovnik
+  const refreshPrethodniCjenovnik = (noviCjenovnik?: ArtiklCijena[]) => {
+    prethodniCjenovnikRef.current = noviCjenovnik || cjenovnik;
   };
 
   return (

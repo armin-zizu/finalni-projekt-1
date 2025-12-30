@@ -36,10 +36,13 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
           // Ako korisnik postoji ali nema appName, koristi default
           console.log("AppNameContext - User exists but no app name, using default");
           setAppName("Moja Aplikacija");
+        } else {
+          // Korisnik nije pronađen ili endpoint nije dostupan - koristi default bez logovanja
+          setAppName("Moja Aplikacija");
         }
       } catch (error) {
-        console.error("AppNameContext - Greška pri učitavanju appName:", error);
-        // Ne postavljaj error state - koristi default vrijednost
+        // Tiha greška - ne loguj jer to nije kritično
+        // AppNameContext već ima fallback na default vrijednost
         setAppName("Moja Aplikacija");
       }
     };

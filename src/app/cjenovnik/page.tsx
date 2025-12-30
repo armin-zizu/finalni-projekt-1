@@ -5,7 +5,7 @@ import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRole } from "../context/RoleContext";
 import { usePathname } from "next/navigation";
 import { saveCjenovnik, deleteCjenovnikArtikal } from "../../lib/api";
-import { FaTrash, FaPlus, FaArrowUp, FaArrowDown, FaGripVertical } from "react-icons/fa";
+import { FaTrash, FaPlus, FaArrowUp, FaArrowDown, FaGripVertical, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
 import {
   DndContext,
   closestCenter,
@@ -195,7 +195,16 @@ function SortableRow({
   lowStockEnabled,
   onDelete,
   tdStyle,
-  deleteButtonStyle
+  deleteButtonStyle,
+  editingArtikl,
+  editProdajnaCijena,
+  editNabavnaCijena,
+  onEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onEditProdajnaCijenaChange,
+  onEditNabavnaCijenaChange,
+  error
 }: {
   artikl: any;
   isLowStock: boolean;
@@ -205,6 +214,15 @@ function SortableRow({
   onDelete: (naziv: string) => void;
   tdStyle: React.CSSProperties;
   deleteButtonStyle: React.CSSProperties;
+  editingArtikl: string | null;
+  editProdajnaCijena: string;
+  editNabavnaCijena: string;
+  onEdit: (artikl: any) => void;
+  onSaveEdit: (naziv: string) => void;
+  onCancelEdit: () => void;
+  onEditProdajnaCijenaChange: (value: string) => void;
+  onEditNabavnaCijenaChange: (value: string) => void;
+  error: string;
 }) {
   const {
     attributes,
@@ -235,8 +253,48 @@ function SortableRow({
       <td style={tdStyle}>
         {artikl.naziv}
       </td>
-      <td style={tdStyle}>{artikl.cijena.toFixed(2)}</td>
-      <td style={tdStyle}>{artikl.nabavnaCijena.toFixed(2)}</td>
+      <td style={tdStyle}>
+        {editingArtikl === artikl.naziv ? (
+          <input
+            type="number"
+            step="0.01"
+            value={editProdajnaCijena}
+            onChange={(e) => onEditProdajnaCijenaChange(e.target.value)}
+            style={{
+              width: "100px",
+              padding: "6px 8px",
+              border: "2px solid #3b82f6",
+              borderRadius: "4px",
+              fontSize: "14px",
+              outline: "none",
+            }}
+            className="no-spin"
+          />
+        ) : (
+          artikl.cijena.toFixed(2)
+        )}
+      </td>
+      <td style={tdStyle}>
+        {editingArtikl === artikl.naziv ? (
+          <input
+            type="number"
+            step="0.01"
+            value={editNabavnaCijena}
+            onChange={(e) => onEditNabavnaCijenaChange(e.target.value)}
+            style={{
+              width: "100px",
+              padding: "6px 8px",
+              border: "2px solid #3b82f6",
+              borderRadius: "4px",
+              fontSize: "14px",
+              outline: "none",
+            }}
+            className="no-spin"
+          />
+        ) : (
+          artikl.nabavnaCijena.toFixed(2)
+        )}
+      </td>
       <td style={tdStyle}>
         {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
         {artikl.jeZestoko ? " L" : " kom"}
@@ -244,32 +302,102 @@ function SortableRow({
       <td style={tdStyle}>{artikl.jeZestoko ? (artikl.zestokoKolicina || 0).toFixed(2) : "-"}</td>
       <td style={tdStyle}>{artikl.jeZestoko ? (artikl.proizvodnaCijena || 0).toFixed(2) : "-"}</td>
       <td style={tdStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-start" }}>
-          <button
-            style={deleteButtonStyle}
-            onClick={() => onDelete(artikl.naziv)}
-            className="delete-button"
-          >
-            <FaTrash />
-          </button>
-          <div
-            {...attributes}
-            {...listeners}
-            style={{
-              cursor: "grab",
-              padding: "4px 8px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "2px",
-              color: "#6b7280",
-            }}
-          >
-            <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
-            <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
-            <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-start", flexWrap: "wrap" }}>
+          {editingArtikl === artikl.naziv ? (
+            <>
+              <button
+                onClick={() => onSaveEdit(artikl.naziv)}
+                style={{
+                  padding: "6px 12px",
+                  background: "#10b981",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <FaCheck /> Sačuvaj
+              </button>
+              <button
+                onClick={onCancelEdit}
+                style={{
+                  padding: "6px 12px",
+                  background: "#f3f4f6",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <FaTimes /> Otkaži
+              </button>
+              {error && (
+                <div style={{ fontSize: "11px", color: "#dc2626", width: "100%", marginTop: "4px" }}>
+                  {error}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => onEdit(artikl)}
+                style={{
+                  padding: "6px 12px",
+                  background: "#dbeafe",
+                  color: "#1e40af",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <FaEdit /> Uredi
+              </button>
+              <button
+                style={deleteButtonStyle}
+                onClick={() => {
+                  if (window.confirm(`Da li ste sigurni da želite obrisati "${artikl.naziv}"?`)) {
+                    onDelete(artikl.naziv);
+                  }
+                }}
+                className="delete-button"
+              >
+                <FaTrash />
+              </button>
+              <div
+                {...attributes}
+                {...listeners}
+                style={{
+                  cursor: "grab",
+                  padding: "4px 8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "2px",
+                  color: "#6b7280",
+                }}
+              >
+                <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
+                <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
+                <div style={{ width: "12px", height: "2px", background: "#6b7280", borderRadius: "1px" }}></div>
+              </div>
+            </>
+          )}
         </div>
       </td>
     </tr>
@@ -297,6 +425,9 @@ export default function CjenovnikPage() {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   const [hasOrderChanges, setHasOrderChanges] = useState<boolean>(false); // Flag za promjenu redoslijeda
   const [savingOrder, setSavingOrder] = useState<boolean>(false); // Flag za spremanje
+  const [editingArtikl, setEditingArtikl] = useState<string | null>(null); // Koji artikal je u edit mode (naziv artikla)
+  const [editProdajnaCijena, setEditProdajnaCijena] = useState<string>(""); // Temp vrijednost prodajne cijene
+  const [editNabavnaCijena, setEditNabavnaCijena] = useState<string>(""); // Temp vrijednost nabavne cijene
   const pathname = usePathname();
 
   // Detekcija mobilnog uređaja
@@ -539,6 +670,94 @@ export default function CjenovnikPage() {
     setNewArtiklZapreminaFlase("");
     setNewArtiklPocetnoStanje("");
     setError("");
+  };
+
+  // ---- Edit funkcionalnost (mobilna verzija) ----
+  const handleEdit = (artikl: Artikl) => {
+    // Zatvori edit mode za prethodni artikal ako postoji
+    if (editingArtikl && editingArtikl !== artikl.naziv) {
+      handleCancelEdit();
+    }
+    setEditingArtikl(artikl.naziv);
+    setEditProdajnaCijena(artikl.cijena.toString());
+    setEditNabavnaCijena(artikl.nabavnaCijena.toString());
+    setError(""); // Resetuj error pri otvaranju edit mode-a
+  };
+
+  const handleCancelEdit = () => {
+    setEditingArtikl(null);
+    setEditProdajnaCijena("");
+    setEditNabavnaCijena("");
+    setError(""); // Resetuj error pri otkazivanju
+  };
+
+  const handleSaveEdit = async (artiklNaziv: string) => {
+    const prodajnaCijena = parseFloat(editProdajnaCijena);
+    const nabavnaCijena = parseFloat(editNabavnaCijena);
+
+    if (isNaN(prodajnaCijena) || prodajnaCijena <= 0) {
+      setError("Prodajna cijena mora biti veća od 0!");
+      return;
+    }
+
+    if (isNaN(nabavnaCijena) || nabavnaCijena < 0) {
+      setError("Nabavna cijena mora biti veća ili jednaka 0!");
+      return;
+    }
+
+    try {
+      const userId = user?.email || user?.id;
+      if (!userId) {
+        throw new Error("Korisnik nije autentifikovan");
+      }
+
+      // Ažuriraj artikal u cjenovniku i sačuvaj u API
+      setCjenovnik((prevCjenovnik) => {
+        const updatedCjenovnik = prevCjenovnik.map((artikl) =>
+          artikl.naziv === artiklNaziv
+            ? {
+                ...artikl,
+                cijena: prodajnaCijena,
+                nabavnaCijena: nabavnaCijena,
+              }
+            : artikl
+        );
+
+        // Sačuvaj u API asinhrono (van callback-a)
+        const apiCjenovnik = updatedCjenovnik.map((item) => ({
+          naziv: item.naziv,
+          cijena: item.cijena,
+          proizvodnaCijena: item.proizvodnaCijena,
+          zestokoKolicina: item.zestokoKolicina,
+          nabavnaCijena: item.nabavnaCijena,
+          nabavnaCijenaFlase: item.nabavnaCijenaFlase,
+          zapreminaFlase: item.zapreminaFlase,
+          pocetnoStanje: item.pocetnoStanje,
+          displayOrder: item.displayOrder !== null && item.displayOrder !== undefined ? item.displayOrder : null,
+        }));
+
+        // Pozovi async funkciju van setState callback-a
+        setTimeout(() => {
+          saveCjenovnik(userId, apiCjenovnik)
+            .then(() => {
+              refreshPrethodniCjenovnik();
+              setEditingArtikl(null);
+              setEditProdajnaCijena("");
+              setEditNabavnaCijena("");
+              setError("");
+            })
+            .catch((err) => {
+              console.error("Greška pri čuvanju promjena:", err);
+              setError(`Greška pri čuvanju: ${err.message || err}`);
+            });
+        }, 0);
+
+        return updatedCjenovnik; // Vrati ažurirani cjenovnik
+      });
+    } catch (error: any) {
+      console.error("Greška pri čuvanju promjena:", error);
+      setError(`Greška pri čuvanju: ${error.message || error}`);
+    }
   };
 
   // ---- Brisanje artikla ----
@@ -1280,12 +1499,19 @@ export default function CjenovnikPage() {
                   }} />
                 )}
 
-                {/* Artikal naziv - header sekcija */}
+                {/* Artikal naziv - header sekcija sa DELETE dugmetom */}
                 <div style={{ 
                   background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-                  padding: "18px 20px 14px 20px",
+                  padding: "18px 20px 14px 12px",
                   borderBottom: "2px solid #e2e8f0",
                   marginBottom: 0,
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "16px",
+                  width: "100%",
+                  position: "relative",
                 }}>
                   <div style={{ 
                     fontSize: "19px",
@@ -1293,9 +1519,55 @@ export default function CjenovnikPage() {
                     color: "#0f172a",
                     letterSpacing: "-0.3px",
                     lineHeight: 1.3,
+                    flex: "1 1 0%",
+                    minWidth: 0,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}>
                     {artikl.naziv}
                   </div>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Da li ste sigurni da želite obrisati "${artikl.naziv}"?`)) {
+                        deleteArtikl(artikl.naziv);
+                      }
+                    }}
+                    style={{
+                      width: "28px",
+                      height: "28px",
+                      minWidth: "28px",
+                      maxWidth: "28px",
+                      padding: "0",
+                      background: "transparent",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      color: "#dc2626",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "18px",
+                      lineHeight: "1",
+                      transition: "all 0.2s ease",
+                      flexShrink: 0,
+                      flexGrow: 0,
+                      position: "relative",
+                      zIndex: 10,
+                      outline: "none",
+                      marginRight: "24px",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "#b91c1c";
+                      e.currentTarget.style.transform = "scale(1.1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "#dc2626";
+                      e.currentTarget.style.transform = "scale(1)";
+                    }}
+                  >
+                    <FaTrash />
+                  </button>
                 </div>
 
                 {/* Info sekcije - jedno ispod drugog sa svijetlijim background-om i crticama */}
@@ -1325,14 +1597,36 @@ export default function CjenovnikPage() {
                     }}>
                       💵 Prodajna cijena
                     </div>
-                    <div style={{ 
-                      fontSize: "16px", 
-                      fontWeight: 700, 
-                      color: "#1e40af",
-                      letterSpacing: "-0.2px"
-                    }}>
-                      {artikl.cijena.toFixed(2)} KM
-                    </div>
+                    {editingArtikl === artikl.naziv ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editProdajnaCijena}
+                        onChange={(e) => setEditProdajnaCijena(e.target.value)}
+                        style={{
+                          width: "120px",
+                          padding: "8px 12px",
+                          border: "2px solid #3b82f6",
+                          borderRadius: "6px",
+                          fontSize: "16px",
+                          fontWeight: 700,
+                          color: "#1e40af",
+                          textAlign: "right",
+                          background: "#ffffff",
+                          outline: "none",
+                        }}
+                        className="no-spin"
+                      />
+                    ) : (
+                      <div style={{ 
+                        fontSize: "16px", 
+                        fontWeight: 700, 
+                        color: "#1e40af",
+                        letterSpacing: "-0.2px"
+                      }}>
+                        {artikl.cijena.toFixed(2)} KM
+                      </div>
+                    )}
                   </div>
 
                   {/* Nabavna cijena */}
@@ -1356,14 +1650,36 @@ export default function CjenovnikPage() {
                     }}>
                       📊 Nabavna cijena
                     </div>
-                    <div style={{ 
-                      fontSize: "16px", 
-                      fontWeight: 700, 
-                      color: "#059669",
-                      letterSpacing: "-0.2px"
-                    }}>
-                      {artikl.nabavnaCijena.toFixed(2)} KM
-                    </div>
+                    {editingArtikl === artikl.naziv ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editNabavnaCijena}
+                        onChange={(e) => setEditNabavnaCijena(e.target.value)}
+                        style={{
+                          width: "120px",
+                          padding: "8px 12px",
+                          border: "2px solid #3b82f6",
+                          borderRadius: "6px",
+                          fontSize: "16px",
+                          fontWeight: 700,
+                          color: "#059669",
+                          textAlign: "right",
+                          background: "#ffffff",
+                          outline: "none",
+                        }}
+                        className="no-spin"
+                      />
+                    ) : (
+                      <div style={{ 
+                        fontSize: "16px", 
+                        fontWeight: 700, 
+                        color: "#059669",
+                        letterSpacing: "-0.2px"
+                      }}>
+                        {artikl.nabavnaCijena.toFixed(2)} KM
+                      </div>
+                    )}
                   </div>
 
                   {/* Početna količina */}
@@ -1560,36 +1876,123 @@ export default function CjenovnikPage() {
                     </button>
                   </div>
                   
-                  {/* Delete dugme - puna širina bez bijelog prostora */}
-                  <button
-                    onClick={() => deleteArtikl(artikl.naziv)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 16px",
-                      background: "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)",
-                      border: "none",
-                      borderTop: "1px solid #e2e8f0",
-                      borderRadius: "0",
-                      cursor: "pointer",
-                      color: "#dc2626",
+                  {/* Error poruka (samo ako je u edit mode i postoji error) */}
+                  {editingArtikl === artikl.naziv && error && (
+                    <div style={{
+                      padding: "12px 20px",
+                      background: "#fef2f2",
+                      borderTop: "1px solid #fecaca",
+                      borderBottom: "1px solid #fecaca",
+                    }}>
+                      <div style={{
+                        fontSize: "13px",
+                        color: "#dc2626",
+                        fontWeight: 500,
+                      }}>
+                        {error}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* UREDI dugme ili Save/Cancel dugmad */}
+                  {editingArtikl === artikl.naziv ? (
+                    // Save i Cancel dugmad kada je u edit mode
+                    <div style={{
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      transition: "all 0.2s ease",
-                      boxShadow: "none",
-                      margin: "0"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)";
-                    }}
-                  >
-                    <FaTrash />
-                  </button>
+                      gap: "8px",
+                      padding: "10px 16px",
+                      borderTop: editingArtikl === artikl.naziv && error ? "none" : "1px solid #e2e8f0",
+                    }}>
+                      <button
+                        onClick={() => handleSaveEdit(artikl.naziv)}
+                        style={{
+                          flex: 1,
+                          padding: "10px 16px",
+                          background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          color: "#ffffff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "linear-gradient(135deg, #059669 0%, #047857 100%)";
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "linear-gradient(135deg, #10b981 0%, #059669 100%)";
+                          e.currentTarget.style.transform = "translateY(0)";
+                        }}
+                      >
+                        <FaCheck /> Sačuvaj
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        style={{
+                          flex: 1,
+                          padding: "10px 16px",
+                          background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          color: "#374151",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)";
+                        }}
+                      >
+                        <FaTimes /> Otkaži
+                      </button>
+                    </div>
+                  ) : (
+                    // UREDI dugme kada nije u edit mode
+                    <button
+                      onClick={() => handleEdit(artikl)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 16px",
+                        background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
+                        border: "none",
+                        borderTop: "1px solid #e2e8f0",
+                        borderRadius: "0",
+                        cursor: "pointer",
+                        color: "#1e40af",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        transition: "all 0.2s ease",
+                        boxShadow: "none",
+                        margin: "0"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)";
+                      }}
+                    >
+                      <FaEdit /> Uredi
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -1631,6 +2034,15 @@ export default function CjenovnikPage() {
                       onDelete={deleteArtikl}
                       tdStyle={tdStyle}
                       deleteButtonStyle={deleteButtonStyle}
+                      editingArtikl={editingArtikl}
+                      editProdajnaCijena={editProdajnaCijena}
+                      editNabavnaCijena={editNabavnaCijena}
+                      onEdit={handleEdit}
+                      onSaveEdit={handleSaveEdit}
+                      onCancelEdit={handleCancelEdit}
+                      onEditProdajnaCijenaChange={setEditProdajnaCijena}
+                      onEditNabavnaCijenaChange={setEditNabavnaCijena}
+                      error={error}
                     />
                   );
                 })}

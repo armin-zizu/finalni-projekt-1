@@ -74,12 +74,19 @@ export async function getCurrentUser() {
         removeAuthToken();
         return null;
       }
-      throw new Error('Failed to fetch user');
+      // Tiha greška za 404 - korisnik možda još nije potpuno prijavljen ili endpoint nije dostupan
+      if (response.status === 404) {
+        return null;
+      }
+      // Loguj samo ako nije 401 ili 404
+      console.error('Error fetching current user:', response.status, response.statusText);
+      return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching current user:', error);
+    // Tiha greška - ne loguj u konzolu jer AppNameContext već ima fallback
+    // console.error('Error fetching current user:', error);
     return null;
   }
 }
