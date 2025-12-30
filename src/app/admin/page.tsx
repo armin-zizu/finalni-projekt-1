@@ -16,6 +16,9 @@ import {
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com";
 import { useRouter } from "next/navigation";
 import { FaSearch, FaCheck, FaTimes, FaPlus, FaSpinner, FaUser, FaEnvelope, FaCalendar, FaDollarSign } from "react-icons/fa";
+import dynamic from "next/dynamic";
+
+const AdminChat = dynamic(() => import("../components/AdminChat"), { ssr: false });
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface User {
@@ -3209,6 +3212,9 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Admin Chat - floating button */}
+      <AdminChat />
     </div>
   );
 }

@@ -1,11 +1,29 @@
 import { NextRequest } from 'next/server';
-import { withAuth, AuthRequest } from '@/lib/auth-middleware';
+import { verifyToken, JWTPayload } from '@/lib/jwt';
 import { query } from '@/lib/db';
 
 // SSE endpoint za real-time updates
-async function sseHandler(req: AuthRequest): Promise<Response> {
+export async function GET(req: NextRequest): Promise<Response> {
   try {
-    if (!req.user) {
+    // EventSource ne može slati custom headers, pa čitamo token iz query parametra ili cookie-a
+    const url = new URL(req.url);
+    const tokenFromQuery = url.searchParams.get('token');
+    const tokenFromCookie = req.cookies.get('token')?.value;
+    const token = tokenFromQuery || tokenFromCookie;
+
+    if (!token) {
+      return new Response('Unauthorized - No token provided', { status: 401 });
+    }
+
+    // Verify token
+    let user: JWTPayload;
+    try {
+      user = verifyToken(token);
+    } catch (error: any) {
+      return new Response('Unauthorized - Invalid token', { status: 401 });
+    }
+
+    if (!user) {
       return new Response('Unauthorized', { status: 401 });
     }
 
@@ -24,15 +42,15 @@ async function sseHandler(req: AuthRequest): Promise<Response> {
 
         // Provjeri da li je admin
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'gitara.zizu@gmail.com';
-        let userEmail = req.user!.userId;
-        let resolvedUserId = req.user!.userId;
+        let userEmail = user.userId;
+        let resolvedUserId = user.userId;
 
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         
-        if (uuidRegex.test(req.user!.userId)) {
+        if (uuidRegex.test(user.userId)) {
           const userResult = await query(
             'SELECT email, id FROM users WHERE id = $1 LIMIT 1',
-            [req.user!.userId]
+            [user.userId]
           );
           
           if (userResult.rows.length > 0) {
@@ -42,7 +60,7 @@ async function sseHandler(req: AuthRequest): Promise<Response> {
         } else {
           const userResult = await query(
             'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-            [req.user!.userId]
+            [user.userId]
           );
           
           if (userResult.rows.length > 0) {
@@ -138,7 +156,4 @@ async function sseHandler(req: AuthRequest): Promise<Response> {
   }
 }
 
-export async function GET(req: NextRequest) {
-  return withAuth(sseHandler)(req);
-}
 

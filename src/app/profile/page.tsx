@@ -151,6 +151,9 @@ export default function Profile() {
   const [paymentRequested, setPaymentRequested] = useState(false);
   const [requestingPayment, setRequestingPayment] = useState(false);
   const { role, assignRole: assignRoleFromContext, user } = useRole();
+  
+  // Provjeri da li je admin korisnik
+  const isAdmin = user?.email?.toLowerCase() === (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com").toLowerCase();
   const [devices, setDevices] = useState<any[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
@@ -3067,9 +3070,13 @@ export default function Profile() {
         </div>
       )}
       
-      {/* Chat komponente - samo na profilu */}
-      <SupportChatButton />
-      <SupportChatWindow />
+      {/* Chat komponente - samo na profilu, NE za admin korisnika */}
+      {!isAdmin && (
+        <>
+          <SupportChatButton />
+          <SupportChatWindow />
+        </>
+      )}
     </div>
   );
 }
