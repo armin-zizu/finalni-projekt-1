@@ -56,6 +56,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<PagePermission | null>(null);
   const [loading, setLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
+  const isApprovedRef = React.useRef<boolean>(false); // Ref za praćenje da li je uređaj odobren
 
   // TEMPORARY: Disabled auth check - comment out to re-enable
   /*
@@ -247,10 +248,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           lastLogin: new Date().toISOString(),
         };
         
+        // VAŽNO: Ažuriraj deviceInfo i lastLogin, ali NIKAD ne mijenjaj status ili role ako su već postavljeni
+        // Ovo osigurava da se status "approved" ne resetuje nakon deploy-a ili refresh-a
         await saveDevice(user.id, {
           deviceId: currentDeviceId,
           deviceName: `${info.browser} on ${info.os}`,
           deviceInfo: deviceInfoUpdate,
+          // Eksplicitno zadrži postojeći status i role - ne dozvoli resetovanje
+          status: status, // Zadrži postojeći status
+          role: deviceRole, // Zadrži postojeći role
         });
           
           // Ponovo pročitaj status nakon ažuriranja (možda je vlasnik odobrio uređaj)
@@ -274,6 +280,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           // Blokiraj pristup ako je uređaj blokiran ili status nije "approved"
           setRole(null);
           setPermissions(null);
+          isApprovedRef.current = false; // Označi da uređaj nije odobren
           console.log("RoleContext - Uređaj blokiran ili status nije odobren:", { 
             isBlocked, 
             status, 
@@ -292,6 +299,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             profile: true,
             admin: false,
           } : null));
+          isApprovedRef.current = true; // Označi da je uređaj odobren
           console.log("RoleContext - Uređaj odobren, uloga:", deviceRole, "status:", status);
         }
       } else {
@@ -380,6 +388,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         if (status === "verifikacija") {
           setRole(null);
           setPermissions(null);
+          isApprovedRef.current = false; // Označi da uređaj nije odobren
           console.log("RoleContext - Novi uređaj kreiran sa statusom 'verifikacija', pristup blokiran");
         } else {
           setRole(defaultRole);
@@ -392,6 +401,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             profile: true,
             admin: false,
           } : null);
+          isApprovedRef.current = (status === "approved"); // Označi da li je uređaj odobren
           console.log("RoleContext - Novi uređaj kreiran, uloga:", defaultRole, "status:", status);
         }
       }
@@ -498,16 +508,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     
     load();
     
-    // Periodička provjera statusa uređaja svakih 5 sekundi
-    // Ovo osigurava da se provjera statusa izvršava i nakon refresh-a
+    // Periodička provjera statusa uređaja svakih 30 sekundi (samo ako nije već odobren)
+    // Ovo osigurava da se provjera statusa izvršava i nakon refresh-a, ali samo ako je potrebno
     intervalId = setInterval(() => {
-      if (isMounted && user && deviceId) {
-        console.log("RoleContext - Periodička provjera statusa uređaja");
+      if (isMounted && user && deviceId && !isApprovedRef.current) {
+        // Provjeri status samo ako uređaj NIJE odobren (koristi ref umjesto state za tačnost)
+        // Ako je uređaj već odobren, ne treba provjeravati status (štedi resurse i sprečava resetovanje)
+        console.log("RoleContext - Periodička provjera statusa uređaja (uređaj nije odobren)");
         loadRole().catch((error) => {
           console.error("RoleContext - Greška pri periodičkoj provjeri statusa:", error);
         });
       }
-    }, 5000); // Provjeri svakih 5 sekundi
+    }, 30000); // Provjeri svakih 30 sekundi (samo ako nije odobren)
 
     return () => {
       isMounted = false;
