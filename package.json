@@ -17,6 +17,7 @@
     "migrate:datum": "node scripts/migrate-datum-to-text.js",
     "migrate:devices": "node scripts/fix-devices-unique-constraint.js",
     "migrate:display-order": "node scripts/add-display-order-column.js",
+    "migrate:support-chat": "node scripts/create-support-messages-table.js",
     "setup:server": "bash setup-server.sh",
     "check:server": "bash check-server.sh",
     "export:firebase": "node scripts/export-firebase-data.js",

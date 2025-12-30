@@ -992,3 +992,177 @@ export async function adminDeleteUser(userId: string) {
   return true;
 }
 
+// ========== SUPPORT CHAT API ==========
+
+export interface SupportMessage {
+  id: string;
+  userId: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+  isAdminResponse: boolean;
+  conversationId: string;
+}
+
+export interface Conversation {
+  conversationId: string;
+  userId: string;
+  userEmail: string;
+  appName: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  lastMessage: {
+    message: string;
+    createdAt: string;
+    isAdminResponse: boolean;
+  } | null;
+}
+
+/**
+ * Dohvati poruke za trenutnog korisnika
+ */
+export async function getSupportMessages(): Promise<SupportMessage[]> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/support/messages', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch messages' }));
+    throw new Error(error.error || 'Failed to fetch messages');
+  }
+
+  const data = await response.json();
+  return data.messages || [];
+}
+
+/**
+ * Pošalji poruku za podršku
+ */
+export async function sendSupportMessage(
+  message: string,
+  conversationId?: string
+): Promise<SupportMessage> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/support/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ message, conversationId }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to send message' }));
+    throw new Error(error.error || 'Failed to send message');
+  }
+
+  const data = await response.json();
+  return data.message;
+}
+
+/**
+ * Dohvati konverzacije (admin)
+ */
+export async function getConversations(): Promise<Conversation[]> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/support/conversations', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch conversations' }));
+    throw new Error(error.error || 'Failed to fetch conversations');
+  }
+
+  const data = await response.json();
+  return data.conversations || [];
+}
+
+/**
+ * Dohvati poruke za konverzaciju (admin)
+ */
+export async function getConversationMessages(conversationId: string): Promise<SupportMessage[]> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/support/conversations/${conversationId}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to fetch messages' }));
+    throw new Error(error.error || 'Failed to fetch messages');
+  }
+
+  const data = await response.json();
+  return data.messages || [];
+}
+
+/**
+ * Admin odgovor na konverzaciju
+ */
+export async function replyToConversation(
+  conversationId: string,
+  message: string
+): Promise<SupportMessage> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/support/conversations/${conversationId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ message }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Failed to send reply' }));
+    throw new Error(error.error || 'Failed to send reply');
+  }
+
+  const data = await response.json();
+  return data.message;
+}
+
+/**
+ * Dohvati broj nepročitanih poruka
+ */
+export async function getUnreadCount(): Promise<number> {
+  const token = getAuthToken();
+  if (!token) return 0;
+
+  try {
+    const response = await fetch('/api/support/unread-count', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return 0;
+    }
+
+    const data = await response.json();
+    return data.unreadCount || 0;
+  } catch (error) {
+    console.error('Error fetching unread count:', error);
+    return 0;
+  }
+}
+

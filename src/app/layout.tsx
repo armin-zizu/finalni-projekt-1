@@ -5,11 +5,14 @@ import { AppNameProvider } from "./context/AppNameContext";
 import { CjenovnikProvider } from "./context/CjenovnikContext";
 import { SubscriptionProvider, useSubscription } from "./context/SubscriptionContext";
 import { RoleProvider, useRole, UserRole, RoleContext } from "./context/RoleContext";
+import { SupportChatProvider } from "./context/SupportChatContext";
 import dynamic from "next/dynamic";
 
 // Dynamic import za komponente koje koriste useRole (da izbjegnemo SSR probleme)
 const SubscriptionBanner = dynamic(() => import("./components/SubscriptionBanner"), { ssr: false });
 const Sidebar = dynamic(() => import("./sidebar/Sidebar"), { ssr: false });
+const SupportChatButton = dynamic(() => import("./components/SupportChatButton"), { ssr: false });
+const SupportChatWindow = dynamic(() => import("./components/SupportChatWindow"), { ssr: false });
 import { usePathname, useRouter } from "next/navigation";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { setAuthToken, getAuthToken } from "../lib/api";
@@ -360,39 +363,43 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <RoleProvider>
             <SubscriptionProvider>
               <CjenovnikProvider>
-                <AppContent>{children}</AppContent>
+                <SupportChatProvider>
+                  <AppContent>{children}</AppContent>
+                  <SupportChatButton />
+                  <SupportChatWindow />
+                  <style jsx>{`
+                    .sidebar-link:hover {
+                      background-color: #3b82f6;
+                      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+                    }
+                    @media (max-width: 768px) {
+                      main {
+                        padding-bottom: 60px; /* Zadrži prostor za bottom bar */
+                      }
+                      div[style*="padding: 20px"] {
+                        padding: 10px; /* Smanji padding na mobilu */
+                      }
+                      /* Spriječi automatsko zumiranje na input poljima - iOS Safari zumira ako je font-size < 16px */
+                      input[type="text"],
+                      input[type="number"],
+                      input[type="tel"],
+                      input[type="email"],
+                      input[type="date"],
+                      input[type="time"],
+                      input[type="datetime-local"],
+                      textarea,
+                      select {
+                        font-size: 16px !important;
+                      }
+                    }
+                    @media (min-width: 768px) {
+                      main {
+                        padding-bottom: 0; /* Bez paddinga na desktopu */
+                      }
+                    }
+                  `}</style>
+                </SupportChatProvider>
               </CjenovnikProvider>
-              <style jsx>{`
-                .sidebar-link:hover {
-                  background-color: #3b82f6;
-                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-                }
-                @media (max-width: 768px) {
-                  main {
-                    padding-bottom: 60px; /* Zadrži prostor za bottom bar */
-                  }
-                  div[style*="padding: 20px"] {
-                    padding: 10px; /* Smanji padding na mobilu */
-                  }
-                  /* Spriječi automatsko zumiranje na input poljima - iOS Safari zumira ako je font-size < 16px */
-                  input[type="text"],
-                  input[type="number"],
-                  input[type="tel"],
-                  input[type="email"],
-                  input[type="date"],
-                  input[type="time"],
-                  input[type="datetime-local"],
-                  textarea,
-                  select {
-                    font-size: 16px !important;
-                  }
-                }
-                @media (min-width: 768px) {
-                  main {
-                    padding-bottom: 0; /* Bez paddinga na desktopu */
-                  }
-                }
-              `}</style>
             </SubscriptionProvider>
           </RoleProvider>
         </AppNameProvider>
