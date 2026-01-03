@@ -258,6 +258,7 @@ function SortableRow({
           <input
             type="number"
             step="0.01"
+            inputMode="decimal"
             value={editProdajnaCijena}
             onChange={(e) => onEditProdajnaCijenaChange(e.target.value)}
             style={{
@@ -279,6 +280,7 @@ function SortableRow({
           <input
             type="number"
             step="0.01"
+            inputMode="decimal"
             value={editNabavnaCijena}
             onChange={(e) => onEditNabavnaCijenaChange(e.target.value)}
             style={{
@@ -1027,6 +1029,7 @@ export default function CjenovnikPage() {
                 <input
                   type="number"
                   step="0.01"
+                  inputMode="decimal"
                   placeholder="0.00"
                   value={newArtiklCijena}
                   onChange={(e) => setNewArtiklCijena(e.target.value)}
@@ -1051,6 +1054,7 @@ export default function CjenovnikPage() {
                 <input
                   type="number"
                   step="0.01"
+                  inputMode="decimal"
                   placeholder="0.00"
                   value={newArtiklNabavnaCijena}
                   onChange={(e) => setNewArtiklNabavnaCijena(e.target.value)}
@@ -1075,6 +1079,7 @@ export default function CjenovnikPage() {
                 <input
                   type="number"
                   step={newArtiklJeZestoko ? "0.01" : "1"}
+                  inputMode={newArtiklJeZestoko ? "decimal" : "numeric"}
                   placeholder={newArtiklJeZestoko ? "0.00" : "0"}
                   value={newArtiklPocetnoStanje}
                   onChange={(e) => setNewArtiklPocetnoStanje(e.target.value)}
@@ -1182,6 +1187,7 @@ export default function CjenovnikPage() {
                     <input
                       type="number"
                       step="0.01"
+                      inputMode="decimal"
                       placeholder="0.00"
                       value={newArtiklProizvodnaCijena}
                       onChange={(e) => setNewArtiklProizvodnaCijena(e.target.value)}
@@ -1206,6 +1212,7 @@ export default function CjenovnikPage() {
                     <input
                       type="number"
                       step="0.01"
+                      inputMode="decimal"
                       placeholder="0.00"
                       value={newArtiklNabavnaCijenaFlase}
                       onChange={(e) => setNewArtiklNabavnaCijenaFlase(e.target.value)}
@@ -1228,6 +1235,7 @@ export default function CjenovnikPage() {
                     <input
                       type="number"
                       step="0.01"
+                      inputMode="decimal"
                       placeholder="0.00"
                       value={newArtiklZapreminaFlase}
                       onChange={(e) => setNewArtiklZapreminaFlase(e.target.value)}
@@ -1613,6 +1621,7 @@ export default function CjenovnikPage() {
                       <input
                         type="number"
                         step="0.01"
+                        inputMode="decimal"
                         value={editProdajnaCijena}
                         onChange={(e) => setEditProdajnaCijena(e.target.value)}
                         style={{
@@ -1666,6 +1675,7 @@ export default function CjenovnikPage() {
                       <input
                         type="number"
                         step="0.01"
+                        inputMode="decimal"
                         value={editNabavnaCijena}
                         onChange={(e) => setEditNabavnaCijena(e.target.value)}
                         style={{

@@ -758,6 +758,18 @@ export default function Profile() {
             max-width: 100% !important;
             box-sizing: border-box !important;
           }
+          /* Spriječi automatsko zumiranje na input poljima - iOS Safari zumira ako je font-size < 16px */
+          input[type="text"],
+          input[type="number"],
+          input[type="tel"],
+          input[type="email"],
+          input[type="date"],
+          input[type="time"],
+          input[type="datetime-local"],
+          textarea,
+          select {
+            font-size: 16px !important;
+          }
           /* Div sa dozvolama */
           div[style*="flexDirection: column"][style*="gap: 12px"][style*="padding: 16px"] {
             padding: 10px !important;

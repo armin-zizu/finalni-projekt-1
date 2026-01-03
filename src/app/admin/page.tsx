@@ -812,6 +812,20 @@ export default function AdminPage() {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
           }
+          @media (max-width: 768px) {
+            /* Spriječi automatsko zumiranje na input poljima - iOS Safari zumira ako je font-size < 16px */
+            input[type="text"],
+            input[type="number"],
+            input[type="tel"],
+            input[type="email"],
+            input[type="date"],
+            input[type="time"],
+            input[type="datetime-local"],
+            textarea,
+            select {
+              font-size: 16px !important;
+            }
+          }
         `}</style>
       </div>
     );
@@ -1804,7 +1818,7 @@ export default function AdminPage() {
               padding: "12px 16px 12px 48px",
               borderRadius: "8px",
               border: "1px solid #d1d5db",
-              fontSize: "15px",
+              fontSize: isMobile ? "16px" : "15px",
               outline: "none",
               boxSizing: "border-box",
               transition: "all 0.2s ease",
@@ -2518,7 +2532,7 @@ export default function AdminPage() {
                               padding: "10px 14px",
                               border: "1px solid #d1d5db",
                               borderRadius: "6px",
-                              fontSize: "14px",
+                              fontSize: isMobile ? "16px" : "14px",
                               color: "#1f2937",
                               boxSizing: "border-box",
                             }}
@@ -2547,7 +2561,7 @@ export default function AdminPage() {
                               padding: "10px 14px",
                               border: "1px solid #d1d5db",
                               borderRadius: "6px",
-                              fontSize: "14px",
+                              fontSize: isMobile ? "16px" : "14px",
                               color: "#1f2937",
                               boxSizing: "border-box",
                             }}
@@ -2576,7 +2590,7 @@ export default function AdminPage() {
                               padding: "10px 14px",
                               border: "1px solid #d1d5db",
                               borderRadius: "6px",
-                              fontSize: "14px",
+                              fontSize: isMobile ? "16px" : "14px",
                               color: "#1f2937",
                               boxSizing: "border-box",
                             }}

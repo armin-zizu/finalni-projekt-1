@@ -139,6 +139,28 @@ async function sseHandler(req: AuthRequest): Promise<NextResponse> {
 }
 
 export async function GET(req: NextRequest) {
-  return withAuth(sseHandler)(req);
+  // SSE endpoint - EventSource ne može slati custom headers, pa čitamo token iz query parametra
+  try {
+    const url = new URL(req.url);
+    const token = url.searchParams.get('token');
+    
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 });
+    }
+
+    // Kreiramo novi request sa tokenom u header-u da bi withAuth radio
+    const modifiedReq = new NextRequest(req.url, {
+      headers: {
+        ...Object.fromEntries(req.headers.entries()),
+        'authorization': `Bearer ${token}`,
+      },
+      method: req.method,
+    });
+    
+    return withAuth(sseHandler)(modifiedReq);
+  } catch (error: any) {
+    console.error('SSE GET handler error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
