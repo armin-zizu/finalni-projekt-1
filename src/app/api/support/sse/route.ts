@@ -1,30 +1,12 @@
-import { NextRequest } from 'next/server';
-import { verifyToken, JWTPayload } from '@/lib/jwt';
+import { NextRequest, NextResponse } from 'next/server';
+import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
 
 // SSE endpoint za real-time updates
-export async function GET(req: NextRequest): Promise<Response> {
+async function sseHandler(req: AuthRequest): Promise<NextResponse> {
   try {
-    // EventSource ne može slati custom headers, pa čitamo token iz query parametra ili cookie-a
-    const url = new URL(req.url);
-    const tokenFromQuery = url.searchParams.get('token');
-    const tokenFromCookie = req.cookies.get('token')?.value;
-    const token = tokenFromQuery || tokenFromCookie;
-
-    if (!token) {
-      return new Response('Unauthorized - No token provided', { status: 401 });
-    }
-
-    // Verify token
-    let user: JWTPayload;
-    try {
-      user = verifyToken(token);
-    } catch (error: any) {
-      return new Response('Unauthorized - Invalid token', { status: 401 });
-    }
-
-    if (!user) {
-      return new Response('Unauthorized', { status: 401 });
+    if (!req.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Kreiraj ReadableStream za SSE
@@ -42,15 +24,15 @@ export async function GET(req: NextRequest): Promise<Response> {
 
         // Provjeri da li je admin
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'gitara.zizu@gmail.com';
-        let userEmail = user.userId;
-        let resolvedUserId = user.userId;
+        let userEmail = req.user!.userId;
+        let resolvedUserId = req.user!.userId;
 
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         
-        if (uuidRegex.test(user.userId)) {
+        if (uuidRegex.test(req.user!.userId)) {
           const userResult = await query(
             'SELECT email, id FROM users WHERE id = $1 LIMIT 1',
-            [user.userId]
+            [req.user!.userId]
           );
           
           if (userResult.rows.length > 0) {
@@ -60,7 +42,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         } else {
           const userResult = await query(
             'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-            [user.userId]
+            [req.user!.userId]
           );
           
           if (userResult.rows.length > 0) {
@@ -102,7 +84,7 @@ export async function GET(req: NextRequest): Promise<Response> {
             if (newMessages.length > 0) {
               sendMessage({
                 type: 'new_messages',
-                messages: newMessages.map(row => ({
+                messages: newMessages.map((row: any) => ({
                   id: row.id,
                   userId: row.user_id,
                   message: row.message,
@@ -142,7 +124,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
     });
 
-    return new Response(stream, {
+    return new NextResponse(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -152,8 +134,11 @@ export async function GET(req: NextRequest): Promise<Response> {
     });
   } catch (error: any) {
     console.error('SSE handler error:', error);
-    return new Response('Internal server error', { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
+export async function GET(req: NextRequest) {
+  return withAuth(sseHandler)(req);
+}
 

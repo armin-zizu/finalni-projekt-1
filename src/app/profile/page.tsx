@@ -150,7 +150,7 @@ export default function Profile() {
   const [selectedMonths, setSelectedMonths] = useState(1);
   const [paymentRequested, setPaymentRequested] = useState(false);
   const [requestingPayment, setRequestingPayment] = useState(false);
-  const { role, assignRole: assignRoleFromContext, user } = useRole();
+  const { role, assignRole: assignRoleFromContext, user, refreshRole } = useRole();
   
   // Provjeri da li je admin korisnik
   const isAdmin = user?.email?.toLowerCase() === (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com").toLowerCase();
@@ -1441,105 +1441,6 @@ export default function Profile() {
         </div>
       )}
 
-      {/* Stara sekcija za sesije - sakrivena jer je spojena gore */}
-      {false && role === "vlasnik" && (
-      <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
-        <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
-          Pregled sesija
-        </h2>
-        <div style={tableWrapperStyle} className={tableWrapperClassName}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Sesija ID</th>
-              <th style={thStyle}>Datum logovanja</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Uređaj</th>
-              <th style={thStyle}>Lokacija</th>
-              <th style={thStyle}>IP adresa</th>
-              <th style={thStyle}>Ime sesije</th>
-              <th style={thStyle}>Akcije</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(() => {
-              // Filtriraj sesije - prikaži samo jednu sesiju po IP adresi (najnoviju)
-              const user = auth.currentUser;
-              const userSessions = sessions.filter(s => s.userEmail === user?.email);
-              const uniqueIPSessions: any[] = [];
-              const seenIPs = new Set<string>();
-              
-              // Sortiraj po ID-u (koji je timestamp, veći ID = noviji) - najnovije prvo
-              const sortedSessions = [...userSessions].sort((a, b) => {
-                const idA = parseInt(a.id) || 0;
-                const idB = parseInt(b.id) || 0;
-                return idB - idA; // Najnovije prvo
-              });
-              
-              for (const session of sortedSessions) {
-                if (session.ip && session.ip !== "N/A") {
-                  if (!seenIPs.has(session.ip)) {
-                    seenIPs.add(session.ip);
-                    uniqueIPSessions.push(session);
-                  }
-                } else {
-                  // Ako nema IP adresu, dodaj je
-                  uniqueIPSessions.push(session);
-                }
-              }
-              
-              return uniqueIPSessions;
-            })().map((session) => (
-              <tr key={session.id}>
-                <td style={tdStyle}>{session.id}</td>
-                <td style={tdStyle}>{session.date}</td>
-                <td style={tdStyle}>{session.status}</td>
-                <td style={tdStyle}>{session.device}</td>
-                <td style={tdStyle}>{session.location}</td>
-                <td style={tdStyle}>{session.ip}</td>
-                <td style={tdStyle}>
-                  {editingSessionId === session.id ? (
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        type="text"
-                        value={editedSessionName}
-                        onChange={(e) => setEditedSessionName(e.target.value)}
-                        style={inputStyle}
-                      />
-                      <button style={buttonStyle} onClick={() => handleSaveSessionName(session.id)}>
-                        Spremi
-                      </button>
-                      <button style={{ ...buttonStyle, background: "#6b7280" }} onClick={handleCancelEdit}>
-                        Odustani
-                      </button>
-                    </div>
-                  ) : (
-                    session.name
-                  )}
-                </td>
-                <td style={tdStyle}>
-                  <button
-                    style={{ ...buttonStyle, ...{ background: "#dc2626" } }}
-                    onClick={() => handleDeleteSession(session.id)}
-                  >
-                    Obriši
-                  </button>
-                  {session.status === "Aktivna" && (
-                    <button
-                      style={buttonStyle}
-                      onClick={() => handleEditSessionName(session.id, session.name)}
-                    >
-                      Uredi
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </div>
-      )}
 
       <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
         <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
