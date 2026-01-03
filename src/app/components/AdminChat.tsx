@@ -41,7 +41,11 @@ export default function AdminChat() {
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   // Detekcija mobilnog uređaja
   useEffect(() => {
@@ -56,12 +60,94 @@ export default function AdminChat() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Detekcija otvaranja/zatvaranja tastature na mobilnoj verziji
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined' || !isOpen) return;
+
+    const handleResize = () => {
+      const currentHeight = window.visualViewport?.height || window.innerHeight;
+      const initialHeight = window.innerHeight;
+      const heightDiff = initialHeight - currentHeight;
+      
+      if (heightDiff > 150) {
+        // Tastatura je otvorena
+        setKeyboardHeight(heightDiff);
+        setIsKeyboardOpen(true);
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          }
+        }, 100);
+      } else {
+        setKeyboardHeight(0);
+        setIsKeyboardOpen(false);
+      }
+    };
+
+    const handleFocus = () => {
+      setIsKeyboardOpen(true);
+      setTimeout(() => {
+        handleResize();
+        if (textareaRef.current) {
+          textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }, 300);
+    };
+
+    const handleBlur = () => {
+      setIsKeyboardOpen(false);
+      setKeyboardHeight(0);
+    };
+
+    if (textareaRef.current) {
+      textareaRef.current.addEventListener('focus', handleFocus);
+      textareaRef.current.addEventListener('blur', handleBlur);
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    } else {
+      window.addEventListener('resize', handleResize);
+    }
+
+    return () => {
+      if (textareaRef.current) {
+        textareaRef.current.removeEventListener('focus', handleFocus);
+        textareaRef.current.removeEventListener('blur', handleBlur);
+      }
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      } else {
+        window.removeEventListener('resize', handleResize);
+      }
+    };
+  }, [isMobile, isOpen, selectedConversation]);
+
+  // Spriječi scroll na body kada je tastatura otvorena
+  useEffect(() => {
+    if (isMobile && isKeyboardOpen && isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isMobile, isKeyboardOpen, isOpen]);
+
   // Auto-scroll do najnovije poruke
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isKeyboardOpen]);
 
   // Setup SSE za real-time updates
   useEffect(() => {
@@ -342,18 +428,34 @@ export default function AdminChat() {
     );
   }
 
+  // Dinamička visina na mobilnoj verziji kada je tastatura otvorena
+  const getChatHeight = () => {
+    if (!isMobile) return "calc(100vh - 40px)";
+    if (isKeyboardOpen && typeof window !== 'undefined') {
+      const vpHeight = window.visualViewport?.height;
+      if (vpHeight && vpHeight > 0) {
+        return `${vpHeight}px`;
+      }
+      return `${window.innerHeight}px`;
+    }
+    return "100vh";
+  };
+
+  const chatHeight = getChatHeight();
+
   return (
     <div
+      ref={chatContainerRef}
       style={{
         position: "fixed",
         bottom: isMobile ? "0px" : "20px",
         right: isMobile ? "0px" : "20px",
         left: isMobile ? "0px" : "auto",
-        top: isMobile ? "0px" : "auto",
+        top: isMobile && isKeyboardOpen ? "0px" : (isMobile ? "0px" : "auto"),
         width: isMobile ? "100vw" : "calc(100vw - 40px)",
         maxWidth: isMobile ? "100%" : "600px",
-        height: isMobile ? "100vh" : "calc(100vh - 40px)",
-        maxHeight: isMobile ? "100vh" : "calc(100vh - 40px)",
+        height: chatHeight,
+        maxHeight: chatHeight,
         background: "white",
         borderRadius: isMobile ? "0px" : "16px",
         boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
@@ -361,6 +463,7 @@ export default function AdminChat() {
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        transition: isMobile ? "height 0.25s ease-out" : "none",
       }}
     >
       {/* Header */}
@@ -564,14 +667,30 @@ export default function AdminChat() {
 
               {/* Messages Area */}
               <div
+                ref={messagesEndRef}
                 style={{
                   flex: 1,
                   overflowY: "auto",
                   padding: "16px",
+                  paddingBottom: isMobile && isKeyboardOpen ? "8px" : "16px",
                   background: "#f9fafb",
                   display: "flex",
                   flexDirection: "column",
                   gap: "12px",
+                  WebkitOverflowScrolling: "touch",
+                }}
+                onScroll={(e) => {
+                  if (isMobile && isKeyboardOpen) {
+                    const element = e.currentTarget;
+                    const isScrolledToBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 100;
+                    if (!isScrolledToBottom && messagesEndRef.current) {
+                      setTimeout(() => {
+                        if (messagesEndRef.current) {
+                          messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
+                        }
+                      }, 100);
+                    }
+                  }
                 }}
               >
                 {messages.map((msg) => (
@@ -609,7 +728,7 @@ export default function AdminChat() {
                     </div>
                   </div>
                 ))}
-                <div ref={messagesEndRef} />
+                <div style={{ minHeight: "1px" }} />
               </div>
 
               {/* Input Area */}
@@ -623,6 +742,7 @@ export default function AdminChat() {
                 }}
               >
                 <textarea
+                  ref={textareaRef}
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyPress={(e) => {
@@ -637,13 +757,20 @@ export default function AdminChat() {
                     padding: "10px",
                     border: "1px solid #d1d5db",
                     borderRadius: "8px",
-                    fontSize: "14px",
+                    fontSize: isMobile ? "16px" : "14px",
                     resize: "none",
                     minHeight: "40px",
-                    maxHeight: "100px",
+                    maxHeight: isMobile ? "120px" : "100px",
                     fontFamily: "inherit",
                   }}
                   rows={1}
+                  onFocus={(e) => {
+                    if (isMobile) {
+                      setTimeout(() => {
+                        e.target.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                      }, 300);
+                    }
+                  }}
                 />
                 <button
                   onClick={handleSend}
@@ -694,6 +821,12 @@ export default function AdminChat() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @media (max-width: 768px) {
+          /* Spriječi automatsko zumiranje na textarea - iOS Safari zumira ako je font-size < 16px */
+          textarea {
+            font-size: 16px !important;
+          }
         }
       `}</style>
     </div>

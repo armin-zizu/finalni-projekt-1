@@ -20,9 +20,13 @@ export default function SupportChatWindow() {
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   );
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   // Detekcija mobilnog uređaja
   useEffect(() => {
@@ -37,12 +41,96 @@ export default function SupportChatWindow() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Detekcija otvaranja/zatvaranja tastature na mobilnoj verziji
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+
+    const handleResize = () => {
+      const currentHeight = window.visualViewport?.height || window.innerHeight;
+      const initialHeight = window.innerHeight;
+      const heightDiff = initialHeight - currentHeight;
+      
+      if (heightDiff > 150) {
+        // Tastatura je otvorena (obično je visina 200-400px)
+        setKeyboardHeight(heightDiff);
+        setIsKeyboardOpen(true);
+        // Scroll do inputa
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          }
+        }, 100);
+      } else {
+        // Tastatura je zatvorena
+        setKeyboardHeight(0);
+        setIsKeyboardOpen(false);
+      }
+    };
+
+    const handleFocus = () => {
+      setIsKeyboardOpen(true);
+      setTimeout(() => {
+        handleResize();
+        if (textareaRef.current) {
+          textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      }, 300);
+    };
+
+    const handleBlur = () => {
+      setIsKeyboardOpen(false);
+      setKeyboardHeight(0);
+    };
+
+    if (textareaRef.current) {
+      textareaRef.current.addEventListener('focus', handleFocus);
+      textareaRef.current.addEventListener('blur', handleBlur);
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    } else {
+      window.addEventListener('resize', handleResize);
+    }
+
+    return () => {
+      if (textareaRef.current) {
+        textareaRef.current.removeEventListener('focus', handleFocus);
+        textareaRef.current.removeEventListener('blur', handleBlur);
+      }
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      } else {
+        window.removeEventListener('resize', handleResize);
+      }
+    };
+  }, [isMobile, isOpen]);
+
+  // Spriječi scroll na body kada je tastatura otvorena
+  useEffect(() => {
+    if (isMobile && isKeyboardOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isMobile, isKeyboardOpen]);
+
   // Auto-scroll do najnovije poruke
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isKeyboardOpen]);
 
   const handleSend = async () => {
     if (!messageText.trim() || sending) return;
@@ -75,18 +163,34 @@ export default function SupportChatWindow() {
     });
   };
 
+  // Dinamička visina na mobilnoj verziji kada je tastatura otvorena
+  const getChatHeight = () => {
+    if (!isMobile) return "calc(100vh - 40px)";
+    if (isKeyboardOpen && typeof window !== 'undefined') {
+      const vpHeight = window.visualViewport?.height;
+      if (vpHeight && vpHeight > 0) {
+        return `${vpHeight}px`;
+      }
+      return `${window.innerHeight}px`;
+    }
+    return "100vh";
+  };
+
+  const chatHeight = getChatHeight();
+
   return (
     <div
+      ref={chatContainerRef}
       style={{
         position: "fixed",
-        bottom: isMobile ? "0px" : "20px",
+        bottom: isMobile ? (isKeyboardOpen ? "0px" : "0px") : "20px",
         right: isMobile ? "0px" : "20px",
         left: isMobile ? "0px" : "auto",
-        top: isMobile ? "0px" : "auto",
+        top: isMobile && isKeyboardOpen ? "0px" : (isMobile ? "0px" : "auto"),
         width: isMobile ? "100vw" : "calc(100vw - 40px)",
         maxWidth: isMobile ? "100%" : "600px",
-        height: isMobile ? "100vh" : "calc(100vh - 40px)",
-        maxHeight: isMobile ? "100vh" : "calc(100vh - 40px)",
+        height: chatHeight,
+        maxHeight: chatHeight,
         background: "white",
         borderRadius: isMobile ? "0px" : "16px",
         boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
@@ -94,6 +198,7 @@ export default function SupportChatWindow() {
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        transition: isMobile ? "height 0.25s ease-out" : "none",
       }}
     >
       {/* Header */}
@@ -141,14 +246,29 @@ export default function SupportChatWindow() {
 
       {/* Messages Area */}
       <div
+        ref={messagesEndRef}
         style={{
           flex: 1,
           overflowY: "auto",
           padding: "16px",
+          paddingBottom: isMobile && isKeyboardOpen ? "8px" : "16px",
           background: "#f9fafb",
           display: "flex",
           flexDirection: "column",
           gap: "12px",
+          WebkitOverflowScrolling: "touch",
+        }}
+        onScroll={(e) => {
+          // Scroll to bottom kada je tastatura otvorena
+          if (isMobile && isKeyboardOpen) {
+            const element = e.currentTarget;
+            const isScrolledToBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 100;
+            if (!isScrolledToBottom && messagesEndRef.current) {
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+              }, 100);
+            }
+          }
         }}
       >
         {isLoading && messages.length === 0 ? (
@@ -245,7 +365,7 @@ export default function SupportChatWindow() {
             {error}
           </div>
         )}
-        <div ref={messagesEndRef} />
+        <div style={{ minHeight: "1px" }} />
       </div>
 
       {/* Input Area */}
@@ -258,24 +378,31 @@ export default function SupportChatWindow() {
       >
         <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
           <textarea
+            ref={textareaRef}
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Unesite poruku..."
-            rows={3}
+            rows={isMobile ? 1 : 3}
             style={{
               flex: 1,
               padding: "10px 14px",
               border: "2px solid #e5e7eb",
               borderRadius: "8px",
-              fontSize: "14px",
+              fontSize: isMobile ? "16px" : "14px",
               fontFamily: "inherit",
               resize: "none",
               outline: "none",
               transition: "border-color 0.2s",
+              maxHeight: isMobile ? "120px" : "100px",
             }}
             onFocus={(e) => {
               e.currentTarget.style.borderColor = "#3b82f6";
+              if (isMobile) {
+                setTimeout(() => {
+                  e.target.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }, 300);
+              }
             }}
             onBlur={(e) => {
               e.currentTarget.style.borderColor = "#e5e7eb";
@@ -331,6 +458,12 @@ export default function SupportChatWindow() {
           }
           to {
             transform: rotate(360deg);
+          }
+        }
+        @media (max-width: 768px) {
+          /* Spriječi automatsko zumiranje na textarea - iOS Safari zumira ako je font-size < 16px */
+          textarea {
+            font-size: 16px !important;
           }
         }
       `}</style>
