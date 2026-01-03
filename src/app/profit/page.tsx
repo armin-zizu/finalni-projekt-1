@@ -1389,26 +1389,17 @@ export default function ProfitPage() {
     setFilteredObracuni(filtered);
   }, [filter, customPeriod, selectedMonth, selectedYear, obracuniProfit]);
 
-  // ---- dobijanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive ----
-  // Sortiraj po displayOrder iz cjenovnika (kako su spremljeni u cjenovniku)
+  // ---- dobijanje svih artikala za dropdown - samo artikli iz cjenovnika (sortirani po displayOrder) ----
   const allArtikli = useMemo(() => {
-    const artikliIzArhive = [...new Set(obracuniProfit.flatMap((o) => o.artikliProfit.map((a) => a.naziv)))];
-    
     // Sortiraj artikle iz cjenovnika po displayOrder
-    const artikliIzCjenovnika = [...cjenovnik]
+    return [...cjenovnik]
       .sort((a, b) => {
         const orderA = a.displayOrder !== null && a.displayOrder !== undefined ? a.displayOrder : 999999;
         const orderB = b.displayOrder !== null && b.displayOrder !== undefined ? b.displayOrder : 999999;
         return orderA - orderB;
       })
       .map((item) => item.naziv);
-    
-    // Kombiniraj - prvo artikli iz cjenovnika (po displayOrder), zatim artikli iz arhive koji nisu u cjenovniku
-    return [
-      ...artikliIzCjenovnika,
-      ...artikliIzArhive.filter(a => !artikliIzCjenovnika.includes(a))
-    ];
-  }, [obracuniProfit, cjenovnik]);
+  }, [cjenovnik]);
 
   // ---- agregacija podataka za grafikon profita po artiklu ----
   const aggregateArtiklProfitData = useCallback((

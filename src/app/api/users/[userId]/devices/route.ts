@@ -41,7 +41,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
         } else {
           console.error('Get devices - User not found:', userId);
           return NextResponse.json(
-            { error: 'User not found. Invalid user ID format.', userId: params.userId },
+            { error: 'User not found. Invalid user ID format.', userId: resolvedParams.userId },
             { status: 404 }
           );
         }
@@ -84,7 +84,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       [userId]
     );
 
-    const devices = result.rows.map(row => ({
+    const devices = result.rows.map((row: any) => ({
       id: row.id,
       deviceId: row.device_id,
       deviceName: row.device_name,
@@ -147,7 +147,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         } else {
           console.error('Save device - User not found:', userId);
           return NextResponse.json(
-            { error: 'User not found. Invalid user ID format.', userId: params.userId },
+            { error: 'User not found. Invalid user ID format.', userId: resolvedParams.userId },
             { status: 404 }
           );
         }
@@ -182,7 +182,24 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       );
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      // Ako je body prazan ili nevalidan JSON, vrati grešku
+      return NextResponse.json(
+        { error: 'Invalid or missing request body. Expected valid JSON.' },
+        { status: 400 }
+      );
+    }
+
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { error: 'Request body must be a valid JSON object' },
+        { status: 400 }
+      );
+    }
+
     const { deviceId, deviceName, deviceInfo, role, permissions, isBlocked, status } = body;
 
     if (!deviceId) {

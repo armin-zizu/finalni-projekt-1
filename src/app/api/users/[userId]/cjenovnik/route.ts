@@ -179,7 +179,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
 
     console.log('📋 Database returned', result.rows.length, 'rows for user:', userId, 'Items:', result.rows.map((r: any) => r.naziv));
 
-    const cjenovnik = result.rows.map(row => ({
+    const cjenovnik = result.rows.map((row: any) => ({
       id: row.id,
       naziv: row.naziv,
       cijena: parseFloat(row.cijena),
@@ -281,7 +281,24 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       }
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      // Ako je body prazan ili nevalidan JSON, vrati grešku
+      return NextResponse.json(
+        { error: 'Invalid or missing request body. Expected valid JSON.' },
+        { status: 400 }
+      );
+    }
+
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { error: 'Request body must be a valid JSON object' },
+        { status: 400 }
+      );
+    }
+
     const { cjenovnik } = body;
 
     if (!Array.isArray(cjenovnik)) {

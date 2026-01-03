@@ -418,24 +418,15 @@ export default function DashboardPage() {
     });
   }
 
-  // Dobivanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive
-  // Sortiraj po displayOrder iz cjenovnika (kako su spremljeni u cjenovniku)
-  const artikliIzArhive = [...new Set(arhiva.flatMap((o) => (o.artikli && Array.isArray(o.artikli)) ? o.artikli.map((a) => a.naziv) : []))];
-  
+  // Dobivanje svih artikala za dropdown - samo artikli iz cjenovnika (sortirani po displayOrder)
   // Sortiraj artikle iz cjenovnika po displayOrder
-  const artikliIzCjenovnika = [...cjenovnik]
+  const allArtikli = [...cjenovnik]
     .sort((a, b) => {
       const orderA = a.displayOrder !== null && a.displayOrder !== undefined ? a.displayOrder : 999999;
       const orderB = b.displayOrder !== null && b.displayOrder !== undefined ? b.displayOrder : 999999;
       return orderA - orderB;
     })
     .map((item) => item.naziv);
-  
-  // Kombiniraj - prvo artikli iz cjenovnika (po displayOrder), zatim artikli iz arhive koji nisu u cjenovniku
-  const allArtikli = [
-    ...artikliIzCjenovnika,
-    ...artikliIzArhive.filter(a => !artikliIzCjenovnika.includes(a))
-  ];
 
   // Funkcija za agregaciju podataka
   const aggregateData = (

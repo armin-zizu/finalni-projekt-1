@@ -101,10 +101,13 @@ export default function AdminChat() {
       setKeyboardHeight(0);
     };
 
-    if (textareaRef.current) {
-      textareaRef.current.addEventListener('focus', handleFocus);
-      textareaRef.current.addEventListener('blur', handleBlur);
-    }
+    // Dodaj malu pauzu da se textarea učita ako se tek renderovao
+    const timeoutId = setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.addEventListener('focus', handleFocus);
+        textareaRef.current.addEventListener('blur', handleBlur);
+      }
+    }, 100);
 
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', handleResize);
@@ -113,6 +116,7 @@ export default function AdminChat() {
     }
 
     return () => {
+      clearTimeout(timeoutId);
       if (textareaRef.current) {
         textareaRef.current.removeEventListener('focus', handleFocus);
         textareaRef.current.removeEventListener('blur', handleBlur);
@@ -123,7 +127,7 @@ export default function AdminChat() {
         window.removeEventListener('resize', handleResize);
       }
     };
-  }, [isMobile, isOpen]);
+  }, [isMobile, isOpen, selectedConversation]);
 
   // Spriječi scroll na body kada je tastatura otvorena
   useEffect(() => {
@@ -353,6 +357,13 @@ export default function AdminChat() {
     }
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   // Pošalji poruku
   const handleSend = async () => {
     if (!messageText.trim() || !selectedConversation || sending) return;
@@ -425,7 +436,7 @@ export default function AdminChat() {
         onClick={() => setIsOpen(true)}
         style={{
           position: "fixed",
-          bottom: isMobile ? "70px" : "90px",
+          bottom: "90px", // Iznad sidebara (60px visina + 20px padding + 10px razmak)
           right: isMobile ? "10px" : "20px",
           width: buttonSize,
           height: buttonSize,
@@ -492,7 +503,7 @@ export default function AdminChat() {
       ref={chatContainerRef}
       style={{
         position: "fixed",
-        bottom: isMobile ? "0px" : "20px",
+        bottom: isMobile ? (isKeyboardOpen ? "0px" : "0px") : "20px",
         right: isMobile ? "0px" : "20px",
         left: isMobile ? "0px" : "auto",
         top: isMobile && isKeyboardOpen ? "0px" : (isMobile ? "0px" : "auto"),
@@ -503,7 +514,7 @@ export default function AdminChat() {
         background: "white",
         borderRadius: isMobile ? "0px" : "16px",
         boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
-        zIndex: 1100,
+        zIndex: 1100, // Iznad sidebara (1000) i dugmeta (1100)
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -730,6 +741,7 @@ export default function AdminChat() {
                   WebkitOverflowScrolling: "touch",
                 }}
                 onScroll={(e) => {
+                  // Scroll to bottom kada je tastatura otvorena
                   if (isMobile && isKeyboardOpen) {
                     const element = e.currentTarget;
                     const isScrolledToBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 100;
@@ -784,69 +796,81 @@ export default function AdminChat() {
               {/* Input Area */}
               <div
                 style={{
-                  padding: "12px",
-                  borderTop: "1px solid #e5e7eb",
+                  padding: "16px",
                   background: "white",
-                  display: "flex",
-                  gap: "8px",
+                  borderTop: "1px solid #e5e7eb",
+                  flexShrink: 0, // Osiguraj da se input area ne smanji
                 }}
               >
-                <textarea
-                  ref={textareaRef}
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder="Napišite poruku..."
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    fontSize: isMobile ? "16px" : "14px",
-                    resize: "none",
-                    minHeight: "40px",
-                    maxHeight: isMobile ? "120px" : "100px",
-                    fontFamily: "inherit",
-                  }}
-                  rows={1}
-                  onFocus={(e) => {
-                    if (isMobile) {
-                      setTimeout(() => {
-                        e.target.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                      }, 300);
-                    }
-                  }}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!messageText.trim() || sending}
-                  style={{
-                    padding: "10px 20px",
-                    background: messageText.trim() && !sending ? "#3b82f6" : "#9ca3af",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: messageText.trim() && !sending ? "pointer" : "not-allowed",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    fontSize: "14px",
-                    fontWeight: 500,
-                  }}
-                >
-                  {sending ? (
-                    <FaSpinner style={{ animation: "spin 1s linear infinite" }} />
-                  ) : (
-                    <>
-                      Pošalji <FaPaperPlane />
-                    </>
-                  )}
-                </button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
+                  <textarea
+                    ref={textareaRef}
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Unesite poruku..."
+                    rows={isMobile ? 1 : 3}
+                    style={{
+                      flex: 1,
+                      padding: "10px 14px",
+                      border: "2px solid #e5e7eb",
+                      borderRadius: "8px",
+                      fontSize: isMobile ? "16px" : "14px",
+                      fontFamily: "inherit",
+                      resize: "none",
+                      outline: "none",
+                      transition: "border-color 0.2s",
+                      maxHeight: isMobile ? "120px" : "100px",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "#3b82f6";
+                      if (isMobile) {
+                        setTimeout(() => {
+                          e.target.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }, 300);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "#e5e7eb";
+                    }}
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={!messageText.trim() || sending}
+                    style={{
+                      padding: "10px 16px",
+                      background:
+                        messageText.trim() && !sending
+                          ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
+                          : "#d1d5db",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: messageText.trim() && !sending ? "pointer" : "not-allowed",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.2s",
+                      flexShrink: 0, // Osiguraj da se button ne smanji
+                    }}
+                    onMouseEnter={(e) => {
+                      if (messageText.trim() && !sending) {
+                        e.currentTarget.style.transform = "translateY(-2px)";
+                        e.currentTarget.style.boxShadow = "0 4px 8px rgba(59, 130, 246, 0.3)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  >
+                    {sending ? (
+                      <FaSpinner style={{ animation: "spin 1s linear infinite" }} />
+                    ) : (
+                      <FaPaperPlane />
+                    )}
+                  </button>
+                </div>
               </div>
             </>
           ) : (

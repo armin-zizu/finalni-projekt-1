@@ -77,3 +77,5 @@ sudo -u postgres psql office_app
 # Ili direktno:
 psql -U postgres -d office_app -f scripts/create-support-messages-table.sql
 ```
+
+sifra servera officeapp
