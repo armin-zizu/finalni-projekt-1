@@ -185,21 +185,7 @@ export default function AdminPage() {
     checkAdmin();
   }, [router]);
   
-  // Automatsko osvježavanje korisnika svakih 2 minuta kada je admin
-  useEffect(() => {
-    if (!isAdmin) return;
-    
-    const refreshInterval = setInterval(() => {
-      console.log('Admin - Auto-refreshing users list');
-      loadUsers().catch(error => {
-        console.error('Admin - Error auto-refreshing users:', error);
-      });
-    }, 120000); // 2 minuta (120 sekundi)
-    
-    return () => {
-      clearInterval(refreshInterval);
-    };
-  }, [isAdmin]);
+  // Automatsko osvježavanje uklonjeno - poruke dolaze preko SSE-a, ostali podaci se učitaju pri refresh-u
 
   // Ažuriraj state varijable kada se promijeni selectedUserDetails
   useEffect(() => {

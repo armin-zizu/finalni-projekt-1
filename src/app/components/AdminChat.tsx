@@ -142,6 +142,48 @@ export default function AdminChat() {
     };
   }, [isMobile, isKeyboardOpen, isOpen]);
 
+  // Spriječi pinch-to-zoom i double-tap zoom na mobilnoj verziji
+  useEffect(() => {
+    if (!isMobile || !isOpen) return;
+
+    const preventZoom = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const preventDoubleTapZoom = (e: TouchEvent) => {
+      const now = Date.now();
+      const timeSince = now - (preventDoubleTapZoom as any).lastTouch || 0;
+      (preventDoubleTapZoom as any).lastTouch = now;
+
+      if (timeSince < 300 && timeSince > 0) {
+        e.preventDefault();
+      }
+    };
+
+    const container = chatContainerRef.current;
+    if (container) {
+      container.addEventListener('touchstart', preventZoom, { passive: false });
+      container.addEventListener('touchmove', preventZoom, { passive: false });
+      container.addEventListener('touchend', preventDoubleTapZoom, { passive: false });
+      container.addEventListener('gesturestart', (e) => e.preventDefault());
+      container.addEventListener('gesturechange', (e) => e.preventDefault());
+      container.addEventListener('gestureend', (e) => e.preventDefault());
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('touchstart', preventZoom);
+        container.removeEventListener('touchmove', preventZoom);
+        container.removeEventListener('touchend', preventDoubleTapZoom);
+        container.removeEventListener('gesturestart', (e) => e.preventDefault());
+        container.removeEventListener('gesturechange', (e) => e.preventDefault());
+        container.removeEventListener('gestureend', (e) => e.preventDefault());
+      }
+    };
+  }, [isMobile, isOpen]);
+
   // Auto-scroll do najnovije poruke
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -464,6 +506,12 @@ export default function AdminChat() {
         flexDirection: "column",
         overflow: "hidden",
         transition: isMobile ? "height 0.25s ease-out" : "none",
+        touchAction: isMobile ? "pan-y" : "auto",
+      }}
+      onTouchMove={(e: React.TouchEvent) => {
+        if (isMobile && e.touches.length > 1) {
+          e.preventDefault();
+        }
       }}
     >
       {/* Header */}
@@ -826,6 +874,15 @@ export default function AdminChat() {
           /* Spriječi automatsko zumiranje na textarea - iOS Safari zumira ako je font-size < 16px */
           textarea {
             font-size: 16px !important;
+          }
+          /* Spriječi pinch-to-zoom i double-tap zoom */
+          textarea, input {
+            touch-action: pan-y !important;
+          }
+          /* Osiguraj da poruke mogu biti selektovane */
+          [style*="message"] {
+            -webkit-user-select: text !important;
+            user-select: text !important;
           }
         }
       `}</style>
