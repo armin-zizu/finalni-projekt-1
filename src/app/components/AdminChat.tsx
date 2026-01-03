@@ -536,6 +536,7 @@ export default function AdminChat() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexShrink: 0, // Header se ne smije smanjiti
         }}
       >
         <div>
@@ -568,6 +569,7 @@ export default function AdminChat() {
         flex: 1, 
         overflow: "hidden",
         flexDirection: isMobile && selectedConversation ? "column" : "row",
+        minHeight: 0, // Važno za flex layout
       }}>
         {/* Lista konverzacija */}
         {(isMobile && selectedConversation ? false : true) && (
@@ -691,6 +693,8 @@ export default function AdminChat() {
           display: "flex", 
           flexDirection: "column",
           width: isMobile ? "100%" : "auto",
+          minHeight: 0, // Važno za flex layout - omogućava da flex: 1 radi ispravno
+          overflow: "hidden", // Osiguraj da se ništa ne prelije
         }}>
           {selectedConversation ? (
             <>
@@ -703,6 +707,7 @@ export default function AdminChat() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  flexShrink: 0, // Header se ne smije smanjiti
                 }}
               >
                 <div style={{ fontWeight: 600, fontSize: isMobile ? "13px" : "14px", color: "#1f2937" }}>
@@ -739,6 +744,7 @@ export default function AdminChat() {
                   flexDirection: "column",
                   gap: "12px",
                   WebkitOverflowScrolling: "touch",
+                  minHeight: 0, // Važno za flex layout
                 }}
                 onScroll={(e) => {
                   // Scroll to bottom kada je tastatura otvorena
@@ -800,6 +806,8 @@ export default function AdminChat() {
                   background: "white",
                   borderTop: "1px solid #e5e7eb",
                   flexShrink: 0, // Osiguraj da se input area ne smanji
+                  position: "relative", // Osiguraj da je uvijek vidljiv
+                  zIndex: 10, // Osiguraj da je iznad poruka
                 }}
               >
                 <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
