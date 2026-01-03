@@ -1390,11 +1390,24 @@ export default function ProfitPage() {
   }, [filter, customPeriod, selectedMonth, selectedYear, obracuniProfit]);
 
   // ---- dobijanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive ----
+  // Sortiraj po displayOrder iz cjenovnika (kako su spremljeni u cjenovniku)
   const allArtikli = useMemo(() => {
     const artikliIzArhive = [...new Set(obracuniProfit.flatMap((o) => o.artikliProfit.map((a) => a.naziv)))];
-    const artikliIzCjenovnika = cjenovnik.map((item) => item.naziv);
-    // Kombiniraj i ukloni duplikate - prioritet artiklima iz cjenovnika
-    return [...new Set([...artikliIzCjenovnika, ...artikliIzArhive])].sort();
+    
+    // Sortiraj artikle iz cjenovnika po displayOrder
+    const artikliIzCjenovnika = [...cjenovnik]
+      .sort((a, b) => {
+        const orderA = a.displayOrder !== null && a.displayOrder !== undefined ? a.displayOrder : 999999;
+        const orderB = b.displayOrder !== null && b.displayOrder !== undefined ? b.displayOrder : 999999;
+        return orderA - orderB;
+      })
+      .map((item) => item.naziv);
+    
+    // Kombiniraj - prvo artikli iz cjenovnika (po displayOrder), zatim artikli iz arhive koji nisu u cjenovniku
+    return [
+      ...artikliIzCjenovnika,
+      ...artikliIzArhive.filter(a => !artikliIzCjenovnika.includes(a))
+    ];
   }, [obracuniProfit, cjenovnik]);
 
   // ---- agregacija podataka za grafikon profita po artiklu ----
@@ -1653,7 +1666,46 @@ export default function ProfitPage() {
   }, [obracuniProfit, filter, selectedMonth, selectedYear]);
 
   // ---- podaci za grafikon profita odabranog artikla ----
-  const selectedArtiklData = aggregateArtiklProfitData(selectedArtikl, artiklFilter);
+  // Ako nema odabranog artikla i artiklFilter je "currentWeek", generiši prazan chart sa datumima za trenutnu sedmicu
+  const selectedArtiklData = selectedArtikl 
+    ? aggregateArtiklProfitData(selectedArtikl, artiklFilter)
+    : artiklFilter === "currentWeek"
+    ? (() => {
+        const sevenDaysData: ArtiklProfitData[] = [];
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        
+        const getMonday = (d: Date) => {
+          const date = new Date(d);
+          const day = date.getDay();
+          const diff = day === 0 ? -6 : 1 - day;
+          date.setDate(date.getDate() + diff);
+          date.setHours(0, 0, 0, 0);
+          return date;
+        };
+        
+        const monday = getMonday(todayDate);
+        
+        // Generiši 7 dana od ponedeljka do nedelje
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(monday);
+          date.setDate(monday.getDate() + i);
+          
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          const datumStr = `${day}.${month}.${year}`;
+          
+          sevenDaysData.push({
+            datum: datumStr,
+            bruto: 0,
+            neto: 0,
+          });
+        }
+        
+        return sevenDaysData;
+      })()
+    : [];
 
   // ---- ukupni bruto i neto za odabrani artikal ----
   const totalArtiklSummary = useMemo(() => {

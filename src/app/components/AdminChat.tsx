@@ -70,15 +70,17 @@ export default function AdminChat() {
       const heightDiff = initialHeight - currentHeight;
       
       if (heightDiff > 150) {
-        // Tastatura je otvorena
+        // Tastatura je otvorena (obično je visina 200-400px)
         setKeyboardHeight(heightDiff);
         setIsKeyboardOpen(true);
+        // Scroll do inputa
         setTimeout(() => {
           if (textareaRef.current) {
             textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
           }
         }, 100);
       } else {
+        // Tastatura je zatvorena
         setKeyboardHeight(0);
         setIsKeyboardOpen(false);
       }
@@ -121,11 +123,11 @@ export default function AdminChat() {
         window.removeEventListener('resize', handleResize);
       }
     };
-  }, [isMobile, isOpen, selectedConversation]);
+  }, [isMobile, isOpen]);
 
   // Spriječi scroll na body kada je tastatura otvorena
   useEffect(() => {
-    if (isMobile && isKeyboardOpen && isOpen) {
+    if (isMobile && isKeyboardOpen) {
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
@@ -140,7 +142,7 @@ export default function AdminChat() {
       document.body.style.position = '';
       document.body.style.width = '';
     };
-  }, [isMobile, isKeyboardOpen, isOpen]);
+  }, [isMobile, isKeyboardOpen]);
 
   // Spriječi pinch-to-zoom i double-tap zoom na mobilnoj verziji
   useEffect(() => {

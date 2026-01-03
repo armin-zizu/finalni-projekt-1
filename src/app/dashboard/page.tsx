@@ -419,10 +419,23 @@ export default function DashboardPage() {
   }
 
   // Dobivanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive
+  // Sortiraj po displayOrder iz cjenovnika (kako su spremljeni u cjenovniku)
   const artikliIzArhive = [...new Set(arhiva.flatMap((o) => (o.artikli && Array.isArray(o.artikli)) ? o.artikli.map((a) => a.naziv) : []))];
-  const artikliIzCjenovnika = cjenovnik.map((item) => item.naziv);
-  // Kombiniraj i ukloni duplikate - prioritet artiklima iz cjenovnika
-  const allArtikli = [...new Set([...artikliIzCjenovnika, ...artikliIzArhive])].sort();
+  
+  // Sortiraj artikle iz cjenovnika po displayOrder
+  const artikliIzCjenovnika = [...cjenovnik]
+    .sort((a, b) => {
+      const orderA = a.displayOrder !== null && a.displayOrder !== undefined ? a.displayOrder : 999999;
+      const orderB = b.displayOrder !== null && b.displayOrder !== undefined ? b.displayOrder : 999999;
+      return orderA - orderB;
+    })
+    .map((item) => item.naziv);
+  
+  // Kombiniraj - prvo artikli iz cjenovnika (po displayOrder), zatim artikli iz arhive koji nisu u cjenovniku
+  const allArtikli = [
+    ...artikliIzCjenovnika,
+    ...artikliIzArhive.filter(a => !artikliIzCjenovnika.includes(a))
+  ];
 
   // Funkcija za agregaciju podataka
   const aggregateData = (
@@ -982,11 +995,47 @@ export default function DashboardPage() {
   
   // Odredi koji artikal prikazati
   // Ako je "top" - koristi najprodavaniji, inače koristi selectedArtikl
-  // Ako nema selectedArtikl i nije "top", ne prikazuj ništa
+  // Chart se uvijek prikazuje - ako nema odabranog artikla i artiklRange je "currentWeek", prikazuj prazan chart sa datumima za trenutnu sedmicu
   const topArtikl = calculateTopArtikl(artiklRange);
   const artiklRanking = calculateArtiklRanking(artiklRange);
   const artiklToDisplay = artiklViewType === "top" ? topArtikl : selectedArtikl;
-  const selectedData = artiklToDisplay ? aggregateArtiklData(artiklToDisplay, artiklRange) : [];
+  
+  // Generiši podatke - ako nema odabranog artikla i artiklRange je "currentWeek", generiši prazan chart sa datumima
+  let selectedData: ArtiklData[] = [];
+  if (artiklToDisplay) {
+    selectedData = aggregateArtiklData(artiklToDisplay, artiklRange);
+  } else if (artiklRange === "currentWeek") {
+    // Generiši 7 dana od ponedeljka do nedelje (trenutna sedmica) sa praznim podacima
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    
+    const getMonday = (d: Date) => {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      date.setDate(date.getDate() + diff);
+      date.setHours(0, 0, 0, 0);
+      return date;
+    };
+    
+    const monday = getMonday(todayDate);
+    
+    // Generiši 7 dana od ponedeljka do nedelje
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      const datumStr = `${day}.${month}.${year}`;
+      
+      selectedData.push({
+        datum: datumStr,
+        utroseno: 0,
+      });
+    }
+  }
 
   // Ukupne vrijednosti
   const totalBruto = chartData.reduce((sum, o) => sum + Number(o.artikli || 0), 0);
