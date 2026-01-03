@@ -55,6 +55,46 @@ function AppContent({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Registracija Service Worker za PWA
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      return;
+    }
+
+    const registerServiceWorker = async () => {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js', {
+          scope: '/',
+        });
+        console.log('[PWA] Service Worker registered:', registration.scope);
+
+        // Provjeri da li postoji nova verzija
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[PWA] New service worker available. Refresh to update.');
+              }
+            });
+          }
+        });
+      } catch (error) {
+        console.error('[PWA] Service Worker registration failed:', error);
+      }
+    };
+
+    // Registruj service worker nakon učitavanja stranice
+    if (document.readyState === 'complete') {
+      registerServiceWorker();
+    } else {
+      window.addEventListener('load', registerServiceWorker);
+      return () => {
+        window.removeEventListener('load', registerServiceWorker);
+      };
+    }
+  }, []);
+
   // Preusmjeri na dashboard ako je role postavljen i korisnik je na login stranici
   useEffect(() => {
     if (!roleLoading && role !== null && pathname === "/login") {
@@ -324,36 +364,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="theme-color" content="#3b82f6" />
         <meta name="description" content="Office Lounge Bar - Aplikacija za upravljanje poslovanjem" />
-        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-        <meta httpEquiv="Pragma" content="no-cache" />
-        <meta httpEquiv="Expires" content="0" />
-        {/* Agresivno ukloni Service Worker i cache-ove ODMAH */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                if ('serviceWorker' in navigator) {
-                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    registrations.forEach(function(registration) {
-                      registration.unregister().then(function() {
-                        console.log('✅ Service Worker uklonjen (inline script)');
-                      });
-                    });
-                  });
-                }
-                if ('caches' in window) {
-                  caches.keys().then(function(names) {
-                    names.forEach(function(name) {
-                      caches.delete(name).then(function() {
-                        console.log('✅ Cache obrisan (inline script):', name);
-                      });
-                    });
-                  });
-                }
-              })();
-            `,
-          }}
-        />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Office Bar" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icon-192x192.svg" />
         <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative", WebkitTapHighlightColor: "transparent" }}>
