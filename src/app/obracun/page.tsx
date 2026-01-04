@@ -2191,7 +2191,24 @@ export default function ObracunPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "1 1 auto" }}>
           <button 
             className="action-button"
-            style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", minWidth: "160px", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed", margin: 0 }} 
+            style={{ 
+              padding: "8px 16px",
+              background: "#f59e0b",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: 500,
+              transition: "background-color 0.2s ease-in-out",
+              width: "160px",
+              maxWidth: "160px",
+              minWidth: "160px",
+              height: "auto",
+              boxSizing: "border-box",
+              opacity: (canEdit && !isUlazLocked) ? 1 : 0.5,
+              cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed",
+              margin: 0
+            }} 
             onClick={handleAzurirajObracun}
             disabled={!canEdit || isUlazLocked}
           >
@@ -2201,7 +2218,24 @@ export default function ObracunPage() {
           {isUlazLocked && (
             <button 
               className="action-button"
-              style={{ ...buttonStyle, background: "#6366f1", maxWidth: "160px", minWidth: "160px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed", margin: 0 }} 
+              style={{ 
+                padding: "8px 16px",
+                background: "#6366f1",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: 500,
+                transition: "background-color 0.2s ease-in-out",
+                width: "160px",
+                maxWidth: "160px",
+                minWidth: "160px",
+                height: "auto",
+                boxSizing: "border-box",
+                opacity: canEdit ? 1 : 0.5,
+                cursor: canEdit ? "pointer" : "not-allowed",
+                margin: 0
+              }} 
               onClick={() => setIsUlazLocked(false)}
               disabled={!canEdit}
             >
@@ -2213,14 +2247,25 @@ export default function ObracunPage() {
             <label
               className="action-button"
               style={{
-                ...buttonStyle,
+                padding: "8px 16px",
                 background: "#3b82f6",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                fontSize: "14px",
+                fontWeight: 500,
+                transition: "background-color 0.2s ease-in-out",
+                width: "160px",
                 maxWidth: "160px",
                 minWidth: "160px",
+                height: "auto",
+                boxSizing: "border-box",
                 opacity: canEdit ? 1 : 0.5,
                 cursor: canEdit ? "pointer" : "not-allowed",
                 display: "inline-block",
-                margin: 0
+                margin: 0,
+                textAlign: "center",
+                lineHeight: "1.5"
               }}
               onMouseEnter={(e) => {
                 if (canEdit) {
