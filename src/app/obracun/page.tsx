@@ -2016,6 +2016,146 @@ export default function ObracunPage() {
           h1 { font-size: 20px; margin-bottom: 16px; }
           h2 { font-size: 16px; margin-bottom: 12px; }
           h3 { font-size: 14px; margin: 6px 0; }
+          /* Poboljšan layout za buttoni i datum na mobilnoj verziji */
+          .date-controls-container {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+          }
+          .date-controls-container > div:first-child {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-wrap: wrap !important;
+          }
+          .date-controls-container > div:first-child > label {
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            margin: 0 !important;
+            flex-shrink: 0 !important;
+          }
+          .date-controls-container > div:first-child > input[type="date"] {
+            width: auto !important;
+            min-width: 140px !important;
+            max-width: 160px !important;
+            padding: 8px 10px !important;
+            font-size: 14px !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 6px !important;
+            flex: 0 0 auto !important;
+          }
+          .date-controls-container > div:last-child {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex-wrap: wrap !important;
+          }
+          .date-controls-container > div:last-child > button,
+          .date-controls-container > div:last-child > label {
+            width: auto !important;
+            min-width: 120px !important;
+            max-width: calc(50% - 4px) !important;
+            padding: 8px 12px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            border-radius: 6px !important;
+            margin: 0 !important;
+            flex: 1 1 auto !important;
+          }
+          /* Osiguraj da Artikli i (Ažurirano) budu u istoj liniji */
+          .artikli-header {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+          }
+          .artikli-header h2 {
+            margin: 0 !important;
+          }
+          /* Sinhronizuj veličine action buttona */
+          .action-button {
+            width: 160px !important;
+            min-width: 160px !important;
+            max-width: 160px !important;
+          }
+          /* Grid layout za sažetak na mobilnoj verziji */
+          .summary-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 12px !important;
+          }
+          .summary-container {
+            padding: 20px 16px !important;
+          }
+          .neto-card {
+            grid-column: span 2 !important;
+          }
+          .summary-container h2 {
+            font-size: 16px !important;
+          }
+          .summary-grid > div {
+            padding: 14px !important;
+          }
+          .summary-grid > div > div:first-child {
+            font-size: 11px !important;
+          }
+          .summary-grid > div > div:last-child {
+            font-size: 18px !important;
+          }
+          .neto-card > div:last-child {
+            font-size: 22px !important;
+          }
+        }
+        @media (min-width: 769px) {
+          .summary-grid {
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 20px !important;
+          }
+          .summary-container {
+            padding: 32px !important;
+          }
+          .summary-grid > div {
+            padding: 20px !important;
+          }
+          .summary-grid > div > div:first-child {
+            font-size: 13px !important;
+          }
+          .summary-grid > div > div:last-child {
+            font-size: 24px !important;
+          }
+          .neto-card {
+            grid-column: span 1 !important;
+          }
+          .neto-card > div:last-child {
+            font-size: 28px !important;
+          }
+          .date-controls-container {
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 12px !important;
+          }
+          .date-controls-container > label {
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            margin-bottom: 0 !important;
+            margin-right: 8px !important;
+          }
+          .date-controls-container > input[type="date"] {
+            width: auto !important;
+            max-width: 160px !important;
+            padding: 8px !important;
+            font-size: 14px !important;
+          }
+          .date-controls-container > button {
+            width: auto !important;
+            max-width: 160px !important;
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            margin-right: 8px !important;
+            margin-bottom: 8px !important;
+          }
         }
       `}</style>
 
@@ -2036,85 +2176,79 @@ export default function ObracunPage() {
         </div>
       )}
 
-      <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-        <label style={{ fontSize: "14px", color: "#1f2937", marginRight: "8px" }}>
-          Datum obračuna:
-        </label>
-        <input
-          type="date"
-          value={formatDateForInput(trenutniDatum)}
-          onChange={handleDatumChange}
-          style={dateInputStyle}
-        />
-        <button 
-          style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed" }} 
-          onClick={handleAzurirajObracun}
-          disabled={!canEdit || isUlazLocked}
-        >
-          Ažuriraj obračun
-        </button>
-        {/* Gumb "Uredi" za otključavanje ulaza - prikazuje se samo ako su ulazi zaključani */}
-        {isUlazLocked && (
-          <button 
-            style={{ ...buttonStyle, background: "#6366f1", maxWidth: "160px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed" }} 
-            onClick={() => setIsUlazLocked(false)}
-            disabled={!canEdit}
-          >
-            Uredi ulaz
-          </button>
-        )}
-        <button 
-          style={{ ...saveButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed" }} 
-          onClick={handleSaveObracun} 
-          className="save-button"
-          disabled={!canEdit || uploadingImages}
-        >
-          {uploadingImages ? `Upload slika... ${Math.round(uploadProgress)}%` : "Sačuvaj obračun"}
-        </button>
-        {/* Upload slika faktura - prikazuje se samo ako ima ulaz (sve dok obračun nije sačuvan) */}
-        {hasUlaz && (
-          <label
-            style={{
-              ...buttonStyle,
-              background: "#3b82f6",
-              maxWidth: "160px",
-              opacity: canEdit ? 1 : 0.5,
-              cursor: canEdit ? "pointer" : "not-allowed",
-              display: "inline-block",
-              marginRight: "8px",
-              marginBottom: "8px"
-            }}
-            onMouseEnter={(e) => {
-              if (canEdit) {
-                e.currentTarget.style.background = "#2563eb";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (canEdit) {
-                e.currentTarget.style.background = "#3b82f6";
-              }
-            }}
-          >
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                setInvoiceImages([...invoiceImages, ...files]);
-                e.target.value = ""; // Reset input
-              }}
-              style={{ display: "none" }}
-              disabled={!canEdit}
-            />
-            📸 Dodaj slike fakture{(invoiceImages.length > 0 || savedInvoiceImagesCount > 0) ? ` (${invoiceImages.length + savedInvoiceImagesCount})` : ""}
+      <div className="date-controls-container" style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+          <label style={{ fontSize: "14px", color: "#1f2937", fontWeight: 500 }}>
+            Datum obračuna:
           </label>
-        )}
-        {isAzuriran && (
-          <span style={{ fontSize: "14px", color: "#f59e0b", fontWeight: 500, marginLeft: "8px" }}>
-            (Ažurirano)
-          </span>
-        )}
+          <input
+            type="date"
+            value={formatDateForInput(trenutniDatum)}
+            onChange={handleDatumChange}
+            style={dateInputStyle}
+          />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "1 1 auto" }}>
+          <button 
+            className="action-button"
+            style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", minWidth: "160px", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed", margin: 0 }} 
+            onClick={handleAzurirajObracun}
+            disabled={!canEdit || isUlazLocked}
+          >
+            Ažuriraj obračun
+          </button>
+          {/* Gumb "Uredi" za otključavanje ulaza - prikazuje se samo ako su ulazi zaključani */}
+          {isUlazLocked && (
+            <button 
+              className="action-button"
+              style={{ ...buttonStyle, background: "#6366f1", maxWidth: "160px", minWidth: "160px", opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed", margin: 0 }} 
+              onClick={() => setIsUlazLocked(false)}
+              disabled={!canEdit}
+            >
+              Uredi ulaz
+            </button>
+          )}
+          {/* Upload slika faktura - prikazuje se samo ako ima ulaz (sve dok obračun nije sačuvan) */}
+          {hasUlaz && (
+            <label
+              className="action-button"
+              style={{
+                ...buttonStyle,
+                background: "#3b82f6",
+                maxWidth: "160px",
+                minWidth: "160px",
+                opacity: canEdit ? 1 : 0.5,
+                cursor: canEdit ? "pointer" : "not-allowed",
+                display: "inline-block",
+                margin: 0
+              }}
+              onMouseEnter={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#2563eb";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canEdit) {
+                  e.currentTarget.style.background = "#3b82f6";
+                }
+              }}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setInvoiceImages([...invoiceImages, ...files]);
+                  e.target.value = ""; // Reset input
+                }}
+                style={{ display: "none" }}
+                disabled={!canEdit}
+              />
+              📸 Dodaj slike fakture{(invoiceImages.length > 0 || savedInvoiceImagesCount > 0) ? ` (${invoiceImages.length + savedInvoiceImagesCount})` : ""}
+            </label>
+          )}
+        </div>
       </div>
 
       {/* Prikaz odabranih slika faktura */}
@@ -2356,9 +2490,16 @@ export default function ObracunPage() {
       )}
 
       {/* Artikli */}
-      <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: isMobile ? "12px" : "16px" }}>
-        Artikli
-      </h2>
+      <div className="artikli-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isMobile ? "12px" : "16px", width: "100%" }}>
+        <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", margin: 0, flexShrink: 0 }}>
+          Artikli
+        </h2>
+        {isAzuriran && (
+          <span style={{ fontSize: "14px", color: "#f59e0b", fontWeight: 500, flexShrink: 0, marginLeft: "16px" }}>
+            (Ažurirano)
+          </span>
+        )}
+      </div>
       <table style={tableStyle}>
         <thead>
           <tr>
@@ -3332,26 +3473,116 @@ export default function ObracunPage() {
         </div>
       )}
 
-      {/* Ukupno */}
-      <div style={{ marginTop: "24px", fontSize: "16px", color: "#1f2937" }}>
-        <h3 style={{ margin: "8px 0", fontWeight: 500 }}>
-          Ukupno rashod: {ukupnoRashod.toFixed(2)} KM
-        </h3>
-        <h3 style={{ margin: "8px 0", fontWeight: 500 }}>
-          Ukupno prihod: {ukupnoPrihod.toFixed(2)} KM
-        </h3>
-        <h3 style={{ margin: "8px 0", fontWeight: 500 }}>
-          Ukupno artikli: {ukupnoArtikli.toFixed(2)} KM
-        </h3>
-        <h3
-          style={{
-            margin: "8px 0",
-            fontWeight: 600,
-            color: neto >= 0 ? "#15803d" : "#dc2626",
-          }}
+      {/* Ukupno - Poboljšan prikaz */}
+      <div className="summary-container" style={{ 
+        marginTop: "32px", 
+        padding: "24px",
+        background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)",
+        borderRadius: "12px",
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+      }}>
+        <h2 style={{ 
+          margin: "0 0 20px 0", 
+          fontSize: "18px", 
+          fontWeight: 600, 
+          color: "#1f2937",
+          textAlign: "center"
+        }}>
+          📊 Sažetak obračuna
+        </h2>
+        <div className="summary-grid" style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: "16px",
+        }}>
+          {/* Ukupno rashod */}
+          <div style={{
+            padding: "16px",
+            background: "#fffef0",
+            borderRadius: "8px",
+            border: "1px solid #fde68a",
+            textAlign: "center",
+          }}>
+            <div style={{ fontSize: "12px", color: "#92400e", fontWeight: 500, marginBottom: "4px" }}>
+              Ukupno Rashod
+            </div>
+            <div style={{ fontSize: "20px", fontWeight: 700, color: "#78350f" }}>
+              {ukupnoRashod.toFixed(2)} KM
+            </div>
+          </div>
+
+          {/* Ukupno prihod */}
+          <div style={{
+            padding: "16px",
+            background: "#eff6ff",
+            borderRadius: "8px",
+            border: "1px solid #93c5fd",
+            textAlign: "center",
+          }}>
+            <div style={{ fontSize: "12px", color: "#1e40af", fontWeight: 500, marginBottom: "4px" }}>
+              Ukupno Prihod
+            </div>
+            <div style={{ fontSize: "20px", fontWeight: 700, color: "#1e3a8a" }}>
+              {ukupnoPrihod.toFixed(2)} KM
+            </div>
+          </div>
+
+          {/* Ukupno artikli */}
+          <div style={{
+            padding: "16px",
+            background: "#f0fdf4",
+            borderRadius: "8px",
+            border: "1px solid #86efac",
+            textAlign: "center",
+          }}>
+            <div style={{ fontSize: "12px", color: "#166534", fontWeight: 500, marginBottom: "4px" }}>
+              Ukupno Artikli
+            </div>
+            <div style={{ fontSize: "20px", fontWeight: 700, color: "#14532d" }}>
+              {ukupnoArtikli.toFixed(2)} KM
+            </div>
+          </div>
+
+          {/* Neto */}
+          <div className="neto-card" style={{
+            padding: "16px",
+            background: neto >= 0 ? "#f0fdf4" : "#fef2f2",
+            borderRadius: "8px",
+            border: `2px solid ${neto >= 0 ? "#22c55e" : "#ef4444"}`,
+            textAlign: "center",
+          }}>
+            <div style={{ 
+              fontSize: "12px", 
+              color: neto >= 0 ? "#15803d" : "#dc2626", 
+              fontWeight: 600, 
+              marginBottom: "4px",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px"
+            }}>
+              Neto
+            </div>
+            <div style={{ 
+              fontSize: "24px", 
+              fontWeight: 800, 
+              color: neto >= 0 ? "#15803d" : "#dc2626"
+            }}>
+              {neto.toFixed(2)} KM
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sačuvaj obračun button - na kraju stranice */}
+      <div style={{ marginTop: "32px", marginBottom: "24px", paddingBottom: "16px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <button 
+          style={{ ...saveButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed", maxWidth: "300px", width: "100%" }} 
+          onClick={handleSaveObracun} 
+          className="save-button"
+          disabled={!canEdit || uploadingImages}
         >
-          Neto: {neto.toFixed(2)} KM
-        </h3>
+          {uploadingImages ? `Upload slika... ${Math.round(uploadProgress)}%` : "Sačuvaj obračun"}
+        </button>
       </div>
     </div>
   );

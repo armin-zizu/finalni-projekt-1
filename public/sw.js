@@ -1,6 +1,6 @@
 // Service Worker za PWA
-const CACHE_NAME = 'office-bar-v1';
-const RUNTIME_CACHE = 'office-bar-runtime-v1';
+const CACHE_NAME = 'office-bar-v2';
+const RUNTIME_CACHE = 'office-bar-runtime-v2';
 
 // Fajlovi koji se keširaju pri instalaciji
 const PRECACHE_URLS = [
