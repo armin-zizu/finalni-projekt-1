@@ -144,13 +144,18 @@ const inputStyle: React.CSSProperties = {
 
 const dateInputStyle: React.CSSProperties = {
   width: "100%",
-  maxWidth: "160px",
-  padding: "8px",
-  border: "1px solid #e5e7eb",
-  borderRadius: "6px",
-  fontSize: "14px",
+  maxWidth: "180px",
+  padding: "10px 12px",
+  border: "2px solid #e5e7eb",
+  borderRadius: "8px",
+  fontSize: "15px",
+  fontWeight: 500,
   outline: "none",
-  background: "#fff",
+  background: "#ffffff",
+  color: "#1f2937",
+  transition: "all 0.2s ease-in-out",
+  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+  cursor: "pointer",
 };
 
 const containerStyle: React.CSSProperties = {
@@ -2141,11 +2146,19 @@ export default function ObracunPage() {
             margin-bottom: 0 !important;
             margin-right: 8px !important;
           }
-          .date-controls-container > input[type="date"] {
+          .date-controls-container > div:first-child > input[type="date"] {
             width: auto !important;
-            max-width: 160px !important;
-            padding: 8px !important;
-            font-size: 14px !important;
+            max-width: 180px !important;
+            padding: 10px 12px !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            border: 2px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+          }
+          .date-controls-container > div:first-child > label {
+            font-size: 15px !important;
+            font-weight: 600 !important;
           }
           .date-controls-container > button {
             width: auto !important;
@@ -2177,15 +2190,23 @@ export default function ObracunPage() {
       )}
 
       <div className="date-controls-container" style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-          <label style={{ fontSize: "14px", color: "#1f2937", fontWeight: 500 }}>
-            Datum obračuna:
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+          <label style={{ fontSize: "15px", color: "#374151", fontWeight: 600, letterSpacing: "0.01em" }}>
+            📅 Datum obračuna:
           </label>
           <input
             type="date"
             value={formatDateForInput(trenutniDatum)}
             onChange={handleDatumChange}
             style={dateInputStyle}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "#3b82f6";
+              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "#e5e7eb";
+              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
+            }}
           />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "1 1 auto" }}>
