@@ -143,19 +143,18 @@ const inputStyle: React.CSSProperties = {
 };
 
 const dateInputStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: "180px",
-  padding: "10px 12px",
+  padding: "12px 16px",
   border: "2px solid #e5e7eb",
-  borderRadius: "8px",
+  borderRadius: "10px",
   fontSize: "15px",
-  fontWeight: 500,
+  fontWeight: 600,
   outline: "none",
-  background: "#ffffff",
+  background: "linear-gradient(to bottom, #ffffff, #f9fafb)",
   color: "#1f2937",
-  transition: "all 0.2s ease-in-out",
-  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+  transition: "all 0.3s ease-in-out",
+  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
   cursor: "pointer",
+  minWidth: "160px",
 };
 
 const containerStyle: React.CSSProperties = {
@@ -253,16 +252,20 @@ export default function ObracunPage() {
   const [editPrihodIndex, setEditPrihodIndex] = useState<number | null>(null);
   const [editRashod, setEditRashod] = useState<Rashod>({ naziv: "", cijena: 0 });
   const [editPrihod, setEditPrihod] = useState<Prihod>({ naziv: "", cijena: 0 });
-  const [trenutniDatum, setTrenutniDatum] = useState<Date>(new Date());
+  const [trenutniDatum, setTrenutniDatum] = useState<Date | null>(null);
   const [isAzuriran, setIsAzuriran] = useState<boolean>(false); // Praćenje da li je obračun bio ažuriran
   const [resetKey, setResetKey] = useState<number>(0); // Key za reset input polja
   const [isOwner, setIsOwner] = useState<boolean>(false); // Provjera da li je korisnik vlasnik
   const [hasUlazInCache, setHasUlazInCache] = useState<boolean>(false); // Provjera da li postoji ulaz u cache-u
   const [isUlazLocked, setIsUlazLocked] = useState<boolean>(false); // Provjera da li su ulazi zaključani
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
-  // Detekcija mobilnog uređaja
+  // Inicijalizacija datuma i detekcija mobilnog uređaja (samo na klijentu)
   useEffect(() => {
+    if (trenutniDatum === null) {
+      setTrenutniDatum(new Date());
+    }
+    
     const checkMobile = () => {
       if (typeof window === 'undefined') return;
       setIsMobile(window.innerWidth <= 768);
@@ -271,7 +274,7 @@ export default function ObracunPage() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [trenutniDatum]);
   
   // Postavke za malu zalihu
   const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
@@ -464,6 +467,7 @@ export default function ObracunPage() {
   // Funkcija autoSaveDraftAsFinal je uklonjena - handleSaveObracun direktno sprema finalni obračun
 
   useEffect(() => {
+    if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
     const datumAktivan = isDatumAktivan(trenutniDatum);
     
@@ -694,6 +698,7 @@ export default function ObracunPage() {
       // Nastavi sa inicijalizacijom - artikli će biti inicijalizovani iz cjenovnika
     }
     
+    if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
     const datumAktivan = isDatumAktivan(trenutniDatum);
     
@@ -1269,6 +1274,7 @@ export default function ObracunPage() {
       return;
     }
 
+    if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
     const userId = user?.email || user?.id;
     if (!userId) {
@@ -1407,6 +1413,7 @@ export default function ObracunPage() {
     const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
     const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
     const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+    if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
 
     // Provjeri da li obračun ima ulaz - provjeri samo trenutni state (draft je već učitan ako postoji)
@@ -2111,6 +2118,29 @@ export default function ObracunPage() {
           .neto-card > div:last-child {
             font-size: 22px !important;
           }
+          /* Header layout za mobilnu verziju - datum u istoj liniji desno */
+          .page-header {
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            flex-wrap: nowrap !important;
+            width: 100% !important;
+          }
+          .page-header h1 {
+            flex-shrink: 0 !important;
+            font-size: 20px !important;
+            margin: 0 !important;
+            white-space: nowrap !important;
+          }
+          .page-header .header-date-input {
+            flex-shrink: 0 !important;
+            width: auto !important;
+            min-width: 130px !important;
+            max-width: 150px !important;
+            padding: 10px 12px !important;
+            font-size: 13px !important;
+            margin: 0 !important;
+          }
         }
         @media (min-width: 769px) {
           .summary-grid {
@@ -2140,25 +2170,37 @@ export default function ObracunPage() {
             align-items: center !important;
             gap: 12px !important;
           }
+          /* Osiguraj da buttoni imaju odgovarajuću veličinu */
+          .date-controls-container button.action-button {
+            width: 160px !important;
+            min-width: 160px !important;
+            max-width: 160px !important;
+          }
           .date-controls-container > label {
             font-size: 14px !important;
             font-weight: 500 !important;
             margin-bottom: 0 !important;
             margin-right: 8px !important;
           }
-          .date-controls-container > div:first-child > input[type="date"] {
-            width: auto !important;
-            max-width: 180px !important;
+          /* Stil za datum u header-u */
+          .header-date-input {
+            min-width: 140px !important;
+            max-width: 160px !important;
             padding: 10px 12px !important;
-            font-size: 15px !important;
-            font-weight: 500 !important;
-            border: 2px solid #e5e7eb !important;
-            border-radius: 8px !important;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-          }
-          .date-controls-container > div:first-child > label {
-            font-size: 15px !important;
+            font-size: 14px !important;
             font-weight: 600 !important;
+          }
+          /* Desktop verzija - header je već postavljen u inline stilovima */
+          .page-header {
+            flex-direction: row !important;
+            align-items: center !important;
+            flex-wrap: nowrap !important;
+          }
+          .page-header h1 {
+            flex-shrink: 0 !important;
+          }
+          .page-header .header-date-input {
+            flex-shrink: 0 !important;
           }
           .date-controls-container > button {
             width: auto !important;
@@ -2172,9 +2214,28 @@ export default function ObracunPage() {
         }
       `}</style>
 
-      <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", marginBottom: "24px" }}>
-        Obračun
-      </h1>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", gap: "16px", width: "100%" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", margin: 0, flexShrink: 0 }}>
+          Obračun
+        </h1>
+        <input
+          type="date"
+          className="header-date-input"
+          value={trenutniDatum ? formatDateForInput(trenutniDatum) : ''}
+          onChange={handleDatumChange}
+          style={dateInputStyle}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = "#3b82f6";
+            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = "#e5e7eb";
+            e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+        />
+      </div>
 
       {false && (
         <div style={{ 
@@ -2190,46 +2251,10 @@ export default function ObracunPage() {
       )}
 
       <div className="date-controls-container" style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-          <label style={{ fontSize: "15px", color: "#374151", fontWeight: 600, letterSpacing: "0.01em" }}>
-            📅 Datum obračuna:
-          </label>
-          <input
-            type="date"
-            value={formatDateForInput(trenutniDatum)}
-            onChange={handleDatumChange}
-            style={dateInputStyle}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "#3b82f6";
-              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "#e5e7eb";
-              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
-            }}
-          />
-        </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "1 1 auto" }}>
           <button 
             className="action-button"
-            style={{ 
-              padding: "8px 16px",
-              background: "#f59e0b",
-              color: "white",
-              border: "none",
-              borderRadius: "6px",
-              fontSize: "14px",
-              fontWeight: 500,
-              transition: "background-color 0.2s ease-in-out",
-              width: "160px",
-              maxWidth: "160px",
-              minWidth: "160px",
-              height: "auto",
-              boxSizing: "border-box",
-              opacity: (canEdit && !isUlazLocked) ? 1 : 0.5,
-              cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed",
-              margin: 0
-            }} 
+            style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", minWidth: "160px", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed", margin: 0 }} 
             onClick={handleAzurirajObracun}
             disabled={!canEdit || isUlazLocked}
           >
@@ -2268,25 +2293,15 @@ export default function ObracunPage() {
             <label
               className="action-button"
               style={{
-                padding: "8px 16px",
+                ...buttonStyle,
                 background: "#3b82f6",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                fontSize: "14px",
-                fontWeight: 500,
-                transition: "background-color 0.2s ease-in-out",
-                width: "160px",
                 maxWidth: "160px",
                 minWidth: "160px",
-                height: "auto",
-                boxSizing: "border-box",
+                width: "160px",
                 opacity: canEdit ? 1 : 0.5,
                 cursor: canEdit ? "pointer" : "not-allowed",
                 display: "inline-block",
-                margin: 0,
-                textAlign: "center",
-                lineHeight: "1.5"
+                margin: 0
               }}
               onMouseEnter={(e) => {
                 if (canEdit) {
