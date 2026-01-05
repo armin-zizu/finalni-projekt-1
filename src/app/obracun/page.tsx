@@ -2066,15 +2066,16 @@ export default function ObracunPage() {
           }
           .date-controls-container > div:last-child > button,
           .date-controls-container > div:last-child > label {
-            width: auto !important;
-            min-width: 120px !important;
+            width: calc(50% - 4px) !important;
+            min-width: calc(50% - 4px) !important;
             max-width: calc(50% - 4px) !important;
             padding: 8px 12px !important;
             font-size: 13px !important;
             font-weight: 500 !important;
             border-radius: 6px !important;
             margin: 0 !important;
-            flex: 1 1 auto !important;
+            flex: 0 0 calc(50% - 4px) !important;
+            box-sizing: border-box !important;
           }
           /* Osiguraj da Artikli i (Ažurirano) budu u istoj liniji */
           .artikli-header {
