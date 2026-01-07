@@ -2454,15 +2454,23 @@ export default function DashboardPage() {
                 marginTop: "12px",
                 display: "flex",  
                 gap: 0, 
-                alignItems: "flex-end", 
+                alignItems: "center", 
                 width: "100%", 
-                flexWrap: "nowrap",
+                flexWrap: isMobile ? "wrap" : "nowrap",
                 opacity: 1,
                 visibility: "visible"
               }}>
                 {/* Custom Date Input za Od */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 0", minWidth: 0, paddingRight: "8px" }} data-dropdown-container>
-                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}></label>
+                <div style={{ 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: "4px", 
+                  position: "relative", 
+                  flex: isMobile ? "1 1 calc(50% - 20px)" : "1 1 0", 
+                  minWidth: isMobile ? 0 : 0, 
+                  paddingRight: isMobile ? "4px" : "8px"
+                }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280", height: "16px" }}></label>
                   <input
                     type="date"
                     value={customFrom}
@@ -2485,10 +2493,32 @@ export default function DashboardPage() {
                   />
                 </div>
                 {/* Separator "do" */}
-                <div style={{ fontSize: "14px", fontWeight: 500, color: "#6b7280", marginBottom: "8px", padding: "0 6px", whiteSpace: "nowrap", flexShrink: 0 }}>do</div>
+                <div style={{ 
+                  fontSize: isMobile ? "12px" : "14px", 
+                  fontWeight: 500, 
+                  color: "#6b7280", 
+                  padding: isMobile ? "0 2px" : "0 4px", 
+                  whiteSpace: "nowrap", 
+                  flexShrink: 0,
+                  textAlign: "center",
+                  height: "40px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto",
+                  minWidth: "20px"
+                }}>do</div>
                 {/* Custom Date Input za Do */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 0", minWidth: 0, paddingLeft: "8px" }} data-dropdown-container>
-                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}></label>
+                <div style={{ 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: "4px", 
+                  position: "relative", 
+                  flex: isMobile ? "1 1 calc(50% - 20px)" : "1 1 0", 
+                  minWidth: isMobile ? 0 : 0, 
+                  paddingLeft: isMobile ? "4px" : "8px"
+                }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280", height: "16px" }}></label>
                   <input
                     type="date"
                     value={customTo}
