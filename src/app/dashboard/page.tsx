@@ -2453,93 +2453,57 @@ export default function DashboardPage() {
               <div style={{ 
                 marginTop: "12px",
                 display: "flex",  
-                gap: 0, 
+                gap: 8, 
                 alignItems: "center", 
                 justifyContent: "center",
                 width: "100%", 
-                flexWrap: "nowrap",
+                flexWrap: "wrap",
                 opacity: 1,
                 visibility: "visible"
               }}>
-                {/* Custom Date Input za Od */}
-                <div style={{ 
-                  display: "flex", 
-                  flexDirection: "column", 
-                  gap: "4px", 
-                  position: "relative", 
-                  flex: "1 1 0",
-                  minWidth: 0,
-                  paddingRight: isMobile ? "2px" : "8px"
-                }} data-dropdown-container>
-                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280", height: "16px" }}></label>
-                  <input
-                    type="date"
-                    value={customFrom}
-                    onChange={(e) => setCustomFrom(e.target.value)}
-                    style={{ 
-                      padding: "8px 12px", 
-                      border: "1px solid #d1d5db", 
-                      borderRadius: "8px", 
-                      fontSize: "13px", 
-                      outline: "none",
-                      width: "100%",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937",
-                      boxSizing: "border-box"
-                    }}
-                  />
-                </div>
-                {/* Separator "do" */}
-                <div style={{ 
-                  fontSize: isMobile ? "12px" : "14px", 
-                  fontWeight: 500, 
-                  color: "#6b7280", 
-                  padding: isMobile ? "0 2px" : "0 4px", 
-                  whiteSpace: "nowrap", 
-                  flex: "0 0 auto",
-                  textAlign: "center",
-                  height: "40px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minWidth: isMobile ? "16px" : "20px"
-                }}>do</div>
-                {/* Custom Date Input za Do */}
-                <div style={{ 
-                  display: "flex", 
-                  flexDirection: "column", 
-                  gap: "4px", 
-                  position: "relative", 
-                  flex: "1 1 0",
-                  minWidth: 0,
-                  paddingLeft: isMobile ? "2px" : "8px"
-                }} data-dropdown-container>
-                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280", height: "16px" }}></label>
-                  <input
-                    type="date"
-                    value={customTo}
-                    onChange={(e) => setCustomTo(e.target.value)}
-                    style={{ 
-                      padding: "8px 12px", 
-                      border: "1px solid #d1d5db", 
-                      borderRadius: "8px", 
-                      fontSize: "13px", 
-                      outline: "none",
-                      width: "100%",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937",
-                      boxSizing: "border-box"
-                    }}
-                  />
-                </div>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={{ 
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    padding: "8px 12px", 
+                    border: "1px solid #d1d5db", 
+                    borderRadius: "8px", 
+                    fontSize: "13px", 
+                    outline: "none",
+                    backgroundColor: "#fff",
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
+                    color: "#1f2937",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={{ 
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    padding: "8px 12px", 
+                    border: "1px solid #d1d5db", 
+                    borderRadius: "8px", 
+                    fontSize: "13px", 
+                    outline: "none",
+                    backgroundColor: "#fff",
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
+                    color: "#1f2937",
+                    boxSizing: "border-box"
+                  }}
+                />
               </div>
             )}
         </div>
