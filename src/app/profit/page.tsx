@@ -1684,8 +1684,6 @@ export default function ProfitPage() {
       } catch (e) {
         return filteredData.map((o) => ({ datum: o.datum, bruto: Number(o.bruto), neto: Number(o.neto) }));
       }
-    }
-    }
 
     return filteredData.map((o) => ({
       datum: o.datum,
