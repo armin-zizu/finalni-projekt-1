@@ -1029,7 +1029,8 @@ export default function ObracunPage() {
             throw new Error("Korisnik nije autentifikovan");
           }
           
-          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
+          const datumRef = trenutniDatum ?? new Date();
+          const datumString = formatirajDatum(datumRef).replace(/\.$/, '');
           const uploadedFile = await uploadFile(newRashodImage, 'rashod', datumString);
           imageUrl = uploadedFile.url;
         } catch (error: any) {
@@ -1056,7 +1057,8 @@ export default function ObracunPage() {
             throw new Error("Korisnik nije autentifikovan");
           }
           
-          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
+          const datumRef = trenutniDatum ?? new Date();
+          const datumString = formatirajDatum(datumRef).replace(/\.$/, '');
           const uploadedFile = await uploadFile(newPrihodImage, 'prihod', datumString);
           imageUrl = uploadedFile.url;
         } catch (error: any) {
@@ -1205,7 +1207,8 @@ export default function ObracunPage() {
             throw new Error("Korisnik nije autentifikovan");
           }
           
-          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
+          const datumRef = trenutniDatum ?? new Date();
+          const datumString = formatirajDatum(datumRef).replace(/\.$/, '');
           const uploadedFile = await uploadFile(editRashodImage, 'rashod', datumString);
           imageUrl = uploadedFile.url;
         } catch (error: any) {
@@ -1235,7 +1238,8 @@ export default function ObracunPage() {
             throw new Error("Korisnik nije autentifikovan");
           }
           
-          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
+          const datumRef = trenutniDatum ?? new Date();
+          const datumString = formatirajDatum(datumRef).replace(/\.$/, '');
           const uploadedFile = await uploadFile(editPrihodImage, 'prihod', datumString);
           imageUrl = uploadedFile.url;
         } catch (error: any) {
@@ -2371,7 +2375,7 @@ export default function ObracunPage() {
                 <>
                   <button
                     onClick={async () => {
-                      const datumString = formatirajDatum(trenutniDatum);
+                      const datumString = formatirajDatum(trenutniDatum ?? new Date());
                       const userId = user?.id || (await getUserId());
                       
                       if (!userId) {

@@ -37,9 +37,13 @@ type ArhiviraniArtikal = {
   proizvodnaCijena?: number;
 };
 
+// Minimalni tipovi za rashode/prihode za dashboard
 type Rashod = {
   naziv: string;
   cijena: number;
+  imageUrl?: string;
+  placeno?: boolean;
+  datumPlacanja?: string;
 };
 
 type ArhiviraniObracun = {
@@ -2908,42 +2912,40 @@ export default function DashboardPage() {
               {
                 label: "Bruto",
                 value: totalBruto,
-                icon: <FaArrowUp color="#16a34a" size={isMobile ? 18 : 20} />,
+                icon: <FaArrowUp color="#3b82f6" size={20} />,
               },
               {
                 label: "Rashod",
                 value: totalRashod,
-                icon: <FaArrowDown color="#dc2626" size={isMobile ? 18 : 20} />,
+                icon: <FaArrowDown color="#ef4444" size={20} />,
               },
               {
                 label: "Neto",
                 value: totalNeto,
-                icon: <FaDollarSign color="#3b82f6" size={isMobile ? 18 : 20} />,
+                icon: <FaDollarSign color="#10b981" size={20} />,
               },
             ].map((item) => (
               <div
                 key={item.label}
                 style={{
-                  flex: isMobile ? "1 1 calc(50% - 6px)" : 1,
-                  minWidth: isMobile ? "calc(50% - 6px)" : 160,
+                  flex: 1,
+                  minWidth: isMobile ? "calc(50% - 10px)" : 160,
                   backgroundColor: "#fff",
                   borderRadius: 12,
                   padding: isMobile ? 16 : 20,
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
-                  gap: isMobile ? 10 : 12,
+                  justifyContent: "center",
+                  gap: isMobile ? 8 : 10,
                   boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                   transition: "transform 0.2s, box-shadow 0.2s",
                   cursor: "default",
-                  visibility: "visible",
-                  opacity: 1,
-                  position: "relative",
-                  zIndex: 1
                 }}
                 className="dashboard-card"
               >
-                <div style={{ flexShrink: 0 }}>{item.icon}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div>{item.icon}</div>
+                <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
                   <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
                 </div>
