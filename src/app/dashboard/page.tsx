@@ -2453,7 +2453,7 @@ export default function DashboardPage() {
               <div style={{ 
                 marginTop: "12px",
                 display: "flex",  
-                gap: 8, 
+                gap: 12, 
                 alignItems: "flex-end", 
                 width: "100%", 
                 flexWrap: "wrap",
@@ -2462,7 +2462,7 @@ export default function DashboardPage() {
               }}>
                 {/* Custom Date Input za Od */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
-                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Od datuma:</label>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}></label>
                   <input
                     type="date"
                     value={customFrom}
@@ -2484,9 +2484,11 @@ export default function DashboardPage() {
                     }}
                   />
                 </div>
+                {/* Separator "do" */}
+                <div style={{ fontSize: "14px", fontWeight: 500, color: "#6b7280", marginBottom: "8px", marginRight: "-4px", marginLeft: "-4px" }}>do</div>
                 {/* Custom Date Input za Do */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
-                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Do datuma:</label>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}></label>
                   <input
                     type="date"
                     value={customTo}
