@@ -153,6 +153,14 @@ const formInputStyle: React.CSSProperties = {
   width: "150px",
 };
 
+const buttonStyle: React.CSSProperties = {
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+  transition: "all 0.2s",
+  fontWeight: 500,
+};
+
 // ---- Filter komponenta ----
 const FilterSection: React.FC<{
   filter: "currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom";
@@ -198,15 +206,6 @@ const FilterSection: React.FC<{
   ];
 
   const currentLabel = filterOptions.find(f => f.value === filter)?.label || "Trenutna sedmica";
-
-  // Osnovni button style
-  const buttonStyle: React.CSSProperties = {
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-    fontWeight: 500,
-  };
 
   return (
     <div style={{ 
@@ -628,9 +627,10 @@ const FilterSection: React.FC<{
             <div style={{ 
               marginTop: "12px",
               display: "flex", 
-              gap: 12, 
-              alignItems: "center", 
-              width: "100%",
+              gap: 8, 
+              alignItems: "flex-end", 
+              width: "100%", 
+              flexWrap: "wrap",
               opacity: 1,
               visibility: "visible"
             }}>
@@ -647,15 +647,11 @@ const FilterSection: React.FC<{
                   fontSize: "13px", 
                   outline: "none",
                   backgroundColor: "#fff",
-                  cursor: "pointer",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease",
-                  fontWeight: 500,
-                  color: "#1f2937",
                   boxSizing: "border-box"
                 }} 
               />
-              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280", fontWeight: 500 }}>do</span>
+              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
               <input 
                 type="date" 
                 value={customPeriod.to} 
@@ -669,11 +665,7 @@ const FilterSection: React.FC<{
                   fontSize: "13px", 
                   outline: "none",
                   backgroundColor: "#fff",
-                  cursor: "pointer",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease",
-                  fontWeight: 500,
-                  color: "#1f2937",
                   boxSizing: "border-box"
                 }} 
               />
@@ -909,42 +901,26 @@ const FilterSection: React.FC<{
             </div>
           )}
           {filter === "custom" && (
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <input 
                 type="date" 
                 value={customPeriod.from} 
                 onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
                 style={{ 
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  outline: "none",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease",
-                  fontWeight: 500,
-                  color: "#1f2937"
+                  ...formInputStyle, 
+                  padding: "8px",
+                  fontSize: 14,
                 }} 
               />
-              <span style={{ color: "#6b7280", fontSize: "14px", fontWeight: 500 }}>do</span>
+              <span style={{ whiteSpace: "nowrap", fontSize: 14 }}>do</span>
               <input 
                 type="date" 
                 value={customPeriod.to} 
                 onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
                 style={{ 
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  outline: "none",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease",
-                  fontWeight: 500,
-                  color: "#1f2937"
+                  ...formInputStyle, 
+                  padding: "8px",
+                  fontSize: 14,
                 }} 
               />
             </div>
@@ -1670,7 +1646,18 @@ export default function ProfitPage() {
             const m1 = String(weekStart.getMonth() + 1).padStart(2, "0");
             const d2 = String(weekEnd.getDate()).padStart(2, "0");
             const m2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
-            const label = `${d1}.${m1}-${d2}.${m2}.${weekStart.getFullYear()}`;
+            const y1 = weekStart.getFullYear();
+            const y2 = weekEnd.getFullYear();
+            
+            // Format: ako je isti mjesec i godina: "15-21.12.2025", ako nisu: "29.12.2025-04.01.2026"
+            let label: string;
+            if (m1 === m2 && y1 === y2) {
+              label = `${d1}-${d2}.${m1}.${y1}`;
+            } else if (y1 === y2) {
+              label = `${d1}.${m1}-${d2}.${m2}.${y1}`;
+            } else {
+              label = `${d1}.${m1}.${y1}-${d2}.${m2}.${y2}`;
+            }
 
             const weekData = filteredData.filter((o) => {
               const t = parseDatumToDate(o.datum).getTime();
@@ -1867,42 +1854,31 @@ export default function ProfitPage() {
         return dateA - dateB;
       });
 
-    // Safety: if filter is quarterly/custom but earlier logic somehow returned daily points,
-    // aggregate them into weeks if too many data points exist.
-    if ((filter === "quarterly" || filter === "custom") && result.length > 12) {
-      // Aggregate into weeks for better visualization
-      const weeks = new Map<string, { bruto: number; neto: number; rashod: number }>();
-      
-      result.forEach((r) => {
-        const date = parseDatumToDate(r.datum);
-        const monday = new Date(date);
-        const day = monday.getDay();
-        const diff = day === 0 ? -6 : 1 - day;
-        monday.setDate(monday.getDate() + diff);
-        
-        const weekLabel = `${String(monday.getDate()).padStart(2, "0")}.${String(monday.getMonth() + 1).padStart(2, "0")}`;
-        
-        const existing = weeks.get(weekLabel) || { bruto: 0, neto: 0, rashod: 0 };
-        weeks.set(weekLabel, {
-          bruto: existing.bruto + (Number(r.bruto) || 0),
-          neto: existing.neto + (Number(r.neto) || 0),
-          rashod: existing.rashod + (Number(r.rashod) || 0),
-        });
-      });
-      
-      return Array.from(weeks.entries())
-        .map(([datum, values]) => ({
-          datum,
-          bruto: values.bruto,
-          neto: values.neto,
-          rashod: values.rashod,
-        }))
-        .sort((a, b) => {
-          const [dayA, monthA] = a.datum.split('.').map(Number);
-          const [dayB, monthB] = b.datum.split('.').map(Number);
-          if (monthA !== monthB) return monthA - monthB;
-          return dayA - dayB;
-        });
+    // Safety: if filter is monthly/selectMonth but earlier logic somehow returned daily points,
+    // aggregate them into a single mid-point with leading/trailing zeros to ensure a visible line.
+    const currentFilter = filter as "currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom";
+    if ((currentFilter === "monthly" || currentFilter === "selectMonth") && result.length > 3) {
+      const firstDay = currentFilter === "selectMonth" ? new Date(selectedYear, selectedMonth - 1, 1) : new Date(today.getFullYear(), today.getMonth(), 1);
+      firstDay.setHours(0, 0, 0, 0);
+      const lastDay = currentFilter === "selectMonth" ? new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999) : new Date(today);
+      lastDay.setHours(23, 59, 59, 999);
+
+      // Sum existing values (in case groupedByDate already contains daily sums)
+      const totalBruto = result.reduce((s, r) => s + (Number(r.bruto) || 0), 0);
+      const totalNeto = result.reduce((s, r) => s + (Number(r.neto) || 0), 0);
+      const totalRashod = result.reduce((s, r) => s + (Number(r.rashod) || 0), 0);
+
+      const month = String(firstDay.getMonth() + 1).padStart(2, "0");
+      const year = firstDay.getFullYear();
+      const firstLabel = `01.${month}.${year}`;
+      const midLabel = `${month}/${year}`;
+      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
+
+      return [
+        { datum: firstLabel, bruto: 0, neto: 0, rashod: 0 },
+        { datum: midLabel, bruto: totalBruto, neto: totalNeto, rashod: totalRashod },
+        { datum: lastLabel, bruto: 0, neto: 0, rashod: 0 },
+      ];
     }
 
     return result;
@@ -2030,11 +2006,22 @@ export default function ProfitPage() {
             weekEnd.setHours(23, 59, 59, 999);
             if (weekEnd > to) weekEnd.setTime(to.getTime());
 
-            const w1 = String(weekStart.getDate()).padStart(2, "0");
+            const d1 = String(weekStart.getDate()).padStart(2, "0");
             const m1 = String(weekStart.getMonth() + 1).padStart(2, "0");
             const d2 = String(weekEnd.getDate()).padStart(2, "0");
             const m2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
-            const label = `${w1}.${m1}-${d2}.${m2}.${weekStart.getFullYear()}`;
+            const y1 = weekStart.getFullYear();
+            const y2 = weekEnd.getFullYear();
+            
+            // Format: ako je isti mjesec i godina: "15-21.12.2025", ako nisu: "29.12.2025-04.01.2026"
+            let label: string;
+            if (m1 === m2 && y1 === y2) {
+              label = `${d1}-${d2}.${m1}.${y1}`;
+            } else if (y1 === y2) {
+              label = `${d1}.${m1}-${d2}.${m2}.${y1}`;
+            } else {
+              label = `${d1}.${m1}.${y1}-${d2}.${m2}.${y2}`;
+            }
 
             const weekObracuni = obracuniProfit.filter((o) => {
               const t = parseDatumToDate(o.datum).getTime();

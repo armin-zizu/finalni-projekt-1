@@ -358,7 +358,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   // AppContent provjerava role i odlučuje šta prikazati
   return (
-    <html lang="bs" suppressHydrationWarning>
+    <html lang="bs">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="theme-color" content="#3b82f6" />
@@ -367,9 +367,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Office Bar" />
         <link rel="manifest" href="/manifest.json" />
-        <style suppressHydrationWarning>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
+        <style>{`* { -webkit-tap-highlight-color: transparent; }`}</style>
       </head>
-      <body suppressHydrationWarning style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative", WebkitTapHighlightColor: "transparent" }}>
+      <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "'Inter', sans-serif", overflowX: "hidden", position: "relative", WebkitTapHighlightColor: "transparent" }}>
         <AppNameProvider>
           <RoleProvider>
             <SubscriptionProvider>

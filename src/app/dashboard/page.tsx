@@ -37,13 +37,9 @@ type ArhiviraniArtikal = {
   proizvodnaCijena?: number;
 };
 
-// Minimalni tipovi za rashode/prihode za dashboard
 type Rashod = {
   naziv: string;
   cijena: number;
-  imageUrl?: string;
-  placeno?: boolean;
-  datumPlacanja?: string;
 };
 
 type ArhiviraniObracun = {
@@ -2457,55 +2453,61 @@ export default function DashboardPage() {
               <div style={{ 
                 marginTop: "12px",
                 display: "flex",  
-                gap: 12, 
-                alignItems: "center", 
-                width: "100%",
+                gap: 8, 
+                alignItems: "flex-end", 
+                width: "100%", 
+                flexWrap: "wrap",
                 opacity: 1,
                 visibility: "visible"
               }}>
-                <input
-                  type="date"
-                  value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  style={{ 
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    padding: "8px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px", 
-                    fontSize: "13px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280", fontWeight: 500 }}>do</span>
-                <input
-                  type="date"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  style={{ 
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    padding: "8px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px", 
-                    fontSize: "13px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
-                    boxSizing: "border-box"
-                  }}
-                />
+                {/* Custom Date Input za Od */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Od datuma:</label>
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    style={{ 
+                      padding: "8px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
+                      outline: "none",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
+                {/* Custom Date Input za Do */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Do datuma:</label>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    style={{ 
+                      padding: "8px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
+                      outline: "none",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
               </div>
             )}
         </div>
@@ -2768,41 +2770,19 @@ export default function DashboardPage() {
             </div>
           )}
           {range === "custom" && (
-            <div style={{ display: "flex", gap: 12, alignItems: "center", marginLeft: 10, opacity: 1, visibility: "visible" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10, opacity: 1, visibility: "visible" }}>
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                style={{ 
-                  padding: "8px 12px", 
-                  borderRadius: 8, 
-                  border: "1px solid #d1d5db", 
-                  outline: "none",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  color: "#1f2937",
-                  backgroundColor: "#fff",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease"
-                }}
+                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
               />
-              <span style={{ color: "#6b7280", fontSize: "14px", fontWeight: 500 }}>do</span>
+              <span style={{ color: "#6b7280" }}>do</span>
               <input
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                style={{ 
-                  padding: "8px 12px", 
-                  borderRadius: 8, 
-                  border: "1px solid #d1d5db", 
-                  outline: "none",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  color: "#1f2937",
-                  backgroundColor: "#fff",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease"
-                }}
+                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
               />
             </div>
           )}
@@ -2912,40 +2892,42 @@ export default function DashboardPage() {
               {
                 label: "Bruto",
                 value: totalBruto,
-                icon: <FaArrowUp color="#3b82f6" size={20} />,
+                icon: <FaArrowUp color="#16a34a" size={isMobile ? 18 : 20} />,
               },
               {
                 label: "Rashod",
                 value: totalRashod,
-                icon: <FaArrowDown color="#ef4444" size={20} />,
+                icon: <FaArrowDown color="#dc2626" size={isMobile ? 18 : 20} />,
               },
               {
                 label: "Neto",
                 value: totalNeto,
-                icon: <FaDollarSign color="#10b981" size={20} />,
+                icon: <FaDollarSign color="#3b82f6" size={isMobile ? 18 : 20} />,
               },
             ].map((item) => (
               <div
                 key={item.label}
                 style={{
-                  flex: 1,
-                  minWidth: isMobile ? "calc(50% - 10px)" : 160,
+                  flex: isMobile ? "1 1 calc(50% - 6px)" : 1,
+                  minWidth: isMobile ? "calc(50% - 6px)" : 160,
                   backgroundColor: "#fff",
                   borderRadius: 12,
                   padding: isMobile ? 16 : 20,
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: isMobile ? 8 : 10,
+                  gap: isMobile ? 10 : 12,
                   boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                   transition: "transform 0.2s, box-shadow 0.2s",
                   cursor: "default",
+                  visibility: "visible",
+                  opacity: 1,
+                  position: "relative",
+                  zIndex: 1
                 }}
                 className="dashboard-card"
               >
-                <div>{item.icon}</div>
-                <div style={{ textAlign: "center" }}>
+                <div style={{ flexShrink: 0 }}>{item.icon}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
                   <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
                 </div>
@@ -3643,54 +3625,48 @@ export default function DashboardPage() {
             )}
             {artiklRange === "custom" && (
               <div style={{ 
-                marginTop: "12px",
                 display: "flex", 
-                gap: 12, 
+                gap: 4, 
                 alignItems: "center", 
-                width: "100%",
-                opacity: 1,
-                visibility: "visible"
+                width: "100%", 
+                flexWrap: "wrap" 
               }}>
                 <input
                   type="date"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
                   style={{ 
+                    padding: "6px 8px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: 13, 
+                    outline: "none",
                     flex: "1 1 auto",
                     minWidth: 0,
-                    padding: "8px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px", 
-                    fontSize: "13px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
+                    maxWidth: "100%",
                     boxSizing: "border-box"
                   }}
                 />
-                <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280", fontWeight: 500 }}>do</span>
+                <span style={{ 
+                  whiteSpace: "nowrap", 
+                  color: "#6b7280",
+                  fontSize: 13
+                }}>
+                  do
+                </span>
                 <input
                   type="date"
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
                   style={{ 
+                    padding: "6px 8px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: 13, 
+                    outline: "none",
                     flex: "1 1 auto",
                     minWidth: 0,
-                    padding: "8px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px", 
-                    fontSize: "13px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
+                    maxWidth: "100%",
                     boxSizing: "border-box"
                   }}
                 />
@@ -4262,85 +4238,37 @@ export default function DashboardPage() {
                 </div>
               )}
               {artiklRange === "custom" && (
-                <div style={{ display: "flex", gap: 12, alignItems: "center", marginLeft: 10 }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10 }}>
                   <input
                     type="date"
                     value={customFrom}
                     onChange={(e) => setCustomFrom(e.target.value)}
                     style={{ 
-                      padding: "10px 14px", 
+                      padding: "8px 12px", 
+                      borderRadius: 6, 
                       border: "1px solid #d1d5db", 
-                      borderRadius: "8px", 
-                      fontSize: "14px", 
                       outline: "none",
-                      minWidth: "160px",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937"
+                      fontSize: "14px",
+                      transition: "border-color 0.2s"
                     }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = "#3b82f6";
-                      e.currentTarget.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.1)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = "#d1d5db";
-                      e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
-                    }}
-                    onMouseEnter={(e) => {
-                      if (document.activeElement !== e.currentTarget) {
-                        e.currentTarget.style.borderColor = "#9ca3af";
-                        e.currentTarget.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.1)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (document.activeElement !== e.currentTarget) {
-                        e.currentTarget.style.borderColor = "#d1d5db";
-                        e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
-                      }
-                    }}
+                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                   />
-                  <span style={{ color: "#6b7280", fontSize: "14px", fontWeight: 500 }}>do</span>
+                  <span style={{ color: "#6b7280", fontSize: "14px" }}>do</span>
                   <input
                     type="date"
                     value={customTo}
                     onChange={(e) => setCustomTo(e.target.value)}
                     style={{ 
-                      padding: "10px 14px", 
+                      padding: "8px 12px", 
+                      borderRadius: 6, 
                       border: "1px solid #d1d5db", 
-                      borderRadius: "8px", 
-                      fontSize: "14px", 
                       outline: "none",
-                      minWidth: "160px",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937"
+                      fontSize: "14px",
+                      transition: "border-color 0.2s"
                     }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = "#3b82f6";
-                      e.currentTarget.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.1)";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = "#d1d5db";
-                      e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
-                    }}
-                    onMouseEnter={(e) => {
-                      if (document.activeElement !== e.currentTarget) {
-                        e.currentTarget.style.borderColor = "#9ca3af";
-                        e.currentTarget.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.1)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (document.activeElement !== e.currentTarget) {
-                        e.currentTarget.style.borderColor = "#d1d5db";
-                        e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
-                      }
-                    }}
+                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                   />
                 </div>
               )}
