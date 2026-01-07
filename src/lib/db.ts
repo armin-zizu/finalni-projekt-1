@@ -19,7 +19,7 @@ if (typeof window === 'undefined') {
     // Read file content first to debug
     const fs = require('fs');
     const fileContent = fs.readFileSync(envPath, 'utf8');
-    const lines = fileContent.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'));
+    const lines = fileContent.split('\n').filter((line: string) => line.trim() && !line.trim().startsWith('#'));
     console.log('[db.ts] File has', lines.length, 'non-empty, non-comment lines');
     
     // Try to load with dotenv first
@@ -30,7 +30,7 @@ if (typeof window === 'undefined') {
       console.warn('[db.ts] ⚠️ dotenv injected 0 variables, manually parsing file');
       
       // Manually parse .env.local file
-      lines.forEach(line => {
+      lines.forEach((line: string) => {
         const trimmed = line.trim();
         if (trimmed && !trimmed.startsWith('#')) {
           const match = trimmed.match(/^([^=]+)=(.*)$/);

@@ -12,7 +12,6 @@ import dynamic from "next/dynamic";
 const SubscriptionBanner = dynamic(() => import("./components/SubscriptionBanner"), { ssr: false });
 const Sidebar = dynamic(() => import("./sidebar/Sidebar"), { ssr: false });
 import { usePathname, useRouter } from "next/navigation";
-import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { setAuthToken, getAuthToken } from "../lib/api";
 
 // Komponenta koja provjerava role i blokira pristup ako je potrebno

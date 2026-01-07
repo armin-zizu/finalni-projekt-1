@@ -567,43 +567,288 @@ export default function DashboardPage() {
       
       return sevenDaysData;
     } else if (selectedRange === "monthly") {
-      // Trenutni mjesec - od početka mjeseca do danas
+      // Mjesečni - prikaži samo zbir mjeseca sa 0 na početku i kraju za vidljivu liniju
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       firstDay.setHours(0, 0, 0, 0);
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
-      filteredData = data.filter((o) => {
+      
+      const monthObracuni = data.filter((o) => {
         const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
+      
+      const totalArtikli = monthObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
+      const totalRashod = monthObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
+      const totalPrihod = monthObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
+      const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+      
+      const month = String(today.getMonth() + 1).padStart(2, "0");
+      const year = today.getFullYear();
+      const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      const midLabel = `${month}/${year}`;
+      
+      // Vrati početnu točku (0), srednju tačku (zbir mjeseca), i završnu točku mjeseca (0)
+      return [
+        {
+          datum: `01.${month}.${year}`,
+          artikli: 0,
+          rashod: 0,
+          prihod: 0,
+          neto: 0,
+        },
+        {
+          datum: midLabel,
+          artikli: totalArtikli,
+          rashod: totalRashod,
+          prihod: totalPrihod,
+          neto: totalNeto,
+        },
+        {
+          datum: `${String(lastDayOfMonth).padStart(2, "0")}.${month}.${year}`,
+          artikli: 0,
+          rashod: 0,
+          prihod: 0,
+          neto: 0,
+        }
+      ];
     } else if (selectedRange === "selectMonth") {
-      // Odabrani mjesec
+      // Odabrani mjesec - prikaži samo zbir mjeseca sa 0 na početku i kraju za vidljivu liniju
       const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
       firstDay.setHours(0, 0, 0, 0);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
-      filteredData = data.filter((o) => {
+      
+      const monthObracuni = data.filter((o) => {
         const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
+      
+      const totalArtikli = monthObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
+      const totalRashod = monthObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
+      const totalPrihod = monthObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
+      const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+      
+      const month = String(selectedMonth).padStart(2, "0");
+      const year = selectedYear;
+      const lastDayOfMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+      
+      const midLabel = `${month}/${year}`;
+
+      // Vrati početnu točku (0), srednju tačku (zbir mjeseca), i završnu točku mjeseca (0)
+      return [
+        {
+          datum: `01.${month}.${year}`,
+          artikli: 0,
+          rashod: 0,
+          prihod: 0,
+          neto: 0,
+        },
+        {
+          datum: midLabel,
+          artikli: totalArtikli,
+          rashod: totalRashod,
+          prihod: totalPrihod,
+          neto: totalNeto,
+        },
+        {
+          datum: `${String(lastDayOfMonth).padStart(2, "0")}.${month}.${year}`,
+          artikli: 0,
+          rashod: 0,
+          prihod: 0,
+          neto: 0,
+        }
+      ];
     } else if (selectedRange === "quarterly") {
-      // Tromjesečni - zadnja 3 mjeseca (kvartal)
-      const threeMonthsAgo = new Date(today);
-      threeMonthsAgo.setMonth(today.getMonth() - 3);
-      threeMonthsAgo.setDate(1);
-      threeMonthsAgo.setHours(0, 0, 0, 0);
-      const lastDay = new Date(today);
-      lastDay.setHours(23, 59, 59, 999);
-      filteredData = data.filter((o) => {
-        const dTime = parseDatumToDate(o.datum).getTime();
-        return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
-      });
+      // Tromjesečni - prikaži 3 LINIJE (po mjesecu) sa zbirom svakog mjeseca
+      const quarterlyData: AggregatedData[] = [];
+      
+      // Kreiraj 3 mjeseca (od prije 3 mjeseca do sada)
+      for (let i = 0; i < 3; i++) {
+        const monthStart = new Date(today);
+        monthStart.setMonth(today.getMonth() - 2 + i);
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        
+        const monthEnd = new Date(monthStart);
+        if (i === 2) {
+          // Za zadnji mjesec, koristi današnji datum
+          monthEnd.setHours(23, 59, 59, 999);
+        } else {
+          // Za druge mjesece, koristi zadnji dan mjeseca
+          monthEnd.setMonth(monthStart.getMonth() + 1);
+          monthEnd.setDate(0);
+          monthEnd.setHours(23, 59, 59, 999);
+        }
+        
+        const monthObracuni = data.filter((o) => {
+          const dTime = parseDatumToDate(o.datum).getTime();
+          return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
+        });
+        
+        const totalArtikli = monthObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
+        const totalRashod = monthObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
+        const totalPrihod = monthObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
+        const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+        
+        const month = String(monthStart.getMonth() + 1).padStart(2, "0");
+        const year = monthStart.getFullYear();
+        
+        quarterlyData.push({
+          datum: `${month}/${year}`,
+          artikli: totalArtikli,
+          rashod: totalRashod,
+          prihod: totalPrihod,
+          neto: totalNeto,
+        });
+      }
+      
+      return quarterlyData;
     } else if (selectedRange === "custom") {
+      // Prilagođeni raspon - dinamička rezolucija podataka
       const fromTime = new Date(customFrom).getTime();
       const toTime = new Date(customTo).getTime();
-      filteredData = data.filter((o) => {
-        const dTime = parseDatumToDate(o.datum).getTime();
-        return dTime >= fromTime && dTime <= toTime;
-      });
+      
+      // Izračunaj broj dana
+      const numberOfDays = Math.ceil((toTime - fromTime) / (1000 * 60 * 60 * 24));
+      
+      if (numberOfDays <= 15) {
+        // 0-15 dana: prikaži po danima
+        const customDaysData: AggregatedData[] = [];
+        const startDate = new Date(customFrom);
+        startDate.setHours(0, 0, 0, 0);
+        
+        for (let i = 0; i <= numberOfDays; i++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + i);
+          
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          const datumStr = `${day}.${month}.${year}`;
+          
+          // Pronađi SVE podatke za ovaj dan i sumiraj ih
+          const dayObracuni = data.filter((o) => {
+            const dTime = parseDatumToDate(o.datum).getTime();
+            return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
+          });
+          
+          if (dayObracuni.length > 0) {
+            const totalArtikli = dayObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
+            const totalRashod = dayObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
+            const totalPrihod = dayObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
+            const totalNeto = dayObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+            
+            customDaysData.push({
+              datum: datumStr,
+              artikli: totalArtikli,
+              rashod: totalRashod,
+              prihod: totalPrihod,
+              neto: totalNeto,
+            });
+          } else {
+            customDaysData.push({
+              datum: datumStr,
+              artikli: 0,
+              rashod: 0,
+              prihod: 0,
+              neto: 0,
+            });
+          }
+        }
+        return customDaysData;
+      } else if (numberOfDays <= 60) {
+        // 16-60 dana: prikaži po sedmicama
+        const customWeeksData: AggregatedData[] = [];
+        const startDate = new Date(customFrom);
+        startDate.setHours(0, 0, 0, 0);
+        
+        // Zaokruži na početak sedmice (ponedeljak)
+        const day = startDate.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        startDate.setDate(startDate.getDate() + diff);
+        
+        let currentDate = new Date(startDate);
+        const endDate = new Date(customTo);
+        endDate.setHours(23, 59, 59, 999);
+        
+        while (currentDate < endDate) {
+          const weekStart = new Date(currentDate);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+          weekEnd.setHours(23, 59, 59, 999);
+          
+          // Pronađi sve podatke za ovu sedmicu
+          const weekObracuni = data.filter((o) => {
+            const dTime = parseDatumToDate(o.datum).getTime();
+            return dTime >= weekStart.getTime() && dTime <= weekEnd.getTime();
+          });
+          
+          const totalArtikli = weekObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
+          const totalRashod = weekObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
+          const totalPrihod = weekObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
+          const totalNeto = weekObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+          
+          const day1 = String(weekStart.getDate()).padStart(2, "0");
+          const month1 = String(weekStart.getMonth() + 1).padStart(2, "0");
+          const year1 = weekStart.getFullYear();
+          const day2 = String(weekEnd.getDate()).padStart(2, "0");
+          const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
+          
+          customWeeksData.push({
+            datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
+            artikli: totalArtikli,
+            rashod: totalRashod,
+            prihod: totalPrihod,
+            neto: totalNeto,
+          });
+          
+          currentDate.setDate(currentDate.getDate() + 7);
+        }
+        return customWeeksData;
+      } else {
+        // 60+ dana: prikaži po mjesecima
+        const customMonthsData: AggregatedData[] = [];
+        const startDate = new Date(customFrom);
+        startDate.setHours(0, 0, 0, 0);
+        startDate.setDate(1);
+        
+        let currentDate = new Date(startDate);
+        const endDate = new Date(customTo);
+        endDate.setHours(23, 59, 59, 999);
+        
+        while (currentDate < endDate) {
+          const monthStart = new Date(currentDate);
+          const monthEnd = new Date(monthStart);
+          monthEnd.setMonth(monthStart.getMonth() + 1);
+          monthEnd.setDate(0);
+          monthEnd.setHours(23, 59, 59, 999);
+          
+          // Pronađi sve podatke za ovaj mjesec
+          const monthObracuni = data.filter((o) => {
+            const dTime = parseDatumToDate(o.datum).getTime();
+            return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
+          });
+          
+          const totalArtikli = monthObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
+          const totalRashod = monthObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
+          const totalPrihod = monthObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
+          const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+          
+          const month = String(monthStart.getMonth() + 1).padStart(2, "0");
+          const year = monthStart.getFullYear();
+          
+          customMonthsData.push({
+            datum: `${month}/${year}`,
+            artikli: totalArtikli,
+            rashod: totalRashod,
+            prihod: totalPrihod,
+            neto: totalNeto,
+          });
+          
+          currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+        return customMonthsData;
+      }
     }
 
     return filteredData.map((o) => ({
@@ -721,57 +966,203 @@ export default function DashboardPage() {
       
       return sevenDaysData;
     } else if (selectedRange === "monthly") {
-      // Trenutni mjesec
+      // Mjesečni - vratiti 3 tačke: 0 na početku, zbir u sredini, 0 na kraju
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
-      const filteredData = allData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+      const monthObracuni = allData.filter((o) => {
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
-      return filteredData.map((o) => ({
-        datum: o.datum,
-        utroseno: Number(o.utroseno),
-      }));
+
+      const totalUtroseno = monthObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
+      const month = String(today.getMonth() + 1).padStart(2, "0");
+      const year = today.getFullYear();
+
+      const firstLabel = `01.${month}.${year}`;
+      const midLabel = `${month}/${year}`;
+      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
+
+      return [
+        { datum: firstLabel, utroseno: 0 },
+        { datum: midLabel, utroseno: totalUtroseno },
+        { datum: lastLabel, utroseno: 0 },
+      ];
     } else if (selectedRange === "selectMonth") {
-      // Odabrani mjesec
+      // Odabrani mjesec - prikaži SAMO 1 liniju sa zbirom tog mjeseca
       const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
-      const filteredData = allData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+      const monthObracuni = allData.filter((o) => {
+        const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
-      return filteredData.map((o) => ({
-        datum: o.datum,
-        utroseno: Number(o.utroseno),
-      }));
+      
+      const totalUtroseno = monthObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
+      const month = String(selectedMonth).padStart(2, "0");
+      const year = selectedYear;
+      
+      const firstLabel = `01.${month}.${year}`;
+      const midLabel = `${month}/${year}`;
+      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
+
+      return [
+        { datum: firstLabel, utroseno: 0 },
+        { datum: midLabel, utroseno: totalUtroseno },
+        { datum: lastLabel, utroseno: 0 },
+      ];
     } else if (selectedRange === "quarterly") {
-      // Tromjesečni - zadnja 3 mjeseca
-      const threeMonthsAgo = new Date(today);
-      threeMonthsAgo.setMonth(today.getMonth() - 3);
-      threeMonthsAgo.setDate(1);
-      threeMonthsAgo.setHours(0, 0, 0, 0);
-      const lastDay = new Date(today);
-      lastDay.setHours(23, 59, 59, 999);
-      const filteredData = allData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
-      });
-      return filteredData.map((o) => ({
-        datum: o.datum,
-        utroseno: Number(o.utroseno),
-      }));
+      // Tromjesečni - prikaži 3 LINIJE (po mjesecu) sa zbirom svakog mjeseca
+      const quarterlyData: ArtiklData[] = [];
+      
+      for (let i = 0; i < 3; i++) {
+        const monthStart = new Date(today);
+        monthStart.setMonth(today.getMonth() - 2 + i);
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        
+        const monthEnd = new Date(monthStart);
+        if (i === 2) {
+          monthEnd.setHours(23, 59, 59, 999);
+        } else {
+          monthEnd.setMonth(monthStart.getMonth() + 1);
+          monthEnd.setDate(0);
+          monthEnd.setHours(23, 59, 59, 999);
+        }
+        
+        const monthObracuni = allData.filter((o) => {
+          const dTime = parseDatumToDate(o.datum).getTime();
+          return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
+        });
+        
+        const totalUtroseno = monthObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
+        const month = String(monthStart.getMonth() + 1).padStart(2, "0");
+        const year = monthStart.getFullYear();
+        
+        quarterlyData.push({
+          datum: `${month}/${year}`,
+          utroseno: totalUtroseno,
+        });
+      }
+      
+      return quarterlyData;
     } else if (selectedRange === "custom") {
+      // Prilagođeni raspon - dinamička rezolucija podataka
       const fromTime = new Date(customFrom).getTime();
       const toTime = new Date(customTo).getTime();
-      const filteredData = allData.filter((o) => {
-        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
-        return dTime >= fromTime && dTime <= toTime;
-      });
-      return filteredData.map((o) => ({
-        datum: o.datum,
-        utroseno: Number(o.utroseno),
-      }));
+      
+      // Izračunaj broj dana
+      const numberOfDays = Math.ceil((toTime - fromTime) / (1000 * 60 * 60 * 24));
+      
+      if (numberOfDays <= 15) {
+        // 0-15 dana: prikaži po danima
+        const customDaysData: ArtiklData[] = [];
+        const startDate = new Date(customFrom);
+        startDate.setHours(0, 0, 0, 0);
+        
+        for (let i = 0; i <= numberOfDays; i++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + i);
+          
+          const day = String(date.getDate()).padStart(2, "0");
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const year = date.getFullYear();
+          const datumStr = `${day}.${month}.${year}`;
+          
+          // Pronađi SVE podatke za ovaj dan i sumiraj ih
+          const dayObracuni = allData.filter((o) => {
+            const dTime = parseDatumToDate(o.datum).getTime();
+            return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
+          });
+          
+          const totalUtroseno = dayObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
+          
+          customDaysData.push({
+            datum: datumStr,
+            utroseno: totalUtroseno,
+          });
+        }
+        return customDaysData;
+      } else if (numberOfDays <= 60) {
+        // 16-60 dana: prikaži po sedmicama
+        const customWeeksData: ArtiklData[] = [];
+        const startDate = new Date(customFrom);
+        startDate.setHours(0, 0, 0, 0);
+        
+        // Zaokruži na početak sedmice (ponedeljak)
+        const day = startDate.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        startDate.setDate(startDate.getDate() + diff);
+        
+        let currentDate = new Date(startDate);
+        const endDate = new Date(customTo);
+        endDate.setHours(23, 59, 59, 999);
+        
+        while (currentDate < endDate) {
+          const weekStart = new Date(currentDate);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+          weekEnd.setHours(23, 59, 59, 999);
+          
+          // Pronađi sve podatke za ovu sedmicu
+          const weekObracuni = allData.filter((o) => {
+            const dTime = parseDatumToDate(o.datum).getTime();
+            return dTime >= weekStart.getTime() && dTime <= weekEnd.getTime();
+          });
+          
+          const totalUtroseno = weekObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
+          
+          const day1 = String(weekStart.getDate()).padStart(2, "0");
+          const month1 = String(weekStart.getMonth() + 1).padStart(2, "0");
+          const year1 = weekStart.getFullYear();
+          const day2 = String(weekEnd.getDate()).padStart(2, "0");
+          const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
+          
+          customWeeksData.push({
+            datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
+            utroseno: totalUtroseno,
+          });
+          
+          currentDate.setDate(currentDate.getDate() + 7);
+        }
+        return customWeeksData;
+      } else {
+        // 60+ dana: prikaži po mjesecima
+        const customMonthsData: ArtiklData[] = [];
+        const startDate = new Date(customFrom);
+        startDate.setHours(0, 0, 0, 0);
+        startDate.setDate(1);
+        
+        let currentDate = new Date(startDate);
+        const endDate = new Date(customTo);
+        endDate.setHours(23, 59, 59, 999);
+        
+        while (currentDate < endDate) {
+          const monthStart = new Date(currentDate);
+          const monthEnd = new Date(monthStart);
+          monthEnd.setMonth(monthStart.getMonth() + 1);
+          monthEnd.setDate(0);
+          monthEnd.setHours(23, 59, 59, 999);
+          
+          // Pronađi sve podatke za ovaj mjesec
+          const monthObracuni = allData.filter((o) => {
+            const dTime = parseDatumToDate(o.datum).getTime();
+            return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
+          });
+          
+          const totalUtroseno = monthObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
+          
+          const month = String(monthStart.getMonth() + 1).padStart(2, "0");
+          const year = monthStart.getFullYear();
+          
+          customMonthsData.push({
+            datum: `${month}/${year}`,
+            utroseno: totalUtroseno,
+          });
+          
+          currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+        return customMonthsData;
+      }
     }
 
     // Fallback (ne bi trebalo da se desi)
@@ -2441,22 +2832,23 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 25 : 6 }}>
+                <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
                     tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
-                    angle={-45}
-                    textAnchor="end"
-                    height={isMobile ? 25 : 66}
+                    angle={0}
+                    textAnchor="middle"
+                    height={isMobile ? 30 : 40}
+                    tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
-                  <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
-                  <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
-                  <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
-                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -3925,19 +4317,20 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+                <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
                     tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
-                    angle={-45}
-                    textAnchor="end"
-                    height={isMobile ? 25 : 66}
+                    angle={0}
+                    textAnchor="middle"
+                    height={isMobile ? 30 : 40}
+                    tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
-                  <Line type="monotone" dataKey="utroseno" name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="utroseno" name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

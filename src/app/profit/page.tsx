@@ -142,11 +142,9 @@ const summaryItemStyle = (color: string): React.CSSProperties => ({
   fontSize: "14px",
   fontWeight: 600,
   color,
-});
-
-const buttonStyle: React.CSSProperties = {
-  padding: "8px 16px",
-  border: "none",
+      }
+    
+    return filteredData.map((o) => ({
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "14px",
@@ -1505,40 +1503,196 @@ export default function ProfitPage() {
       
       return sevenDaysData;
     } else if (selectedFilter === "monthly") {
+      // Mjesečni - vratiti 3 tačke: 0 na početku, zbir u sredini, 0 na kraju
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       firstDay.setHours(0, 0, 0, 0);
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter((o) => {
+      const monthObracuni = filteredData.filter((o) => {
         const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
+
+      const totalBruto = monthObracuni.reduce((sum, o) => sum + (Number(o.bruto) || 0), 0);
+      const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+
+      const month = String(firstDay.getMonth() + 1).padStart(2, "0");
+      const year = firstDay.getFullYear();
+      const firstLabel = `01.${month}.${year}`;
+      const midLabel = `${month}/${year}`;
+      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
+
+      return [
+        { datum: firstLabel, bruto: 0, neto: 0 },
+        { datum: midLabel, bruto: totalBruto, neto: totalNeto },
+        { datum: lastLabel, bruto: 0, neto: 0 },
+      ];
     } else if (selectedFilter === "quarterly") {
-      const threeMonthsAgo = new Date(today);
-      threeMonthsAgo.setMonth(today.getMonth() - 3);
-      threeMonthsAgo.setDate(1);
-      threeMonthsAgo.setHours(0, 0, 0, 0);
-      const lastDay = new Date(today);
-      lastDay.setHours(23, 59, 59, 999);
-      filteredData = filteredData.filter((o) => {
-        const dTime = parseDatumToDate(o.datum).getTime();
-        return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
-      });
+      // Tromjesečni - prikaži 3 tačke (po mjesecu) sa zbirom svakog mjeseca
+      const quarterlyData: ArtiklProfitData[] = [];
+      for (let i = 0; i < 3; i++) {
+        const monthStart = new Date(today);
+        monthStart.setMonth(today.getMonth() - 2 + i);
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+
+        const monthEnd = new Date(monthStart);
+        if (i === 2) {
+          monthEnd.setHours(23, 59, 59, 999);
+        } else {
+          monthEnd.setMonth(monthStart.getMonth() + 1);
+          monthEnd.setDate(0);
+          monthEnd.setHours(23, 59, 59, 999);
+        }
+
+        const monthObracuni = filteredData.filter((o) => {
+          const dTime = parseDatumToDate(o.datum).getTime();
+          return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
+        });
+
+        const totalBruto = monthObracuni.reduce((sum, o) => sum + (Number(o.bruto) || 0), 0);
+        const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+
+        const month = String(monthStart.getMonth() + 1).padStart(2, "0");
+        const year = monthStart.getFullYear();
+
+        quarterlyData.push({
+          datum: `${month}/${year}`,
+          bruto: totalBruto,
+          neto: totalNeto,
+        });
+      }
+
+      return quarterlyData;
     } else if (selectedFilter === "selectMonth") {
+      // Odabrani mjesec - vratiti 3 tačke: 0 na početku, zbir u sredini, 0 na kraju
       const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
       firstDay.setHours(0, 0, 0, 0);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
-      filteredData = filteredData.filter((o) => {
+      const monthObracuni = filteredData.filter((o) => {
         const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
+
+      const totalBruto = monthObracuni.reduce((sum, o) => sum + (Number(o.bruto) || 0), 0);
+      const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
+
+      const month = String(firstDay.getMonth() + 1).padStart(2, "0");
+      const year = firstDay.getFullYear();
+      const firstLabel = `01.${month}.${year}`;
+      const midLabel = `${month}/${year}`;
+      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
+
+      return [
+        { datum: firstLabel, bruto: 0, neto: 0 },
+        { datum: midLabel, bruto: totalBruto, neto: totalNeto },
+        { datum: lastLabel, bruto: 0, neto: 0 },
+      ];
     } else if (selectedFilter === "custom") {
-      const fromTime = new Date(customPeriod.from).getTime();
-      const toTime = new Date(customPeriod.to).getTime();
-      filteredData = filteredData.filter((o) => {
-        const dTime = parseDatumToDate(o.datum).getTime();
-        return dTime >= fromTime && dTime <= toTime;
-      });
+      // Dinamička rezolucija za prilagođeni raspon (dnevno/sedmično/mjesečno)
+      try {
+        const from = new Date(customPeriod.from);
+        const to = new Date(customPeriod.to);
+        from.setHours(0, 0, 0, 0);
+        to.setHours(23, 59, 59, 999);
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const numberOfDays = Math.ceil((to.getTime() - from.getTime()) / msPerDay);
+
+        if (numberOfDays <= 15) {
+          // Dnevna agregacija
+          const days: ArtiklProfitData[] = [];
+          for (let i = 0; i <= numberOfDays; i++) {
+            const d = new Date(from);
+            d.setDate(from.getDate() + i);
+            const day = String(d.getDate()).padStart(2, "0");
+            const month = String(d.getMonth() + 1).padStart(2, "0");
+            const year = d.getFullYear();
+            const label = `${day}.${month}.${year}`;
+
+            const dayStart = new Date(d);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(dayStart.getTime() + msPerDay - 1);
+
+            const dayData = filteredData.filter((o) => {
+              const t = parseDatumToDate(o.datum).getTime();
+              return t >= dayStart.getTime() && t <= dayEnd.getTime();
+            });
+
+            const totalBruto = dayData.reduce((s, o) => s + (Number(o.bruto) || 0), 0);
+            const totalNeto = dayData.reduce((s, o) => s + (Number(o.neto) || 0), 0);
+
+            days.push({ datum: label, bruto: totalBruto, neto: totalNeto });
+          }
+          return days;
+        } else if (numberOfDays <= 60) {
+          // Sedmična agregacija (ponedeljak-nedelja)
+          const weeks: ArtiklProfitData[] = [];
+          const startDate = new Date(from);
+          const dayOfWeek = startDate.getDay();
+          const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+          startDate.setDate(startDate.getDate() + diffToMonday);
+          startDate.setHours(0, 0, 0, 0);
+
+          let current = new Date(startDate);
+          while (current <= to) {
+            const weekStart = new Date(current);
+            weekStart.setHours(0, 0, 0, 0);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+            if (weekEnd > to) weekEnd.setTime(to.getTime());
+
+            const d1 = String(weekStart.getDate()).padStart(2, "0");
+            const m1 = String(weekStart.getMonth() + 1).padStart(2, "0");
+            const d2 = String(weekEnd.getDate()).padStart(2, "0");
+            const m2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
+            const label = `${d1}.${m1}-${d2}.${m2}.${weekStart.getFullYear()}`;
+
+            const weekData = filteredData.filter((o) => {
+              const t = parseDatumToDate(o.datum).getTime();
+              return t >= weekStart.getTime() && t <= weekEnd.getTime();
+            });
+
+            const totalBruto = weekData.reduce((s, o) => s + (Number(o.bruto) || 0), 0);
+            const totalNeto = weekData.reduce((s, o) => s + (Number(o.neto) || 0), 0);
+
+            weeks.push({ datum: label, bruto: totalBruto, neto: totalNeto });
+            current.setDate(current.getDate() + 7);
+          }
+          return weeks;
+        } else {
+          // Mjesečna agregacija
+          const months: ArtiklProfitData[] = [];
+          const startMonth = new Date(from.getFullYear(), from.getMonth(), 1);
+          let currentMonth = new Date(startMonth);
+          const endDate = new Date(to);
+
+          while (currentMonth <= endDate) {
+            const monthStart = new Date(currentMonth);
+            monthStart.setHours(0, 0, 0, 0);
+            const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+            monthEnd.setHours(23, 59, 59, 999);
+            if (monthEnd > endDate) monthEnd.setTime(endDate.getTime());
+
+            const monthData = filteredData.filter((o) => {
+              const t = parseDatumToDate(o.datum).getTime();
+              return t >= monthStart.getTime() && t <= monthEnd.getTime();
+            });
+
+            const totalBruto = monthData.reduce((s, o) => s + (Number(o.bruto) || 0), 0);
+            const totalNeto = monthData.reduce((s, o) => s + (Number(o.neto) || 0), 0);
+
+            const label = `${String(monthStart.getMonth() + 1).padStart(2, "0")}/${monthStart.getFullYear()}`;
+            months.push({ datum: label, bruto: totalBruto, neto: totalNeto });
+
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+          }
+          return months;
+        }
+      } catch (e) {
+        return filteredData.map((o) => ({ datum: o.datum, bruto: Number(o.bruto), neto: Number(o.neto) }));
+      }
+    }
     }
 
     return filteredData.map((o) => ({
@@ -1550,11 +1704,13 @@ export default function ProfitPage() {
 
   // ---- sortiranje podataka za glavni grafikon u uzlaznom redoslijedu ----
   const chartData = useMemo(() => {
+    // Definiši `today` lokalno za cijeli useMemo (koristi se i u sigurnosnom bloku)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     // Za trenutnu i prošlu sedmicu, koristi istu logiku kao filteredObracuni (ponedeljak do nedelje)
     if (filter === "currentWeek" || filter === "previousWeek") {
       const sevenDaysData: Array<{ datum: string; bruto: number; neto: number; rashod: number }> = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       
       const getMonday = (d: Date) => {
         const date = new Date(d);
@@ -1629,6 +1785,39 @@ export default function ProfitPage() {
       return sevenDaysData;
     }
     
+    // Ako je mjesečni ili odabrani mjesec, vratiti tri tačke (0 - zbir - 0) da linija bude vidljiva
+    if (filter === "monthly" || filter === "selectMonth") {
+      const firstDay = filter === "selectMonth" ?
+        new Date(selectedYear, selectedMonth - 1, 1) :
+        new Date(today.getFullYear(), today.getMonth(), 1);
+      firstDay.setHours(0, 0, 0, 0);
+      const lastDay = filter === "selectMonth" ?
+        new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999) :
+        new Date(today);
+      lastDay.setHours(23, 59, 59, 999);
+
+      const monthObracuni = filteredObracuni.filter((o) => {
+        const dTime = parseDatumToDate(o.datum).getTime();
+        return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
+      });
+
+      const totalBruto = monthObracuni.reduce((sum, o) => sum + (o.ukupnoBruto || 0), 0);
+      const totalNeto = monthObracuni.reduce((sum, o) => sum + (o.ukupnoNeto || 0), 0);
+      const totalRashod = monthObracuni.reduce((sum, o) => sum + (o.ukupnoRashod || 0), 0);
+
+      const month = String(firstDay.getMonth() + 1).padStart(2, "0");
+      const year = firstDay.getFullYear();
+      const firstLabel = `01.${month}.${year}`;
+      const midLabel = `${month}/${year}`;
+      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
+
+      return [
+        { datum: firstLabel, bruto: 0, neto: 0, rashod: 0 },
+        { datum: midLabel, bruto: totalBruto, neto: totalNeto, rashod: totalRashod },
+        { datum: lastLabel, bruto: 0, neto: 0, rashod: 0 },
+      ];
+    }
+
     // Za ostale filtere, koristi filteredObracuni ali sumiraj po danu ako ima više obračuna
     const groupedByDate = new Map<string, { bruto: number; neto: number; rashod: number }>();
     
@@ -1642,7 +1831,7 @@ export default function ProfitPage() {
       });
     });
     
-    return Array.from(groupedByDate.entries())
+    const result = Array.from(groupedByDate.entries())
       .map(([datum, values]) => ({
         datum,
         bruto: values.bruto,
@@ -1654,7 +1843,214 @@ export default function ProfitPage() {
         const dateB = parseDatumToDate(b.datum).getTime();
         return dateA - dateB;
       });
+
+    // Safety: if filter is monthly/selectMonth but earlier logic somehow returned daily points,
+    // aggregate them into a single mid-point with leading/trailing zeros to ensure a visible line.
+    if ((filter === "monthly" || filter === "selectMonth") && result.length > 3) {
+      const firstDay = filter === "selectMonth" ? new Date(selectedYear, selectedMonth - 1, 1) : new Date(today.getFullYear(), today.getMonth(), 1);
+      firstDay.setHours(0, 0, 0, 0);
+      const lastDay = filter === "selectMonth" ? new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999) : new Date(today);
+      lastDay.setHours(23, 59, 59, 999);
+
+      // Sum existing values (in case groupedByDate already contains daily sums)
+      const totalBruto = result.reduce((s, r) => s + (Number(r.bruto) || 0), 0);
+      const totalNeto = result.reduce((s, r) => s + (Number(r.neto) || 0), 0);
+      const totalRashod = result.reduce((s, r) => s + (Number(r.rashod) || 0), 0);
+
+      const month = String(firstDay.getMonth() + 1).padStart(2, "0");
+      const year = firstDay.getFullYear();
+      const firstLabel = `01.${month}.${year}`;
+      const midLabel = `${month}/${year}`;
+      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
+
+      return [
+        { datum: firstLabel, bruto: 0, neto: 0, rashod: 0 },
+        { datum: midLabel, bruto: totalBruto, neto: totalNeto, rashod: totalRashod },
+        { datum: lastLabel, bruto: 0, neto: 0, rashod: 0 },
+      ];
+    }
+
+    return result;
   }, [obracuniProfit, filter, selectedMonth, selectedYear]);
+
+  // Display data for chart: ensure monthly/selectMonth always shows 3 points (0 - total - 0)
+  const displayChartData = useMemo(() => {
+    if (!chartData) return [];
+
+    // Monthly / selectMonth: ensure 3 points
+    if (filter === "monthly" || filter === "selectMonth") {
+      if (chartData.length === 3) return chartData;
+
+      // Sum totals from whatever chartData contains
+      const totalBruto = chartData.reduce((s, r: any) => s + (Number(r.bruto) || 0), 0);
+      const totalNeto = chartData.reduce((s, r: any) => s + (Number(r.neto) || 0), 0);
+      const totalRashod = chartData.reduce((s, r: any) => s + (Number(r.rashod) || 0), 0);
+
+      const now = new Date();
+      const firstDay = filter === "selectMonth" ? new Date(selectedYear, selectedMonth - 1, 1) : new Date(now.getFullYear(), now.getMonth(), 1);
+      firstDay.setHours(0, 0, 0, 0);
+      const lastDay = filter === "selectMonth" ? new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999) : new Date(now);
+      lastDay.setHours(23, 59, 59, 999);
+
+      const month = String(firstDay.getMonth() + 1).padStart(2, "0");
+      const year = firstDay.getFullYear();
+      const firstLabel = `01.${month}.${year}`;
+      const midLabel = `${month}/${year}`;
+      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
+
+      return [
+        { datum: firstLabel, bruto: 0, neto: 0, rashod: 0 },
+        { datum: midLabel, bruto: totalBruto, neto: totalNeto, rashod: totalRashod },
+        { datum: lastLabel, bruto: 0, neto: 0, rashod: 0 },
+      ];
+    }
+
+    // Quarterly: build 3 months * 3 points each (start 0, mid total, end 0)
+    if (filter === "quarterly") {
+      const now = new Date();
+      const monthsData: Array<{ datum: string; bruto: number; neto: number; rashod: number }> = [];
+
+      for (let i = 0; i < 3; i++) {
+        const monthStart = new Date(now.getFullYear(), now.getMonth() - 2 + i, 1);
+        monthStart.setHours(0, 0, 0, 0);
+        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+        // For the last month, cap at today
+        if (i === 2) {
+          monthEnd.setTime(now.getTime());
+        }
+        monthEnd.setHours(23, 59, 59, 999);
+
+        const monthObracuni = obracuniProfit.filter((o) => {
+          const dTime = parseDatumToDate(o.datum).getTime();
+          return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
+        });
+
+        const totalBruto = monthObracuni.reduce((s, o) => s + (o.ukupnoBruto || 0), 0);
+        const totalNeto = monthObracuni.reduce((s, o) => s + (o.ukupnoNeto || 0), 0);
+        const totalRashod = monthObracuni.reduce((s, o) => s + (o.ukupnoRashod || 0), 0);
+
+        const month = String(monthStart.getMonth() + 1).padStart(2, "0");
+        const year = monthStart.getFullYear();
+        const midLabel = `${month}/${year}`;
+
+        // Push a single point per month (mid label) with the monthly total
+        monthsData.push({ datum: midLabel, bruto: totalBruto, neto: totalNeto, rashod: totalRashod });
+      }
+
+      return monthsData;
+    }
+
+    // Custom: dynamic resolution (0-15 days daily, 16-60 weekly, 60+ monthly)
+    if (filter === "custom") {
+      try {
+        const from = new Date(customPeriod.from);
+        const to = new Date(customPeriod.to);
+        from.setHours(0, 0, 0, 0);
+        to.setHours(23, 59, 59, 999);
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const numberOfDays = Math.ceil((to.getTime() - from.getTime()) / msPerDay);
+
+        if (numberOfDays <= 15) {
+          // Daily points
+          const days: Array<any> = [];
+          for (let i = 0; i <= numberOfDays; i++) {
+            const d = new Date(from);
+            d.setDate(from.getDate() + i);
+            const dayStr = String(d.getDate()).padStart(2, "0");
+            const monthStr = String(d.getMonth() + 1).padStart(2, "0");
+            const yearStr = d.getFullYear();
+            const label = `${dayStr}.${monthStr}.${yearStr}`;
+
+            const dayStart = new Date(d);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(dayStart.getTime() + msPerDay - 1);
+
+            const dayObracuni = obracuniProfit.filter((o) => {
+              const t = parseDatumToDate(o.datum).getTime();
+              return t >= dayStart.getTime() && t <= dayEnd.getTime();
+            });
+
+            const totalBruto = dayObracuni.reduce((s, o) => s + (o.ukupnoBruto || 0), 0);
+            const totalNeto = dayObracuni.reduce((s, o) => s + (o.ukupnoNeto || 0), 0);
+            const totalRashod = dayObracuni.reduce((s, o) => s + (o.ukupnoRashod || 0), 0);
+
+            days.push({ datum: label, bruto: totalBruto, neto: totalNeto, rashod: totalRashod });
+          }
+          return days;
+        } else if (numberOfDays <= 60) {
+          // Weekly aggregation (weeks starting Monday)
+          const weeks: Array<any> = [];
+          const startDate = new Date(from);
+          const dayOfWeek = startDate.getDay();
+          const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+          startDate.setDate(startDate.getDate() + diffToMonday);
+          startDate.setHours(0, 0, 0, 0);
+
+          let current = new Date(startDate);
+          while (current <= to) {
+            const weekStart = new Date(current);
+            weekStart.setHours(0, 0, 0, 0);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+            if (weekEnd > to) weekEnd.setTime(to.getTime());
+
+            const w1 = String(weekStart.getDate()).padStart(2, "0");
+            const m1 = String(weekStart.getMonth() + 1).padStart(2, "0");
+            const d2 = String(weekEnd.getDate()).padStart(2, "0");
+            const m2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
+            const label = `${w1}.${m1}-${d2}.${m2}.${weekStart.getFullYear()}`;
+
+            const weekObracuni = obracuniProfit.filter((o) => {
+              const t = parseDatumToDate(o.datum).getTime();
+              return t >= weekStart.getTime() && t <= weekEnd.getTime();
+            });
+
+            const totalBruto = weekObracuni.reduce((s, o) => s + (o.ukupnoBruto || 0), 0);
+            const totalNeto = weekObracuni.reduce((s, o) => s + (o.ukupnoNeto || 0), 0);
+            const totalRashod = weekObracuni.reduce((s, o) => s + (o.ukupnoRashod || 0), 0);
+
+            weeks.push({ datum: label, bruto: totalBruto, neto: totalNeto, rashod: totalRashod });
+            current.setDate(current.getDate() + 7);
+          }
+          return weeks;
+        } else {
+          // Monthly aggregation
+          const months: Array<any> = [];
+          const startMonth = new Date(from.getFullYear(), from.getMonth(), 1);
+          let currentMonth = new Date(startMonth);
+          const endDate = new Date(to);
+
+          while (currentMonth <= endDate) {
+            const monthStart = new Date(currentMonth);
+            monthStart.setHours(0, 0, 0, 0);
+            const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+            monthEnd.setHours(23, 59, 59, 999);
+            if (monthEnd > endDate) monthEnd.setTime(endDate.getTime());
+
+            const monthObracuni = obracuniProfit.filter((o) => {
+              const t = parseDatumToDate(o.datum).getTime();
+              return t >= monthStart.getTime() && t <= monthEnd.getTime();
+            });
+
+            const totalBruto = monthObracuni.reduce((s, o) => s + (o.ukupnoBruto || 0), 0);
+            const totalNeto = monthObracuni.reduce((s, o) => s + (o.ukupnoNeto || 0), 0);
+            const totalRashod = monthObracuni.reduce((s, o) => s + (o.ukupnoRashod || 0), 0);
+
+            const label = `${String(monthStart.getMonth() + 1).padStart(2, "0")}/${monthStart.getFullYear()}`;
+            months.push({ datum: label, bruto: totalBruto, neto: totalNeto, rashod: totalRashod });
+
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+          }
+          return months;
+        }
+      } catch (e) {
+        return chartData;
+      }
+    }
+
+    return chartData;
+  }, [chartData, filter, selectedMonth, selectedYear, obracuniProfit]);
 
   // ---- podaci za grafikon profita odabranog artikla ----
   // Ako nema odabranog artikla i artiklFilter je "currentWeek", generiši prazan chart sa datumima za trenutnu sedmicu
@@ -2016,21 +2412,22 @@ export default function ProfitPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+                <LineChart data={displayChartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
-                    tick={{ fill: "#6b7280", fontSize: 11 }} 
-                    angle={-45}
-                    textAnchor="end"
-                    height={isMobile ? 25 : 66}
+                    tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
+                    angle={0}
+                    textAnchor="middle"
+                    height={isMobile ? 30 : 40}
+                    tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-                  <Line type="monotone" dataKey="bruto" name="Bruto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
-                  <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
-                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="bruto" name="Bruto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                 </LineChart>
               </ResponsiveContainer>
             );
@@ -2218,20 +2615,21 @@ export default function ProfitPage() {
       >
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-            <LineChart data={selectedArtiklData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
+            <LineChart data={selectedArtiklData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="datum" 
-                tick={{ fill: "#6b7280", fontSize: 11 }} 
-                angle={-45}
-                textAnchor="end"
-                height={isMobile ? 25 : 66}
+                tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
+                angle={0}
+                textAnchor="middle"
+                height={isMobile ? 30 : 40}
+                tickMargin={isMobile ? 6 : 8}
               />
               <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-              <Line type="monotone" dataKey="bruto" name="Bruto artikal" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
-              <Line type="monotone" dataKey="neto" name="Neto artikal" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} />
+              <Line type="monotone" dataKey="bruto" name="Bruto artikal" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+              <Line type="monotone" dataKey="neto" name="Neto artikal" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
             </LineChart>
           </ResponsiveContainer>
         </div>

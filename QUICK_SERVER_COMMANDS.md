@@ -60,7 +60,7 @@ cd ~/bar-app && git pull origin main && npm run build && pm2 restart office-app 
 # Lokalno (iz root direktorija projekta):
 npm run migrate:display-order
 
-# Ili direktno:
+# Ili direktno: 
 node scripts/add-display-order-column.js
 
 # Na serveru (nakon što se push-uje kod):
