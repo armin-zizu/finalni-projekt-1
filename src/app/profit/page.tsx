@@ -1670,20 +1670,20 @@ export default function ProfitPage() {
             const year1 = weekStart.getFullYear();
             const day2 = String(weekEnd.getDate()).padStart(2, "0");
             const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
-            const year2 = weekEnd.getFullYear();
-            
-            // Format: ako je isti mjesec i godina: "15-21.12.2025", ako su iste godine: "29.12-04.01.2025", drugačije: "29.12.2025-04.01.2026"
-            let label: string;
-            if (month1 === month2 && year1 === year2) {
-              label = `${day1}-${day2}.${month1}.${year1}`;
-            } else if (year1 === year2) {
-              label = `${day1}.${month1}-${day2}.${month2}.${year1}`;
-            } else {
-              label = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
-            }
+             const year2 = weekEnd.getFullYear();
+           
+             // Pametna formatacija: ako je isti mjesec i godina: "15-21.12.2025", ako su iste godine: "29.12-04.01.2025", drugačije: "29.12.2025-04.01.2026"
+             let datumStr: string;
+             if (month1 === month2 && year1 === year2) {
+               datumStr = `${day1}-${day2}.${month1}.${year1}`;
+             } else if (year1 === year2) {
+               datumStr = `${day1}.${month1}-${day2}.${month2}.${year1}`;
+             } else {
+               datumStr = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
+             }
             
             customWeeksData.push({
-              datum: label,
+               datum: datumStr,
               bruto: totalBruto,
               neto: totalNeto,
             });
@@ -2071,20 +2071,20 @@ export default function ProfitPage() {
             const year1 = weekStart.getFullYear();
             const day2 = String(weekEnd.getDate()).padStart(2, "0");
             const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
-            const year2 = weekEnd.getFullYear();
-            
-            // Format: ako je isti mjesec i godina: "15-21.12.2025", ako su iste godine: "29.12-04.01.2025", drugačije: "29.12.2025-04.01.2026"
-            let label: string;
-            if (month1 === month2 && year1 === year2) {
-              label = `${day1}-${day2}.${month1}.${year1}`;
-            } else if (year1 === year2) {
-              label = `${day1}.${month1}-${day2}.${month2}.${year1}`;
-            } else {
-              label = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
-            }
+             const year2 = weekEnd.getFullYear();
+         
+             // Pametna formatacija: ako je isti mjesec i godina: "15-21.12.2025", ako su iste godine: "29.12-04.01.2025", drugačije: "29.12.2025-04.01.2026"
+             let datumStr: string;
+             if (month1 === month2 && year1 === year2) {
+               datumStr = `${day1}-${day2}.${month1}.${year1}`;
+             } else if (year1 === year2) {
+               datumStr = `${day1}.${month1}-${day2}.${month2}.${year1}`;
+             } else {
+               datumStr = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
+             }
             
             customWeeksData.push({
-              datum: label,
+               datum: datumStr,
               bruto: totalBruto,
               neto: totalNeto,
               rashod: totalRashod,
