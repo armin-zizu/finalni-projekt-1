@@ -2766,19 +2766,49 @@ export default function DashboardPage() {
             </div>
           )}
           {range === "custom" && (
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10, opacity: 1, visibility: "visible" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", width: "100%", flexWrap: "nowrap", opacity: 1, visibility: "visible" }}>
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
+                style={{ 
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  padding: "8px 12px", 
+                  border: "1px solid #d1d5db", 
+                  borderRadius: "8px", 
+                  fontSize: "13px", 
+                  outline: "none",
+                  backgroundColor: "#fff",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  transition: "all 0.2s ease",
+                  fontWeight: 500,
+                  color: "#1f2937",
+                  boxSizing: "border-box"
+                }}
               />
-              <span style={{ color: "#6b7280" }}>do</span>
+              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
               <input
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
+                style={{ 
+                  flex: "1 1 auto",
+                  minWidth: 0,
+                  padding: "8px 12px", 
+                  border: "1px solid #d1d5db", 
+                  borderRadius: "8px", 
+                  fontSize: "13px", 
+                  outline: "none",
+                  backgroundColor: "#fff",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  transition: "all 0.2s ease",
+                  fontWeight: 500,
+                  color: "#1f2937",
+                  boxSizing: "border-box"
+                }}
               />
             </div>
           )}
@@ -3622,31 +3652,31 @@ export default function DashboardPage() {
             {artiklRange === "custom" && (
               <div style={{ 
                 display: "flex", 
-                gap: 4, 
+                gap: 8, 
                 alignItems: "center", 
+                justifyContent: "center",
                 width: "100%", 
-                flexWrap: "wrap" 
+                flexWrap: "nowrap" 
               }}>
                 <input
                   type="date"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
                   style={{ 
-                    padding: "6px 8px", 
-                    border: "1px solid #e5e7eb", 
-                    borderRadius: "6px", 
-                    fontSize: 13, 
-                    outline: "none",
                     flex: "1 1 auto",
                     minWidth: 0,
-                    maxWidth: "100%",
+                    padding: "8px 12px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: 14, 
+                    outline: "none",
                     boxSizing: "border-box"
                   }}
                 />
                 <span style={{ 
                   whiteSpace: "nowrap", 
                   color: "#6b7280",
-                  fontSize: 13
+                  fontSize: 14
                 }}>
                   do
                 </span>
@@ -3655,14 +3685,13 @@ export default function DashboardPage() {
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
                   style={{ 
-                    padding: "6px 8px", 
-                    border: "1px solid #e5e7eb", 
-                    borderRadius: "6px", 
-                    fontSize: 13, 
-                    outline: "none",
                     flex: "1 1 auto",
                     minWidth: 0,
-                    maxWidth: "100%",
+                    padding: "8px 12px", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: "6px", 
+                    fontSize: 14, 
+                    outline: "none",
                     boxSizing: "border-box"
                   }}
                 />
