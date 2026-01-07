@@ -3670,7 +3670,10 @@ export default function DashboardPage() {
                     borderRadius: "6px", 
                     fontSize: 14, 
                     outline: "none",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    backgroundColor: "#fff",
+                    color: "#1f2937",
+                    fontWeight: 500
                   }}
                 />
                 <span style={{ 
@@ -3692,7 +3695,10 @@ export default function DashboardPage() {
                     borderRadius: "6px", 
                     fontSize: 14, 
                     outline: "none",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    backgroundColor: "#fff",
+                    color: "#1f2937",
+                    fontWeight: 500
                   }}
                 />
               </div>

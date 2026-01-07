@@ -649,7 +649,9 @@ const FilterSection: React.FC<{
                   outline: "none",
                   backgroundColor: "#fff",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  boxSizing: "border-box"
+                  boxSizing: "border-box",
+                  color: "#1f2937",
+                  fontWeight: 500
                 }} 
               />
               <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
@@ -667,7 +669,9 @@ const FilterSection: React.FC<{
                   outline: "none",
                   backgroundColor: "#fff",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  boxSizing: "border-box"
+                  boxSizing: "border-box",
+                  color: "#1f2937",
+                  fontWeight: 500
                 }} 
               />
             </div>
