@@ -199,6 +199,15 @@ const FilterSection: React.FC<{
 
   const currentLabel = filterOptions.find(f => f.value === filter)?.label || "Trenutna sedmica";
 
+  // Osnovni button style
+  const buttonStyle: React.CSSProperties = {
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    fontWeight: 500,
+  };
+
   return (
     <div style={{ 
       marginBottom: hasLabel ? (isMobile ? "16px" : "20px") : 0, 
@@ -1835,30 +1844,42 @@ export default function ProfitPage() {
         return dateA - dateB;
       });
 
-    // Safety: if filter is monthly/selectMonth but earlier logic somehow returned daily points,
-    // aggregate them into a single mid-point with leading/trailing zeros to ensure a visible line.
-    if ((filter === "monthly" || filter === "selectMonth") && result.length > 3) {
-      const firstDay = filter === "selectMonth" ? new Date(selectedYear, selectedMonth - 1, 1) : new Date(today.getFullYear(), today.getMonth(), 1);
-      firstDay.setHours(0, 0, 0, 0);
-      const lastDay = filter === "selectMonth" ? new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999) : new Date(today);
-      lastDay.setHours(23, 59, 59, 999);
-
-      // Sum existing values (in case groupedByDate already contains daily sums)
-      const totalBruto = result.reduce((s, r) => s + (Number(r.bruto) || 0), 0);
-      const totalNeto = result.reduce((s, r) => s + (Number(r.neto) || 0), 0);
-      const totalRashod = result.reduce((s, r) => s + (Number(r.rashod) || 0), 0);
-
-      const month = String(firstDay.getMonth() + 1).padStart(2, "0");
-      const year = firstDay.getFullYear();
-      const firstLabel = `01.${month}.${year}`;
-      const midLabel = `${month}/${year}`;
-      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
-
-      return [
-        { datum: firstLabel, bruto: 0, neto: 0, rashod: 0 },
-        { datum: midLabel, bruto: totalBruto, neto: totalNeto, rashod: totalRashod },
-        { datum: lastLabel, bruto: 0, neto: 0, rashod: 0 },
-      ];
+    // Safety: if filter is quarterly/custom but earlier logic somehow returned daily points,
+    // aggregate them into weeks if too many data points exist.
+    if ((filter === "quarterly" || filter === "custom") && result.length > 12) {
+      // Aggregate into weeks for better visualization
+      const weeks = new Map<string, { bruto: number; neto: number; rashod: number }>();
+      
+      result.forEach((r) => {
+        const date = parseDatumToDate(r.datum);
+        const monday = new Date(date);
+        const day = monday.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        monday.setDate(monday.getDate() + diff);
+        
+        const weekLabel = `${String(monday.getDate()).padStart(2, "0")}.${String(monday.getMonth() + 1).padStart(2, "0")}`;
+        
+        const existing = weeks.get(weekLabel) || { bruto: 0, neto: 0, rashod: 0 };
+        weeks.set(weekLabel, {
+          bruto: existing.bruto + (Number(r.bruto) || 0),
+          neto: existing.neto + (Number(r.neto) || 0),
+          rashod: existing.rashod + (Number(r.rashod) || 0),
+        });
+      });
+      
+      return Array.from(weeks.entries())
+        .map(([datum, values]) => ({
+          datum,
+          bruto: values.bruto,
+          neto: values.neto,
+          rashod: values.rashod,
+        }))
+        .sort((a, b) => {
+          const [dayA, monthA] = a.datum.split('.').map(Number);
+          const [dayB, monthB] = b.datum.split('.').map(Number);
+          if (monthA !== monthB) return monthA - monthB;
+          return dayA - dayB;
+        });
     }
 
     return result;
