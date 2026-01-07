@@ -1654,7 +1654,7 @@ export default function ProfitPage() {
             const y1 = weekStart.getFullYear();
             const y2 = weekEnd.getFullYear();
             
-            // Format: ako je isti mjesec i godina: "15-21.12.2025", ako nisu: "29.12.2025-04.01.2026"
+            // Format: ako je isti mjesec i godina: "15-21.12.2025", ako nisu: "29.12-04.01.2025"
             let label: string;
             if (m1 === m2 && y1 === y2) {
               label = `${d1}-${d2}.${m1}.${y1}`;
@@ -2018,7 +2018,7 @@ export default function ProfitPage() {
             const y1 = weekStart.getFullYear();
             const y2 = weekEnd.getFullYear();
             
-            // Format: ako je isti mjesec i godina: "15-21.12.2025", ako nisu: "29.12.2025-04.01.2026"
+            // Format: ako je isti mjesec i godina: "15-21.12.2025", ako nisu: "29.12-04.01.2025"
             let label: string;
             if (m1 === m2 && y1 === y2) {
               label = `${d1}-${d2}.${m1}.${y1}`;
