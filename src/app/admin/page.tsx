@@ -1098,9 +1098,10 @@ export default function AdminPage() {
                     marginTop: "12px",
                     display: "flex", 
                     gap: 8, 
-                    alignItems: "flex-end", 
+                    alignItems: "center", 
+                    justifyContent: "center",
                     width: "100%", 
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
                     opacity: 1,
                     visibility: "visible"
                   }}>
@@ -1176,33 +1177,31 @@ export default function AdminPage() {
             {revenueFilter === "custom" && (
               <div style={{ 
                 display: "flex", 
-                gap: isMobile ? 4 : 12, 
+                gap: 8, 
                 alignItems: "center", 
+                justifyContent: "center",
                 width: "100%", 
-                flexWrap: "wrap",
-                marginTop: isMobile ? 8 : 0,
-                marginLeft: isMobile ? 0 : 0
+                flexWrap: "nowrap"
               }}>
                 <input
                   type="date"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
                   style={{ 
-                    padding: isMobile ? "6px 8px" : "8px 12px", 
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    padding: "8px 12px", 
                     border: "1px solid #e5e7eb", 
                     borderRadius: "6px", 
-                    fontSize: isMobile ? 13 : 14, 
+                    fontSize: 14, 
                     outline: "none",
-                    flex: isMobile ? "1 1 auto" : "none",
-                    minWidth: isMobile ? 0 : "150px",
-                    maxWidth: "100%",
                     boxSizing: "border-box"
                   }}
                 />
                 <span style={{ 
                   whiteSpace: "nowrap", 
                   color: "#6b7280",
-                  fontSize: isMobile ? 13 : 14
+                  fontSize: 14
                 }}>
                   do
                 </span>
@@ -1211,14 +1210,13 @@ export default function AdminPage() {
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
                   style={{ 
-                    padding: isMobile ? "6px 8px" : "8px 12px", 
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    padding: "8px 12px", 
                     border: "1px solid #e5e7eb", 
                     borderRadius: "6px", 
-                    fontSize: isMobile ? 13 : 14, 
+                    fontSize: 14, 
                     outline: "none",
-                    flex: isMobile ? "1 1 auto" : "none",
-                    minWidth: isMobile ? 0 : "150px",
-                    maxWidth: "100%",
                     boxSizing: "border-box"
                   }}
                 />

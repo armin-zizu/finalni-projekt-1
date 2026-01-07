@@ -628,9 +628,10 @@ const FilterSection: React.FC<{
               marginTop: "12px",
               display: "flex", 
               gap: 8, 
-              alignItems: "flex-end", 
+              alignItems: "center", 
+              justifyContent: "center",
               width: "100%", 
-              flexWrap: "wrap",
+              flexWrap: "nowrap",
               opacity: 1,
               visibility: "visible"
             }}>
@@ -901,7 +902,7 @@ const FilterSection: React.FC<{
             </div>
           )}
           {filter === "custom" && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", width: "100%", flexWrap: "nowrap" }}>
               <input 
                 type="date" 
                 value={customPeriod.from} 
