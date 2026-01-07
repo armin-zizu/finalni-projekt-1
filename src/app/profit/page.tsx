@@ -628,10 +628,9 @@ const FilterSection: React.FC<{
             <div style={{ 
               marginTop: "12px",
               display: "flex", 
-              gap: 8, 
-              alignItems: "flex-end", 
-              width: "100%", 
-              flexWrap: "wrap",
+              gap: 12, 
+              alignItems: "center", 
+              width: "100%",
               opacity: 1,
               visibility: "visible"
             }}>
@@ -648,11 +647,15 @@ const FilterSection: React.FC<{
                   fontSize: "13px", 
                   outline: "none",
                   backgroundColor: "#fff",
+                  cursor: "pointer",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  transition: "all 0.2s ease",
+                  fontWeight: 500,
+                  color: "#1f2937",
                   boxSizing: "border-box"
                 }} 
               />
-              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
+              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280", fontWeight: 500 }}>do</span>
               <input 
                 type="date" 
                 value={customPeriod.to} 
@@ -666,7 +669,11 @@ const FilterSection: React.FC<{
                   fontSize: "13px", 
                   outline: "none",
                   backgroundColor: "#fff",
+                  cursor: "pointer",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  transition: "all 0.2s ease",
+                  fontWeight: 500,
+                  color: "#1f2937",
                   boxSizing: "border-box"
                 }} 
               />
@@ -902,26 +909,42 @@ const FilterSection: React.FC<{
             </div>
           )}
           {filter === "custom" && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <input 
                 type="date" 
                 value={customPeriod.from} 
                 onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
                 style={{ 
-                  ...formInputStyle, 
-                  padding: "8px",
-                  fontSize: 14,
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
+                  backgroundColor: "#fff",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  transition: "all 0.2s ease",
+                  fontWeight: 500,
+                  color: "#1f2937"
                 }} 
               />
-              <span style={{ whiteSpace: "nowrap", fontSize: 14 }}>do</span>
+              <span style={{ color: "#6b7280", fontSize: "14px", fontWeight: 500 }}>do</span>
               <input 
                 type="date" 
                 value={customPeriod.to} 
                 onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
                 style={{ 
-                  ...formInputStyle, 
-                  padding: "8px",
-                  fontSize: 14,
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
+                  backgroundColor: "#fff",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  transition: "all 0.2s ease",
+                  fontWeight: 500,
+                  color: "#1f2937"
                 }} 
               />
             </div>
