@@ -142,15 +142,7 @@ const summaryItemStyle = (color: string): React.CSSProperties => ({
   fontSize: "14px",
   fontWeight: 600,
   color,
-      }
-    
-    return filteredData.map((o) => ({
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: 500,
-  transition: "all 0.2s ease-in-out",
-};
+});
 
 const formInputStyle: React.CSSProperties = {
   padding: "8px",
