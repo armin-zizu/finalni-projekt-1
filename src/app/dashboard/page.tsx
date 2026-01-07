@@ -2457,7 +2457,7 @@ export default function DashboardPage() {
                 alignItems: "center", 
                 justifyContent: "center",
                 width: "100%", 
-                flexWrap: "wrap",
+                flexWrap: "nowrap",
                 opacity: 1,
                 visibility: "visible"
               }}>
