@@ -2455,8 +2455,9 @@ export default function DashboardPage() {
                 display: "flex",  
                 gap: 0, 
                 alignItems: "center", 
+                justifyContent: "center",
                 width: "100%", 
-                flexWrap: isMobile ? "wrap" : "nowrap",
+                flexWrap: "nowrap",
                 opacity: 1,
                 visibility: "visible"
               }}>
@@ -2466,9 +2467,9 @@ export default function DashboardPage() {
                   flexDirection: "column", 
                   gap: "4px", 
                   position: "relative", 
-                  flex: isMobile ? "1 1 calc(50% - 20px)" : "1 1 0", 
-                  minWidth: isMobile ? 0 : 0, 
-                  paddingRight: isMobile ? "4px" : "8px"
+                  flex: "1 1 0",
+                  minWidth: 0,
+                  paddingRight: isMobile ? "2px" : "8px"
                 }} data-dropdown-container>
                   <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280", height: "16px" }}></label>
                   <input
@@ -2499,14 +2500,13 @@ export default function DashboardPage() {
                   color: "#6b7280", 
                   padding: isMobile ? "0 2px" : "0 4px", 
                   whiteSpace: "nowrap", 
-                  flexShrink: 0,
+                  flex: "0 0 auto",
                   textAlign: "center",
                   height: "40px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  margin: "0 auto",
-                  minWidth: "20px"
+                  minWidth: isMobile ? "16px" : "20px"
                 }}>do</div>
                 {/* Custom Date Input za Do */}
                 <div style={{ 
@@ -2514,9 +2514,9 @@ export default function DashboardPage() {
                   flexDirection: "column", 
                   gap: "4px", 
                   position: "relative", 
-                  flex: isMobile ? "1 1 calc(50% - 20px)" : "1 1 0", 
-                  minWidth: isMobile ? 0 : 0, 
-                  paddingLeft: isMobile ? "4px" : "8px"
+                  flex: "1 1 0",
+                  minWidth: 0,
+                  paddingLeft: isMobile ? "2px" : "8px"
                 }} data-dropdown-container>
                   <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280", height: "16px" }}></label>
                   <input
