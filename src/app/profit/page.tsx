@@ -1656,10 +1656,12 @@ export default function ProfitPage() {
             weekEnd.setDate(weekStart.getDate() + 6);
             weekEnd.setHours(23, 59, 59, 999);
             
-            // Pronađi sve podatke za ovu sedmicu
+            // Pronađi sve podatke za ovu sedmicu, ali ograniči na izabrani raspon
+            const bucketStart = Math.max(weekStart.getTime(), from.getTime());
+            const bucketEnd = Math.min(weekEnd.getTime(), to.getTime());
             const weekData = filteredData.filter((o) => {
               const dTime = parseDatumToDate(o.datum).getTime();
-              return dTime >= weekStart.getTime() && dTime <= weekEnd.getTime();
+              return dTime >= bucketStart && dTime <= bucketEnd;
             });
             
             const totalBruto = weekData.reduce((sum, o) => sum + (Number(o.bruto) || 0), 0);
