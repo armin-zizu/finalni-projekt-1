@@ -2450,16 +2450,7 @@ export default function DashboardPage() {
             )}
             
             {range === "custom" && (
-              <div style={{ 
-                display: "flex", 
-                gap: 10, 
-                alignItems: "center", 
-                justifyContent: "flex-start",
-                flexWrap: "nowrap",
-                opacity: 1,
-                visibility: "visible",
-                marginLeft: 10
-              }}>
+              <>
                 <input
                   type="date"
                   value={customFrom}
@@ -2477,7 +2468,8 @@ export default function DashboardPage() {
                     transition: "border-color 0.2s ease",
                     fontWeight: 500,
                     color: "#1f2937",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    marginLeft: 10
                   }}
                 />
                 <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
@@ -2501,7 +2493,7 @@ export default function DashboardPage() {
                     boxSizing: "border-box"
                   }}
                 />
-              </div>
+              </>
             )}
         </div>
       ) : (
@@ -2763,7 +2755,16 @@ export default function DashboardPage() {
             </div>
           )}
           {range === "custom" && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", width: "100%", flexWrap: "nowrap", opacity: 1, visibility: "visible" }}>
+            <div style={{ 
+              marginTop: 12,
+              display: "flex", 
+              gap: 12, 
+              alignItems: "flex-end", 
+              justifyContent: "flex-start",
+              flexWrap: "wrap",
+              opacity: 1,
+              visibility: "visible"
+            }}>
               <input
                 type="date"
                 value={customFrom}
@@ -2777,12 +2778,10 @@ export default function DashboardPage() {
                   fontSize: "13px", 
                   outline: "none",
                   backgroundColor: "#fff",
-                  cursor: "pointer",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease",
-                  fontWeight: 500,
+                  boxSizing: "border-box",
                   color: "#1f2937",
-                  boxSizing: "border-box"
+                  fontWeight: 500
                 }}
               />
               <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
@@ -2799,12 +2798,10 @@ export default function DashboardPage() {
                   fontSize: "13px", 
                   outline: "none",
                   backgroundColor: "#fff",
-                  cursor: "pointer",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease",
-                  fontWeight: 500,
+                  boxSizing: "border-box",
                   color: "#1f2937",
-                  boxSizing: "border-box"
+                  fontWeight: 500
                 }}
               />
             </div>
