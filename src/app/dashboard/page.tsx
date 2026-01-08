@@ -2450,37 +2450,24 @@ export default function DashboardPage() {
             )}
             
             {range === "custom" && (
-              <>
+              <div style={{
+                marginTop: 12,
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+                flexWrap: "nowrap"
+              }}>
                 <input
                   type="date"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
                   style={{ 
-                    flex: "0 0 auto",
-                    minWidth: "140px",
-                    padding: "8px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "6px", 
-                    fontSize: "14px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    transition: "border-color 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
-                    boxSizing: "border-box",
-                    marginLeft: 10
-                  }}
-                />
-                <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
-                <input
-                  type="date"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  style={{ 
-                    flex: "0 0 auto",
-                    minWidth: "140px",
-                    padding: "8px 12px", 
+                    flex: "1 1 0",
+                    minWidth: "0",
+                    maxWidth: "160px",
+                    padding: "8px 10px", 
                     border: "1px solid #d1d5db", 
                     borderRadius: "6px", 
                     fontSize: "14px", 
@@ -2493,7 +2480,29 @@ export default function DashboardPage() {
                     boxSizing: "border-box"
                   }}
                 />
-              </>
+                <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={{ 
+                    flex: "1 1 0",
+                    minWidth: "0",
+                    maxWidth: "160px",
+                    padding: "8px 10px", 
+                    border: "1px solid #d1d5db", 
+                    borderRadius: "6px", 
+                    fontSize: "14px", 
+                    outline: "none",
+                    backgroundColor: "#fff",
+                    cursor: "pointer",
+                    transition: "border-color 0.2s ease",
+                    fontWeight: 500,
+                    color: "#1f2937",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </div>
             )}
         </div>
       ) : (
@@ -2758,21 +2767,22 @@ export default function DashboardPage() {
             <div style={{ 
               marginTop: "12px",
               display: "flex", 
-              gap: 8, 
+              gap: 6, 
               alignItems: "center", 
               justifyContent: "center",
               width: "100%", 
               flexWrap: "nowrap",
               opacity: 1,
-              visibility: "visible"
+              visibility: "visible",
+              overflowX: "auto"
             }}>
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
                 style={{ 
-                  flex: "1 1 auto",
-                  minWidth: 0,
+                  flex: "0 0 auto",
+                  minWidth: "120px",
                   padding: "8px 12px", 
                   border: "1px solid #d1d5db", 
                   borderRadius: "8px", 
@@ -2793,8 +2803,8 @@ export default function DashboardPage() {
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
                 style={{ 
-                  flex: "1 1 auto",
-                  minWidth: 0,
+                  flex: "0 0 auto",
+                  minWidth: "120px",
                   padding: "8px 12px", 
                   border: "1px solid #d1d5db", 
                   borderRadius: "8px", 
