@@ -876,6 +876,24 @@ export default function ArhivaPage() {
     }
   };
 
+  // Funkcija za klik na dug - scroll-uje do obračuna u pozadini
+  const handleDugClick = (obracunDatum: string) => {
+    // Scroll na obračun
+    setTimeout(() => {
+      const obracunRef = obracunRefs.current[obracunDatum];
+      if (obracunRef && obracunRef.current) {
+        obracunRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Highlight obračun
+        obracunRef.current.style.boxShadow = "0 0 0 3px #3b82f6";
+        setTimeout(() => {
+          if (obracunRef.current) {
+            obracunRef.current.style.boxShadow = "";
+          }
+        }, 2000);
+      }
+    }, 0);
+  };
+
   // Funkcija za klik na datum u listi faktura (prikazuje slike)
   const handleFakturaDatumClick = (datum: string, images: string[]) => {
     setSelectedFakturaDatum(datum);
@@ -2074,7 +2092,26 @@ export default function ArhivaPage() {
                       </tr>
                     ) : (
                       filteredDugovi.map((dug, index) => (
-                        <tr key={index}>
+                        <tr 
+                          key={index}
+                          onClick={() => handleDugClick(dug.obracunDatum)}
+                          style={{
+                            cursor: "pointer",
+                            backgroundColor: "#f9fafb",
+                            transition: "all 0.2s ease",
+                            borderLeft: "4px solid transparent",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#f3f4f6";
+                            e.currentTarget.style.borderLeftColor = "#3b82f6";
+                            e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#f9fafb";
+                            e.currentTarget.style.borderLeftColor = "transparent";
+                            e.currentTarget.style.boxShadow = "none";
+                          }}
+                        >
                           <td 
                             className={isMobile ? `sticky-first-column-row sticky-first-column-${index % 2 === 0 ? 'even' : 'odd'}` : ""}
                             style={isMobile ? {
@@ -2131,7 +2168,8 @@ export default function ArhivaPage() {
                                 padding: "6px 12px",
                                 fontSize: "12px",
                               }}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 markDugAsPlacen(dug.obracunDatum, dug.rashodIndex);
                               }}
                             >
