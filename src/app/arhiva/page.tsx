@@ -2518,68 +2518,34 @@ export default function ArhivaPage() {
                 Rashodi
               </h3>
               {(() => {
-                // Izračunaj širinu prve kolone na osnovu najdužeg naziva rashoda
                 const rashodi = item.rashodi && Array.isArray(item.rashodi) ? item.rashodi : [];
                 const maxLength = rashodi.length > 0 
                   ? Math.max(...rashodi.map(rashod => (rashod.naziv || '').length))
                   : 0;
-                // Aproksimacija: svaki karakter je ~6px, plus minimalni padding 12px
                 const estimatedWidth = maxLength > 0 ? Math.max(70, Math.min(250, maxLength * 6 + 12)) : 90;
                 const firstColumnWidth = `${estimatedWidth}px`;
-                
-                return (
-                <div className="table-scroll-wrapper">
-                  <table style={tableStyle}>
-                    <thead>
-                      <tr>
-                        <th 
-                          className={isMobile ? "sticky-first-column-header" : ""}
-                          style={isMobile ? {
-                            width: firstColumnWidth,
-                            minWidth: firstColumnWidth,
-                            maxWidth: firstColumnWidth,
-                            paddingTop: thStyle.paddingTop,
-                            paddingBottom: thStyle.paddingBottom,
-                            paddingLeft: '4px',
-                            paddingRight: '4px',
-                            textAlign: thStyle.textAlign,
-                            background: thStyle.background,
-                            color: thStyle.color,
-                            fontSize: thStyle.fontSize,
-                            fontWeight: thStyle.fontWeight,
-                            borderBottom: thStyle.borderBottom,
-                          } : thStyle}
-                        >
-                          Naziv
-                        </th>
-                        <th style={thStyle}>Cijena</th>
-                        <th style={thStyle}>Plaćeno</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+
+                if (isMobile) {
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                       {rashodi.map((r, i) => (
-                        <tr key={i}>
-                          <td 
-                            className={isMobile ? `sticky-first-column-row sticky-first-column-${i % 2 === 0 ? 'even' : 'odd'}` : ""}
-                            style={isMobile ? {
-                              width: firstColumnWidth,
-                              minWidth: firstColumnWidth,
-                              maxWidth: firstColumnWidth,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              paddingTop: tdStyle.paddingTop,
-                              paddingBottom: tdStyle.paddingBottom,
-                              paddingLeft: '4px',
-                              paddingRight: '4px',
-                              textAlign: tdStyle.textAlign,
-                              borderBottom: tdStyle.borderBottom,
-                              fontSize: tdStyle.fontSize,
-                              color: tdStyle.color,
-                            } : tdStyle}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <span>{r.naziv}</span>
+                        <div
+                          key={i}
+                          style={{
+                            padding: "8px 4px",
+                            fontSize: "14px",
+                            color: "#111827",
+                          }}
+                        >
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 90px", alignItems: "center", columnGap: "10px", rowGap: "6px" }}>
+                            <span style={{ color: "#6b7280", fontSize: "12px", gridColumn: 1 }}>Naziv</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", gridColumn: 2, textAlign: "left" }}>Cijena</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", gridColumn: 3, textAlign: "right" }}>Plaćeno</span>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, gridColumn: 1, justifySelf: "start" }}>
+                              <span style={{ fontWeight: 600, whiteSpace: "normal", wordBreak: "break-word", textAlign: "left" }}>
+                                {r.naziv}
+                              </span>
                               {r.imageUrl && (
                                 <span
                                   onClick={async (e) => {
@@ -2591,13 +2557,13 @@ export default function ArhivaPage() {
                                         alert('Niste prijavljeni!');
                                         return;
                                       }
-                                      
+
                                       const response = await fetch(normalizedUrl, {
                                         headers: {
                                           'Authorization': `Bearer ${token}`,
                                         },
                                       });
-                                      
+
                                       if (!response.ok) {
                                         if (response.status === 404) {
                                           alert('Slika nije pronađena. Možda je obrisana ili premještena.');
@@ -2605,17 +2571,17 @@ export default function ArhivaPage() {
                                         }
                                         throw new Error(`Failed to fetch image: ${response.status}`);
                                       }
-                                      
+
                                       const blob = await response.blob();
                                       const blobUrl = URL.createObjectURL(blob);
                                       const newWindow = window.open(blobUrl, "_blank");
-                                      
+
                                       if (!newWindow) {
                                         URL.revokeObjectURL(blobUrl);
                                         alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
                                         return;
                                       }
-                                      
+
                                       setTimeout(() => {
                                         try {
                                           URL.revokeObjectURL(blobUrl);
@@ -2628,8 +2594,8 @@ export default function ArhivaPage() {
                                   }}
                                   style={{
                                     cursor: "pointer",
-                                    fontSize: "24px",
-                                    padding: "4px",
+                                    fontSize: "18px",
+                                    padding: "2px",
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center"
@@ -2640,14 +2606,139 @@ export default function ArhivaPage() {
                                 </span>
                               )}
                             </div>
-                          </td>
-                          <td style={tdStyle}>{r.cijena !== undefined && r.cijena !== null ? r.cijena.toFixed(2) : "-"}</td>
-                          <td style={tdStyle}>{r.placeno ? "Da" : "Ne"}</td>
-                        </tr>
+
+                            <span style={{ textAlign: "left", gridColumn: 2 }}>{r.cijena !== undefined && r.cijena !== null ? r.cijena.toFixed(2) : "-"}</span>
+                            <span style={{ textAlign: "right", gridColumn: 3, color: r.placeno ? "#16a34a" : "#991b1b", fontWeight: 600 }}>
+                              {r.placeno ? "Plaćeno" : "Neplaćeno"}
+                            </span>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="table-scroll-wrapper">
+                    <table style={tableStyle}>
+                      <thead>
+                        <tr>
+                          <th 
+                            className={isMobile ? "sticky-first-column-header" : ""}
+                            style={isMobile ? {
+                              width: firstColumnWidth,
+                              minWidth: firstColumnWidth,
+                              maxWidth: firstColumnWidth,
+                              paddingTop: thStyle.paddingTop,
+                              paddingBottom: thStyle.paddingBottom,
+                              paddingLeft: '4px',
+                              paddingRight: '4px',
+                              textAlign: thStyle.textAlign,
+                              background: thStyle.background,
+                              color: thStyle.color,
+                              fontSize: thStyle.fontSize,
+                              fontWeight: thStyle.fontWeight,
+                              borderBottom: thStyle.borderBottom,
+                            } : thStyle}
+                          >
+                            Naziv
+                          </th>
+                          <th style={thStyle}>Cijena</th>
+                          <th style={thStyle}>Plaćeno</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rashodi.map((r, i) => (
+                          <tr key={i}>
+                            <td 
+                              className={isMobile ? `sticky-first-column-row sticky-first-column-${i % 2 === 0 ? 'even' : 'odd'}` : ""}
+                              style={isMobile ? {
+                                width: firstColumnWidth,
+                                minWidth: firstColumnWidth,
+                                maxWidth: firstColumnWidth,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                paddingTop: tdStyle.paddingTop,
+                                paddingBottom: tdStyle.paddingBottom,
+                                paddingLeft: '4px',
+                                paddingRight: '4px',
+                                textAlign: tdStyle.textAlign,
+                                borderBottom: tdStyle.borderBottom,
+                                fontSize: tdStyle.fontSize,
+                                color: tdStyle.color,
+                              } : tdStyle}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span>{r.naziv}</span>
+                                {r.imageUrl && (
+                                  <span
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        const normalizedUrl = normalizeImageUrl(r.imageUrl!);
+                                        const token = getAuthToken();
+                                        if (!token) {
+                                          alert('Niste prijavljeni!');
+                                          return;
+                                        }
+                                        
+                                        const response = await fetch(normalizedUrl, {
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                          },
+                                        });
+                                        
+                                        if (!response.ok) {
+                                          if (response.status === 404) {
+                                            alert('Slika nije pronađena. Možda je obrisana ili premještena.');
+                                            return;
+                                          }
+                                          throw new Error(`Failed to fetch image: ${response.status}`);
+                                        }
+                                        
+                                        const blob = await response.blob();
+                                        const blobUrl = URL.createObjectURL(blob);
+                                        const newWindow = window.open(blobUrl, "_blank");
+                                        
+                                        if (!newWindow) {
+                                          URL.revokeObjectURL(blobUrl);
+                                          alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
+                                          return;
+                                        }
+                                        
+                                        setTimeout(() => {
+                                          try {
+                                            URL.revokeObjectURL(blobUrl);
+                                          } catch (e) {}
+                                        }, 1000);
+                                      } catch (error: any) {
+                                        console.error('Error opening image:', error);
+                                        alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
+                                      }
+                                    }}
+                                    style={{
+                                      cursor: "pointer",
+                                      fontSize: "24px",
+                                      padding: "4px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center"
+                                    }}
+                                    title="Pregled fakture"
+                                  >
+                                    📸
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={tdStyle}>{r.cijena !== undefined && r.cijena !== null ? r.cijena.toFixed(2) : "-"}</td>
+                            <td style={tdStyle}>{r.placeno ? "Da" : "Ne"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 );
               })()}
 
@@ -2655,87 +2746,184 @@ export default function ArhivaPage() {
               <h3 style={{ fontSize: "16px", fontWeight: 500, color: "#1f2937", marginBottom: "8px" }}>
                 Prihodi
               </h3>
-              <div className="table-scroll-wrapper">
-                <table style={tableStyle}>
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>Naziv</th>
-                      <th style={thStyle}>Cijena</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(item.prihodi && Array.isArray(item.prihodi) ? item.prihodi : []).map((p, i) => (
-                      <tr key={i}>
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span>{p.naziv}</span>
-                            {p.imageUrl && (
-                              <span
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const normalizedUrl = normalizeImageUrl(p.imageUrl!);
-                                    const token = getAuthToken();
-                                    if (!token) {
-                                      alert('Niste prijavljeni!');
-                                      return;
-                                    }
-                                    
-                                    const response = await fetch(normalizedUrl, {
-                                      headers: {
-                                        'Authorization': `Bearer ${token}`,
-                                      },
-                                    });
-                                    
-                                    if (!response.ok) {
-                                      if (response.status === 404) {
-                                        alert('Slika nije pronađena. Možda je obrisana ili premještena.');
+              {(() => {
+                const prihodi = (item.prihodi && Array.isArray(item.prihodi)) ? item.prihodi : [];
+
+                if (isMobile) {
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {prihodi.map((p, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: "8px 4px",
+                            fontSize: "14px",
+                            color: "#111827",
+                          }}
+                        >
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", columnGap: "12px", rowGap: "6px", alignItems: "center" }}>
+                            <span style={{ color: "#6b7280", fontSize: "12px", gridColumn: 1 }}>Naziv</span>
+                            <span style={{ color: "#6b7280", fontSize: "12px", gridColumn: 2, textAlign: "right" }}>Cijena</span>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, gridColumn: 1, justifySelf: "start" }}>
+                              <span style={{ fontWeight: 600, whiteSpace: "normal", wordBreak: "break-word", textAlign: "left" }}>
+                                {p.naziv}
+                              </span>
+                              {p.imageUrl && (
+                                <span
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const normalizedUrl = normalizeImageUrl(p.imageUrl!);
+                                      const token = getAuthToken();
+                                      if (!token) {
+                                        alert('Niste prijavljeni!');
                                         return;
                                       }
-                                      throw new Error(`Failed to fetch image: ${response.status}`);
-                                    }
-                                    
-                                    const blob = await response.blob();
-                                    const blobUrl = URL.createObjectURL(blob);
-                                    const newWindow = window.open(blobUrl, "_blank");
-                                    
-                                    if (!newWindow) {
-                                      URL.revokeObjectURL(blobUrl);
-                                      alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
-                                      return;
-                                    }
-                                    
-                                    setTimeout(() => {
-                                      try {
+
+                                      const response = await fetch(normalizedUrl, {
+                                        headers: {
+                                          'Authorization': `Bearer ${token}`,
+                                        },
+                                      });
+
+                                      if (!response.ok) {
+                                        if (response.status === 404) {
+                                          alert('Slika nije pronađena. Možda je obrisana ili premještena.');
+                                          return;
+                                        }
+                                        throw new Error(`Failed to fetch image: ${response.status}`);
+                                      }
+
+                                      const blob = await response.blob();
+                                      const blobUrl = URL.createObjectURL(blob);
+                                      const newWindow = window.open(blobUrl, "_blank");
+
+                                      if (!newWindow) {
                                         URL.revokeObjectURL(blobUrl);
-                                      } catch (e) {}
-                                    }, 1000);
-                                  } catch (error: any) {
-                                    console.error('Error opening image:', error);
-                                    alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
-                                  }
-                                }}
-                                style={{
-                                  cursor: "pointer",
-                                  fontSize: "24px",
-                                  padding: "4px",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  justifyContent: "center"
-                                }}
-                                title="Pregled fakture"
-                              >
-                                📸
-                              </span>
-                            )}
+                                        alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
+                                        return;
+                                      }
+
+                                      setTimeout(() => {
+                                        try {
+                                          URL.revokeObjectURL(blobUrl);
+                                        } catch (e) {}
+                                      }, 1000);
+                                    } catch (error: any) {
+                                      console.error('Error opening image:', error);
+                                      alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
+                                    }
+                                  }}
+                                  style={{
+                                    cursor: "pointer",
+                                    fontSize: "18px",
+                                    padding: "2px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                  }}
+                                  title="Pregled fakture"
+                                >
+                                  📸
+                                </span>
+                              )}
+                            </div>
+
+                            <span style={{ textAlign: "right", gridColumn: 2 }}>
+                              {p.cijena !== undefined && p.cijena !== null ? p.cijena.toFixed(2) : "-"}
+                            </span>
                           </div>
-                        </td>
-                        <td style={tdStyle}>{p.cijena !== undefined && p.cijena !== null ? p.cijena.toFixed(2) : "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="table-scroll-wrapper">
+                    <table style={tableStyle}>
+                      <thead>
+                        <tr>
+                          <th style={thStyle}>Naziv</th>
+                          <th style={thStyle}>Cijena</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {prihodi.map((p, i) => (
+                          <tr key={i}>
+                            <td style={tdStyle}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span>{p.naziv}</span>
+                                {p.imageUrl && (
+                                  <span
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        const normalizedUrl = normalizeImageUrl(p.imageUrl!);
+                                        const token = getAuthToken();
+                                        if (!token) {
+                                          alert('Niste prijavljeni!');
+                                          return;
+                                        }
+                                        
+                                        const response = await fetch(normalizedUrl, {
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                          },
+                                        });
+                                        
+                                        if (!response.ok) {
+                                          if (response.status === 404) {
+                                            alert('Slika nije pronađena. Možda je obrisana ili premještena.');
+                                            return;
+                                          }
+                                          throw new Error(`Failed to fetch image: ${response.status}`);
+                                        }
+                                        
+                                        const blob = await response.blob();
+                                        const blobUrl = URL.createObjectURL(blob);
+                                        const newWindow = window.open(blobUrl, "_blank");
+                                        
+                                        if (!newWindow) {
+                                          URL.revokeObjectURL(blobUrl);
+                                          alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
+                                          return;
+                                        }
+                                        
+                                        setTimeout(() => {
+                                          try {
+                                            URL.revokeObjectURL(blobUrl);
+                                          } catch (e) {}
+                                        }, 1000);
+                                      } catch (error: any) {
+                                        console.error('Error opening image:', error);
+                                        alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
+                                      }
+                                    }}
+                                    style={{
+                                      cursor: "pointer",
+                                      fontSize: "24px",
+                                      padding: "4px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center"
+                                    }}
+                                    title="Pregled fakture"
+                                  >
+                                    📸
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={tdStyle}>{p.cijena !== undefined && p.cijena !== null ? p.cijena.toFixed(2) : "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
 
               {/* Ukupno */}
               <div style={{ fontSize: "16px", color: "#1f2937", marginTop: "16px", fontWeight: 600 }}>
