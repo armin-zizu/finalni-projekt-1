@@ -2076,7 +2076,6 @@ export default function ArhivaPage() {
                         Ime dužnika
                       </th>
                       <th style={thStyle}>Iznos (KM)</th>
-                      <th style={thStyle}>Količina</th>
                       <th style={thStyle}>Datum</th>
                       <th style={thStyle}>Status</th>
                       <th style={thStyle}>Datum plaćanja</th>
@@ -2134,7 +2133,6 @@ export default function ArhivaPage() {
                             <strong>{dug.imeDuznika || "Nepoznato"}</strong>
                           </td>
                         <td style={tdStyle}>{dug.iznos.toFixed(2)}</td>
-                        <td style={tdStyle}>{dug.kolicina ? dug.kolicina.toString() : "-"}</td>
                         <td style={tdStyle}>{dug.datum}</td>
                         <td style={tdStyle}>
                           <span
