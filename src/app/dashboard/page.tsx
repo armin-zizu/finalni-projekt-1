@@ -2756,14 +2756,12 @@ export default function DashboardPage() {
           )}
           {range === "custom" && (
             <div style={{ 
-              marginTop: 12,
               display: "flex", 
-              gap: 12, 
-              alignItems: "flex-end", 
-              justifyContent: "flex-start",
-              flexWrap: "wrap",
-              opacity: 1,
-              visibility: "visible"
+              gap: 8, 
+              alignItems: "center", 
+              justifyContent: "center",
+              width: "100%", 
+              flexWrap: "nowrap"
             }}>
               <input
                 type="date"
