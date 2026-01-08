@@ -2451,12 +2451,11 @@ export default function DashboardPage() {
             
             {range === "custom" && (
               <div style={{ 
-                marginTop: 0,
-                display: "flex",  
-                gap: 12, 
-                alignItems: "flex-end", 
+                display: "flex", 
+                gap: 10, 
+                alignItems: "center", 
                 justifyContent: "flex-start",
-                flexWrap: "wrap",
+                flexWrap: "nowrap",
                 opacity: 1,
                 visibility: "visible",
                 marginLeft: 10
@@ -2466,17 +2465,16 @@ export default function DashboardPage() {
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
                   style={{ 
-                    flex: "1 1 auto",
-                    minWidth: 0,
+                    flex: "0 0 auto",
+                    minWidth: "140px",
                     padding: "8px 12px", 
                     border: "1px solid #d1d5db", 
-                    borderRadius: "8px", 
-                    fontSize: "13px", 
+                    borderRadius: "6px", 
+                    fontSize: "14px", 
                     outline: "none",
                     backgroundColor: "#fff",
                     cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.2s ease",
+                    transition: "border-color 0.2s ease",
                     fontWeight: 500,
                     color: "#1f2937",
                     boxSizing: "border-box"
@@ -2488,17 +2486,16 @@ export default function DashboardPage() {
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
                   style={{ 
-                    flex: "1 1 auto",
-                    minWidth: 0,
+                    flex: "0 0 auto",
+                    minWidth: "140px",
                     padding: "8px 12px", 
                     border: "1px solid #d1d5db", 
-                    borderRadius: "8px", 
-                    fontSize: "13px", 
+                    borderRadius: "6px", 
+                    fontSize: "14px", 
                     outline: "none",
                     backgroundColor: "#fff",
                     cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.2s ease",
+                    transition: "border-color 0.2s ease",
                     fontWeight: 500,
                     color: "#1f2937",
                     boxSizing: "border-box"
