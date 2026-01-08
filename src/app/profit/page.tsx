@@ -906,7 +906,7 @@ const FilterSection: React.FC<{
             </div>
           )}
           {filter === "custom" && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", width: "100%", flexWrap: "nowrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-start", flexWrap: "nowrap", marginLeft: 8 }}>
               <input 
                 type="date" 
                 value={customPeriod.from} 

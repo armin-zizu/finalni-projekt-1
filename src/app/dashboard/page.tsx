@@ -2451,15 +2451,15 @@ export default function DashboardPage() {
             
             {range === "custom" && (
               <div style={{ 
-                marginTop: "12px",
+                marginTop: 0,
                 display: "flex",  
-                gap: 8, 
-                alignItems: "center", 
-                justifyContent: "center",
-                width: "100%", 
-                flexWrap: "nowrap",
+                gap: 12, 
+                alignItems: "flex-end", 
+                justifyContent: "flex-start",
+                flexWrap: "wrap",
                 opacity: 1,
-                visibility: "visible"
+                visibility: "visible",
+                marginLeft: 10
               }}>
                 <input
                   type="date"
