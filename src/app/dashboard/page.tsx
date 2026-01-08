@@ -2756,12 +2756,15 @@ export default function DashboardPage() {
           )}
           {range === "custom" && (
             <div style={{ 
+              marginTop: "12px",
               display: "flex", 
               gap: 8, 
               alignItems: "center", 
               justifyContent: "center",
               width: "100%", 
-              flexWrap: "nowrap"
+              flexWrap: "nowrap",
+              opacity: 1,
+              visibility: "visible"
             }}>
               <input
                 type="date"
@@ -2776,10 +2779,12 @@ export default function DashboardPage() {
                   fontSize: "13px", 
                   outline: "none",
                   backgroundColor: "#fff",
+                  cursor: "pointer",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  boxSizing: "border-box",
+                  transition: "all 0.2s ease",
+                  fontWeight: 500,
                   color: "#1f2937",
-                  fontWeight: 500
+                  boxSizing: "border-box"
                 }}
               />
               <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
@@ -2796,10 +2801,12 @@ export default function DashboardPage() {
                   fontSize: "13px", 
                   outline: "none",
                   backgroundColor: "#fff",
+                  cursor: "pointer",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  boxSizing: "border-box",
+                  transition: "all 0.2s ease",
+                  fontWeight: 500,
                   color: "#1f2937",
-                  fontWeight: 500
+                  boxSizing: "border-box"
                 }}
               />
             </div>
