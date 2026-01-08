@@ -1586,329 +1586,330 @@ export default function ArhivaPage() {
                 }
                 
                 return fakture.map((faktura, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      padding: "16px",
-                      border: selectedFakturaDatum === faktura.datum ? "2px solid #8b5cf6" : "1px solid #e5e7eb",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                      background: selectedFakturaDatum === faktura.datum ? "#f3e8ff" : "#fff",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (selectedFakturaDatum !== faktura.datum) {
-                        e.currentTarget.style.backgroundColor = "#f9fafb";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selectedFakturaDatum !== faktura.datum) {
-                        e.currentTarget.style.backgroundColor = "#fff";
-                      }
-                    }}
-                    onClick={() => handleFakturaDatumClick(faktura.datum, faktura.images)}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
-                          {faktura.datum}
-                        </h3>
-                        <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
-                          {faktura.images.length} {faktura.images.length === 1 ? "slika" : "slika"}
-                        </p>
-                      </div>
-                      <div style={{ fontSize: "14px", color: "#8b5cf6", fontWeight: 500 }}>
-                        {selectedFakturaDatum === faktura.datum ? "▼ Otvoreno" : "▶ Klikni za pregled"}
-                      </div>
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-
-            {/* Prikaz slika odabrane fakture */}
-            {selectedFakturaDatum && selectedFakturaImages.length > 0 && (
-              <div style={{ marginTop: "24px", paddingTop: "24px", borderTop: "1px solid #e5e7eb" }}>
-                <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
-                  Slike fakture - {selectedFakturaDatum}
-                </h3>
-
-                {/* Upload sekcija u modalu */}
-                {showModalUploadInput && (
-                  <div style={{ 
-                    marginBottom: "20px", 
-                    padding: "12px", 
-                    background: "#f3f4f6",
-                    borderRadius: "8px",
-                    border: "1px solid #e5e7eb"
-                  }}>
-                    <label
+                  <React.Fragment key={index}>
+                    <div
                       style={{
-                        display: "block",
-                        padding: "8px 12px",
-                        background: "#fff",
-                        borderWidth: "1px",
-                        borderStyle: "dashed",
-                        borderColor: "#8b5cf6",
-                        borderRadius: "6px",
+                        padding: "16px",
+                        border: selectedFakturaDatum === faktura.datum ? "2px solid #8b5cf6" : "1px solid #e5e7eb",
+                        borderRadius: "8px",
                         cursor: "pointer",
-                        textAlign: "center",
-                        transition: "all 0.2s ease",
-                        marginBottom: "10px"
+                        transition: "all 0.2s",
+                        background: selectedFakturaDatum === faktura.datum ? "#f3e8ff" : "#fff",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#f3e8ff";
-                        e.currentTarget.style.borderColor = "#7c3aed";
+                        if (selectedFakturaDatum !== faktura.datum) {
+                          e.currentTarget.style.backgroundColor = "#f9fafb";
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "#fff";
-                        e.currentTarget.style.borderColor = "#8b5cf6";
+                        if (selectedFakturaDatum !== faktura.datum) {
+                          e.currentTarget.style.backgroundColor = "#fff";
+                        }
                       }}
+                      onClick={() => handleFakturaDatumClick(faktura.datum, faktura.images)}
                     >
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          setModalInvoiceFiles((prev) => [...prev, ...files]);
-                          e.target.value = "";
-                        }}
-                        style={{ display: "none" }}
-                      />
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "16px" }}>📎</span>
-                        <span style={{ fontSize: "12px", fontWeight: 500, color: "#6b21a8" }}>
-                          Odaberi slike
-                        </span>
-                      </div>
-                    </label>
-
-                    {modalInvoiceFiles.length > 0 && (
-                      <div style={{ marginTop: "10px" }}>
-                        <div style={{ 
-                          display: "flex", 
-                          alignItems: "center", 
-                          justifyContent: "space-between",
-                          marginBottom: "8px"
-                        }}>
-                          <span style={{ fontSize: "12px", fontWeight: 500, color: "#6b21a8" }}>
-                            Odabrano: {modalInvoiceFiles.length}
-                          </span>
-                          <button
-                            onClick={() => setModalInvoiceFiles([])}
-                            style={{
-                              padding: "2px 8px",
-                              background: "#dc2626",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              fontSize: "11px",
-                              cursor: "pointer",
-                              fontWeight: 500
-                            }}
-                          >
-                            Obriši sve
-                          </button>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
+                            {faktura.datum}
+                          </h3>
+                          <p style={{ fontSize: "14px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                            {faktura.images.length} {faktura.images.length === 1 ? "slika" : "slika"}
+                          </p>
                         </div>
-                        <div style={{ 
-                          display: "grid", 
-                          gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
-                          gap: "8px",
-                          marginBottom: "10px"
-                        }}>
-                          {modalInvoiceFiles.map((file, index) => (
-                            <div 
-                              key={index} 
-                              style={{ 
-                                position: "relative", 
-                                width: "100%",
-                                aspectRatio: "1",
+                        <div style={{ fontSize: "14px", color: "#8b5cf6", fontWeight: 500 }}>
+                          {selectedFakturaDatum === faktura.datum ? "▼ Otvoreno" : "▶ Klikni za pregled"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Prikaz slika odmah ispod kliknute fakture */}
+                    {selectedFakturaDatum === faktura.datum && faktura.images.length > 0 && (
+                      <div style={{ marginTop: "8px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                        <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
+                          Slike fakture - {faktura.datum}
+                        </h3>
+
+                        {/* Upload sekcija u modalu */}
+                        {showModalUploadInput && (
+                          <div style={{ 
+                            marginBottom: "20px", 
+                            padding: "12px", 
+                            background: "#f3f4f6",
+                            borderRadius: "8px",
+                            border: "1px solid #e5e7eb"
+                          }}>
+                            <label
+                              style={{
+                                display: "block",
+                                padding: "8px 12px",
+                                background: "#fff",
+                                borderWidth: "1px",
+                                borderStyle: "dashed",
+                                borderColor: "#8b5cf6",
                                 borderRadius: "6px",
-                                overflow: "hidden",
-                                boxShadow: "0 1px 4px rgba(0, 0, 0, 0.1)"
+                                cursor: "pointer",
+                                textAlign: "center",
+                                transition: "all 0.2s ease",
+                                marginBottom: "10px"
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "#f3e8ff";
+                                e.currentTarget.style.borderColor = "#7c3aed";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "#fff";
+                                e.currentTarget.style.borderColor = "#8b5cf6";
                               }}
                             >
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files || []);
+                                  setModalInvoiceFiles((prev) => [...prev, ...files]);
+                                  e.target.value = "";
+                                }}
+                                style={{ display: "none" }}
+                              />
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                                <span style={{ fontSize: "16px" }}>📎</span>
+                                <span style={{ fontSize: "12px", fontWeight: 500, color: "#6b21a8" }}>
+                                  Odaberi slike
+                                </span>
+                              </div>
+                            </label>
+
+                            {modalInvoiceFiles.length > 0 && (
+                              <div style={{ marginTop: "10px" }}>
+                                <div style={{ 
+                                  display: "flex", 
+                                  alignItems: "center", 
+                                  justifyContent: "space-between",
+                                  marginBottom: "8px"
+                                }}>
+                                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#6b21a8" }}>
+                                    Odabrano: {modalInvoiceFiles.length}
+                                  </span>
+                                  <button
+                                    onClick={() => setModalInvoiceFiles([])}
+                                    style={{
+                                      padding: "2px 8px",
+                                      background: "#dc2626",
+                                      color: "white",
+                                      border: "none",
+                                      borderRadius: "4px",
+                                      fontSize: "11px",
+                                      cursor: "pointer",
+                                      fontWeight: 500
+                                    }}
+                                  >
+                                    Obriši sve
+                                  </button>
+                                </div>
+                                <div style={{ 
+                                  display: "grid", 
+                                  gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
+                                  gap: "8px",
+                                  marginBottom: "10px"
+                                }}>
+                                  {modalInvoiceFiles.map((file, idx) => (
+                                    <div 
+                                      key={idx} 
+                                      style={{ 
+                                        position: "relative", 
+                                        width: "100%",
+                                        aspectRatio: "1",
+                                        borderRadius: "6px",
+                                        overflow: "hidden",
+                                        boxShadow: "0 1px 4px rgba(0, 0, 0, 0.1)"
+                                      }}
+                                    >
+                                      <img
+                                        src={URL.createObjectURL(file)}
+                                        alt={`Preview ${idx + 1}`}
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "cover"
+                                        }}
+                                      />
+                                      <button
+                                        onClick={() => setModalInvoiceFiles(prev => prev.filter((_, i) => i !== idx))}
+                                        style={{
+                                          position: "absolute",
+                                          top: "2px",
+                                          right: "2px",
+                                          background: "rgba(220, 38, 38, 0.9)",
+                                          color: "white",
+                                          border: "none",
+                                          borderRadius: "50%",
+                                          width: "20px",
+                                          height: "20px",
+                                          cursor: "pointer",
+                                          fontSize: "12px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center"
+                                        }}
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    if (selectedFakturaDatum) {
+                                      uploadInvoiceImagesInModal(selectedFakturaDatum);
+                                    }
+                                  }}
+                                  disabled={uploadingImagesForDatum === selectedFakturaDatum}
+                                  style={{
+                                    width: "100%",
+                                    padding: "8px 16px",
+                                    background: uploadingImagesForDatum === selectedFakturaDatum ? "#9ca3af" : "#8b5cf6",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    fontSize: "12px",
+                                    cursor: uploadingImagesForDatum === selectedFakturaDatum ? "not-allowed" : "pointer",
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  {uploadingImagesForDatum === selectedFakturaDatum 
+                                    ? `Upload... ${Math.round(uploadProgress)}%` 
+                                    : "Upload slike"}
+                                </button>
+                                {uploadingImagesForDatum === selectedFakturaDatum && uploadProgress > 0 && (
+                                  <div style={{ marginTop: "8px" }}>
+                                    <div style={{
+                                      width: "100%",
+                                      height: "6px",
+                                      background: "#e9d5ff",
+                                      borderRadius: "3px",
+                                      overflow: "hidden"
+                                    }}>
+                                      <div style={{
+                                        width: `${uploadProgress}%`,
+                                        height: "100%",
+                                        background: "linear-gradient(90deg, #8b5cf6, #7c3aed)",
+                                        borderRadius: "3px",
+                                        transition: "width 0.3s ease"
+                                      }} />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px" }}>
+                          {faktura.images.map((imageUrl, imgIdx) => {
+                            // Normalizuj URL koristeći helper funkciju
+                            const normalizedUrl = normalizeImageUrl(imageUrl);
+                            
+                            return (
+                            <div key={imgIdx} style={{ position: "relative" }}>
                               <img
-                                src={URL.createObjectURL(file)}
-                                alt={`Preview ${index + 1}`}
+                                src={normalizedUrl}
+                                alt={`Faktura ${faktura.datum} - ${imgIdx + 1}`}
                                 style={{
                                   width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover"
+                                  height: "200px",
+                                  objectFit: "cover",
+                                  borderRadius: "8px",
+                                  border: "1px solid #e5e7eb",
+                                  cursor: "pointer",
+                                }}
+                                onClick={async () => {
+                                  try {
+                                    const token = getAuthToken();
+                                    if (!token) {
+                                      alert('Niste prijavljeni!');
+                                      return;
+                                    }
+                                    
+                                    const response = await fetch(normalizedUrl, {
+                                      headers: {
+                                        'Authorization': `Bearer ${token}`,
+                                      },
+                                    });
+                                    
+                                    if (!response.ok) {
+                                      if (response.status === 404) {
+                                        alert('Slika nije pronađena. Možda je obrisana ili premještena.');
+                                        return;
+                                      }
+                                      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+                                    }
+                                    
+                                    const blob = await response.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    const newWindow = window.open(blobUrl, "_blank");
+                                    
+                                    if (!newWindow) {
+                                      URL.revokeObjectURL(blobUrl);
+                                      alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
+                                      return;
+                                    }
+                                    
+                                    // Očisti blob URL nakon što se prozor otvori (pauza od 1 sekunde)
+                                    setTimeout(() => {
+                                      try {
+                                        URL.revokeObjectURL(blobUrl);
+                                      } catch (e) {
+                                        // Ignoriraj grešku pri brisanju blob URL-a
+                                      }
+                                    }, 1000);
+                                  } catch (error: any) {
+                                    console.error('Error opening image:', error);
+                                    alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
+                                  }
+                                }}
+                                onError={(e) => {
+                                  // Samo loguj grešku, ne menjaj src da ne bi izazvao petlju
+                                  console.warn('Error loading image in img tag:', normalizedUrl, 'Original:', imageUrl);
                                 }}
                               />
                               <button
-                                onClick={() => setModalInvoiceFiles(prev => prev.filter((_, i) => i !== index))}
+                                onClick={() => {
+                                  if (selectedFakturaDatum) {
+                                    deleteInvoiceImage(selectedFakturaDatum, imgIdx);
+                                  }
+                                }}
                                 style={{
                                   position: "absolute",
-                                  top: "2px",
-                                  right: "2px",
+                                  top: "8px",
+                                  right: "8px",
                                   background: "rgba(220, 38, 38, 0.9)",
                                   color: "white",
                                   border: "none",
                                   borderRadius: "50%",
-                                  width: "20px",
-                                  height: "20px",
+                                  width: "28px",
+                                  height: "28px",
                                   cursor: "pointer",
-                                  fontSize: "12px",
+                                  fontSize: "16px",
                                   display: "flex",
                                   alignItems: "center",
-                                  justifyContent: "center"
+                                  justifyContent: "center",
+                                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)"
                                 }}
                               >
                                 ×
                               </button>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
-                        <button
-                          onClick={() => {
-                            if (selectedFakturaDatum) {
-                              uploadInvoiceImagesInModal(selectedFakturaDatum);
-                            }
-                          }}
-                          disabled={uploadingImagesForDatum === selectedFakturaDatum}
-                          style={{
-                            width: "100%",
-                            padding: "8px 16px",
-                            background: uploadingImagesForDatum === selectedFakturaDatum ? "#9ca3af" : "#8b5cf6",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "6px",
-                            fontSize: "12px",
-                            cursor: uploadingImagesForDatum === selectedFakturaDatum ? "not-allowed" : "pointer",
-                            fontWeight: 500
-                          }}
-                        >
-                          {uploadingImagesForDatum === selectedFakturaDatum 
-                            ? `Upload... ${Math.round(uploadProgress)}%` 
-                            : "Upload slike"}
-                        </button>
-                        {uploadingImagesForDatum === selectedFakturaDatum && uploadProgress > 0 && (
-                          <div style={{ marginTop: "8px" }}>
-                            <div style={{
-                              width: "100%",
-                              height: "6px",
-                              background: "#e9d5ff",
-                              borderRadius: "3px",
-                              overflow: "hidden"
-                            }}>
-                              <div style={{
-                                width: `${uploadProgress}%`,
-                                height: "100%",
-                                background: "linear-gradient(90deg, #8b5cf6, #7c3aed)",
-                                borderRadius: "3px",
-                                transition: "width 0.3s ease"
-                              }} />
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
-                  </div>
-                )}
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px" }}>
-                  {selectedFakturaImages.map((imageUrl, index) => {
-                    // Normalizuj URL koristeći helper funkciju
-                    const normalizedUrl = normalizeImageUrl(imageUrl);
-                    
-                    return (
-                    <div key={index} style={{ position: "relative" }}>
-                      <img
-                        src={normalizedUrl}
-                        alt={`Faktura ${selectedFakturaDatum} - ${index + 1}`}
-                        style={{
-                          width: "100%",
-                          height: "200px",
-                          objectFit: "cover",
-                          borderRadius: "8px",
-                          border: "1px solid #e5e7eb",
-                          cursor: "pointer",
-                        }}
-                        onClick={async () => {
-                          try {
-                            const token = getAuthToken();
-                            if (!token) {
-                              alert('Niste prijavljeni!');
-                              return;
-                            }
-                            
-                            const response = await fetch(normalizedUrl, {
-                              headers: {
-                                'Authorization': `Bearer ${token}`,
-                              },
-                            });
-                            
-                            if (!response.ok) {
-                              if (response.status === 404) {
-                                alert('Slika nije pronađena. Možda je obrisana ili premještena.');
-                                return;
-                              }
-                              throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-                            }
-                            
-                            const blob = await response.blob();
-                            const blobUrl = URL.createObjectURL(blob);
-                            const newWindow = window.open(blobUrl, "_blank");
-                            
-                            if (!newWindow) {
-                              URL.revokeObjectURL(blobUrl);
-                              alert('Popup blocker je blokirao otvaranje slike. Molimo dozvolite popup-ove za ovaj sajt.');
-                              return;
-                            }
-                            
-                            // Očisti blob URL nakon što se prozor otvori (pauza od 1 sekunde)
-                            setTimeout(() => {
-                              try {
-                                URL.revokeObjectURL(blobUrl);
-                              } catch (e) {
-                                // Ignoriraj grešku pri brisanju blob URL-a
-                              }
-                            }, 1000);
-                          } catch (error: any) {
-                            console.error('Error opening image:', error);
-                            alert('Greška pri otvaranju slike: ' + (error.message || 'Nepoznata greška'));
-                          }
-                        }}
-                        onError={(e) => {
-                          // Samo loguj grešku, ne menjaj src da ne bi izazvao petlju
-                          console.warn('Error loading image in img tag:', normalizedUrl, 'Original:', imageUrl);
-                        }}
-                      />
-                      <button
-                        onClick={() => {
-                          if (selectedFakturaDatum) {
-                            deleteInvoiceImage(selectedFakturaDatum, index);
-                          }
-                        }}
-                        style={{
-                          position: "absolute",
-                          top: "8px",
-                          right: "8px",
-                          background: "rgba(220, 38, 38, 0.9)",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "50%",
-                          width: "28px",
-                          height: "28px",
-                          cursor: "pointer",
-                          fontSize: "16px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)"
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                  </React.Fragment>
+                ));
+              })()}
+            </div>
           </div>
         </div>
       )}
