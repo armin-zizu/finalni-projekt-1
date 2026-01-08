@@ -1625,7 +1625,14 @@ export default function ArhivaPage() {
 
                     {/* Prikaz slika odmah ispod kliknute fakture */}
                     {selectedFakturaDatum === faktura.datum && faktura.images.length > 0 && (
-                      <div style={{ marginTop: "8px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                      <div style={{ 
+                        marginTop: "16px", 
+                        marginBottom: "24px",
+                        padding: "20px",
+                        background: "#faf5ff",
+                        borderRadius: "8px",
+                        border: "1px solid #e9d5ff"
+                      }}>
                         <h3 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
                           Slike fakture - {faktura.datum}
                         </h3>
