@@ -2490,7 +2490,7 @@ export default function ProfitPage() {
             }
             return (
               <ResponsiveContainer 
-                key={`profit-chart-${isMobile}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
+                key={`profit-chart-${isMobile}-${filter}-${customPeriod.from}-${customPeriod.to}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
