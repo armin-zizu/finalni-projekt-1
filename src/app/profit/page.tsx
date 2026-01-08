@@ -2058,10 +2058,12 @@ export default function ProfitPage() {
             weekEnd.setDate(weekStart.getDate() + 6);
             weekEnd.setHours(23, 59, 59, 999);
             
-            // Pronađi sve podatke za ovu sedmicu
+            // Pronađi sve podatke za ovu sedmicu, ograniči na izabrani raspon
+            const bucketStart = Math.max(weekStart.getTime(), from.getTime());
+            const bucketEnd = Math.min(weekEnd.getTime(), to.getTime());
             const weekObracuni = obracuniProfit.filter((o) => {
               const dTime = parseDatumToDate(o.datum).getTime();
-              return dTime >= weekStart.getTime() && dTime <= weekEnd.getTime();
+              return dTime >= bucketStart && dTime <= bucketEnd;
             });
             
             const totalBruto = weekObracuni.reduce((sum, o) => sum + (Number(o.ukupnoBruto) || 0), 0);
@@ -2086,15 +2088,56 @@ export default function ProfitPage() {
              }
             
             customWeeksData.push({
-               datum: datumStr,
-              bruto: totalBruto,
-              neto: totalNeto,
-              rashod: totalRashod,
+                          datum: datumStr,
+                          bruto: totalBruto,
+                          neto: totalNeto,
+                          rashod: totalRashod,
+                          start: bucketStart,
+                          end: bucketEnd,
             });
             
             currentDate.setDate(currentDate.getDate() + 7);
           }
-          return customWeeksData;
+                      // Smanji na maksimalno 4 tačke za preglednost
+                      if (customWeeksData.length > 4) {
+                        const chunkSize = Math.ceil(customWeeksData.length / 4);
+                        const merged: Array<any> = [];
+
+                        const formatRange = (startTs: number, endTs: number) => {
+                          const sd = new Date(startTs);
+                          const ed = new Date(endTs);
+                          const d1 = String(sd.getDate()).padStart(2, "0");
+                          const m1 = String(sd.getMonth() + 1).padStart(2, "0");
+                          const y1 = sd.getFullYear();
+                          const d2 = String(ed.getDate()).padStart(2, "0");
+                          const m2 = String(ed.getMonth() + 1).padStart(2, "0");
+                          const y2 = ed.getFullYear();
+
+                          if (m1 === m2 && y1 === y2) return `${d1}-${d2}.${m1}.${y1}`;
+                          if (y1 === y2) return `${d1}.${m1}-${d2}.${m2}.${y1}`;
+                          return `${d1}.${m1}.${y1}-${d2}.${m2}.${y2}`;
+                        };
+
+                        for (let i = 0; i < customWeeksData.length; i += chunkSize) {
+                          const slice = customWeeksData.slice(i, i + chunkSize);
+                          const totalBruto = slice.reduce((s, v) => s + (Number(v.bruto) || 0), 0);
+                          const totalNeto = slice.reduce((s, v) => s + (Number(v.neto) || 0), 0);
+                          const totalRashod = slice.reduce((s, v) => s + (Number(v.rashod) || 0), 0);
+                          const startTs = slice[0].start;
+                          const endTs = slice[slice.length - 1].end;
+
+                          merged.push({
+                            datum: formatRange(startTs, endTs),
+                            bruto: totalBruto,
+                            neto: totalNeto,
+                            rashod: totalRashod,
+                          });
+                        }
+
+                        return merged.slice(0, 4);
+                      }
+
+                      return customWeeksData;
         } else {
           // 60+ dana: prikaži po mjesecima
           const customMonthsData: Array<any> = [];
