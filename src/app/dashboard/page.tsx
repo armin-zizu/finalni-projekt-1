@@ -793,9 +793,19 @@ export default function DashboardPage() {
           const year1 = weekStart.getFullYear();
           const day2 = String(weekEnd.getDate()).padStart(2, "0");
           const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
+          const year2 = weekEnd.getFullYear();
+
+          let datumStr: string;
+          if (month1 === month2 && year1 === year2) {
+            datumStr = `${day1}-${day2}.${month1}.${year1}`;
+          } else if (year1 === year2) {
+            datumStr = `${day1}.${month1}-${day2}.${month2}.${year1}`;
+          } else {
+            datumStr = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
+          }
           
           customWeeksData.push({
-            datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
+            datum: datumStr,
             artikli: totalArtikli,
             rashod: totalRashod,
             prihod: totalPrihod,
@@ -1116,9 +1126,19 @@ export default function DashboardPage() {
           const year1 = weekStart.getFullYear();
           const day2 = String(weekEnd.getDate()).padStart(2, "0");
           const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
+          const year2 = weekEnd.getFullYear();
+
+          let datumStr: string;
+          if (month1 === month2 && year1 === year2) {
+            datumStr = `${day1}-${day2}.${month1}.${year1}`;
+          } else if (year1 === year2) {
+            datumStr = `${day1}.${month1}-${day2}.${month2}.${year1}`;
+          } else {
+            datumStr = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
+          }
           
           customWeeksData.push({
-            datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
+            datum: datumStr,
             utroseno: totalUtroseno,
           });
           

@@ -1937,7 +1937,7 @@ export default function ProfitPage() {
     }
 
     return result;
-  }, [obracuniProfit, filter, selectedMonth, selectedYear]);
+  }, [obracuniProfit, filteredObracuni, filter, selectedMonth, selectedYear]);
 
   // Display data for chart: ensure monthly/selectMonth always shows 3 points (0 - total - 0)
   const displayChartData = useMemo(() => {
@@ -2032,7 +2032,7 @@ export default function ProfitPage() {
             const datumStr = `${day}.${month}.${year}`;
             
             // Pronađi SVE podatke za ovaj dan i sumiraj ih
-            const dayObracuni = obracuniProfit.filter((o) => {
+            const dayObracuni = filteredObracuni.filter((o) => {
               const dTime = parseDatumToDate(o.datum).getTime();
               return dTime >= date.getTime() && dTime < date.getTime() + msPerDay;
             });
@@ -2063,7 +2063,6 @@ export default function ProfitPage() {
           const customWeeksData: Array<any> = [];
           const startDate = new Date(customPeriod.from);
           startDate.setHours(0, 0, 0, 0);
-          // Zaokruži na početak sedmice (ponedeljak)
           const day = startDate.getDay();
           const diff = day === 0 ? -6 : 1 - day;
           startDate.setDate(startDate.getDate() + diff);
@@ -2078,9 +2077,11 @@ export default function ProfitPage() {
             weekEnd.setDate(weekStart.getDate() + 6);
             weekEnd.setHours(23, 59, 59, 999);
 
-            const weekObracuni = obracuniProfit.filter((o) => {
+            const bucketStart = Math.max(weekStart.getTime(), from.getTime());
+            const bucketEnd = Math.min(weekEnd.getTime(), to.getTime());
+            const weekObracuni = filteredObracuni.filter((o) => {
               const dTime = parseDatumToDate(o.datum).getTime();
-              return dTime >= weekStart.getTime() && dTime <= weekEnd.getTime();
+              return dTime >= bucketStart && dTime <= bucketEnd;
             });
 
             const totalBruto = weekObracuni.reduce((sum, o) => sum + (Number(o.ukupnoBruto) || 0), 0);
@@ -2092,9 +2093,20 @@ export default function ProfitPage() {
             const year1 = weekStart.getFullYear();
             const day2 = String(weekEnd.getDate()).padStart(2, "0");
             const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
+            const year2 = weekEnd.getFullYear();
+
+            // Pametna formatacija: isti mjesec/godina -> 24-30.11.2025; ista godina -> 29.12-04.01.2025; različite godine -> 29.12.2025-04.01.2026
+            let datumStr: string;
+            if (month1 === month2 && year1 === year2) {
+              datumStr = `${day1}-${day2}.${month1}.${year1}`;
+            } else if (year1 === year2) {
+              datumStr = `${day1}.${month1}-${day2}.${month2}.${year1}`;
+            } else {
+              datumStr = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
+            }
 
             customWeeksData.push({
-              datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
+              datum: datumStr,
               bruto: totalBruto,
               neto: totalNeto,
               rashod: totalRashod,
@@ -2123,7 +2135,7 @@ export default function ProfitPage() {
             monthEnd.setHours(23, 59, 59, 999);
             
             // Pronađi sve podatke za ovaj mjesec
-            const monthObracuni = obracuniProfit.filter((o) => {
+            const monthObracuni = filteredObracuni.filter((o) => {
               const dTime = parseDatumToDate(o.datum).getTime();
               return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
             });
@@ -2152,7 +2164,7 @@ export default function ProfitPage() {
     }
 
     return chartData;
-  }, [chartData, filter, selectedMonth, selectedYear, obracuniProfit]);
+  }, [chartData, filter, selectedMonth, selectedYear, obracuniProfit, customPeriod, filteredObracuni]);
 
   // ---- podaci za grafikon profita odabranog artikla ----
   // Ako nema odabranog artikla i artiklFilter je "currentWeek", generiši prazan chart sa datumima za trenutnu sedmicu
