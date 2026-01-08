@@ -2785,16 +2785,17 @@ export default function DashboardPage() {
           )}
           {range === "custom" && (
             <div style={{ 
-              marginTop: "12px",
+              marginTop: 0,
               display: "flex", 
               gap: 6, 
               alignItems: "center", 
-              justifyContent: "center",
-              width: "100%", 
+              justifyContent: "flex-start",
               flexWrap: "nowrap",
               opacity: 1,
               visibility: "visible",
-              overflowX: "auto"
+              flex: "0 0 auto",
+              minWidth: 0,
+              alignSelf: "center"
             }}>
               <input
                 type="date"
