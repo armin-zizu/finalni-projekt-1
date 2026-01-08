@@ -2037,53 +2037,108 @@ export default function ProfitPage() {
           }
           return customDaysData;
         } else if (numberOfDays <= 60) {
-          // 16-60 dana: prikaži tačno 4 tačke (4 segmenta raspona)
-          const points: Array<any> = [];
-          const totalRangeMs = to.getTime() - from.getTime() + msPerDay;
-          const bucketMs = Math.ceil(totalRangeMs / 4);
-
-          const formatRange = (startTs: number, endTs: number) => {
-            const sd = new Date(startTs);
-            const ed = new Date(endTs);
-            const d1 = String(sd.getDate()).padStart(2, "0");
-            const m1 = String(sd.getMonth() + 1).padStart(2, "0");
-            const y1 = sd.getFullYear();
-            const d2 = String(ed.getDate()).padStart(2, "0");
-            const m2 = String(ed.getMonth() + 1).padStart(2, "0");
-            const y2 = ed.getFullYear();
-
-            if (m1 === m2 && y1 === y2) return `${d1}-${d2}.${m1}.${y1}`;
-            if (y1 === y2) return `${d1}.${m1}-${d2}.${m2}.${y1}`;
-            return `${d1}.${m1}.${y1}-${d2}.${m2}.${y2}`;
-          };
-
-          for (let i = 0; i < 4; i++) {
-            const bucketStart = from.getTime() + i * bucketMs;
-            if (bucketStart > to.getTime()) {
-              // Ako smo iza kraja opsega, ipak vrati praznu tačku na kraju da zadrži 4 tačke
-              points.push({ datum: formatRange(to.getTime(), to.getTime()), bruto: 0, neto: 0, rashod: 0 });
-              continue;
-            }
-            const bucketEnd = Math.min(bucketStart + bucketMs - 1, to.getTime());
-
-            const bucketData = obracuniProfit.filter((o) => {
+          // 16-60 dana: saberi po sedmicama, ali prikaži max 4 tačke
+          const customWeeksData: Array<any> = [];
+          const startDate = new Date(customPeriod.from);
+          startDate.setHours(0, 0, 0, 0);
+          
+          // Zaokruži na početak sedmice (ponedeljak)
+          const day = startDate.getDay();
+          const diff = day === 0 ? -6 : 1 - day;
+          startDate.setDate(startDate.getDate() + diff);
+          
+          let currentDate = new Date(startDate);
+          const endDate = new Date(customPeriod.to);
+          endDate.setHours(23, 59, 59, 999);
+          
+          while (currentDate < endDate) {
+            const weekStart = new Date(currentDate);
+            weekStart.setHours(0, 0, 0, 0);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+            
+            // Pronađi sve podatke za ovu sedmicu, ograniči na izabrani raspon
+            const bucketStart = Math.max(weekStart.getTime(), from.getTime());
+            const bucketEnd = Math.min(weekEnd.getTime(), to.getTime());
+            const weekObracuni = obracuniProfit.filter((o) => {
               const dTime = parseDatumToDate(o.datum).getTime();
               return dTime >= bucketStart && dTime <= bucketEnd;
             });
-
-            const totalBruto = bucketData.reduce((sum, o) => sum + (Number(o.ukupnoBruto) || 0), 0);
-            const totalNeto = bucketData.reduce((sum, o) => sum + (Number(o.ukupnoNeto) || 0), 0);
-            const totalRashod = bucketData.reduce((sum, o) => sum + (Number(o.ukupnoRashod) || 0), 0);
-
-            points.push({
-              datum: formatRange(bucketStart, bucketEnd),
+            
+            const totalBruto = weekObracuni.reduce((sum, o) => sum + (Number(o.ukupnoBruto) || 0), 0);
+            const totalNeto = weekObracuni.reduce((sum, o) => sum + (Number(o.ukupnoNeto) || 0), 0);
+            const totalRashod = weekObracuni.reduce((sum, o) => sum + (Number(o.ukupnoRashod) || 0), 0);
+            
+            const day1 = String(weekStart.getDate()).padStart(2, "0");
+            const month1 = String(weekStart.getMonth() + 1).padStart(2, "0");
+            const year1 = weekStart.getFullYear();
+            const day2 = String(weekEnd.getDate()).padStart(2, "0");
+            const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
+            const year2 = weekEnd.getFullYear();
+           
+            // Pametna formatacija: ako je isti mjesec i godina: "15-21.12.2025", ako su iste godine: "29.12-04.01.2025", drugačije: "29.12.2025-04.01.2026"
+            let datumStr: string;
+            if (month1 === month2 && year1 === year2) {
+              datumStr = `${day1}-${day2}.${month1}.${year1}`;
+            } else if (year1 === year2) {
+              datumStr = `${day1}.${month1}-${day2}.${month2}.${year1}`;
+            } else {
+              datumStr = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
+            }
+            
+            customWeeksData.push({
+              datum: datumStr,
               bruto: totalBruto,
               neto: totalNeto,
               rashod: totalRashod,
+              start: bucketStart,
+              end: bucketEnd,
             });
+            
+            currentDate.setDate(currentDate.getDate() + 7);
           }
 
-          return points;
+          // Ako ima više od 4 sedmice, spoji ih u 4 segmenta redom
+          if (customWeeksData.length > 4) {
+            const chunkSize = Math.ceil(customWeeksData.length / 4);
+            const merged: Array<any> = [];
+
+            const formatRange = (startTs: number, endTs: number) => {
+              const sd = new Date(startTs);
+              const ed = new Date(endTs);
+              const d1 = String(sd.getDate()).padStart(2, "0");
+              const m1 = String(sd.getMonth() + 1).padStart(2, "0");
+              const y1 = sd.getFullYear();
+              const d2 = String(ed.getDate()).padStart(2, "0");
+              const m2 = String(ed.getMonth() + 1).padStart(2, "0");
+              const y2 = ed.getFullYear();
+
+              if (m1 === m2 && y1 === y2) return `${d1}-${d2}.${m1}.${y1}`;
+              if (y1 === y2) return `${d1}.${m1}-${d2}.${m2}.${y1}`;
+              return `${d1}.${m1}.${y1}-${d2}.${m2}.${y2}`;
+            };
+
+            for (let i = 0; i < customWeeksData.length; i += chunkSize) {
+              const slice = customWeeksData.slice(i, i + chunkSize);
+              const totalBruto = slice.reduce((s, v) => s + (Number(v.bruto) || 0), 0);
+              const totalNeto = slice.reduce((s, v) => s + (Number(v.neto) || 0), 0);
+              const totalRashod = slice.reduce((s, v) => s + (Number(v.rashod) || 0), 0);
+              const startTs = slice[0].start;
+              const endTs = slice[slice.length - 1].end;
+
+              merged.push({
+                datum: formatRange(startTs, endTs),
+                bruto: totalBruto,
+                neto: totalNeto,
+                rashod: totalRashod,
+              });
+            }
+
+            return merged.slice(0, 4);
+          }
+
+          return customWeeksData;
         } else {
           // 60+ dana: prikaži po mjesecima
           const customMonthsData: Array<any> = [];
