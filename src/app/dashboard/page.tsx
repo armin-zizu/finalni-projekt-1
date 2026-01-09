@@ -793,19 +793,9 @@ export default function DashboardPage() {
           const year1 = weekStart.getFullYear();
           const day2 = String(weekEnd.getDate()).padStart(2, "0");
           const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
-          const year2 = weekEnd.getFullYear();
-
-          let datumStr: string;
-          if (month1 === month2 && year1 === year2) {
-            datumStr = `${day1}-${day2}.${month1}.${year1}`;
-          } else if (year1 === year2) {
-            datumStr = `${day1}.${month1}-${day2}.${month2}.${year1}`;
-          } else {
-            datumStr = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
-          }
           
           customWeeksData.push({
-            datum: datumStr,
+            datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
             artikli: totalArtikli,
             rashod: totalRashod,
             prihod: totalPrihod,
@@ -1126,19 +1116,9 @@ export default function DashboardPage() {
           const year1 = weekStart.getFullYear();
           const day2 = String(weekEnd.getDate()).padStart(2, "0");
           const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
-          const year2 = weekEnd.getFullYear();
-
-          let datumStr: string;
-          if (month1 === month2 && year1 === year2) {
-            datumStr = `${day1}-${day2}.${month1}.${year1}`;
-          } else if (year1 === year2) {
-            datumStr = `${day1}.${month1}-${day2}.${month2}.${year1}`;
-          } else {
-            datumStr = `${day1}.${month1}.${year1}-${day2}.${month2}.${year2}`;
-          }
           
           customWeeksData.push({
-            datum: datumStr,
+            datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
             utroseno: totalUtroseno,
           });
           
@@ -2470,58 +2450,64 @@ export default function DashboardPage() {
             )}
             
             {range === "custom" && (
-              <div style={{
-                marginTop: 12,
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                justifyContent: "space-between",
-                width: "100%",
-                flexWrap: "nowrap"
+              <div style={{ 
+                marginTop: "12px",
+                display: "flex",  
+                gap: 8, 
+                alignItems: "flex-end", 
+                width: "100%", 
+                flexWrap: "wrap",
+                opacity: 1,
+                visibility: "visible"
               }}>
-                <input
-                  type="date"
-                  value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  style={{ 
-                    flex: "1 1 0",
-                    minWidth: "0",
-                    maxWidth: "160px",
-                    padding: "8px 10px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "6px", 
-                    fontSize: "14px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    transition: "border-color 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
-                <input
-                  type="date"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  style={{ 
-                    flex: "1 1 0",
-                    minWidth: "0",
-                    maxWidth: "160px",
-                    padding: "8px 10px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "6px", 
-                    fontSize: "14px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    transition: "border-color 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
-                    boxSizing: "border-box"
-                  }}
-                />
+                {/* Custom Date Input za Od */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Od datuma:</label>
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    style={{ 
+                      padding: "8px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
+                      outline: "none",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
+                {/* Custom Date Input za Do */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Do datuma:</label>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    style={{ 
+                      padding: "8px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
+                      outline: "none",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
               </div>
             )}
         </div>
@@ -2784,61 +2770,19 @@ export default function DashboardPage() {
             </div>
           )}
           {range === "custom" && (
-            <div style={{ 
-              marginTop: 0,
-              display: "flex", 
-              gap: 6, 
-              alignItems: "center", 
-              justifyContent: "flex-start",
-              flexWrap: "nowrap",
-              opacity: 1,
-              visibility: "visible",
-              flex: "0 0 auto",
-              minWidth: 0,
-              alignSelf: "center"
-            }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10, opacity: 1, visibility: "visible" }}>
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                style={{ 
-                  flex: "0 0 auto",
-                  minWidth: "120px",
-                  padding: "8px 12px", 
-                  border: "1px solid #d1d5db", 
-                  borderRadius: "8px", 
-                  fontSize: "13px", 
-                  outline: "none",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease",
-                  fontWeight: 500,
-                  color: "#1f2937",
-                  boxSizing: "border-box"
-                }}
+                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
               />
-              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
+              <span style={{ color: "#6b7280" }}>do</span>
               <input
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                style={{ 
-                  flex: "0 0 auto",
-                  minWidth: "120px",
-                  padding: "8px 12px", 
-                  border: "1px solid #d1d5db", 
-                  borderRadius: "8px", 
-                  fontSize: "13px", 
-                  outline: "none",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.2s ease",
-                  fontWeight: 500,
-                  color: "#1f2937",
-                  boxSizing: "border-box"
-                }}
+                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d1d5db", outline: "none" }}
               />
             </div>
           )}
@@ -3682,34 +3626,31 @@ export default function DashboardPage() {
             {artiklRange === "custom" && (
               <div style={{ 
                 display: "flex", 
-                gap: 8, 
+                gap: 4, 
                 alignItems: "center", 
-                justifyContent: "center",
                 width: "100%", 
-                flexWrap: "nowrap" 
+                flexWrap: "wrap" 
               }}>
                 <input
                   type="date"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
                   style={{ 
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    padding: "8px 12px", 
+                    padding: "6px 8px", 
                     border: "1px solid #e5e7eb", 
                     borderRadius: "6px", 
-                    fontSize: 14, 
+                    fontSize: 13, 
                     outline: "none",
-                    boxSizing: "border-box",
-                    backgroundColor: "#fff",
-                    color: "#1f2937",
-                    fontWeight: 500
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
                   }}
                 />
                 <span style={{ 
                   whiteSpace: "nowrap", 
                   color: "#6b7280",
-                  fontSize: 14
+                  fontSize: 13
                 }}>
                   do
                 </span>
@@ -3718,17 +3659,15 @@ export default function DashboardPage() {
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
                   style={{ 
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    padding: "8px 12px", 
+                    padding: "6px 8px", 
                     border: "1px solid #e5e7eb", 
                     borderRadius: "6px", 
-                    fontSize: 14, 
+                    fontSize: 13, 
                     outline: "none",
-                    boxSizing: "border-box",
-                    backgroundColor: "#fff",
-                    color: "#1f2937",
-                    fontWeight: 500
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
                   }}
                 />
               </div>
