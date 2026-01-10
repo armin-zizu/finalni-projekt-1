@@ -23,34 +23,19 @@ import {
   verticalListSortingStrategy
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-// TEMPORARY: Firebase imports disabled during migration
-// import { auth, onAuthStateChanged } from "../../lib/firebase";
-// import { db } from "../../lib/firestore";
-// import { doc, getDoc, setDoc } from "firebase/firestore";
 
-// Mock objects for migration
-const auth = { currentUser: null };
-const onAuthStateChanged = (auth: any, callback: any) => {
-  callback(null);
-  return () => {};
-};
-const db = {} as any;
-const doc = (db: any, collection: string, id: string) => ({ id, collection });
-const getDoc = async (ref: any) => ({ exists: () => false, data: () => ({}) });
-const setDoc = async (ref: any, data: any) => {};
-import { encrypt, decrypt } from "../../lib/encryption";
-
-// ---- Tipovi ----
-type Artikl = {
+// ---- Tip artikla ----
+type ArtiklCijena = {
   naziv: string;
   cijena: number;
   jeZestoko: boolean;
-  pocetnoStanje: number;
-  nabavnaCijena: number;
   zestokoKolicina?: number;
   proizvodnaCijena?: number;
+  nabavnaCijena: number;
   nabavnaCijenaFlase?: number;
   zapreminaFlase?: number;
+  pocetnoStanje: number;
+  displayOrder?: number | null;
 };
 
 // ---- CSS Stilovi ----
@@ -457,7 +442,6 @@ export default function CjenovnikPage() {
 
   // TEMPORARY: Low stock settings disabled - TODO: Migrate to API
   useEffect(() => {
-    // Low stock settings temporarily disabled during Firebase migration
     setLowStockEnabled(false);
   }, []);
   

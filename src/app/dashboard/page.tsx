@@ -12,11 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FaArrowUp, FaArrowDown, FaDollarSign } from "react-icons/fa";
-// TEMPORARY: Disabled Firebase imports for development
-// import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { useRouter } from "next/navigation";
-// import { getDocs, collection, onSnapshot } from "firebase/firestore";
-// import { db } from "../../lib/firestore";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useAppName } from "../context/AppNameContext";
 import { useRole } from "../context/RoleContext";
@@ -229,7 +225,7 @@ export default function DashboardPage() {
       // API već vraća podatke u ispravnom formatu, samo provjeri da su arrayi
       console.log("Dashboard - Primjer obračuna iz API-ja:", obracuni[0] || null);
       
-      const firestoreArhiva: ArhiviraniObracun[] = obracuni.map((ob: any, index: number) => {
+      const apiArhiva: ArhiviraniObracun[] = obracuni.map((ob: any, index: number) => {
         const mapped = {
           datum: ob.datum || "",
           ukupnoArtikli: Number(ob.ukupnoArtikli) || 0,
@@ -254,12 +250,12 @@ export default function DashboardPage() {
         return mapped;
       });
       
-      console.log("Dashboard - Učitano obračuna:", firestoreArhiva.length);
-      console.log("Dashboard - Finalni obračuni (bez isAzuriran):", firestoreArhiva.filter(o => !o.isAzuriran).length);
-      console.log("Dashboard - Ažurirani obračuni (isAzuriran: true):", firestoreArhiva.filter(o => o.isAzuriran).length);
+      console.log("Dashboard - Učitano obračuna:", apiArhiva.length);
+      console.log("Dashboard - Finalni obračuni (bez isAzuriran):", apiArhiva.filter(o => !o.isAzuriran).length);
+      console.log("Dashboard - Ažurirani obračuni (isAzuriran: true):", apiArhiva.filter(o => o.isAzuriran).length);
       
       // Sortiraj po datumu (rastući redoslijed za dashboard)
-      const sortedArhiva = firestoreArhiva.sort((a, b) => {
+      const sortedArhiva = apiArhiva.sort((a, b) => {
         const dateA = parseDatumToDate(a.datum).getTime();
         const dateB = parseDatumToDate(b.datum).getTime();
         return dateA - dateB;
@@ -285,32 +281,6 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // TEMPORARY: Disabled Firebase auth listener - comment out to re-enable
-  /*
-  // ČEKA NA AUTENTIFIKACIJU PRIJE UČITAVANJA
-  useEffect(() => {
-    console.log("Dashboard - Postavljanje auth listenera...");
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      console.log("Dashboard - Auth state promijenjen:", user ? `Korisnik: ${user.uid}` : "Nema korisnika");
-      
-      if (!user) {
-        console.log("Dashboard - Nema korisnika, ne učitavam podatke");
-        setLoading(false);
-        return;
-      }
-
-      // Sačekaj mali delay da se sve inicijalizuje
-      setTimeout(() => {
-        loadArhiva(user.uid);
-      }, 100);
-    });
-
-    return () => {
-      unsubscribeAuth();
-    };
-  }, [loadArhiva]);
-  */
   
   // Učitaj arhivu kada se korisnik učita
   useEffect(() => {
@@ -358,26 +328,6 @@ export default function DashboardPage() {
       };
     }
   }, [monthDropdownOpen, yearDropdownOpen, rangeDropdownOpen, artiklRangeDropdownOpen]);
-
-  // TEMPORARY: Disabled Firebase listener - comment out to re-enable
-  /*
-  // Listener za promjene u arhivi
-  useEffect(() => {
-    const handleArhivaChange = () => {
-      const user = auth.currentUser;
-      if (user) {
-        setTimeout(() => {
-          loadArhiva(user.uid);
-        }, 100);
-      }
-    };
-
-    window.addEventListener("arhivaChanged", handleArhivaChange);
-    return () => {
-      window.removeEventListener("arhivaChanged", handleArhivaChange);
-    };
-  }, [loadArhiva]);
-  */
 
   // Priprema podataka za grafikon - samo finalni obračuni (bez isAzuriran: true)
   const obracuni: Obracun[] = arhiva

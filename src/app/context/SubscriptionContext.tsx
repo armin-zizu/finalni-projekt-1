@@ -58,7 +58,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
   let daysUntilExpiry = 0;
   let daysInGrace = 0;
 
-  // Ako postoji eksplicitno postavljen isActive u Firestore, koristi ga
+  // Ako postoji eksplicitno postavljen isActive flag, koristi ga
   const explicitIsActive = data.isActive !== undefined ? data.isActive : null;
   
   // Ako postoji trialEndDate u podacima, koristi ga

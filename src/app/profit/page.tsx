@@ -7,23 +7,6 @@ import { useCjenovnik } from "../context/CjenovnikContext";
 import { usePathname } from "next/navigation";
 import { useRole } from "../context/RoleContext";
 import { getObracuni, getCurrentUser, updateCurrentUser } from "../../lib/api";
-// TEMPORARY: Firebase imports disabled during migration
-// import { auth, onAuthStateChanged } from "../../lib/firebase";
-// import { db } from "../../lib/firestore";
-// import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
-
-// Mock objects for migration
-const auth = { currentUser: null };
-const onAuthStateChanged = (auth: any, callback: any) => {
-  callback(null);
-  return () => {};
-};
-const db = {} as any;
-const collection = (db: any, path: string) => ({ path });
-const getDocs = async (ref: any) => ({ docs: [] });
-const doc = (db: any, collection: string, id: string) => ({ id, collection });
-const getDoc = async (ref: any) => ({ exists: () => false, data: () => ({}) });
-const setDoc = async (ref: any, data: any) => {};
 import { encrypt, decrypt } from "../../lib/encryption";
 
 // ---- Tipovi ----
@@ -1099,13 +1082,11 @@ export default function ProfitPage() {
 
   // TEMPORARY: Password protection disabled - TODO: Migrate to API
   useEffect(() => {
-    // Password protection temporarily disabled during Firebase migration
     setIsPasswordProtected(false);
   }, [pathname]);
 
   // TEMPORARY: Password protection disabled - TODO: Migrate to API
   const handlePasswordSubmit = async () => {
-    // Password protection temporarily disabled during Firebase migration
     setPasswordError("Password protection trenutno nije dostupno.");
   };
 
@@ -1115,22 +1096,22 @@ export default function ProfitPage() {
       console.log("Profit - Učitavanje arhive za korisnika:", userId);
       
       // UČITAJ IZ API-JA
-      let firestoreArhiva: Obracun[] = [];
+      let apiArhiva: Obracun[] = [];
       
       try {
         const obracuni = await getObracuni(userId);
         
         // Transformiraj podatke iz API-ja u format koji profit očekuje
-        firestoreArhiva = obracuni.map((ob: any) => ({
+        apiArhiva = obracuni.map((ob: any) => ({
           ...ob,
           artikli: ob.artikli ?? [],
           prihodi: ob.prihodi ?? [],
           rashodi: ob.rashodi ?? [],
         } as Obracun));
         
-        console.log("Profit - Učitano iz API-ja:", firestoreArhiva.length, "obračuna");
+        console.log("Profit - Učitano iz API-ja:", apiArhiva.length, "obračuna");
         
-        if (firestoreArhiva.length === 0) {
+        if (apiArhiva.length === 0) {
           console.warn("Profit - Nema obračuna u arhivi!");
           setObracuniProfit([]);
           return;
@@ -1145,7 +1126,7 @@ export default function ProfitPage() {
       }
       
       console.log("Profit - Učitavanje arhive:", {
-        firestoreCount: firestoreArhiva.length,
+        apiCount: apiArhiva.length,
         cjenovnikLength: cjenovnik.length,
       });
 
@@ -1155,7 +1136,7 @@ export default function ProfitPage() {
         return;
       }
 
-      const parsed: Obracun[] = firestoreArhiva
+      const parsed: Obracun[] = apiArhiva
         .filter((item: any) => !item.isAzuriran) // Filtriraj samo finalne obračune (isAzuriran: false ili undefined)
         .map((item: any) => ({
           ...item,
@@ -1170,7 +1151,7 @@ export default function ProfitPage() {
         });
         
       console.log("Profit - Filtrirani obračuni:", {
-        preFiltera: firestoreArhiva.length,
+        preFiltera: apiArhiva.length,
         posleFiltera: parsed.length,
         finalni: parsed.length
       });

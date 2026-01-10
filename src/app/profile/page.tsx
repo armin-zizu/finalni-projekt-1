@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-// TODO: Uklonjen Firebase import - implementirati API pozive
 import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole, UserRole, PagePermission } from "../context/RoleContext";
@@ -9,17 +8,12 @@ import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import { getUserId, updateCurrentUser, logout, getUserDevices, updateDevice, deleteDevice, saveDevice, getObracuni, getCjenovnik, getAuthToken } from "../../lib/api";
-// TEMPORARY: Disabled Firebase imports for development - using mocks
-// import { db } from "../../lib/firestore";
-// TODO: Uklonjen Firebase import - implementirati API pozive
 import { FaSearch, FaSpinner, FaMobile, FaDesktop } from "react-icons/fa";
 import dynamic from "next/dynamic";
 
 // Dynamic import za chat komponente
 const SupportChatButton = dynamic(() => import("../components/SupportChatButton"), { ssr: false });
 const SupportChatWindow = dynamic(() => import("../components/SupportChatWindow"), { ssr: false });
-
-// Firebase imports removed - using API calls instead
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",

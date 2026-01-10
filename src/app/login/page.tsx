@@ -57,7 +57,7 @@ export default function LoginPage() {
       // Generiši ili dohvati device_id prije login-a
       const deviceId = getOrCreateDeviceId();
       
-      // API login poziv umjesto Firebase Auth
+      // Login ide kroz API route
       const loginResponse = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -294,14 +294,13 @@ export default function LoginPage() {
           // Ignoriraj grešku sa ipify
         }
         
-        // NE SPREMAJ U LOCALSTORAGE - IP info se može čuvati u Firestore ako je potrebno
-        // Trenutno se ne čuva jer nije kritično
+        // NE SPREMAJ U LOCALSTORAGE - IP info trenutno se ne čuva jer nije kritično
       } catch (ipError) {
         console.error("Greška pri dohvaćanju IP adrese:", ipError);
         // Nastavi sa login-om čak i ako IP dohvat ne uspije
       }
 
-      // Session management se rješava automatski kroz Firebase Auth
+      // Session management pokrivaju API token i RoleContext
       // API route nije potreban za static export
       console.log("Login uspješan, čekam provjeru role...");
       
@@ -404,14 +403,13 @@ export default function LoginPage() {
           // Ignoriraj grešku sa ipify
         }
         
-        // NE SPREMAJ U LOCALSTORAGE - IP info se može čuvati u Firestore ako je potrebno
-        // Trenutno se ne čuva jer nije kritično
+        // NE SPREMAJ U LOCALSTORAGE - IP info trenutno se ne čuva jer nije kritično
       } catch (ipError) {
         console.error("Greška pri dohvaćanju IP adrese:", ipError);
         // Nastavi sa registracijom čak i ako IP dohvat ne uspije
       }
 
-      // Session management se rješava automatski kroz Firebase Auth
+      // Session management pokrivaju API token i RoleContext
       // API route nije potreban za static export
       console.log("Registracija uspješna, čekam provjeru role...");
       

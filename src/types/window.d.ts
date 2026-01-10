@@ -1,8 +1,5 @@
 // src/types/window.d.ts
-import { RecaptchaVerifier } from "firebase/auth";
-
+// Keep window typing minimal; Firebase removed
 declare global {
-  interface Window {
-    recaptchaVerifier?: RecaptchaVerifier;
-  }
+  interface Window {}
 }

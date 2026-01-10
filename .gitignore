@@ -5,15 +5,5 @@ out/
 .env
 .env.local
 .env.*
-.firebase/
-firebase-debug.log
-firestore-debug.log
-ui-debug.log
-.vercel
-# Firebase export/import
-exported-data/
-firebase-service-account.json
-*.serviceAccount.json
-
 # Uploaded files
 public/uploads/

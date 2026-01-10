@@ -58,42 +58,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const isApprovedRef = React.useRef<boolean>(false); // Ref za praćenje da li je uređaj odobren
 
-  // TEMPORARY: Disabled auth check - comment out to re-enable
-  /*
-  // Slušaj promjene autentifikacije - koristi API umjesto Firebase
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
-    
-    const checkAuth = async () => {
-      const token = getAuthToken();
-      if (!token) {
-        setUser(null);
-        return;
-      }
-      
-      try {
-        const currentUser = await getCurrentUser();
-      setUser(currentUser);
-      } catch (error) {
-        console.error("Error checking auth:", error);
-        setUser(null);
-      }
-    };
-
-    // Provjeri odmah
-    checkAuth();
-
-    // Provjeri svakih 30 sekundi (umjesto real-time listenera)
-    intervalId = setInterval(checkAuth, 30000);
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, []);
-  */
-
   // Generiši Device ID - koristi UUID pristup (isti kao u login stranici)
   const generateDeviceId = async (): Promise<string> => {
     // Provjeri da li je client-side

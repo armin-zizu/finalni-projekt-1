@@ -5,32 +5,6 @@ import { useCjenovnik } from "../context/CjenovnikContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
 import { getUserId, uploadFile, saveObracun, getObracuni /* , getDraftObracun */ } from "../../lib/api";
-// TEMPORARY: Disabled Firebase imports for development - using mocks
-// import { auth } from "../../lib/firebase";
-// import { db, storage } from "../../lib/firebase";
-// import { doc, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp, onSnapshot, Timestamp } from "firebase/firestore";
-// import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
-// import { onAuthStateChanged } from "firebase/auth";
-
-// TEMPORARY: Mock Firebase objects for development
-const auth = { currentUser: { uid: 'dev-user-id' } } as any;
-const db = {} as any;
-const storage = {} as any;
-const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
-const setDoc = async (...args: any[]) => {};
-const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
-const deleteDoc = async (...args: any[]) => {};
-const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
-const getDocs = async (...args: any[]) => ({ docs: [] } as any);
-const serverTimestamp = (...args: any[]) => new Date();
-const onSnapshot = (...args: any[]) => () => {};
-const Timestamp = { fromDate: (date: Date) => date } as any;
-const ref = (...args: any[]) => ({ fullPath: 'mock/path' }) as any;
-const uploadBytes = async (...args: any[]) => ({ metadata: { fullPath: 'mock/path' } } as any);
-const getDownloadURL = async (...args: any[]) => 'mock-url';
-const listAll = async (...args: any[]) => ({ items: [] } as any);
-const deleteObject = async (...args: any[]) => {};
-const onAuthStateChanged = (...args: any[]) => () => {};
 
 // ---- Tipovi ----
 type Artikal = {
@@ -315,62 +289,6 @@ export default function ObracunPage() {
   }, [canEdit, user]);
   
   // SVI KORISNICI MOGU KORISTITI OBRACUN - isReadOnly uklonjen
-  
-  // TEMPORARY: Disabled Firebase listener - comment out to re-enable
-  /*
-  // Učitaj postavke za malu zalihu iz Firestore sa real-time osluškivanjem
-  useEffect(() => {
-    let unsubscribeSnapshot: (() => void) | null = null;
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      // Očisti prethodni snapshot listener ako postoji
-      if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-        unsubscribeSnapshot = null;
-      }
-
-      if (user) {
-        const userDocRef = doc(db, "users", user.uid);
-        
-        // Postavi real-time listener za automatsku sinkronizaciju
-        unsubscribeSnapshot = onSnapshot(
-          userDocRef,
-          (docSnapshot) => {
-            if (docSnapshot.exists()) {
-              const data = docSnapshot.data();
-              if (data.lowStockSettings) {
-                setLowStockEnabled(data.lowStockSettings.enabled || false);
-                setLowStockThresholdZestoka(data.lowStockSettings.thresholdZestoka || 100);
-                setLowStockThresholdOstala(data.lowStockSettings.thresholdOstala || 10);
-              } else {
-                // Ako nema postavki, koristi default vrijednosti
-                setLowStockEnabled(false);
-                setLowStockThresholdZestoka(100);
-                setLowStockThresholdOstala(10);
-              }
-            }
-          },
-          (error: any) => {
-            // Ignoriraj greške dozvola
-            const errorCode = error?.code || "";
-            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-              console.error("Greška pri osluškivanju postavki za malu zalihu:", error);
-            } else {
-              console.warn("Greška pri real-time listeneru: Missing or insufficient permissions.");
-            }
-          }
-        );
-      }
-    });
-    
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-      }
-    };
-  }, []);
-  */
   
   // TEMPORARY: Set default values for development
   useEffect(() => {
@@ -906,7 +824,6 @@ export default function ObracunPage() {
     return `${dan}.${mjesec}.${godina}.`;
   };
 
-  // Firebase cache funkcije su uklonjene - koristimo draft sistem umjesto cache-a
   // Ulaz se čuva u draft obračunu, ne u posebnoj cache kolekciji
 
   // Funkcija za promjenu datuma
@@ -1411,7 +1328,7 @@ export default function ObracunPage() {
     setInvoiceImages(invoiceImages.filter((_, i) => i !== index));
   };
 
-  // Čuvanje obračuna (localStorage + opcionalno Firestore)
+  // Čuvanje obračuna (sprema se preko API-ja)
   const handleSaveObracun = async () => {
     const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
     const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
@@ -1564,7 +1481,7 @@ export default function ObracunPage() {
     const allInvoiceImageUrls = [...draftInvoiceImageUrls, ...newInvoiceImageUrls];
     console.log(`📸 Ukupno slika za finalni obračun: ${allInvoiceImageUrls.length}`, allInvoiceImageUrls);
     
-    // Dodaj slike u obračun - kao što je Firebase radio
+    // Dodaj slike u obračun
     if (allInvoiceImageUrls.length > 0) {
       (arhiviraniObracun as any).invoiceImages = allInvoiceImageUrls;
     }

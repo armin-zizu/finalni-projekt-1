@@ -193,7 +193,7 @@ export default function AdminPage() {
   // Ažuriraj state varijable kada se promijeni selectedUserDetails
   useEffect(() => {
     if (selectedUserDetails) {
-      // Učitaj podatke iz selectedUserDetails ili iz Firestore
+      // Učitaj podatke iz selectedUserDetails - svi podaci dolaze iz API-ja
       const loadUserInfo = async () => {
         try {
           // Koristi podatke iz selectedUserDetails koji su već učitani iz API-ja

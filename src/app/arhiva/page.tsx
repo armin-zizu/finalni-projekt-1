@@ -308,7 +308,7 @@ export default function ArhivaPage() {
     // Koristi user.id iz RoleContext umjesto API poziva
     const userId = user?.id || (await getUserId());
     
-    let firestoreArhiva: ArhiviraniObracun[] = [];
+    let apiArhiva: ArhiviraniObracun[] = [];
     
     // UČITAJ IZ API-JA
     if (userId) {
@@ -317,7 +317,7 @@ export default function ArhivaPage() {
         // getObracuni već vraća transformisane podatke gde su artikli, rashodi i prihodi direktno arrayi
         // FILTRIRAJ: Ne prikazuj ažurirane obračune u arhivi (isAzuriran: true) - oni se čuvaju samo u pozadini
         const finalniObracuni = obracuni.filter((ob: any) => !ob.isAzuriran || ob.isAzuriran === false);
-        firestoreArhiva = finalniObracuni.map((obracun: any) => {
+        apiArhiva = finalniObracuni.map((obracun: any) => {
           // getObracuni već vraća artikli, rashodi, prihodi kao arraye
           // Osiguraj da su arrayi
           const artikli = Array.isArray(obracun.artikli) ? obracun.artikli : [];
@@ -348,14 +348,14 @@ export default function ArhivaPage() {
             invoiceImages: invoiceImages,
           } as ArhiviraniObracun;
         });
-        console.log("Učitano iz API-ja:", firestoreArhiva.length, "obračuna");
+        console.log("Učitano iz API-ja:", apiArhiva.length, "obračuna");
       } catch (error: any) {
         console.warn("Greška pri učitavanju iz API-ja:", error);
       }
     }
     
     // Sortiraj po datumu (najnoviji prvo)
-    const sortedArhiva = firestoreArhiva.sort((a, b) => {
+    const sortedArhiva = apiArhiva.sort((a, b) => {
       const dateA = new Date(a.datum.split(".").reverse().join("-")).getTime();
       const dateB = new Date(b.datum.split(".").reverse().join("-")).getTime();
       return dateB - dateA;
@@ -398,7 +398,7 @@ export default function ArhivaPage() {
       };
     });
     
-    // POSTAVI STANJE (ne sprema se u localStorage - sve je u Firestore)
+    // POSTAVI STANJE (drži se u state-u; ne koristi localStorage)
     setArhiva((prevArhiva) => {
       const prevString = JSON.stringify(prevArhiva);
       const newString = JSON.stringify(transformedArhiva);
@@ -442,41 +442,10 @@ export default function ArhivaPage() {
     }
   }, []);
 
-  // Učitavanje arhive iz Firestore
+  // Učitavanje arhive
   useEffect(() => {
     loadArhiva();
   }, [loadArhiva]);
-
-  // TEMPORARY: Disabled Firebase real-time listener - comment out to re-enable
-  /*
-  // Real-time listener za Firestore promjene
-  useEffect(() => {
-    const user = auth.currentUser;
-    const userId = user?.uid;
-    
-    if (!userId) return;
-    
-    const obracuniRef = collection(db, "users", userId, "obracuni");
-    
-    const unsubscribe = onSnapshot(
-      obracuniRef,
-      () => {
-        // Osvježi arhivu kada se promijeni Firestore
-        console.log("Firestore promjena detektovana, osvježavam arhivu...");
-        loadArhiva();
-      },
-      (error: any) => {
-        // Ignoriraj greške dozvola
-        const errorCode = error?.code || "";
-        if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
-          console.warn("Greška u real-time listeneru za arhivu:", error);
-        }
-      }
-    );
-    
-    return () => unsubscribe();
-  }, [loadArhiva]);
-  */
 
   // Listener za promjene u arhivi (samo za vanjske promjene, ne za interne)
   useEffect(() => {
@@ -493,8 +462,8 @@ export default function ArhivaPage() {
     };
   }, [loadArhiva]);
 
-  // NE SPREMAJ U LOCALSTORAGE - sve se čuva u Firestore
-  // Real-time listener automatski osvježava arhivu kada se promijeni u Firestore
+  // NE SPREMAJ U LOCALSTORAGE - sve se čuva u bazi preko API-ja
+  // Automatski osvježavanje arhive kada se promijeni u API-ju
 
   // Brisanje obračuna
   const handleDeleteObracun = async (datum: string) => {
@@ -919,7 +888,7 @@ export default function ArhivaPage() {
     }
   };
 
-  // Funkcija za upload slika faktura u arhivi - kao što je Firebase radio
+  // Funkcija za upload slika faktura u arhivi
   const uploadInvoiceImagesInArchive = async (datum: string, files?: File[]) => {
     const filesToUpload = files || invoiceFiles[datum] || [];
     if (filesToUpload.length === 0) return;
@@ -936,7 +905,7 @@ export default function ArhivaPage() {
     setUploadProgress(0);
 
     try {
-      // Pronađi obračun u lokalnom state-u (kao Firebase)
+      // Pronađi obračun u lokalnom state-u
       const obracunToUpdate = arhiva.find(o => o.datum === datum);
       if (!obracunToUpdate) {
         alert("Obračun nije pronađen!");
@@ -956,7 +925,7 @@ export default function ArhivaPage() {
       const existingImages = obracunToUpdate.invoiceImages || [];
       const allImages = [...existingImages, ...uploadedUrls];
 
-      // Direktno spremi obračun (kao Firebase setDoc) - koristi podatke iz lokalnog state-a
+      // Direktno spremi obračun preko API-ja - koristi podatke iz lokalnog state-a
       await saveObracun(userId, {
         datum: datum,
         artikli: obracunToUpdate.artikli || [],
@@ -1012,7 +981,7 @@ export default function ArhivaPage() {
     });
   };
 
-  // Funkcija za upload slika iz modala - kao što je Firebase radio
+  // Funkcija za upload slika iz modala
   const uploadInvoiceImagesInModal = async (datum: string) => {
     if (modalInvoiceFiles.length === 0) return;
     
@@ -1028,7 +997,7 @@ export default function ArhivaPage() {
     setUploadProgress(0);
 
     try {
-      // Pronađi obračun u lokalnom state-u (kao Firebase)
+      // Pronađi obračun u lokalnom state-u
       const obracunToUpdate = arhiva.find(o => o.datum === datum);
       if (!obracunToUpdate) {
         alert("Obračun nije pronađen!");
@@ -1048,7 +1017,7 @@ export default function ArhivaPage() {
       const existingImages = obracunToUpdate.invoiceImages || [];
       const allImages = [...existingImages, ...uploadedUrls];
 
-      // Direktno spremi obračun (kao Firebase setDoc) - koristi podatke iz lokalnog state-a
+      // Direktno spremi obračun preko API-ja - koristi podatke iz lokalnog state-a
       await saveObracun(userId, {
         datum: datum,
         artikli: obracunToUpdate.artikli || [],
@@ -1093,7 +1062,7 @@ export default function ArhivaPage() {
     }
   };
 
-  // Funkcija za brisanje slike iz modala - kao što je Firebase radio
+  // Funkcija za brisanje slike iz modala
   const deleteInvoiceImage = async (datum: string, imageIndex: number) => {
     if (!confirm("Da li ste sigurni da želite obrisati ovu sliku?")) {
       return;
@@ -1107,7 +1076,7 @@ export default function ArhivaPage() {
     }
 
     try {
-      // Pronađi obračun u lokalnom state-u (kao Firebase)
+      // Pronađi obračun u lokalnom state-u
       const obracunToUpdate = arhiva.find(o => o.datum === datum);
       if (!obracunToUpdate || !obracunToUpdate.invoiceImages || !obracunToUpdate.invoiceImages[imageIndex]) {
         return;
@@ -1127,7 +1096,7 @@ export default function ArhivaPage() {
       // Ukloni sliku iz liste
       const updatedImages = obracunToUpdate.invoiceImages.filter((_, index) => index !== imageIndex);
 
-      // Direktno spremi obračun (kao Firebase setDoc) - koristi podatke iz lokalnog state-a
+      // Direktno spremi obračun preko API-ja - koristi podatke iz lokalnog state-a
       await saveObracun(userId, {
         datum: datum,
         artikli: obracunToUpdate.artikli || [],
