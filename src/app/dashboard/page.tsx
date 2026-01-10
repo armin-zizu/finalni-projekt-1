@@ -2404,60 +2404,51 @@ export default function DashboardPage() {
                 marginTop: "12px",
                 display: "flex",  
                 gap: 8, 
-                alignItems: "flex-end", 
-                width: "100%", 
-                flexWrap: "wrap",
+                alignItems: "center", 
+                width: "100%",
                 opacity: 1,
-                visibility: "visible"
+                visibility: "visible",
+                flexWrap: "wrap"
               }}>
-                {/* Custom Date Input za Od */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
-                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Od datuma:</label>
-                  <input
-                    type="date"
-                    value={customFrom}
-                    onChange={(e) => setCustomFrom(e.target.value)}
-                    style={{ 
-                      padding: "8px 12px", 
-                      border: "1px solid #d1d5db", 
-                      borderRadius: "8px", 
-                      fontSize: "13px", 
-                      outline: "none",
-                      width: "100%",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937",
-                      boxSizing: "border-box"
-                    }}
-                  />
-                </div>
-                {/* Custom Date Input za Do */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
-                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Do datuma:</label>
-                  <input
-                    type="date"
-                    value={customTo}
-                    onChange={(e) => setCustomTo(e.target.value)}
-                    style={{ 
-                      padding: "8px 12px", 
-                      border: "1px solid #d1d5db", 
-                      borderRadius: "8px", 
-                      fontSize: "13px", 
-                      outline: "none",
-                      width: "100%",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937",
-                      boxSizing: "border-box"
-                    }}
-                  />
-                </div>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={{ 
+                    padding: "8px 12px", 
+                    border: "1px solid #d1d5db", 
+                    borderRadius: "8px", 
+                    fontSize: "13px", 
+                    outline: "none",
+                    backgroundColor: "#fff",
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
+                    color: "#1f2937",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <span style={{ color: "#6b7280", fontSize: "13px" }}>do</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={{ 
+                    padding: "8px 12px", 
+                    border: "1px solid #d1d5db", 
+                    borderRadius: "8px", 
+                    fontSize: "13px", 
+                    outline: "none",
+                    backgroundColor: "#fff",
+                    cursor: "pointer",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                    transition: "all 0.2s ease",
+                    fontWeight: 500,
+                    color: "#1f2937",
+                    boxSizing: "border-box"
+                  }}
+                />
               </div>
             )}
         </div>
