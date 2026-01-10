@@ -3588,8 +3588,7 @@ export default function DashboardPage() {
                     minWidth: "110px",
                     flex: isMobile ? "1 1 auto" : "auto",
                     boxSizing: "border-box",
-                    color: "#1f2937",
-                    backgroundColor: "#fff"
+                    color: "#1f2937"
                   }}
                 />
                 <span style={{ 
@@ -3612,8 +3611,7 @@ export default function DashboardPage() {
                     minWidth: "110px",
                     flex: isMobile ? "1 1 auto" : "auto",
                     boxSizing: "border-box",
-                    color: "#1f2937",
-                    backgroundColor: "#fff"
+                    color: "#1f2937"
                   }}
                 />
               </div>
