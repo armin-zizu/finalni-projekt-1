@@ -3573,7 +3573,7 @@ export default function DashboardPage() {
                 gap: 4, 
                 alignItems: "center", 
                 width: "100%", 
-                flexWrap: "wrap" 
+                flexWrap: "nowrap"
               }}>
                 <input
                   type="date"
@@ -3585,9 +3585,8 @@ export default function DashboardPage() {
                     borderRadius: "6px", 
                     fontSize: 13, 
                     outline: "none",
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    maxWidth: "100%",
+                    minWidth: "110px",
+                    flex: isMobile ? "1 1 auto" : "auto",
                     boxSizing: "border-box"
                   }}
                 />
@@ -3608,9 +3607,8 @@ export default function DashboardPage() {
                     borderRadius: "6px", 
                     fontSize: 13, 
                     outline: "none",
-                    flex: "1 1 auto",
-                    minWidth: 0,
-                    maxWidth: "100%",
+                    minWidth: "110px",
+                    flex: isMobile ? "1 1 auto" : "auto",
                     boxSizing: "border-box"
                   }}
                 />
