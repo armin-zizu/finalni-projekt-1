@@ -3587,12 +3587,13 @@ export default function DashboardPage() {
                     outline: "none",
                     minWidth: "110px",
                     flex: isMobile ? "1 1 auto" : "auto",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    color: "#1f2937"
                   }}
                 />
                 <span style={{ 
                   whiteSpace: "nowrap", 
-                  color: "#6b7280",
+                  color: "#374151",
                   fontSize: 13
                 }}>
                   do
@@ -3609,7 +3610,8 @@ export default function DashboardPage() {
                     outline: "none",
                     minWidth: "110px",
                     flex: isMobile ? "1 1 auto" : "auto",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    color: "#1f2937"
                   }}
                 />
               </div>
