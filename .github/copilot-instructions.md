@@ -30,6 +30,7 @@ Backend je sada 100% Postgres. Sve sekcije koda koja poziva Firebase trebaj treb
 - **Prod start**: `npm run start` (default) or `npm run start:prod` (loads `.env.local` via dotenv-cli, binds port 3001)
 - **DB test**: `npm run test:db` - simple Postgres connectivity check
 - **Migrations**: Run via package.json scripts (`migrate:datum`, `migrate:devices`, `migrate:display-order`, `migrate:support-chat`). SQL migration files in `scripts/` and `migrations/` directories.
+- **Server PM2 restart** (production): `cd ~/bar-app && git pull origin main && npm run build && pm2 restart office-app --update-env`
 
 ## Database & environment
 
@@ -66,12 +67,13 @@ Backend je sada 100% Postgres. Sve sekcije koda koja poziva Firebase trebaj treb
 
 - **API facade**: `src/lib/api.ts` is the single client-side interface for backend calls. Exports helpers: `getAuthToken()`, `setAuthToken()`, `apiCall(endpoint, options)`, device CRUD, file uploads, obracun CRUD. Uses `fetch` with Bearer token; on 401 strips token and navigates to `/login`.
 - **Context providers** (5 total in `src/app/context/`):
-  - **RoleContext**: Manages user role (vlasnik/konobar/null), device approval state, page permissions. Loads on mount, polls for approval if pending. Critical for route gating.
-  - **SubscriptionContext**: Tracks subscription status (active/expired). Triggers redirects to `/profile` when expired.
-  - **CjenovnikContext**: Stores price list items, provides CRUD helpers for artikli (products).
-  - **AppNameContext**: Stores/updates custom app name per user.
-  - **SupportChatContext**: Manages support chat state, unread counts, SSE connection.
+  - **RoleContext**: Manages user role (vlasnik/konobar/null), device approval state, page permissions. Loads on mount, polls for approval if pending. Critical for route gating. Exports `useRole()` hook and `RoleContext` for direct useContext.
+  - **SubscriptionContext**: Tracks subscription status (active/expired). Triggers redirects to `/profile` when expired. Exports `useSubscription()` hook.
+  - **CjenovnikContext**: Stores price list items, provides CRUD helpers for artikli (products). Reads from `api/cjenovnik` and syncs on `req.user.email` change.
+  - **AppNameContext**: Stores/updates custom app name per user. Single source for app branding.
+  - **SupportChatContext**: Manages support chat state, unread counts, SSE connection via `api/support/sse` (requires `?token=` query param).
 - **Hook usage**: Any component using these contexts MUST be client component (`"use client"`) or dynamically imported with `{ ssr: false }`. Example: `Sidebar` and `SubscriptionBanner` are dynamically imported in `layout.tsx`.
+- **useContext pattern with fallback**: When using context directly with `useContext()`, always provide fallback values. Example: `const roleContext = useContext(RoleContext); const role = roleContext?.role ?? null;`
 
 ## Data model & types
 
@@ -88,7 +90,11 @@ Backend je sada 100% Postgres. Sve sekcije koda koja poziva Firebase trebaj treb
 ## Gotchas & conventions
 
 - **User ID resolution**: User identity may be email OR UUID string. Always resolve to UUID before DB queries using pattern: check with uuidRegex, query `users` table by email/id to get UUID. Gate cross-user actions with `isOwner` boolean checks.
+- **Double ID resolution in routes**: API routes that accept user path params must resolve BOTH `req.user.userId` AND route param `userId` to UUIDs separately before comparing (see devices route). This catches legacy email IDs vs new UUIDs.
 - **Service worker**: PWA mode enabled by default via `public/sw.js`. Registration happens in `layout.tsx` on mount. Don't break this; if adjusting cache strategy, update both files in sync.
 - **DB connection**: Never create new Pool instances. Always import and use `getPool()`, `query()`, `transaction()` from `src/lib/db.ts`. The singleton pool is configured with SSL detection and proper timeouts.
+- **Env loading in production**: `src/lib/db.ts` manually loads `.env.local` on module import for PM2 (Next.js auto-load doesn't apply). If env vars are missing in logs, check `.env.local` file exists and is readable.
 - **Type definitions**: Types are duplicated across pages (not centralized). When adding features, look at similar pages (e.g., `obracun/page.tsx`, `profit/page.tsx`) and replicate their type patterns.
 - **Error handling**: DB errors log comprehensive details (code, detail, hint) via `src/lib/db.ts`. API routes should return appropriate HTTP status codes (401 unauthorized, 403 forbidden, 404 not found, 500 server error).
+- **Browser's localStorage for auth**: Token stored in `localStorage` (not httpOnly), so it's accessible to JS but vulnerable to XSS. Fallback to cookies exists for safety. Verify token exists before API calls in `api.ts`.
+- **Date format for obracuni**: Always use TEXT "DD.MM.YYYY" format when querying obracuni. Do NOT use DATE type; the app explicitly converts to text for consistency.

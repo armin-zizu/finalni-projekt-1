@@ -38,6 +38,49 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
   const roleContext = useContext(RoleContext);
   const user = roleContext?.user;
 
+  // UČITAJ cjenovnik iz baze kada se korisnik promijeni
+  useEffect(() => {
+    const userId = user?.email || user?.id;
+    if (!userId) {
+      console.log("📋 CjenovnikContext: Korisnik nije dostupan, resetujem cjenovnik");
+      setCjenovnik([]);
+      setPendingCjenovnik([]);
+      setIsInitialLoad(true);
+      prethodniCjenovnikRef.current = [];
+      return;
+    }
+
+    console.log("📖 CjenovnikContext: Učitavam cjenovnik za korisnika:", userId);
+    
+    // Učitaj cjenovnik iz API-ja
+    getCjenovnik(userId)
+      .then((data: any) => {
+        console.log("✅ CjenovnikContext: Uspješno učitan cjenovnik, artikala:", data.length);
+        const loadedCjenovnik = data.map((item: any) => ({
+          naziv: item.naziv,
+          cijena: parseFloat(item.cijena || 0),
+          nabavnaCijena: parseFloat(item.nabavnaCijena || 0),
+          jeZestoko: item.zestokoKolicina ? true : false,
+          zestokoKolicina: item.zestokoKolicina ? parseFloat(item.zestokoKolicina) : undefined,
+          proizvodnaCijena: item.proizvodnaCijena ? parseFloat(item.proizvodnaCijena) : undefined,
+          nabavnaCijenaFlase: item.nabavnaCijenaFlase ? parseFloat(item.nabavnaCijenaFlase) : undefined,
+          zapreminaFlase: item.zapreminaFlase ? parseFloat(item.zapreminaFlase) : undefined,
+          pocetnoStanje: parseFloat(item.pocetnoStanje || 0),
+          displayOrder: item.displayOrder !== null && item.displayOrder !== undefined ? item.displayOrder : null,
+        }));
+        
+        setCjenovnik(loadedCjenovnik);
+        prethodniCjenovnikRef.current = loadedCjenovnik;
+        setPendingCjenovnik([]);
+        setIsInitialLoad(false);
+      })
+      .catch((error: any) => {
+        console.warn("⚠️ CjenovnikContext: Greška pri učitavanju cjenovnika:", error);
+        // Ne resetuj state - korisni su ostaci podataka ili empty state
+        setIsInitialLoad(false);
+      });
+  }, [user?.email, user?.id]); // Ponovi učitavanje samo ako se email ili id promijeni
+
   // Spremi cjenovnik u API - automatski kada se promijeni (samo ako je dužina promijenjena ili nazivi)
   // NE sprema svaki put kada se promijeni pocetnoStanje ili nabavnaCijena (jer to nije u bazi)
   useEffect(() => {
