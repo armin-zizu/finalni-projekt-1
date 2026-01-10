@@ -81,7 +81,72 @@ export function CjenovnikProvider({ children }: { children: ReactNode }) {
       });
   }, [user?.email, user?.id]); // Ponovi učitavanje samo ako se email ili id promijeni
 
-  // Spremi cjenovnik u API - automatski kada se promijeni (samo ako je dužina promijenjena ili nazivi)
+  // LIVE SYNC: Polling za automatsku sinhronizaciju cjenovnika sa drugim uređajima
+  // Svaki 2 sekunde provjeri da li se cjenovnik promijenio na bazi i ažuriraj state ako treba
+  useEffect(() => {
+    const userId = user?.email || user?.id;
+    if (!userId) return;
+    
+    // Ne polling tijekom prvog učitavanja ili kada je isInitialLoad true
+    if (isInitialLoad) return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        // Učitaj cjenovnik iz API-ja
+        const data = await getCjenovnik(userId);
+        
+        const fetchedCjenovnik = data.map((item: any) => ({
+          naziv: item.naziv,
+          cijena: parseFloat(item.cijena || 0),
+          nabavnaCijena: parseFloat(item.nabavnaCijena || 0),
+          jeZestoko: item.zestokoKolicina ? true : false,
+          zestokoKolicina: item.zestokoKolicina ? parseFloat(item.zestokoKolicina) : undefined,
+          proizvodnaCijena: item.proizvodnaCijena ? parseFloat(item.proizvodnaCijena) : undefined,
+          nabavnaCijenaFlase: item.nabavnaCijenaFlase ? parseFloat(item.nabavnaCijenaFlase) : undefined,
+          zapreminaFlase: item.zapreminaFlase ? parseFloat(item.zapreminaFlase) : undefined,
+          pocetnoStanje: parseFloat(item.pocetnoStanje || 0),
+          displayOrder: item.displayOrder !== null && item.displayOrder !== undefined ? item.displayOrder : null,
+        }));
+        
+        // Provjeri da li se cjenovnik promijenio
+        const dbStr = JSON.stringify(fetchedCjenovnik.map((a: any) => ({
+          naziv: a.naziv,
+          cijena: a.cijena,
+          nabavnaCijena: a.nabavnaCijena,
+          proizvodnaCijena: a.proizvodnaCijena,
+          zestokoKolicina: a.zestokoKolicina,
+          nabavnaCijenaFlase: a.nabavnaCijenaFlase,
+          zapreminaFlase: a.zapreminaFlase,
+          pocetnoStanje: a.pocetnoStanje,
+          displayOrder: a.displayOrder,
+        })));
+        
+        const stateStr = JSON.stringify(cjenovnik.map((a: any) => ({
+          naziv: a.naziv,
+          cijena: a.cijena,
+          nabavnaCijena: a.nabavnaCijena,
+          proizvodnaCijena: a.proizvodnaCijena,
+          zestokoKolicina: a.zestokoKolicina,
+          nabavnaCijenaFlase: a.nabavnaCijenaFlase,
+          zapreminaFlase: a.zapreminaFlase,
+          pocetnoStanje: a.pocetnoStanje,
+          displayOrder: a.displayOrder,
+        })));
+        
+        // Ako se razlikuju, ažuriraj state
+        if (dbStr !== stateStr) {
+          console.log("🔄 CjenovnikContext: Live sync - cjenovnik se promijenio na drugom uređaju, ažuriram...");
+          setCjenovnik(fetchedCjenovnik);
+          prethodniCjenovnikRef.current = fetchedCjenovnik;
+        }
+      } catch (error: any) {
+        // Tiho greške - polling se nastavlja
+        console.warn("⚠️ CjenovnikContext: Live sync polling error:", error.message);
+      }
+    }, 2000); // Poll svaki 2 sekunde (malo brže nego obračun jer je manji dataset)
+    
+    return () => clearInterval(pollInterval);
+  }, [user?.email, user?.id, isInitialLoad, cjenovnik]);
   // NE sprema svaki put kada se promijeni pocetnoStanje ili nabavnaCijena (jer to nije u bazi)
   useEffect(() => {
     // Email je glavni identifikator
