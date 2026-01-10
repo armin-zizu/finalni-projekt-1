@@ -3589,7 +3589,8 @@ export default function DashboardPage() {
                     flex: isMobile ? "1 1 auto" : "auto",
                     boxSizing: "border-box",
                     color: "#1f2937",
-                    backgroundColor: "#fff"
+                    backgroundColor: "#fff",
+                    fontWeight: "bold"
                   }}
                 />
                 <span style={{ 
@@ -3613,7 +3614,8 @@ export default function DashboardPage() {
                     flex: isMobile ? "1 1 auto" : "auto",
                     boxSizing: "border-box",
                     color: "#1f2937",
-                    backgroundColor: "#fff"
+                    backgroundColor: "#fff",
+                    fontWeight: "bold"
                   }}
                 />
               </div>
@@ -4207,7 +4209,7 @@ export default function DashboardPage() {
                       cursor: "pointer",
                       boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
                       transition: "all 0.2s ease",
-                      fontWeight: 500,
+                      fontWeight: "bold",
                       color: "#1f2937",
                       boxSizing: "border-box",
                       minWidth: "110px",
@@ -4229,7 +4231,7 @@ export default function DashboardPage() {
                       cursor: "pointer",
                       boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
                       transition: "all 0.2s ease",
-                      fontWeight: 500,
+                      fontWeight: "bold",
                       color: "#1f2937",
                       boxSizing: "border-box",
                       minWidth: "110px",
