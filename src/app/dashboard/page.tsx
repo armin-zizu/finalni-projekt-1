@@ -4183,11 +4183,13 @@ export default function DashboardPage() {
               )}
               {artiklRange === "custom" && (
                 <div style={{ 
-                  display: "flex", 
-                  gap: 10, 
+                  display: "flex",  
+                  gap: 8, 
                   alignItems: "center", 
                   marginLeft: 10,
-                  width: "100%"
+                  width: "100%",
+                  opacity: 1,
+                  visibility: "visible"
                 }}>
                   <input
                     type="date"
@@ -4195,36 +4197,42 @@ export default function DashboardPage() {
                     onChange={(e) => setCustomFrom(e.target.value)}
                     style={{ 
                       padding: "8px 12px", 
-                      borderRadius: 6, 
                       border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
                       outline: "none",
-                      fontSize: "14px",
-                      transition: "border-color 0.2s",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box",
                       minWidth: "110px",
-                      flex: isMobile ? "1 1 auto" : "auto",
-                      boxSizing: "border-box"
+                      flex: isMobile ? "1 1 auto" : "auto"
                     }}
-                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
-                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                   />
-                  <span style={{ color: "#6b7280", fontSize: "14px", whiteSpace: "nowrap" }}>do</span>
+                  <span style={{ color: "#6b7280", fontSize: "13px", whiteSpace: "nowrap" }}>do</span>
                   <input
                     type="date"
                     value={customTo}
                     onChange={(e) => setCustomTo(e.target.value)}
                     style={{ 
                       padding: "8px 12px", 
-                      borderRadius: 6, 
                       border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
                       outline: "none",
-                      fontSize: "14px",
-                      transition: "border-color 0.2s",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box",
                       minWidth: "110px",
-                      flex: isMobile ? "1 1 auto" : "auto",
-                      boxSizing: "border-box"
+                      flex: isMobile ? "1 1 auto" : "auto"
                     }}
-                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
-                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                   />
                 </div>
               )}
