@@ -386,6 +386,40 @@ export default function ObracunPage() {
     return () => clearInterval(pollInterval);
   }, [user?.email, user?.id, trenutniDatum, artikli, rashodi, prihodi]);
 
+  // LIVE SYNC za cjenovnik: Prati promjene u redoslijedu cjenovnika
+  // Ako se redoslijed promijeni u cjenovniku, primijeni ga na artikle u obračunu
+  useEffect(() => {
+    if (cjenovnik.length === 0 || artikli.length === 0) return;
+    
+    // Kreiraj mapu redoslijeda iz cjenovnika (displayOrder)
+    const cjenovnikMap = new Map<string, number>();
+    cjenovnik.forEach((c: any) => {
+      cjenovnikMap.set(c.naziv, c.displayOrder !== null && c.displayOrder !== undefined ? c.displayOrder : 999999);
+    });
+    
+    // Provjeri da li je redoslijed artikala drugačiji od redoslijeda u cjenovniku
+    const artikliSorted = [...artikli].sort((a, b) => {
+      const orderA = cjenovnikMap.get(a.naziv) ?? 999999;
+      const orderB = cjenovnikMap.get(b.naziv) ?? 999999;
+      return orderA - orderB;
+    });
+    
+    // Provjeri da li se redoslijed razlikuje
+    let redoslijedPromijenjen = false;
+    for (let i = 0; i < artikli.length; i++) {
+      if (artikli[i].naziv !== artikliSorted[i].naziv) {
+        redoslijedPromijenjen = true;
+        break;
+      }
+    }
+    
+    // Ako se redoslijed promijenio, ažuriraj state
+    if (redoslijedPromijenjen) {
+      console.log("🔄 Live sync cjenovnik: Redoslijed cjenovnika se promijenio, ažuriram redoslijed artikala...");
+      setArtikli(artikliSorted);
+    }
+  }, [cjenovnik]); // Prati samo cjenovnik
+
   // Helper funkcija za formatiranje datuma
   const formatDatum = (date: Date): string => {
     const dan = String(date.getDate()).padStart(2, '0');
