@@ -2407,8 +2407,7 @@ export default function DashboardPage() {
                 alignItems: "center", 
                 width: "100%",
                 opacity: 1,
-                visibility: "visible",
-                flexWrap: "wrap"
+                visibility: "visible"
               }}>
                 <input
                   type="date"
@@ -2426,10 +2425,12 @@ export default function DashboardPage() {
                     transition: "all 0.2s ease",
                     fontWeight: 500,
                     color: "#1f2937",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    minWidth: "110px",
+                    flex: isMobile ? "1 1 auto" : "auto"
                   }}
                 />
-                <span style={{ color: "#6b7280", fontSize: "13px" }}>do</span>
+                <span style={{ color: "#6b7280", fontSize: "13px", whiteSpace: "nowrap" }}>do</span>
                 <input
                   type="date"
                   value={customTo}
@@ -2446,7 +2447,9 @@ export default function DashboardPage() {
                     transition: "all 0.2s ease",
                     fontWeight: 500,
                     color: "#1f2937",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    minWidth: "110px",
+                    flex: isMobile ? "1 1 auto" : "auto"
                   }}
                 />
               </div>
@@ -4179,7 +4182,13 @@ export default function DashboardPage() {
                 </div>
               )}
               {artiklRange === "custom" && (
-                <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10 }}>
+                <div style={{ 
+                  display: "flex", 
+                  gap: 10, 
+                  alignItems: "center", 
+                  marginLeft: 10,
+                  width: "100%"
+                }}>
                   <input
                     type="date"
                     value={customFrom}
@@ -4190,12 +4199,15 @@ export default function DashboardPage() {
                       border: "1px solid #d1d5db", 
                       outline: "none",
                       fontSize: "14px",
-                      transition: "border-color 0.2s"
+                      transition: "border-color 0.2s",
+                      minWidth: "110px",
+                      flex: isMobile ? "1 1 auto" : "auto",
+                      boxSizing: "border-box"
                     }}
                     onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
                     onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                   />
-                  <span style={{ color: "#6b7280", fontSize: "14px" }}>do</span>
+                  <span style={{ color: "#6b7280", fontSize: "14px", whiteSpace: "nowrap" }}>do</span>
                   <input
                     type="date"
                     value={customTo}
@@ -4206,7 +4218,10 @@ export default function DashboardPage() {
                       border: "1px solid #d1d5db", 
                       outline: "none",
                       fontSize: "14px",
-                      transition: "border-color 0.2s"
+                      transition: "border-color 0.2s",
+                      minWidth: "110px",
+                      flex: isMobile ? "1 1 auto" : "auto",
+                      boxSizing: "border-box"
                     }}
                     onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
                     onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
