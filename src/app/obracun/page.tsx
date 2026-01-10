@@ -302,6 +302,98 @@ export default function ObracunPage() {
   const [ulazCacheForDatum, setUlazCacheForDatum] = useState<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }>({});
   const [isCacheLoaded, setIsCacheLoaded] = useState<boolean>(false);
 
+  // LIVE SYNC: Polling za automatsku sinhronizaciju obračuna sa drugim uređajima
+  // Svaki 3 sekunde provjeri da li se obračun promijenio i ažuriraj state ako treba
+  useEffect(() => {
+    if (!user?.email || !trenutniDatum) return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const userId = user.email || user.id;
+        if (!userId) return;
+        
+        // Učitaj obračune za danas
+        const obracuni = await getObracuni(userId);
+        const datumStr = formatDatum(trenutniDatum);
+        const todayObracun = obracuni.find((ob: any) => ob.datum === datumStr);
+        
+        if (!todayObracun) {
+          // Ako nema obračuna za danas, ne radi ništa (novi obračun)
+          return;
+        }
+        
+        // Provjeri da li su se artikli promijenili (redoslijed, broj, nazivi, vrijednosti)
+        const dbArtikli = todayObracun.artikli || [];
+        const stateArtikli = artikli;
+        
+        const dbArtikliStr = JSON.stringify(dbArtikli.map((a: any) => ({
+          naziv: a.naziv,
+          utroseno: a.utroseno,
+          krajnjeStanje: a.krajnjeStanje,
+          ulaz: a.ulaz,
+        })));
+        
+        const stateArtikliStr = JSON.stringify(stateArtikli.map((a: any) => ({
+          naziv: a.naziv,
+          utroseno: a.utroseno,
+          krajnjeStanje: a.krajnjeStanje,
+          ulaz: a.ulaz,
+        })));
+        
+        // Ako se artikli razlikuju, ažuriraj state
+        if (dbArtikliStr !== stateArtikliStr) {
+          console.log("🔄 Live sync: Obračun se promijenio na drugom uređaju, ažuriram...");
+          setArtikli(dbArtikli.map((a: any) => ({
+            naziv: a.naziv,
+            cijena: a.cijena,
+            pocetnoStanje: a.pocetnoStanje,
+            ulaz: a.ulaz || 0,
+            ukupno: (a.pocetnoStanje || 0) + (a.ulaz || 0),
+            utroseno: a.utroseno || 0,
+            krajnjeStanje: a.krajnjeStanje || 0,
+            vrijednostKM: a.vrijednostKM || 0,
+            zestokoKolicina: a.zestokoKolicina,
+            proizvodnaCijena: a.proizvodnaCijena,
+            isKrajnjeSet: a.krajnjeStanje !== undefined && a.krajnjeStanje !== null,
+          })));
+        }
+        
+        // Provjeri rashode i prihode
+        const dbRashodi = todayObracun.rashodi || [];
+        const dbPrihodi = todayObracun.prihodi || [];
+        
+        const dbRashodiStr = JSON.stringify(dbRashodi.map((r: any) => ({ naziv: r.naziv, cijena: r.cijena })));
+        const dbPrihodiStr = JSON.stringify(dbPrihodi.map((p: any) => ({ naziv: p.naziv, cijena: p.cijena })));
+        
+        const stateRashodiStr = JSON.stringify(rashodi.map((r: any) => ({ naziv: r.naziv, cijena: r.cijena })));
+        const statePrihodiStr = JSON.stringify(prihodi.map((p: any) => ({ naziv: p.naziv, cijena: p.cijena })));
+        
+        if (dbRashodiStr !== stateRashodiStr) {
+          console.log("🔄 Live sync: Rashodi se promijenili, ažuriram...");
+          setRashodi(dbRashodi);
+        }
+        
+        if (dbPrihodiStr !== statePrihodiStr) {
+          console.log("🔄 Live sync: Prihodi se promijenili, ažuriram...");
+          setPrihodi(dbPrihodi);
+        }
+      } catch (error: any) {
+        // Tiho greške - polling se nastavlja
+        console.warn("⚠️ Live sync polling error:", error.message);
+      }
+    }, 3000); // Poll svaki 3 sekunde
+    
+    return () => clearInterval(pollInterval);
+  }, [user?.email, user?.id, trenutniDatum, artikli, rashodi, prihodi]);
+
+  // Helper funkcija za formatiranje datuma
+  const formatDatum = (date: Date): string => {
+    const dan = String(date.getDate()).padStart(2, '0');
+    const mjesec = String(date.getMonth() + 1).padStart(2, '0');
+    const godina = date.getFullYear();
+    return `${dan}.${mjesec}.${godina}.`;
+  };
+
   // Helper funkcija za provjeru da li je prihod još uvijek relevantan (tj. da li postoji plaćen dug u arhivi)
   const isPrihodRelevant = async (prihodNaziv: string, userId: string): Promise<boolean> => {
     try {
