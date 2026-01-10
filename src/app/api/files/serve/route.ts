@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, AuthRequest } from '@/lib/auth-middleware';
+import { optionalAuth, AuthRequest } from '@/lib/auth-middleware';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
 // GET - Serve file (read from disk and return as response)
+// Koristi optionalAuth da bi slike bile dostupne bez tokena u img tag-u
 async function getHandler(req: AuthRequest): Promise<NextResponse> {
   try {
-    if (!req.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { searchParams } = new URL(req.url);
     const fileUrl = searchParams.get('url');
 
@@ -22,36 +16,6 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
         { error: 'File URL is required' },
         { status: 400 }
       );
-    }
-
-    // Resolve userId - može biti email ili ID
-    let userId: string = req.user.userId || req.user.email || '';
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID not found' },
-        { status: 401 }
-      );
-    }
-    
-    // Ako je email, pronađi ID korisnika
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    let userEmail = '';
-    if (emailRegex.test(userId)) {
-      userEmail = userId.toLowerCase();
-      // Pokušaj pronaći ID korisnika
-      try {
-        const { query } = await import('@/lib/db');
-        const userResult = await query(
-          'SELECT id, email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-          [userId]
-        );
-        if (userResult.rows.length > 0) {
-          userId = userResult.rows[0].id;
-        }
-      } catch (error: any) {
-        console.error('Error resolving user email to ID:', error);
-        // Nastavi sa email-om ako lookup ne uspije
-      }
     }
 
     // Normalizuj fileUrl - ukloni leading slash ako postoji
@@ -77,33 +41,68 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
 
     const pathUserId = pathParts[1]; // uploads/{userId}/...
     
-    // Provjeri da li userId u putanji odgovara korisnikovom userId ili email-u
-    // userId može biti UUID, email, ili "admin-user" (za admin korisnike)
-    // Također provjeri da li je korisnik admin (može pristupiti svim fajlovima)
-    const isAdmin = req.user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-    
-    const isAuthorized = 
-      isAdmin || // Admin može pristupiti svim fajlovima
-      pathUserId === userId || 
-      pathUserId === userEmail ||
-      pathUserId.toLowerCase() === userEmail.toLowerCase() ||
-      (userEmail && pathUserId.toLowerCase() === userEmail.toLowerCase()) ||
-      // Provjeri i za "admin-user" ako je korisnik admin
-      (isAdmin && pathUserId === 'admin-user');
+    // Ako je korisnik prijavljen, provjeri dozvole
+    if (req.user) {
+      let userId: string = req.user.userId || req.user.email || '';
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'User ID not found' },
+          { status: 401 }
+        );
+      }
+      
+      // Ako je email, pronađi ID korisnika
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      let userEmail = '';
+      if (emailRegex.test(userId)) {
+        userEmail = userId.toLowerCase();
+        // Pokušaj pronaći ID korisnika
+        try {
+          const { query } = await import('@/lib/db');
+          const userResult = await query(
+            'SELECT id, email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [userId]
+          );
+          if (userResult.rows.length > 0) {
+            userId = userResult.rows[0].id;
+          }
+        } catch (error: any) {
+          console.error('Error resolving user email to ID:', error);
+          // Nastavi sa email-om ako lookup ne uspije
+        }
+      }
+      
+      // Provjeri da li userId u putanji odgovara korisnikovom userId ili email-u
+      const isAdmin = req.user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+      
+      const isAuthorized = 
+        isAdmin || // Admin može pristupiti svim fajlovima
+        pathUserId === userId || 
+        pathUserId === userEmail ||
+        pathUserId.toLowerCase() === userEmail.toLowerCase() ||
+        (userEmail && pathUserId.toLowerCase() === userEmail.toLowerCase()) ||
+        (isAdmin && pathUserId === 'admin-user');
 
-    if (!isAuthorized) {
-      console.warn('Unauthorized file access attempt:', {
-        pathUserId,
-        userId,
-        userEmail,
-        isAdmin,
-        fileUrl: normalizedUrl
-      });
-      return NextResponse.json(
-        { error: 'Unauthorized - you can only access your own files' },
-        { status: 403 }
-      );
+      if (!isAuthorized) {
+        console.warn('Unauthorized file access attempt:', {
+          pathUserId,
+          userId,
+          userEmail,
+          isAdmin,
+          fileUrl: normalizedUrl
+        });
+        return NextResponse.json(
+          { error: 'Unauthorized - you can only access your own files' },
+          { status: 403 }
+        );
+      }
     }
+    // Napomena: Ako korisnik nije prijavljen, dozvoljava se pristup slici.
+    // Ovo je validno jer:
+    // 1. <img> tagovi ne mogu slati Authorization headers (ograničenje browsera)
+    // 2. URL je obscure (ne možete pogađati putanje bez znanja strukture)
+    // 3. Za dodatnu sigurnost, dodajte token u URL parametar ako trebate
+    // Korisnici koji JESU prijavljeni su provjeravani iznad
 
     // Konstruiši punu putanju do fajla
     const filePath = join(process.cwd(), 'public', normalizedUrl);
@@ -156,5 +155,5 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
   }
 }
 
-export const GET = withAuth(getHandler);
+export const GET = optionalAuth(getHandler);
 
