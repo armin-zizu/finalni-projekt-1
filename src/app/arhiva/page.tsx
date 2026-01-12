@@ -414,7 +414,7 @@ export default function ArhivaPage() {
         obracunRefs.current[item.datum] = React.createRef<HTMLDivElement>();
       }
     });
-  }, []);
+  }, [user?.id, user?.email]);
 
   // Detekcija mobilnog uređaja
   useEffect(() => {

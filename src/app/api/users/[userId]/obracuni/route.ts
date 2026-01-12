@@ -583,8 +583,8 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       count: normalizedInvoiceImages.length
     });
 
-    // Combine all data into artikli JSONB
-    const obracunData = {
+    // Combine all data into artikli JSONB (invoiceImages merged sa postojećim zapisima malo niže)
+    const obracunData: any = {
       artikli: artikli || [],
       rashodi: rashodi || [],
       prihodi: prihodi || [],
@@ -596,8 +596,6 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       imaUlaz: imaUlaz || false,
       invoiceImages: normalizedInvoiceImages || [],
     };
-    
-    const obracunDataJson = JSON.stringify(obracunData);
 
     // Upsert obracun - always use simple query without is_draft column
     // is_draft column doesn't exist in database, ali isAzuriran je u JSONB polju
@@ -613,6 +611,28 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
          AND datum = $2`,
         [userIdForDb, datumForPostgres]
       );
+      
+      // Upari postojeće slike faktura (draft ili final) sa novim da se slike ne izgube pri prelasku draft -> final
+      const existingImages: string[] = [];
+      for (const row of existingCheck.rows) {
+        let existingArtikli = row.artikli;
+        if (typeof existingArtikli === 'string') {
+          try {
+            existingArtikli = JSON.parse(existingArtikli);
+          } catch (err) {
+            console.warn('Save obracun - parse existing artikli failed for invoice merge:', err);
+            existingArtikli = null;
+          }
+        }
+        const imgs = existingArtikli?.invoiceImages;
+        if (Array.isArray(imgs)) {
+          existingImages.push(...imgs);
+        }
+      }
+
+      const mergedInvoiceImages = [...new Set([...(normalizedInvoiceImages || []), ...existingImages])];
+      obracunData.invoiceImages = mergedInvoiceImages;
+      const obracunDataJson = JSON.stringify(obracunData);
       
       // Ako postoji obračun, proveri da li ima isti isAzuriran status
       let existingIsAzuriran: boolean | null = null;
@@ -642,8 +662,8 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
           if (existingObracunResult.rows.length > 0) {
             const existingArtikli = existingObracunResult.rows[0].artikli;
             if (existingArtikli && typeof existingArtikli === 'object' && existingArtikli.invoiceImages && Array.isArray(existingArtikli.invoiceImages)) {
-              const existingImages = existingArtikli.invoiceImages || [];
-              const allImages = [...new Set([...existingImages, ...normalizedInvoiceImages])];
+              const existingImagesSameStatus = existingArtikli.invoiceImages || [];
+              const allImages = [...new Set([...existingImagesSameStatus, ...mergedInvoiceImages])];
               obracunData.invoiceImages = allImages;
               finalObracunDataJson = JSON.stringify(obracunData);
             }
