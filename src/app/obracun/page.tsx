@@ -233,6 +233,12 @@ export default function ObracunPage() {
   const [hasUlazInCache, setHasUlazInCache] = useState<boolean>(false); // Provjera da li postoji ulaz u cache-u
   const [isUlazLocked, setIsUlazLocked] = useState<boolean>(false); // Provjera da li su ulazi zaključani
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  // Pamti zadnje sinhronizirano stanje da ne pregazimo lokalne izmjene live sync-om
+  const lastSyncedStateRef = useRef<{ artikliStr: string; rashodiStr: string; prihodiStr: string }>({
+    artikliStr: "[]",
+    rashodiStr: "[]",
+    prihodiStr: "[]",
+  });
 
   // Inicijalizacija datuma i detekcija mobilnog uređaja (samo na klijentu)
   useEffect(() => {
@@ -339,6 +345,19 @@ export default function ObracunPage() {
           krajnjeStanje: a.krajnjeStanje,
           ulaz: a.ulaz,
         })));
+
+        // Ako lokalno stanje odstupa od posljednjeg sinhronizovanog (korisnik trenutno unosi), ne prepisuj
+        const stateRashodiStr = JSON.stringify(rashodi.map((r: any) => ({ naziv: r.naziv, cijena: r.cijena })));
+        const statePrihodiStr = JSON.stringify(prihodi.map((p: any) => ({ naziv: p.naziv, cijena: p.cijena })));
+        const localDirty =
+          stateArtikliStr !== lastSyncedStateRef.current.artikliStr ||
+          stateRashodiStr !== lastSyncedStateRef.current.rashodiStr ||
+          statePrihodiStr !== lastSyncedStateRef.current.prihodiStr;
+
+        if (localDirty) {
+          // Korisnik unosi podatke – preskoči auto-sync da se ne pregaze vrijednosti
+          return;
+        }
         
         // Ako se artikli razlikuju, ažuriraj state
         if (dbArtikliStr !== stateArtikliStr) {
@@ -365,9 +384,6 @@ export default function ObracunPage() {
         const dbRashodiStr = JSON.stringify(dbRashodi.map((r: any) => ({ naziv: r.naziv, cijena: r.cijena })));
         const dbPrihodiStr = JSON.stringify(dbPrihodi.map((p: any) => ({ naziv: p.naziv, cijena: p.cijena })));
         
-        const stateRashodiStr = JSON.stringify(rashodi.map((r: any) => ({ naziv: r.naziv, cijena: r.cijena })));
-        const statePrihodiStr = JSON.stringify(prihodi.map((p: any) => ({ naziv: p.naziv, cijena: p.cijena })));
-        
         if (dbRashodiStr !== stateRashodiStr) {
           console.log("🔄 Live sync: Rashodi se promijenili, ažuriram...");
           setRashodi(dbRashodi);
@@ -377,6 +393,13 @@ export default function ObracunPage() {
           console.log("🔄 Live sync: Prihodi se promijenili, ažuriram...");
           setPrihodi(dbPrihodi);
         }
+
+        // Nakon uspješnog sync-a ažuriraj zadnje sinhronizovano stanje
+        lastSyncedStateRef.current = {
+          artikliStr: dbArtikliStr,
+          rashodiStr: dbRashodiStr,
+          prihodiStr: dbPrihodiStr,
+        };
       } catch (error: any) {
         // Tiho greške - polling se nastavlja
         console.warn("⚠️ Live sync polling error:", error.message);
@@ -1658,6 +1681,13 @@ export default function ObracunPage() {
       setIsUlazLocked(false);
       setIsAzuriran(false);
       setUlazCacheForDatum({}); // Očisti cache za ulaz
+
+      // Označi da je lokalno stanje ponovo sinkronizovano (prazno za novi dan)
+      lastSyncedStateRef.current = {
+        artikliStr: JSON.stringify([]),
+        rashodiStr: JSON.stringify([]),
+        prihodiStr: JSON.stringify([]),
+      };
       
       // Prebaci se na sljedeći dan nakon što se sačuva obračun
       const sljedeciDan = new Date(trenutniDatum);

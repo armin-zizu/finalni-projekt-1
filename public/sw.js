@@ -55,23 +55,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Za API zahtjeve, koristi network first
+  // Za API zahtjeve: ne keširaj, uvijek svježa mreža; opcionalno vrati cache samo ako nema mreže
   if (event.request.url.includes('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          // Kloniraj response jer može biti korišten samo jednom
-          const responseToCache = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-          return response;
-        })
-        .catch(() => {
-          // Fallback na cache ako nema mreže
-          return caches.match(event.request);
-        })
-    );
+    event.respondWith(fetch(event.request));
     return;
   }
 
