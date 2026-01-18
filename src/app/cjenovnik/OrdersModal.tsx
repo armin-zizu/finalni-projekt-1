@@ -1043,18 +1043,63 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                               background: "#f9fafb",
                               border: "1px solid #e5e7eb",
                               borderRadius: "10px",
-                              padding: "14px",
+                              padding: "12px",
                               display: "flex",
                               flexDirection: "column",
-                              gap: "10px"
+                              gap: "8px"
                             }}>
-                              {/* Naziv artikla */}
+                              {/* Naziv artikla i dugme za brisanje u istoj liniji */}
                               <div style={{
-                                fontSize: "14px",
-                                fontWeight: 700,
-                                color: "#111827"
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: "8px"
                               }}>
-                                {naziv}
+                                <div style={{
+                                  fontSize: "14px",
+                                  fontWeight: 700,
+                                  color: "#111827",
+                                  flex: 1,
+                                  minWidth: 0,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap"
+                                }}>
+                                  {naziv}
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    const current = supplierItems[prepareOrderSupplierId] || [];
+                                    setSupplierItems((prev) => ({
+                                      ...prev,
+                                      [prepareOrderSupplierId]: current.filter((n) => n !== naziv),
+                                    }));
+                                  }}
+                                  style={{
+                                    padding: "6px",
+                                    background: "transparent",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    color: "#dc2626",
+                                    cursor: "pointer",
+                                    fontSize: "16px",
+                                    transition: "all 0.2s",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    minWidth: "32px",
+                                    height: "32px",
+                                    flexShrink: 0
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "#fee2e2";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "transparent";
+                                  }}
+                                >
+                                  🗑️
+                                </button>
                               </div>
 
                               {/* Trenutno stanje */}
@@ -1065,7 +1110,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                 justifyContent: "space-between",
                                 alignItems: "center"
                               }}>
-                                <span>Trenutno stanje:</span>
+                                <span>Stanje:</span>
                                 <span style={{ fontWeight: 600, color: "#374151" }}>
                                   {currentStock.toFixed(2)}
                                 </span>
@@ -1096,11 +1141,11 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                   }}
                                   placeholder="0"
                                   style={{ 
-                                    width: "100px", 
-                                    padding: "10px 12px", 
+                                    width: "80px", 
+                                    padding: "8px 10px", 
                                     border: "2px solid #d1d5db", 
-                                    borderRadius: "8px", 
-                                    fontSize: "14px", 
+                                    borderRadius: "6px", 
+                                    fontSize: "13px", 
                                     textAlign: "right",
                                     fontWeight: 600,
                                     color: "#111827",
@@ -1110,38 +1155,6 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                   onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                                 />
                               </div>
-
-                              {/* Remove button */}
-                              <button
-                                onClick={() => {
-                                  const current = supplierItems[prepareOrderSupplierId] || [];
-                                  setSupplierItems((prev) => ({
-                                    ...prev,
-                                    [prepareOrderSupplierId]: current.filter((n) => n !== naziv),
-                                  }));
-                                }}
-                                style={{
-                                  padding: "8px 12px",
-                                  background: "#fee2e2",
-                                  border: "1px solid #fecaca",
-                                  borderRadius: "8px",
-                                  color: "#dc2626",
-                                  cursor: "pointer",
-                                  fontSize: "13px",
-                                  fontWeight: 600,
-                                  transition: "all 0.2s"
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = "#fca5a5";
-                                  e.currentTarget.style.color = "#b91c1c";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = "#fee2e2";
-                                  e.currentTarget.style.color = "#dc2626";
-                                }}
-                              >
-                                Ukloni
-                              </button>
                             </div>
                           );
                         })}
