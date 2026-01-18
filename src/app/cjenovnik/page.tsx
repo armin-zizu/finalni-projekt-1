@@ -994,7 +994,9 @@ export default function CjenovnikPage() {
             // Spremi u localStorage - ključ mora biti u formatu ulazCache_DD.MM.YYYY.
             const cacheKey = `ulazCache_${date}`;
             localStorage.setItem(cacheKey, JSON.stringify(ulazData));
-            console.log(`💾 Faktura spaljena u cache: ${cacheKey}`, ulazData);
+            console.log(`💾 Faktura spaljena u cache sa ključem: "${cacheKey}"`);
+            console.log(`💾 Sadržaj cache-a:`, ulazData);
+            console.log(`💾 Sve stavke u localStorage:`, Object.keys(localStorage).filter(k => k.includes('ulazCache')));
             
             // Također spremi globalnu listu prihvaćenih faktura za trigger-ovanje obračuna
             const acceptedInvoices = JSON.parse(localStorage.getItem('acceptedInvoices') || '{}');
