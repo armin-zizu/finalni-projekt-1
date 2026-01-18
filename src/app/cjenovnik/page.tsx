@@ -977,6 +977,28 @@ export default function CjenovnikPage() {
           open={showOrdersModal}
           onClose={() => setShowOrdersModal(false)}
           items={cjenovnik}
+          onInvoiceAccepted={(date, items) => {
+            // Save order items to localStorage for the specific date
+            // Format: ulazCache_DD.MM.YYYY.
+            const ulazData: Record<string, { ulaz: number; staroPocetnoStanje: number }> = {};
+            
+            items.forEach(item => {
+              // Pronađi artikal u cjenovniku da dobiješ pocetnoStanje
+              const artiklData = cjenovnik.find(a => a.naziv === item.name);
+              ulazData[item.name] = { 
+                ulaz: item.quantity,
+                staroPocetnoStanje: artiklData?.pocetnoStanje || 0
+              };
+            });
+            
+            // Spremi u localStorage
+            localStorage.setItem(`ulazCache_${date}`, JSON.stringify(ulazData));
+            
+            // Kreiraj detaljnu poruku sa brojem artikala
+            const artikliBroj = items.length;
+            const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
+            alert(`✅ Faktura prihvaćena!\n\n${artikliBroj} artikl(a) dodan(o) na obračun od ${date}:\n${artikliList}\n\nOtvori "Obračun" za detaljni pregled.`);
+          }}
         />
       )}
 

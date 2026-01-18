@@ -14,7 +14,7 @@ interface Order {
   id: string;
   supplierId: string;
   date: string;
-  status: "pending" | "in-transit" | "received";
+  status: "pending" | "in-transit" | "received" | "completed";
   items: Array<{ name: string; quantity: number }>;
   totalItems: number;
 }
@@ -23,6 +23,7 @@ interface OrdersModalProps {
   open: boolean;
   onClose: () => void;
   items: Array<{ naziv: string; pocetnoStanje?: number }>;
+  onInvoiceAccepted?: (date: string, items: Array<{ name: string; quantity: number }>) => void;
 }
 
 const overlayStyle: React.CSSProperties = {
@@ -221,68 +222,80 @@ const dangerButton: React.CSSProperties = {
   gap: "8px",
 };
 
-export default function OrdersModal({ open, onClose, items }: OrdersModalProps) {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([
-    {
-      id: "1",
-      name: "Kafa Plus",
-      contact: "kontakt@kafaplus.ba",
-      phone: "+387 61 222 333"
-    },
-    {
-      id: "2",
-      name: "Fresh Fruit",
-      contact: "info@freshfruit.ba",
-      phone: "+387 62 555 111"
-    },
-    {
-      id: "3",
-      name: "Pivara Craft",
-      contact: "sales@pivaracraft.ba",
-      phone: "+387 63 777 888"
+export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }: OrdersModalProps) {
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('suppliers');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse suppliers from localStorage:', e);
+        }
+      }
     }
-  ]);
+    return [
+      {
+        id: "1",
+        name: "Kafa Plus",
+        contact: "kontakt@kafaplus.ba",
+        phone: "+387 61 222 333"
+      },
+      {
+        id: "2",
+        name: "Fresh Fruit",
+        contact: "info@freshfruit.ba",
+        phone: "+387 62 555 111"
+      },
+      {
+        id: "3",
+        name: "Pivara Craft",
+        contact: "sales@pivaracraft.ba",
+        phone: "+387 63 777 888"
+      }
+    ];
+  });
 
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [prepareOrderSupplierId, setPrepareOrderSupplierId] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showArticleList, setShowArticleList] = useState(false);
+  const [viewOrderId, setViewOrderId] = useState<string | null>(null);
   const [editInfoMode, setEditInfoMode] = useState(false);
   const [editName, setEditName] = useState("");
   const [editContact, setEditContact] = useState("");
   const [editPhone, setEditPhone] = useState("");
-  const [supplierItems, setSupplierItems] = useState<Record<string, string[]>>({
-    "1": [],
-    "2": [],
-    "3": [],
+  const [supplierItems, setSupplierItems] = useState<Record<string, string[]>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('supplierItems');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse supplierItems from localStorage:', e);
+        }
+      }
+    }
+    return {
+      "1": [],
+      "2": [],
+      "3": [],
+    };
   });
   const [orderQuantities, setOrderQuantities] = useState<Record<string, Record<string, string>>>({});
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: "ord-1",
-      supplierId: "1",
-      date: "15.01.2026",
-      status: "pending",
-      items: [{ name: "Kafa Espresso", quantity: 10 }, { name: "Mlijeko", quantity: 5 }],
-      totalItems: 2,
-    },
-    {
-      id: "ord-2",
-      supplierId: "1",
-      date: "14.01.2026",
-      status: "in-transit",
-      items: [{ name: "\u0160e\u0107er", quantity: 20 }],
-      totalItems: 1,
-    },
-    {
-      id: "ord-3",
-      supplierId: "2",
-      date: "16.01.2026",
-      status: "received",
-      items: [{ name: "Limun", quantity: 30 }, { name: "Narand\u017ea", quantity: 25 }],
-      totalItems: 2,
-    },
-  ]);
+  const [orders, setOrders] = useState<Order[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('orders');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse orders from localStorage:', e);
+        }
+      }
+    }
+    return [];
+  });
 
   const selectedSupplier = useMemo(
     () => suppliers.find((s) => s.id === selectedSupplierId) || null,
@@ -297,12 +310,12 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
   const supplierCount = useMemo(() => suppliers.length, [suppliers]);
 
   const activeOrdersList = useMemo(
-    () => orders.filter((o) => o.status === "pending" || o.status === "in-transit"),
+    () => orders.filter((o) => o.status === "pending" || o.status === "in-transit" || o.status === "received"),
     [orders]
   );
 
   const completedOrdersList = useMemo(
-    () => orders.filter((o) => o.status === "received"),
+    () => orders.filter((o) => o.status === "completed"),
     [orders]
   );
 
@@ -313,6 +326,27 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
       setEditPhone(selectedSupplier.phone || "");
     }
   }, [selectedSupplier]);
+
+  // Save suppliers to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('suppliers', JSON.stringify(suppliers));
+    }
+  }, [suppliers]);
+
+  // Save supplierItems to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('supplierItems', JSON.stringify(supplierItems));
+    }
+  }, [supplierItems]);
+
+  // Save orders to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('orders', JSON.stringify(orders));
+    }
+  }, [orders]);
 
   const handleAddSupplier = () => {
     const name = prompt("Naziv dobavljača");
@@ -350,13 +384,36 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
 
   const handleDeleteSupplier = () => {
     if (!selectedSupplierId) return;
+    
+    const supplier = suppliers.find(s => s.id === selectedSupplierId);
+    if (!supplier) return;
+    
+    if (!confirm(`Da li ste sigurni da želite trajno obrisati dobavljača "${supplier.name}"? Ova radnja se ne može poništiti.`)) {
+      return;
+    }
+    
+    // Ukloni dobavljača iz liste
     setSuppliers((prev) => prev.filter((s) => s.id !== selectedSupplierId));
+    
+    // Ukloni sve artikle povezane sa dobavljačem
     setSupplierItems((prev) => {
       const copy = { ...prev };
       delete copy[selectedSupplierId];
       return copy;
     });
+    
+    // Ukloni sve količine za narudžbe ovog dobavljača
+    setOrderQuantities((prev) => {
+      const copy = { ...prev };
+      delete copy[selectedSupplierId];
+      return copy;
+    });
+    
+    // Ukloni sve narudžbe ovog dobavljača
+    setOrders((prev) => prev.filter((o) => o.supplierId !== selectedSupplierId));
+    
     setSelectedSupplierId(null);
+    alert(`Dobavljač "${supplier.name}" je trajno obrisan.`);
   };
 
   const toggleItem = (naziv: string) => {
@@ -381,16 +438,61 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
   };
 
   const handleCreateOrder = (supplier: Supplier) => {
+    const assigned = supplierItems[supplier.id] || [];
+    const quantities = orderQuantities[supplier.id] || {};
+
+    const orderItems = assigned
+      .map((name) => ({ name, quantity: Number(quantities[name] || 0) || 0 }))
+      .filter((item) => item.quantity > 0);
+
+    if (orderItems.length === 0) {
+      alert("Unesite količinu za barem jedan artikal.");
+      return;
+    }
+
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
       supplierId: supplier.id,
       date: new Date().toLocaleDateString("sr-RS"),
       status: "pending",
-      items: [],
-      totalItems: 0,
+      items: orderItems,
+      totalItems: orderItems.length,
     };
-    setOrders((prev) => [...prev, newOrder]);
-    alert(`Narud\u017eba poslana za ${supplier.name}`);
+
+    setOrders((prev) => [newOrder, ...prev]);
+    setOrderQuantities((prev) => ({ ...prev, [supplier.id]: {} }));
+    alert(`Narudžba poslana za ${supplier.name}`);
+    setPrepareOrderSupplierId(null);
+  };
+
+  const handleAcceptOrder = (orderId: string) => {
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId ? { ...order, status: "received" as const } : order
+      )
+    );
+    alert("Narudžba je prihvaćena!");
+    setViewOrderId(null);
+  };
+
+  const handleInvoiceOrder = (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    
+    if (confirm(`Da li želite prihvatiti fakturu i prebaciti artikle na obračun od ${order.date}?`)) {
+      // Callback to parent with order date and items
+      if (onInvoiceAccepted) {
+        onInvoiceAccepted(order.date, order.items);
+      }
+      
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId ? { ...o, status: "completed" as const } : o
+        )
+      );
+      alert("Faktura prihvaćena! Artikli su prebačeni na obračun.");
+      setViewOrderId(null);
+    }
   };
 
   if (!open) return null;
@@ -423,122 +525,6 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
               <span style={chipStyle}>Dobavljač</span>
               {supplier.contact && <p style={supplierMeta}>Kontakt: {supplier.contact}</p>}
               {supplier.phone && <p style={supplierMeta}>Telefon: {supplier.phone}</p>}
-              
-              {/* Active Orders Section */}
-              {(() => {
-                const activeOrders = orders.filter(o => o.supplierId === supplier.id && (o.status === "pending" || o.status === "in-transit"));
-                const activeCount = activeOrders.length;
-                
-                return (
-                  <>
-                    {activeOrders.length > 0 && (
-                      <div style={{ marginTop: "12px", borderTop: "1px solid #e5e7eb", paddingTop: "12px" }}>
-                        <div style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
-                          Aktivne narud\u017ebe ({activeCount})
-                        </div>
-                        {activeOrders.slice(0, 2).map((order) => {
-                          const statusConfig = {
-                            pending: { label: "Na \u010dekanju", color: "#f59e0b", bg: "#fef3c7" },
-                            "in-transit": { label: "U dostavi", color: "#3b82f6", bg: "#dbeafe" },
-                            received: { label: "Primljeno", color: "#10b981", bg: "#d1fae5" },
-                          };
-                          const status = statusConfig[order.status];
-                          
-                          return (
-                            <div key={order.id} style={{ background: "#f9fafb", padding: "10px", borderRadius: "8px", marginBottom: "8px", border: "1px solid #e5e7eb" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#1f2937" }}>#{order.id.split("-")[1]}</span>
-                                  <span style={{ fontSize: "11px", color: "#6b7280" }}>{order.date}</span>
-                                </div>
-                                <span style={{ 
-                                  fontSize: "11px", 
-                                  fontWeight: 600, 
-                                  color: status.color, 
-                                  background: status.bg, 
-                                  padding: "3px 8px", 
-                                  borderRadius: "12px" 
-                                }}>
-                                  {status.label}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "8px" }}>
-                                {order.totalItems} artikal{order.totalItems > 1 ? "a" : ""}
-                              </div>
-                              <div style={{ display: "flex", gap: "6px" }}>
-                                <button style={{ 
-                                  padding: "5px 10px", 
-                                  fontSize: "11px", 
-                                  fontWeight: 600, 
-                                  background: "#ffffff", 
-                                  border: "1px solid #d1d5db", 
-                                  borderRadius: "6px", 
-                                  cursor: "pointer",
-                                  color: "#374151",
-                                  transition: "all 0.2s",
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
-                                onMouseLeave={(e) => e.currentTarget.style.background = "#ffffff"}
-                                onClick={() => alert(`Pregled narud\u017ebe ${order.id}`)}>
-                                  Pregledaj
-                                </button>
-                                {order.status === "received" && (
-                                  <button style={{ 
-                                    padding: "5px 10px", 
-                                    fontSize: "11px", 
-                                    fontWeight: 600, 
-                                    background: "#10b981", 
-                                    border: "none", 
-                                    borderRadius: "6px", 
-                                    cursor: "pointer",
-                                    color: "#ffffff",
-                                    transition: "all 0.2s",
-                                  }}
-                                  onMouseEnter={(e) => e.currentTarget.style.background = "#059669"}
-                                  onMouseLeave={(e) => e.currentTarget.style.background = "#10b981"}
-                                  onClick={() => alert(`Prihvati dostavu ${order.id}`)}>
-                                    Prihvati
-                                  </button>
-                                )}
-                                <button style={{ 
-                                  padding: "5px 10px", 
-                                  fontSize: "11px", 
-                                  fontWeight: 600, 
-                                  background: "#fee2e2", 
-                                  border: "none", 
-                                  borderRadius: "6px", 
-                                  cursor: "pointer",
-                                  color: "#dc2626",
-                                  transition: "all 0.2s",
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = "#fecaca"}
-                                onMouseLeave={(e) => e.currentTarget.style.background = "#fee2e2"}
-                                onClick={() => alert(`Otka\u017ei narud\u017ebu ${order.id}`)}>
-                                  Otka\u017ei
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {activeOrders.length > 2 && (
-                          <button style={{ 
-                            fontSize: "12px", 
-                            color: "#3b82f6", 
-                            fontWeight: 600, 
-                            background: "none", 
-                            border: "none", 
-                            cursor: "pointer",
-                            padding: "4px 0",
-                          }}
-                          onClick={() => alert(`Prika\u017ei sve narud\u017ebe za ${supplier.name}`)}>
-                            Prika\u017ei sve ({activeOrders.length})
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
 
               <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap", alignItems: "center" }}>
                 <button style={smallPrimaryButton} onClick={() => setPrepareOrderSupplierId(supplier.id)}>
@@ -582,6 +568,7 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
                   pending: { label: "Na čekanju", color: "#f59e0b", bg: "#fef3c7" },
                   "in-transit": { label: "U dostavi", color: "#3b82f6", bg: "#dbeafe" },
                   received: { label: "Primljeno", color: "#10b981", bg: "#d1fae5" },
+                  completed: { label: "Završeno", color: "#6b7280", bg: "#f3f4f6" },
                 } as const;
                 const status = statusConfig[order.status];
 
@@ -600,16 +587,38 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
                     <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "10px" }}>
                       {order.totalItems} artikal{order.totalItems !== 1 ? "a" : ""}
                     </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       <button
                         style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
-                        onClick={() => alert(`Pregled narudžbe ${order.id}`)}
+                        onClick={() => setViewOrderId(order.id)}
                       >
                         Pregledaj
                       </button>
+                      {order.status === "received" && (
+                        <button
+                          style={{ 
+                            padding: "8px 10px", 
+                            fontSize: "12px",
+                            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                            boxShadow: "0 2px 6px rgba(16, 185, 129, 0.2)",
+                          }}
+                          onClick={() => handleInvoiceOrder(order.id)}
+                        >
+                          Prihvati fakturu
+                        </button>
+                      )}
                       <button
                         style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
-                        onClick={() => alert(`Otkaži narudžbu ${order.id}`)}
+                        onClick={() => {
+                          if (confirm(`Da li ste sigurni da želite otkazati narudžbu #${order.id.split("-")[1]}?`)) {
+                            setOrders((prev) => prev.filter((o) => o.id !== order.id));
+                          }
+                        }}
                       >
                         Otkaži
                       </button>
@@ -797,27 +806,57 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
               <div style={{ padding: "24px" }}>
                 {/* Add Articles Section */}
                 <div style={{ marginBottom: "24px" }}>
-                  <button
-                    onClick={() => setShowArticleList(!showArticleList)}
-                    style={{
-                      padding: "12px 20px",
-                      background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      width: "100%",
-                      justifyContent: "center",
-                      boxShadow: "0 4px 12px rgba(139, 92, 246, 0.3)",
-                    }}
-                  >
-                    <FaPlus /> Dodaj artikal
-                  </button>
+                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => setShowArticleList(!showArticleList)}
+                      style={{
+                        padding: "12px 20px",
+                        background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flex: "1",
+                        justifyContent: "center",
+                        boxShadow: "0 4px 12px rgba(139, 92, 246, 0.3)",
+                      }}
+                    >
+                      <FaPlus /> Dodaj artikal
+                    </button>
+                    {showArticleList && (
+                      <button
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            localStorage.setItem('supplierItems', JSON.stringify(supplierItems));
+                            alert(`Lista artikala za ${supplier.name} je sačuvana!`);
+                          }
+                          setShowArticleList(false);
+                        }}
+                        style={{
+                          padding: "12px 20px",
+                          background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: 600,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                          animation: "slideIn 0.3s ease-out",
+                        }}
+                      >
+                        💾 Sačuvaj listu
+                      </button>
+                    )}
+                  </div>
 
                   {showArticleList && (
                     <div style={{ marginTop: "16px", maxHeight: "250px", overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "12px", background: "#f9fafb" }}>
@@ -986,10 +1025,7 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
                     Odustani
                   </button>
                   <button
-                    onClick={() => {
-                      alert(`Narudžba poslana za ${supplier.name}`);
-                      setPrepareOrderSupplierId(null);
-                    }}
+                    onClick={() => handleCreateOrder(supplier)}
                     style={{
                       padding: "12px 24px",
                       background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
@@ -1080,7 +1116,7 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
                             <td style={{ padding: "10px", display: "flex", gap: "8px" }}>
                               <button
                                 style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
-                                onClick={() => alert(`Pregled narudžbe ${order.id}`)}
+                                onClick={() => setViewOrderId(order.id)}
                               >
                                 Detalji
                               </button>
@@ -1102,6 +1138,185 @@ export default function OrdersModal({ open, onClose, items }: OrdersModalProps) 
           </div>
         </div>
       )}
+
+      {/* Order Details Modal */}
+      {viewOrderId && (() => {
+        const order = orders.find((o) => o.id === viewOrderId);
+        if (!order) return null;
+        const supplier = suppliers.find((s) => s.id === order.supplierId);
+        const statusConfig = {
+          pending: { label: "Na čekanju", color: "#f59e0b", bg: "#fef3c7" },
+          "in-transit": { label: "U dostavi", color: "#3b82f6", bg: "#dbeafe" },
+          received: { label: "Primljeno", color: "#10b981", bg: "#d1fae5" },
+          completed: { label: "Završeno", color: "#6b7280", bg: "#f3f4f6" },
+        } as const;
+        const status = statusConfig[order.status];
+
+        return (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.65)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10003,
+            }}
+            onClick={() => setViewOrderId(null)}
+          >
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: "12px",
+                width: "90%",
+                maxWidth: "700px",
+                maxHeight: "85vh",
+                overflow: "auto",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", padding: "20px", borderTopLeftRadius: "12px", borderTopRightRadius: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: 600, color: "rgba(255,255,255,0.8)", letterSpacing: "0.5px", marginBottom: "4px" }}>Detalji narudžbe</div>
+                    <h3 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#ffffff" }}>#{order.id.split("-")[1]}</h3>
+                    <p style={{ margin: "4px 0 0", fontSize: "13px", color: "rgba(255,255,255,0.9)" }}>{supplier?.name || "Nepoznat dobavljač"}</p>
+                  </div>
+                  <button
+                    onClick={() => setViewOrderId(null)}
+                    style={{
+                      background: "rgba(255,255,255,0.2)",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "20px",
+                      color: "#ffffff",
+                      padding: "8px",
+                      borderRadius: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "background 0.2s",
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.3)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ padding: "24px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", marginBottom: "24px" }}>
+                  <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                    <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Datum</div>
+                    <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{order.date}</div>
+                  </div>
+                  <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                    <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Status</div>
+                    <span style={{ 
+                      fontSize: "12px", 
+                      fontWeight: 700, 
+                      color: status.color, 
+                      background: status.bg, 
+                      padding: "4px 10px", 
+                      borderRadius: "12px",
+                      display: "inline-block"
+                    }}>
+                      {status.label}
+                    </span>
+                  </div>
+                  <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                    <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Ukupno artikala</div>
+                    <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{order.totalItems}</div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <h4 style={{ fontSize: "14px", fontWeight: 700, color: "#111827", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Naručeni artikli</h4>
+                  <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: "#f9fafb", borderBottom: "2px solid #e5e7eb" }}>
+                          <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>Artikal</th>
+                          <th style={{ padding: "12px 16px", textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>Količina</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {order.items.map((item, idx) => (
+                          <tr key={idx} style={{ borderBottom: idx < order.items.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                            <td style={{ padding: "14px 16px", fontSize: "14px", color: "#111827", fontWeight: 600 }}>{item.name}</td>
+                            <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280", fontWeight: 600, textAlign: "right" }}>{item.quantity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                  <button
+                    onClick={() => setViewOrderId(null)}
+                    style={{
+                      padding: "12px 24px",
+                      background: "#f3f4f6",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      color: "#374151",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "#e5e7eb"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "#f3f4f6"}
+                  >
+                    Zatvori
+                  </button>
+                  {order.status === "pending" || order.status === "in-transit" ? (
+                    <button
+                      onClick={() => handleAcceptOrder(order.id)}
+                      style={{
+                        padding: "12px 24px",
+                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        color: "#fff",
+                        boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      Prihvati narudžbu
+                    </button>
+                  ) : order.status === "received" ? (
+                    <button
+                      onClick={() => handleInvoiceOrder(order.id)}
+                      style={{
+                        padding: "12px 24px",
+                        background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        color: "#fff",
+                        boxShadow: "0 4px 12px rgba(139, 92, 246, 0.3)",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      Prihvati fakturu
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
