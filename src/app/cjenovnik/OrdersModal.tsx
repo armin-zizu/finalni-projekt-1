@@ -327,6 +327,49 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
     }
   }, [selectedSupplier]);
 
+  // Refresh localStorage data when modal opens (important for mobile)
+  useEffect(() => {
+    if (open && typeof window !== 'undefined') {
+      console.log("🔄 Osvežavanje OrdersModal podataka iz localStorage-a");
+      
+      // Refresh suppliers
+      const savedSuppliers = localStorage.getItem('suppliers');
+      if (savedSuppliers) {
+        try {
+          const parsed = JSON.parse(savedSuppliers);
+          console.log("📥 Učitani suppliers:", parsed.length, "stavki");
+          setSuppliers(parsed);
+        } catch (e) {
+          console.error('❌ Greška pri parsiranju suppliers:', e);
+        }
+      }
+      
+      // Refresh supplierItems
+      const savedSupplierItems = localStorage.getItem('supplierItems');
+      if (savedSupplierItems) {
+        try {
+          const parsed = JSON.parse(savedSupplierItems);
+          console.log("📥 Učitani supplierItems:", Object.keys(parsed).length, "dobavljača");
+          setSupplierItems(parsed);
+        } catch (e) {
+          console.error('❌ Greška pri parsiranju supplierItems:', e);
+        }
+      }
+      
+      // Refresh orders
+      const savedOrders = localStorage.getItem('orders');
+      if (savedOrders) {
+        try {
+          const parsed = JSON.parse(savedOrders);
+          console.log("📥 Učitane orders:", parsed.length, "narudžbi");
+          setOrders(parsed);
+        } catch (e) {
+          console.error('❌ Greška pri parsiranju orders:', e);
+        }
+      }
+    }
+  }, [open]);
+
   // Save suppliers to localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
