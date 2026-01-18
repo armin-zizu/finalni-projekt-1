@@ -297,6 +297,19 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
     return [];
   });
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Detektuj mobilnu verziju
+    const checkMobile = () => {
+      setIsMobile(typeof window !== 'undefined' && window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const selectedSupplier = useMemo(
     () => suppliers.find((s) => s.id === selectedSupplierId) || null,
     [selectedSupplierId, suppliers]
@@ -622,7 +635,11 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
               Trenutno nema aktivnih narudžbi.
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "10px" }}>
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(260px, 1fr))", 
+              gap: isMobile ? "12px" : "10px"
+            }}>
               {activeOrdersList.map((order) => {
                 const supplier = suppliers.find((s) => s.id === order.supplierId);
                 const statusConfig = {
@@ -634,23 +651,73 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                 const status = statusConfig[order.status];
 
                 return (
-                  <div key={order.id} style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#111827" }}>#{order.id.split("-")[1]}</span>
-                        <span style={{ fontSize: "12px", color: "#6b7280" }}>{order.date}</span>
+                  <div key={order.id} style={{ 
+                    background: "#ffffff", 
+                    border: "1px solid #e5e7eb", 
+                    borderRadius: isMobile ? "12px" : "10px", 
+                    padding: isMobile ? "16px" : "12px", 
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px"
+                  }}>
+                    {/* Header row - Broj narudžbe, datum i status */}
+                    <div style={{ 
+                      display: "flex", 
+                      justifyContent: "space-between", 
+                      alignItems: isMobile ? "flex-start" : "center", 
+                      gap: "12px",
+                      flexWrap: isMobile ? "wrap" : "nowrap"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "6px" : "8px", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: isMobile ? "13px" : "12px", fontWeight: 700, color: "#111827", background: "#f3f4f6", padding: "4px 8px", borderRadius: "6px" }}>
+                          #{order.id.split("-")[1]}
+                        </span>
+                        <span style={{ fontSize: isMobile ? "13px" : "12px", color: "#6b7280" }}>{order.date}</span>
                       </div>
-                      <span style={{ fontSize: "11px", fontWeight: 700, color: status.color, background: status.bg, padding: "4px 10px", borderRadius: "12px", border: `1px solid ${status.color}20` }}>
+                      <span style={{ 
+                        fontSize: isMobile ? "12px" : "11px", 
+                        fontWeight: 700, 
+                        color: status.color, 
+                        background: status.bg, 
+                        padding: isMobile ? "6px 12px" : "4px 10px", 
+                        borderRadius: "12px", 
+                        border: `1px solid ${status.color}20`,
+                        whiteSpace: "nowrap"
+                      }}>
                         {status.label}
                       </span>
                     </div>
-                    <div style={{ fontSize: "13px", fontWeight: 700, color: "#1f2937", marginBottom: "4px" }}>{supplier?.name || "Nepoznat dobavljač"}</div>
-                    <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "10px" }}>
-                      {order.totalItems} artikal{order.totalItems !== 1 ? "a" : ""}
+                    
+                    {/* Dobavljač i broj artikala */}
+                    <div style={{ 
+                      background: "#f9fafb", 
+                      padding: isMobile ? "12px" : "10px", 
+                      borderRadius: "8px",
+                      borderLeft: "4px solid #3b82f6"
+                    }}>
+                      <div style={{ fontSize: isMobile ? "14px" : "13px", fontWeight: 700, color: "#1f2937", marginBottom: "4px" }}>
+                        {supplier?.name || "Nepoznat dobavljač"}
+                      </div>
+                      <div style={{ fontSize: isMobile ? "13px" : "12px", color: "#6b7280" }}>
+                        {order.totalItems} artikal{order.totalItems !== 1 ? "a" : ""}
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    
+                    {/* Akcijski dugmadi */}
+                    <div style={{ 
+                      display: "flex", 
+                      gap: isMobile ? "8px" : "8px", 
+                      flexWrap: "wrap",
+                      justifyContent: isMobile ? "stretch" : "flex-start"
+                    }}>
                       <button
-                        style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
+                        style={{ 
+                          ...smallButton, 
+                          padding: isMobile ? "10px 12px" : "8px 10px", 
+                          fontSize: isMobile ? "13px" : "12px",
+                          flex: isMobile ? "1 1 calc(50% - 4px)" : "auto"
+                        }}
                         onClick={() => setViewOrderId(order.id)}
                       >
                         Pregledaj
@@ -658,8 +725,8 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                       {order.status === "received" && (
                         <button
                           style={{ 
-                            padding: "8px 10px", 
-                            fontSize: "12px",
+                            padding: isMobile ? "10px 12px" : "8px 10px", 
+                            fontSize: isMobile ? "13px" : "12px",
                             background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                             color: "#fff",
                             border: "none",
@@ -667,6 +734,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                             cursor: "pointer",
                             fontWeight: 600,
                             boxShadow: "0 2px 6px rgba(16, 185, 129, 0.2)",
+                            flex: isMobile ? "1 1 calc(50% - 4px)" : "auto"
                           }}
                           onClick={() => handleInvoiceOrder(order.id)}
                         >
@@ -674,7 +742,12 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                         </button>
                       )}
                       <button
-                        style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
+                        style={{ 
+                          ...smallButton, 
+                          padding: isMobile ? "10px 12px" : "8px 10px", 
+                          fontSize: isMobile ? "13px" : "12px",
+                          flex: isMobile ? "1 1 calc(50% - 4px)" : "auto"
+                        }}
                         onClick={() => {
                           if (confirm(`Da li ste sigurni da želite otkazati narudžbu #${order.id.split("-")[1]}?`)) {
                             setOrders((prev) => prev.filter((o) => o.id !== order.id));
@@ -952,59 +1025,176 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
 
                 {/* Order Table */}
                 {assignedItems.length > 0 ? (
-                  <div style={{ background: "#ffffff", borderRadius: "10px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
+                  <div style={{ background: "#ffffff", borderRadius: "10px", border: "1px solid #e5e7eb", overflow: isMobile ? "visible" : "hidden" }}>
                     <div style={{ background: "linear-gradient(to right, #f9fafb, #ffffff)", padding: "14px 20px", borderBottom: "2px solid #e5e7eb" }}>
                       <div style={{ fontSize: "13px", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                         Lista artikala za narudžbu ({assignedItems.length})
                       </div>
                     </div>
-                    <div style={{ maxHeight: "400px", overflowY: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <thead style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
-                          <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
-                            <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Artikal</th>
-                            <th style={{ padding: "14px 20px", textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Trenutno stanje</th>
-                            <th style={{ padding: "14px 20px", textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Narudžba</th>
-                            <th style={{ padding: "14px 20px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", width: "60px" }}>Akcija</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {assignedItems.map((naziv, idx) => {
-                            const itemData = items.find((i: { naziv: string; pocetnoStanje?: number }) => i.naziv === naziv);
-                            const currentStock = itemData?.pocetnoStanje || 0;
-                            const orderQty = prepareOrderSupplierId ? ((orderQuantities[prepareOrderSupplierId] || {})[naziv] || "") : "";
-                            return (
-                              <tr key={naziv} style={{ borderBottom: idx < assignedItems.length - 1 ? "1px solid #f3f4f6" : "none", transition: "background 0.15s" }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"}
-                                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                    {isMobile ? (
+                      // Mobile verzija - Card layout
+                      <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {assignedItems.map((naziv, idx) => {
+                          const itemData = items.find((i: { naziv: string; pocetnoStanje?: number }) => i.naziv === naziv);
+                          const currentStock = itemData?.pocetnoStanje || 0;
+                          const orderQty = prepareOrderSupplierId ? ((orderQuantities[prepareOrderSupplierId] || {})[naziv] || "") : "";
+                          return (
+                            <div key={naziv} style={{
+                              background: "#f9fafb",
+                              border: "1px solid #e5e7eb",
+                              borderRadius: "10px",
+                              padding: "14px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "10px"
+                            }}>
+                              {/* Naziv artikla */}
+                              <div style={{
+                                fontSize: "14px",
+                                fontWeight: 700,
+                                color: "#111827"
+                              }}>
+                                {naziv}
+                              </div>
+
+                              {/* Trenutno stanje */}
+                              <div style={{
+                                fontSize: "13px",
+                                color: "#6b7280",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center"
+                              }}>
+                                <span>Trenutno stanje:</span>
+                                <span style={{ fontWeight: 600, color: "#374151" }}>
+                                  {currentStock.toFixed(2)}
+                                </span>
+                              </div>
+
+                              {/* Unos količine */}
+                              <div style={{
+                                fontSize: "13px",
+                                color: "#6b7280",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: "8px"
+                              }}>
+                                <label style={{ fontWeight: 600 }}>Narudžba:</label>
+                                <input
+                                  type="number"
+                                  step="1"
+                                  value={orderQty}
+                                  onChange={(e) => {
+                                    setOrderQuantities((prev) => ({
+                                      ...prev,
+                                      [prepareOrderSupplierId]: {
+                                        ...(prev[prepareOrderSupplierId] || {}),
+                                        [naziv]: e.target.value,
+                                      },
+                                    }));
+                                  }}
+                                  placeholder="0"
+                                  style={{ 
+                                    width: "100px", 
+                                    padding: "10px 12px", 
+                                    border: "2px solid #d1d5db", 
+                                    borderRadius: "8px", 
+                                    fontSize: "14px", 
+                                    textAlign: "right",
+                                    fontWeight: 600,
+                                    color: "#111827",
+                                    transition: "border-color 0.2s",
+                                  }}
+                                  onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                                  onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+                                />
+                              </div>
+
+                              {/* Remove button */}
+                              <button
+                                onClick={() => {
+                                  const current = supplierItems[prepareOrderSupplierId] || [];
+                                  setSupplierItems((prev) => ({
+                                    ...prev,
+                                    [prepareOrderSupplierId]: current.filter((n) => n !== naziv),
+                                  }));
+                                }}
+                                style={{
+                                  padding: "8px 12px",
+                                  background: "#fee2e2",
+                                  border: "1px solid #fecaca",
+                                  borderRadius: "8px",
+                                  color: "#dc2626",
+                                  cursor: "pointer",
+                                  fontSize: "13px",
+                                  fontWeight: 600,
+                                  transition: "all 0.2s"
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = "#fca5a5";
+                                  e.currentTarget.style.color = "#b91c1c";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = "#fee2e2";
+                                  e.currentTarget.style.color = "#dc2626";
+                                }}
                               >
-                                <td style={{ padding: "16px 20px", fontSize: "14px", color: "#111827", fontWeight: 600 }}>{naziv}</td>
-                                <td style={{ padding: "16px 20px", fontSize: "14px", color: "#6b7280", fontWeight: 500, textAlign: "right" }}>{currentStock.toFixed(2)}</td>
-                                <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                                  <input
-                                    type="number"
-                                    step="1"
-                                    value={orderQty}
-                                    onChange={(e) => {
-                                      setOrderQuantities((prev) => ({
-                                        ...prev,
-                                        [prepareOrderSupplierId]: {
-                                          ...(prev[prepareOrderSupplierId] || {}),
-                                          [naziv]: e.target.value,
-                                        },
-                                      }));
-                                    }}
-                                    placeholder="0"
-                                    style={{ 
-                                      width: "110px", 
-                                      padding: "10px 14px", 
-                                      border: "2px solid #d1d5db", 
-                                      borderRadius: "8px", 
-                                      fontSize: "14px", 
-                                      textAlign: "right",
-                                      fontWeight: 600,
-                                      color: "#111827",
-                                      transition: "border-color 0.2s",
+                                Ukloni
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // Desktop verzija - Tabela
+                      <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead style={{ position: "sticky", top: 0, background: "#ffffff", zIndex: 1, boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                            <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                              <th style={{ padding: "14px 20px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Artikal</th>
+                              <th style={{ padding: "14px 20px", textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Trenutno stanje</th>
+                              <th style={{ padding: "14px 20px", textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>Narudžba</th>
+                              <th style={{ padding: "14px 20px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", width: "60px" }}>Akcija</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {assignedItems.map((naziv, idx) => {
+                              const itemData = items.find((i: { naziv: string; pocetnoStanje?: number }) => i.naziv === naziv);
+                              const currentStock = itemData?.pocetnoStanje || 0;
+                              const orderQty = prepareOrderSupplierId ? ((orderQuantities[prepareOrderSupplierId] || {})[naziv] || "") : "";
+                              return (
+                                <tr key={naziv} style={{ borderBottom: idx < assignedItems.length - 1 ? "1px solid #f3f4f6" : "none", transition: "background 0.15s" }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"}
+                                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                                >
+                                  <td style={{ padding: "16px 20px", fontSize: "14px", color: "#111827", fontWeight: 600 }}>{naziv}</td>
+                                  <td style={{ padding: "16px 20px", fontSize: "14px", color: "#6b7280", fontWeight: 500, textAlign: "right" }}>{currentStock.toFixed(2)}</td>
+                                  <td style={{ padding: "16px 20px", textAlign: "right" }}>
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      value={orderQty}
+                                      onChange={(e) => {
+                                        setOrderQuantities((prev) => ({
+                                          ...prev,
+                                          [prepareOrderSupplierId]: {
+                                            ...(prev[prepareOrderSupplierId] || {}),
+                                            [naziv]: e.target.value,
+                                          },
+                                        }));
+                                      }}
+                                      placeholder="0"
+                                      style={{ 
+                                        width: "110px", 
+                                        padding: "10px 14px", 
+                                        border: "2px solid #d1d5db", 
+                                        borderRadius: "8px", 
+                                        fontSize: "14px", 
+                                        textAlign: "right",
+                                        fontWeight: 600,
+                                        color: "#111827",
+                                        transition: "border-color 0.2s",
                                       MozAppearance: "textfield" as any,
                                       WebkitAppearance: "none" as any,
                                     }}
@@ -1057,6 +1247,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                         </tbody>
                       </table>
                     </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ background: "#ffffff", padding: "40px", borderRadius: "10px", border: "2px dashed #d1d5db", textAlign: "center" }}>
@@ -1153,7 +1344,95 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                 <div style={{ padding: "12px", border: "1px dashed #d1d5db", borderRadius: "10px", background: "#f9fafb", color: "#6b7280", fontSize: "13px" }}>
                   Još nema završenih narudžbi.
                 </div>
+              ) : isMobile ? (
+                // Mobile verzija - Card layout
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {completedOrdersList.map((order) => {
+                    const supplier = suppliers.find((s) => s.id === order.supplierId);
+                    return (
+                      <div key={order.id} style={{
+                        background: "#ffffff",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "12px",
+                        padding: "16px",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px"
+                      }}>
+                        {/* Header */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                          <div>
+                            <div style={{ fontSize: "14px", fontWeight: 700, color: "#111827", marginBottom: "2px" }}>
+                              #{order.id.split("-")[1]}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                              {order.date}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            color: "#059669",
+                            background: "#d1fae5",
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            whiteSpace: "nowrap"
+                          }}>
+                            Završeno
+                          </span>
+                        </div>
+
+                        {/* Dobavljač i stavke */}
+                        <div style={{
+                          background: "#f9fafb",
+                          padding: "12px",
+                          borderRadius: "8px",
+                          borderLeft: "4px solid #10b981"
+                        }}>
+                          <div style={{ fontSize: "14px", fontWeight: 700, color: "#1f2937", marginBottom: "4px" }}>
+                            {supplier?.name || "Nepoznat dobavljač"}
+                          </div>
+                          <div style={{ fontSize: "13px", color: "#6b7280" }}>
+                            {order.totalItems} artikal{order.totalItems !== 1 ? "a" : ""}
+                          </div>
+                        </div>
+
+                        {/* Akcije */}
+                        <div style={{
+                          display: "flex",
+                          gap: "8px",
+                          flexWrap: "wrap"
+                        }}>
+                          <button
+                            style={{
+                              ...smallButton,
+                              padding: "10px 12px",
+                              fontSize: "13px",
+                              flex: "1 1 calc(50% - 4px)"
+                            }}
+                            onClick={() => setViewOrderId(order.id)}
+                          >
+                            Detalji
+                          </button>
+                          <button
+                            style={{
+                              ...smallButton,
+                              padding: "10px 12px",
+                              fontSize: "13px",
+                              flex: "1 1 calc(50% - 4px)"
+                            }}
+                            onClick={() => alert(`Ponovi narudžbu ${order.id}`)}
+                          >
+                            Ponovi
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
+                // Desktop verzija - Tabela
                 <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
@@ -1180,6 +1459,12 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                 onClick={() => setViewOrderId(order.id)}
                               >
                                 Detalji
+                              </button>
+                              <button
+                                style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
+                                onClick={() => alert(`Ponovi narudžbu ${order.id}`)}
+                              >
+                                Ponovi
                               </button>
                               <button
                                 style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
@@ -1296,24 +1581,64 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
 
                 <div style={{ marginBottom: "24px" }}>
                   <h4 style={{ fontSize: "14px", fontWeight: 700, color: "#111827", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Naručeni artikli</h4>
-                  <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr style={{ background: "#f9fafb", borderBottom: "2px solid #e5e7eb" }}>
-                          <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>Artikal</th>
-                          <th style={{ padding: "12px 16px", textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>Količina</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {order.items.map((item, idx) => (
-                          <tr key={idx} style={{ borderBottom: idx < order.items.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                            <td style={{ padding: "14px 16px", fontSize: "14px", color: "#111827", fontWeight: 600 }}>{item.name}</td>
-                            <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280", fontWeight: 600, textAlign: "right" }}>{item.quantity}</td>
+                  {isMobile ? (
+                    // Mobile verzija - Card layout
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {order.items.map((item, idx) => (
+                        <div key={idx} style={{
+                          background: "#ffffff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "10px",
+                          padding: "14px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "12px"
+                        }}>
+                          <div style={{
+                            fontSize: "14px",
+                            fontWeight: 600,
+                            color: "#111827",
+                            flex: 1,
+                            minWidth: 0
+                          }}>
+                            {item.name}
+                          </div>
+                          <div style={{
+                            fontSize: "13px",
+                            fontWeight: 700,
+                            color: "#fff",
+                            background: "#3b82f6",
+                            padding: "6px 12px",
+                            borderRadius: "8px",
+                            whiteSpace: "nowrap"
+                          }}>
+                            {item.quantity}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // Desktop verzija - Tabela
+                    <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ background: "#f9fafb", borderBottom: "2px solid #e5e7eb" }}>
+                            <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>Artikal</th>
+                            <th style={{ padding: "12px 16px", textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#6b7280", textTransform: "uppercase" }}>Količina</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {order.items.map((item, idx) => (
+                            <tr key={idx} style={{ borderBottom: idx < order.items.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                              <td style={{ padding: "14px 16px", fontSize: "14px", color: "#111827", fontWeight: 600 }}>{item.name}</td>
+                              <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280", fontWeight: 600, textAlign: "right" }}>{item.quantity}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
