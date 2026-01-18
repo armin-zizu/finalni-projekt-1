@@ -6,6 +6,7 @@ import { useRole } from "../context/RoleContext";
 import { usePathname } from "next/navigation";
 import { saveCjenovnik, deleteCjenovnikArtikal } from "../../lib/api";
 import { FaTrash, FaPlus, FaArrowUp, FaArrowDown, FaGripVertical, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
+import OrdersButton from "./OrdersButton";
 import {
   DndContext,
   closestCenter,
@@ -960,9 +961,14 @@ export default function CjenovnikPage() {
         }
       `}</style>
 
-      <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", marginBottom: "24px" }}>
-        Cjenovnik
-      </h1>
+      <div style={{ position: "relative", width: "100%", marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", margin: 0, paddingRight: "160px" }}>
+          Cjenovnik
+        </h1>
+        <div style={{ position: "absolute", top: 0, right: 0 }}>
+          <OrdersButton />
+        </div>
+      </div>
 
       {/* Obrazac za dodavanje artikla */}
       <div
