@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { saveCjenovnik, deleteCjenovnikArtikal } from "../../lib/api";
 import { FaTrash, FaPlus, FaArrowUp, FaArrowDown, FaGripVertical, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
 import OrdersButton from "./OrdersButton";
+import OrdersModal from "./OrdersModal";
 import {
   DndContext,
   closestCenter,
@@ -396,6 +397,7 @@ function SortableRow({
 export default function CjenovnikPage() {
   const { cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik, refreshPrethodniCjenovnik } = useCjenovnik();
   const { user } = useRole();
+  const [showOrdersModal, setShowOrdersModal] = useState(false);
 
   const [newArtiklNaziv, setNewArtiklNaziv] = useState<string>("");
   const [newArtiklCijena, setNewArtiklCijena] = useState<string>("");
@@ -966,9 +968,17 @@ export default function CjenovnikPage() {
           Cjenovnik
         </h1>
         <div style={{ position: "absolute", top: 0, right: 0 }}>
-          <OrdersButton />
+          <OrdersButton onClick={() => setShowOrdersModal(true)} />
         </div>
       </div>
+
+      {showOrdersModal && (
+        <OrdersModal
+          open={showOrdersModal}
+          onClose={() => setShowOrdersModal(false)}
+          items={cjenovnik}
+        />
+      )}
 
       {/* Obrazac za dodavanje artikla */}
       <div

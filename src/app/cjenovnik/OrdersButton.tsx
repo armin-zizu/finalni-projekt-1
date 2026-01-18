@@ -20,9 +20,13 @@ const ordersButtonStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-export default function OrdersButton() {
+type OrdersButtonProps = {
+  onClick?: () => void;
+};
+
+export default function OrdersButton({ onClick }: OrdersButtonProps) {
   return (
-    <button type="button" style={ordersButtonStyle}>
+    <button type="button" style={ordersButtonStyle} onClick={onClick}>
       <FaClipboardList /> Narudžbe
     </button>
   );
