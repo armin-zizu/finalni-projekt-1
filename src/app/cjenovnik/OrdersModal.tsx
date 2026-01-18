@@ -450,10 +450,17 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
       return;
     }
 
+    // Format date consistently: DD.MM.YYYY.
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    const formattedDate = `${day}.${month}.${year}.`;
+
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
       supplierId: supplier.id,
-      date: new Date().toLocaleDateString("sr-RS"),
+      date: formattedDate,
       status: "pending",
       items: orderItems,
       totalItems: orderItems.length,
@@ -480,9 +487,20 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
     if (!order) return;
     
     if (confirm(`Da li želite prihvatiti fakturu i prebaciti artikle na obračun od ${order.date}?`)) {
+      // Format date consistently: DD.MM.YYYY.
+      const dateParts = order.date.split('.');
+      let formattedDate = order.date;
+      if (dateParts.length >= 3) {
+        // Ensure format is DD.MM.YYYY.
+        const day = dateParts[0].padStart(2, '0');
+        const month = dateParts[1].padStart(2, '0');
+        const year = dateParts[2];
+        formattedDate = `${day}.${month}.${year}.`;
+      }
+      
       // Callback to parent with order date and items
       if (onInvoiceAccepted) {
-        onInvoiceAccepted(order.date, order.items);
+        onInvoiceAccepted(formattedDate, order.items);
       }
       
       setOrders((prev) =>

@@ -533,6 +533,31 @@ export default function ObracunPage() {
 
   // Funkcija autoSaveDraftAsFinal je uklonjena - handleSaveObracun direktno sprema finalni obračun
 
+  // BONUS: Učitaj ulazCache iz localStorage ako postoji (iz prihvaćenih faktura)
+  useEffect(() => {
+    if (!trenutniDatum) return;
+    const datumString = formatirajDatum(trenutniDatum);
+    
+    // Čitaj ulazCache iz localStorage za ovaj datum
+    const cacheKey = `ulazCache_${datumString}`;
+    const savedCache = localStorage.getItem(cacheKey);
+    
+    if (savedCache) {
+      try {
+        const parsedCache = JSON.parse(savedCache);
+        console.log(`📂 Učitano iz localStorage cache: ${cacheKey}`, parsedCache);
+        
+        // Ažuriraj ulazCacheForDatum sa čitanjem iz localStorage
+        setUlazCacheForDatum((prev) => {
+          // Spoji cache iz localStorage sa prethodnim cache (prioritet ulazCache iz localStorage)
+          return { ...prev, ...parsedCache };
+        });
+      } catch (e) {
+        console.error(`❌ Greška pri parsiranju cache-a za ${cacheKey}:`, e);
+      }
+    }
+  }, [trenutniDatum]);
+
   useEffect(() => {
     if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
@@ -771,8 +796,23 @@ export default function ObracunPage() {
     
     // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCacheAndInit = async () => {
-      const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
-      console.log("🟡 Inicijalizacija artikala, cache:", ulazCache);
+      // PRVO: Čitaj cache iz localStorage za ovaj datum
+      const datumCacheKey = `ulazCache_${datumString}`;
+      let localStorageCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
+      
+      try {
+        const savedCache = localStorage.getItem(datumCacheKey);
+        if (savedCache) {
+          localStorageCache = JSON.parse(savedCache);
+          console.log(`📂 Učitano iz localStorage za ${datumCacheKey}:`, localStorageCache);
+        }
+      } catch (e) {
+        console.error(`❌ Greška pri parsiranju localStorage cache-a za ${datumCacheKey}:`, e);
+      }
+      
+      // Spoji cache sa localStorage i state cache-om (prioritet: state cache)
+      const ulazCache = { ...localStorageCache, ...ulazCacheForDatum };
+      console.log("🟡 Inicijalizacija artikala, kombinovani cache:", ulazCache);
       
       // Draft obračun je uklonjen - inicijaliziraj artikle iz cjenovnika i cache-a
       

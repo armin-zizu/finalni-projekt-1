@@ -991,8 +991,19 @@ export default function CjenovnikPage() {
               };
             });
             
-            // Spremi u localStorage
-            localStorage.setItem(`ulazCache_${date}`, JSON.stringify(ulazData));
+            // Spremi u localStorage - ključ mora biti u formatu ulazCache_DD.MM.YYYY.
+            const cacheKey = `ulazCache_${date}`;
+            localStorage.setItem(cacheKey, JSON.stringify(ulazData));
+            console.log(`💾 Faktura spaljena u cache: ${cacheKey}`, ulazData);
+            
+            // Također spremi globalnu listu prihvaćenih faktura za trigger-ovanje obračuna
+            const acceptedInvoices = JSON.parse(localStorage.getItem('acceptedInvoices') || '{}');
+            acceptedInvoices[date] = {
+              items: items,
+              timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('acceptedInvoices', JSON.stringify(acceptedInvoices));
+            console.log(`📋 Globalna lista faktura ažurirana`, acceptedInvoices);
             
             // Kreiraj detaljnu poruku sa brojem artikala
             const artikliBroj = items.length;
