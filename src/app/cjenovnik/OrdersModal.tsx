@@ -1040,25 +1040,33 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                           const orderQty = prepareOrderSupplierId ? ((orderQuantities[prepareOrderSupplierId] || {})[naziv] || "") : "";
                           return (
                             <div key={naziv} style={{
-                              background: "#f9fafb",
-                              border: "1px solid #e5e7eb",
-                              borderRadius: "10px",
-                              padding: "12px",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "8px"
+                              background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                              border: "2px solid #e5e7eb",
+                              borderRadius: "12px",
+                              padding: "0",
+                              margin: "0",
+                              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)",
+                              position: "relative",
+                              overflow: "hidden",
+                              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                              boxSizing: "border-box"
                             }}>
-                              {/* Naziv artikla i dugme za brisanje u istoj liniji */}
-                              <div style={{
+                              {/* Header - Naziv artikla i dugme za brisanje */}
+                              <div style={{ 
+                                background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                                padding: "14px 16px",
+                                borderBottom: "2px solid #e2e8f0",
                                 display: "flex",
                                 justifyContent: "space-between",
                                 alignItems: "center",
-                                gap: "8px"
+                                gap: "12px"
                               }}>
                                 <div style={{
-                                  fontSize: "14px",
+                                  fontSize: "15px",
                                   fontWeight: 700,
-                                  color: "#111827",
+                                  color: "#0f172a",
+                                  letterSpacing: "-0.3px",
+                                  lineHeight: 1.3,
                                   flex: 1,
                                   minWidth: 0,
                                   overflow: "hidden",
@@ -1076,84 +1084,119 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                     }));
                                   }}
                                   style={{
-                                    padding: "6px",
+                                    width: "28px",
+                                    height: "28px",
+                                    minWidth: "28px",
+                                    maxWidth: "28px",
+                                    padding: "0",
                                     background: "transparent",
                                     border: "none",
-                                    borderRadius: "6px",
-                                    color: "#dc2626",
+                                    borderRadius: "4px",
                                     cursor: "pointer",
-                                    fontSize: "16px",
-                                    transition: "all 0.2s",
+                                    color: "#dc2626",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    minWidth: "32px",
-                                    height: "32px",
-                                    flexShrink: 0
+                                    fontSize: "16px",
+                                    lineHeight: "1",
+                                    transition: "all 0.2s ease",
+                                    flexShrink: 0,
+                                    outline: "none"
                                   }}
                                   onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = "#fee2e2";
+                                    e.currentTarget.style.color = "#b91c1c";
+                                    e.currentTarget.style.transform = "scale(1.1)";
                                   }}
                                   onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = "transparent";
+                                    e.currentTarget.style.color = "#dc2626";
+                                    e.currentTarget.style.transform = "scale(1)";
                                   }}
                                 >
-                                  🗑️
+                                  <FaTimes />
                                 </button>
                               </div>
 
-                              {/* Trenutno stanje */}
-                              <div style={{
-                                fontSize: "13px",
-                                color: "#6b7280",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center"
+                              {/* Body - Info sekcije */}
+                              <div style={{ 
+                                display: "flex", 
+                                flexDirection: "column"
                               }}>
-                                <span>Stanje:</span>
-                                <span style={{ fontWeight: 600, color: "#374151" }}>
-                                  {currentStock.toFixed(2)}
-                                </span>
-                              </div>
+                                {/* Trenutno stanje */}
+                                <div style={{
+                                  background: "#fafbfc",
+                                  padding: "12px 16px",
+                                  borderBottom: "1px solid #f1f5f9",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center"
+                                }}>
+                                  <div style={{ 
+                                    fontSize: "11px", 
+                                    color: "#64748b", 
+                                    fontWeight: 600, 
+                                    textTransform: "uppercase", 
+                                    letterSpacing: "0.8px"
+                                  }}>
+                                    📦 Stanje
+                                  </div>
+                                  <div style={{ 
+                                    fontSize: "14px", 
+                                    fontWeight: 700, 
+                                    color: "#1e40af",
+                                    letterSpacing: "-0.2px"
+                                  }}>
+                                    {currentStock.toFixed(2)}
+                                  </div>
+                                </div>
 
-                              {/* Unos količine */}
-                              <div style={{
-                                fontSize: "13px",
-                                color: "#6b7280",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                gap: "8px"
-                              }}>
-                                <label style={{ fontWeight: 600 }}>Narudžba:</label>
-                                <input
-                                  type="number"
-                                  step="1"
-                                  value={orderQty}
-                                  onChange={(e) => {
-                                    setOrderQuantities((prev) => ({
-                                      ...prev,
-                                      [prepareOrderSupplierId]: {
-                                        ...(prev[prepareOrderSupplierId] || {}),
-                                        [naziv]: e.target.value,
-                                      },
-                                    }));
-                                  }}
-                                  placeholder="0"
-                                  style={{ 
-                                    width: "80px", 
-                                    padding: "8px 10px", 
-                                    border: "2px solid #d1d5db", 
-                                    borderRadius: "6px", 
-                                    fontSize: "13px", 
-                                    textAlign: "right",
-                                    fontWeight: 600,
-                                    color: "#111827",
-                                    transition: "border-color 0.2s",
-                                  }}
-                                  onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
-                                  onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
-                                />
+                                {/* Unos količine */}
+                                <div style={{
+                                  background: "#fafbfc",
+                                  padding: "12px 16px",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: "12px"
+                                }}>
+                                  <div style={{ 
+                                    fontSize: "11px", 
+                                    color: "#64748b", 
+                                    fontWeight: 600, 
+                                    textTransform: "uppercase", 
+                                    letterSpacing: "0.8px"
+                                  }}>
+                                    🛒 Narudžba
+                                  </div>
+                                  <input
+                                    type="number"
+                                    step="1"
+                                    value={orderQty}
+                                    onChange={(e) => {
+                                      setOrderQuantities((prev) => ({
+                                        ...prev,
+                                        [prepareOrderSupplierId]: {
+                                          ...(prev[prepareOrderSupplierId] || {}),
+                                          [naziv]: e.target.value,
+                                        },
+                                      }));
+                                    }}
+                                    placeholder="0"
+                                    style={{ 
+                                      width: "80px", 
+                                      padding: "8px 12px", 
+                                      border: "2px solid #d1d5db", 
+                                      borderRadius: "6px", 
+                                      fontSize: "14px", 
+                                      textAlign: "center",
+                                      fontWeight: 700,
+                                      color: "#0f172a",
+                                      background: "#ffffff",
+                                      transition: "border-color 0.2s",
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+                                  />
+                                </div>
                               </div>
                             </div>
                           );
