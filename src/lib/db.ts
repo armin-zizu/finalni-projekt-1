@@ -117,11 +117,11 @@ export function getPool(): Pool {
 }
 
 // Helper function za izvršavanje queries
-export async function query(text: string, params?: any[]): Promise<any> {
+export async function query<T extends import('pg').QueryResultRow = import('pg').QueryResultRow>(text: string, params?: any[]): Promise<import('pg').QueryResult<T>> {
   const pool = getPool();
   const start = Date.now();
   try {
-    const res = await pool.query(text, params);
+    const res = await pool.query<T>(text, params);
     const duration = Date.now() - start;
     console.log('Executed query', { text, duration, rows: res.rowCount });
     return res;
