@@ -170,6 +170,9 @@ const buttonStyle: React.CSSProperties = {
   color: "white",
   border: "none",
   borderRadius: "6px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   cursor: "pointer",
   fontSize: "14px",
   fontWeight: 500,
@@ -2071,6 +2074,37 @@ export default function ObracunPage() {
           h2 { font-size: 16px; margin-bottom: 12px; }
           h3 { font-size: 14px; margin: 6px 0; }
         }
+        @media (min-width: 769px) {
+          .date-controls-container {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            flex-wrap: nowrap !important;
+            gap: 12px !important;
+          }
+          .date-controls-container > div:first-child {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex: 0 0 auto !important;
+            white-space: nowrap !important;
+          }
+          .date-controls-container > div:last-child {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 8px !important;
+            flex: 0 0 auto !important;
+          }
+          .date-controls-container .action-button {
+            width: 160px !important;
+            min-width: 160px !important;
+            max-width: 160px !important;
+            margin: 0 !important;
+          }
+        }
       `}</style>
 
       <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", marginBottom: "24px" }}>
@@ -2090,8 +2124,8 @@ export default function ObracunPage() {
         </div>
       )}
 
-      <div className="date-controls-container" style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "1 1 auto" }}>
+      <div className="date-controls-container" style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: isMobile ? "wrap" : "nowrap", flex: isMobile ? "1 1 auto" : "0 0 auto" }}>
           <label style={{ fontSize: "14px", color: "#1f2937", marginRight: "8px" }}>
             Datum obračuna:
           </label>
@@ -2101,33 +2135,22 @@ export default function ObracunPage() {
             onChange={handleDatumChange}
             style={dateInputStyle}
           />
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "1 1 auto" }}>
           <button
             className="action-button"
-            style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", minWidth: "160px", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed", margin: 0 }}
+            style={{ ...buttonStyle, background: "#f59e0b", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed", margin: 0 }}
             onClick={handleAzurirajObracun}
             disabled={!canEdit || isUlazLocked}
           >
             Ažuriraj obračun
           </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "0 0 auto" }}>
           {isUlazLocked && (
             <button
               className="action-button"
               style={{
-                padding: "8px 16px",
+                ...buttonStyle,
                 background: "#6366f1",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                fontSize: "14px",
-                fontWeight: 500,
-                transition: "background-color 0.2s ease-in-out",
-                width: "160px",
-                maxWidth: "160px",
-                minWidth: "160px",
-                height: "auto",
-                boxSizing: "border-box",
                 opacity: canEdit ? 1 : 0.5,
                 cursor: canEdit ? "pointer" : "not-allowed",
                 margin: 0
@@ -2803,7 +2826,6 @@ export default function ObracunPage() {
                 opacity: canEdit ? 1 : 0.5,
                 cursor: canEdit ? "pointer" : "not-allowed",
                 background: "#dc2626",
-                padding: "12px 16px",
                 justifyContent: "center",
                 boxSizing: "border-box"
               }}
@@ -2835,7 +2857,6 @@ export default function ObracunPage() {
                 justifyContent: "center",
                 gap: "8px",
                 background: "#6b7280",
-                padding: "12px 16px",
                 boxSizing: "border-box"
               }}
               onMouseEnter={(e) => {
@@ -2892,8 +2913,8 @@ export default function ObracunPage() {
             style={{
               ...buttonStyle,
               flex: "1 1 auto",
-              minWidth: "140px",
-              maxWidth: "140px",
+              minWidth: "160px",
+              maxWidth: "160px",
               opacity: canEdit ? 1 : 0.5,
               cursor: canEdit ? "pointer" : "not-allowed",
               background: "#dc2626",
@@ -2921,8 +2942,8 @@ export default function ObracunPage() {
             style={{
               ...buttonStyle,
               flex: "1 1 auto",
-              minWidth: "140px",
-              maxWidth: "140px",
+              minWidth: "160px",
+              maxWidth: "160px",
               opacity: canEdit ? 1 : 0.5,
               cursor: canEdit ? "pointer" : "not-allowed",
               marginTop: 0,
@@ -3220,7 +3241,6 @@ export default function ObracunPage() {
                 opacity: canEdit ? 1 : 0.5,
                 cursor: canEdit ? "pointer" : "not-allowed",
                 background: "#16a34a",
-                padding: "12px 16px",
                 justifyContent: "center",
                 boxSizing: "border-box",
                 marginRight: 0,
@@ -3254,7 +3274,6 @@ export default function ObracunPage() {
                 justifyContent: "center",
                 gap: "8px",
                 background: "#6b7280",
-                padding: "12px 16px",
                 boxSizing: "border-box",
                 marginRight: 0,
                 marginBottom: 0
@@ -3313,8 +3332,8 @@ export default function ObracunPage() {
             style={{
               ...buttonStyle,
               flex: "1 1 auto",
-              minWidth: "140px",
-              maxWidth: "140px",
+              minWidth: "160px",
+              maxWidth: "160px",
               opacity: canEdit ? 1 : 0.5,
               cursor: canEdit ? "pointer" : "not-allowed",
               background: "#16a34a",
@@ -3342,8 +3361,8 @@ export default function ObracunPage() {
             style={{
               ...buttonStyle,
               flex: "1 1 auto",
-              minWidth: "140px",
-              maxWidth: "140px",
+              minWidth: "160px",
+              maxWidth: "160px",
               opacity: canEdit ? 1 : 0.5,
               cursor: canEdit ? "pointer" : "not-allowed",
               marginTop: 0,
