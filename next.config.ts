@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
   // Eksplicitno postavi root direktorij za output file tracing
   // Ovo osigurava da Next.js koristi pravi root projekta umjesto da inferira iz lockfile-a
   outputFileTracingRoot: process.cwd(),
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.cache = false;
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

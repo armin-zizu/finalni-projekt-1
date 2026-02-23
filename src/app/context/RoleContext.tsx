@@ -57,6 +57,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
   const isApprovedRef = React.useRef<boolean>(false); // Ref za praćenje da li je uređaj odobren
+  const isLoadingRoleRef = React.useRef<boolean>(false);
 
   // Generiši Device ID - koristi UUID pristup (isti kao u login stranici)
   const generateDeviceId = async (): Promise<string> => {
@@ -151,6 +152,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   // Učitaj ulogu za uređaj
   const loadRole = async () => {
+    if (isLoadingRoleRef.current) {
+      return;
+    }
+
+    isLoadingRoleRef.current = true;
     try {
       setLoading(true);
       setError(null);
@@ -211,17 +217,36 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           firstSeen: data.deviceInfo?.firstSeen || new Date().toISOString(),
           lastLogin: new Date().toISOString(),
         };
-        
-        // VAŽNO: Ažuriraj deviceInfo i lastLogin, ali NIKAD ne mijenjaj status ili role ako su već postavljeni
-        // Ovo osigurava da se status "approved" ne resetuje nakon deploy-a ili refresh-a
-        await saveDevice(user.id, {
-          deviceId: currentDeviceId,
-          deviceName: `${info.browser} on ${info.os}`,
-          deviceInfo: deviceInfoUpdate,
-          // Eksplicitno zadrži postojeći status i role - ne dozvoli resetovanje
-          status: status, // Zadrži postojeći status
-          role: deviceRole, // Zadrži postojeći role
-        });
+
+        // Smanji broj update-a da izbjegnemo lock timeout konflikte sa odobravanjem uređaja
+        let shouldRefreshDeviceMetadata = true;
+        try {
+          const lastLoginRaw = data.lastLogin || data.deviceInfo?.lastLogin;
+          const lastLoginDate = lastLoginRaw ? new Date(lastLoginRaw) : null;
+          const hasFingerprint = !!data.deviceInfo?.fingerprintHash;
+          const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+
+          if (hasFingerprint && lastLoginDate && !isNaN(lastLoginDate.getTime()) && lastLoginDate.getTime() > fiveMinutesAgo) {
+            shouldRefreshDeviceMetadata = false;
+          }
+        } catch {
+          shouldRefreshDeviceMetadata = true;
+        }
+
+        if (shouldRefreshDeviceMetadata) {
+          try {
+            // VAŽNO: Ažuriraj deviceInfo i lastLogin, ali NIKAD ne mijenjaj status/role
+            await saveDevice(user.id, {
+              deviceId: currentDeviceId,
+              deviceName: `${info.browser} on ${info.os}`,
+              deviceInfo: deviceInfoUpdate,
+              status: status,
+              role: deviceRole,
+            });
+          } catch (saveError) {
+            console.error("RoleContext - saveDevice nije uspio, nastavljam sa postojećim statusom:", saveError);
+          }
+        }
           
           // Ponovo pročitaj status nakon ažuriranja (možda je vlasnik odobrio uređaj)
         const updatedDevice = await getDeviceByDeviceId(user.id, currentDeviceId);
@@ -235,6 +260,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             });
         }
         
+        // Owner nalog uvijek mora imati pristup bez verifikacije uređaja
+        if (user.isOwner === true) {
+          status = "approved";
+          deviceRole = "vlasnik";
+        }
+
         // Provjeri da li je uređaj blokiran ili zahtijeva verifikaciju
         // BLOKIRAJ pristup ako:
         // 1. Uređaj je blokiran (isBlocked === true)
@@ -273,41 +304,36 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         
         // Provjeri da li korisnik već ima druge uređaje (prije kreiranja novog)
         try {
-          const userDevices = await getUserDevices(user.id);
-          
-          console.log("RoleContext - Provjera drugih uređaja - broj uređaja:", userDevices.length, "deviceId:", currentDeviceId);
-          
-          // Ako korisnik već ima druge uređaje, novi uređaj ZAUVIJEK zahtijeva verifikaciju
-          if (userDevices.length > 0) {
-            // Provjeri da li je trenutni uređaj već u listi
-            const existingDevice = userDevices.find(d => d.deviceId === currentDeviceId);
-            
-            if (!existingDevice) {
-            // Ako trenutni deviceId nije u listi postojećih, to je novi uređaj
-              // Novi uređaj ZAUVIJEK zahtijeva verifikaciju - bez obzira na ulogu korisnika
-              defaultRole = null;
-              status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju
-              console.log("RoleContext - Korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju");
-            } else {
-              // Ako je trenutni uređaj već u listi, to znači da je već kreiran (možda iz login stranice)
-              console.log("RoleContext - Trenutni uređaj već postoji u bazi, učitavam postojeći status");
-              defaultRole = existingDevice.role || null;
-              status = existingDevice.status || "verifikacija";
-                console.log("RoleContext - Učitavanje postojećeg statusa:", { role: defaultRole, status });
-            }
+          if (user.isOwner === true) {
+            defaultRole = "vlasnik";
+            status = "approved";
+            console.log("RoleContext - Owner nalog: novi uređaj automatski odobren kao vlasnik");
           } else {
-            // Prvi uređaj - provjeri da li je korisnik vlasnik svog naloga
-            const isOwnerOfAccount = user.isOwner === true;
-            if (isOwnerOfAccount) {
-              // Prvi uređaj za vlasnika naloga - automatski odobren kao vlasnik
-              defaultRole = "vlasnik";
-              status = "approved";
-              console.log("RoleContext - Prvi uređaj za vlasnika naloga, automatski odobren kao vlasnik");
+            const userDevices = await getUserDevices(user.id);
+
+            console.log("RoleContext - Provjera drugih uređaja - broj uređaja:", userDevices.length, "deviceId:", currentDeviceId);
+
+            // Ako korisnik već ima druge uređaje, novi uređaj ZAUVIJEK zahtijeva verifikaciju
+            if (userDevices.length > 0) {
+              // Provjeri da li je trenutni uređaj već u listi
+              const existingDevice = userDevices.find((d: DeviceInfo) => d.deviceId === currentDeviceId);
+
+              if (!existingDevice) {
+                // Ako trenutni deviceId nije u listi postojećih, to je novi uređaj
+                defaultRole = null;
+                status = "verifikacija"; // Novi uređaj zahtijeva verifikaciju
+                console.log("RoleContext - Korisnik već ima druge uređaje, novi uređaj zahtijeva verifikaciju");
+              } else {
+                // Ako je trenutni uređaj već u listi, to znači da je već kreiran (možda iz login stranice)
+                console.log("RoleContext - Trenutni uređaj već postoji u bazi, učitavam postojeći status");
+                defaultRole = existingDevice.role || null;
+                status = existingDevice.status || "verifikacija";
+                console.log("RoleContext - Učitavanje postojećeg statusa:", { role: defaultRole, status });
+              }
             } else {
-              // Prvi uređaj za korisnika koji nije vlasnik naloga - također automatski odobren (jer je prvi)
-              // Ali ne dobija ulogu vlasnika, već konobar ili null
-              defaultRole = null; // Ne postavi kao vlasnika ako korisnik nije vlasnik naloga
-              status = "approved"; // Ali odobri pristup jer je prvi uređaj
+              // Prvi uređaj za korisnika koji nije owner - odobri pristup ali bez uloge vlasnika
+              defaultRole = null;
+              status = "approved";
               console.log("RoleContext - Prvi uređaj za korisnika koji nije vlasnik naloga, odobren ali bez uloge vlasnika");
             }
           }
@@ -330,23 +356,26 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           lastLogin: new Date().toISOString(),
         };
         
-        await saveDevice(user.id, {
-          deviceId: currentDeviceId,
-          deviceName: `${info.browser} on ${info.os}`,
-          deviceInfo: deviceInfoData,
-          role: defaultRole,
-          status: status,
-          isBlocked: false,
-          permissions: defaultRole === "vlasnik" ? {
-            dashboard: true,
-            obracun: true,
-            arhiva: true,
-            cjenovnik: true,
-            profit: true,
-            profile: true,
-            admin: false,
-          } : undefined,
-        });
+        try {
+          await saveDevice(user.id, {
+            deviceId: currentDeviceId,
+            deviceName: `${info.browser} on ${info.os}`,
+            deviceInfo: deviceInfoData,
+            role: defaultRole,
+            status: status,
+            isBlocked: false,
+            permissions: defaultRole === "vlasnik" ? {
+              dashboard: true,
+              obracun: true,
+              arhiva: true,
+              cjenovnik: true,
+              profit: true,
+              profile: true,
+            } : undefined,
+          });
+        } catch (saveError) {
+          console.error("RoleContext - saveDevice nije uspio, nastavljam sa lokalnim statusom:", saveError);
+        }
         
         // Ako je status "verifikacija", blokiraj pristup
         if (status === "verifikacija") {
@@ -363,7 +392,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             cjenovnik: true,
             profit: true,
             profile: true,
-            admin: false,
           } : null);
           isApprovedRef.current = (status === "approved"); // Označi da li je uređaj odobren
           console.log("RoleContext - Novi uređaj kreiran, uloga:", defaultRole, "status:", status);
@@ -383,6 +411,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         setPermissions(null);
       }
       setLoading(false);
+    } finally {
+      isLoadingRoleRef.current = false;
     }
   };
 
@@ -436,7 +466,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   // Osveži ulogu
   const refreshRole = async () => {
-    await loadRole();
+    await Promise.race([
+      loadRole(),
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          console.warn("RoleContext - refreshRole timeout, prekidam čekanje");
+          resolve();
+        }, 12000);
+      }),
+    ]);
   };
 
   // Učitaj role pri inicijalizaciji i kada se user promijeni
@@ -446,13 +484,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     
     const load = async () => {
-      // Timeout fallback - ako se učitavanje ne završi za 8 sekundi, postavi loading na false
+      // Timeout fallback - ako se učitavanje ne završi za 12 sekundi, prekini čekanje
       timeoutId = setTimeout(() => {
         if (isMounted) {
           console.warn("RoleContext - Timeout pri učitavanju role, postavljam loading na false");
           setLoading(false);
         }
-      }, 8000);
+      }, 12000);
       
       try {
         await loadRole();

@@ -1,5 +1,37 @@
 // Helper funkcije za API pozive
 
+let hasLoggedMissingToken = false;
+
+function notifySubscriptionUpdated(userId?: string) {
+  if (typeof window === 'undefined') return;
+
+  window.dispatchEvent(
+    new CustomEvent('subscription-updated', {
+      detail: { userId: userId || null, at: Date.now() },
+    })
+  );
+}
+
+async function readApiError(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const json = await response.json();
+      const primary = (json?.error && json.error !== 'Internal server error') ? json.error : null;
+      return primary || json?.message || json?.detail || json?.hint || `${fallbackMessage} (HTTP ${response.status})`;
+    }
+
+    const text = await response.text();
+    if (text && text.trim().length > 0) {
+      return `${fallbackMessage} (HTTP ${response.status}): ${text.slice(0, 180)}`;
+    }
+  } catch {
+    // ignore parsing issues and fallback below
+  }
+
+  return `${fallbackMessage} (HTTP ${response.status})`;
+}
+
 /**
  * Dohvata token iz localStorage ili cookies
  */
@@ -29,10 +61,13 @@ export function getAuthToken(): string | null {
     console.warn('Error reading cookies:', error);
   }
   
-  // Debug logging
-  console.warn('getAuthToken: No token found in localStorage or cookies');
-  console.log('localStorage token:', localStorage.getItem('token'));
-  console.log('Cookies:', document.cookie);
+  // Debug logging (only once per page load in development)
+  if (process.env.NODE_ENV !== 'production' && !hasLoggedMissingToken) {
+    hasLoggedMissingToken = true;
+    console.warn('getAuthToken: No token found in localStorage or cookies');
+    console.log('localStorage token:', localStorage.getItem('token'));
+    console.log('Cookies:', document.cookie);
+  }
   
   return null;
 }
@@ -64,6 +99,7 @@ export async function getCurrentUser() {
 
   try {
     const response = await fetch('/api/users/me', {
+      cache: 'no-store',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -153,7 +189,7 @@ export async function getUserDevices(userId: string) {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to fetch devices');
+    throw new Error(await readApiError(response, 'Failed to fetch devices'));
   }
 
   const data = await response.json();
@@ -186,22 +222,52 @@ export async function saveDevice(
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
-  const response = await fetch(`/api/users/${userId}/devices`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(deviceData),
-  });
+  const isRetryableDeviceError = (error: any) => {
+    const message = (error?.message || '').toLowerCase();
+    return (
+      message.includes('lock timeout') ||
+      message.includes('canceling statement due to lock timeout') ||
+      message.includes('temporarily busy') ||
+      message.includes('status 409')
+    );
+  };
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to save device');
+  const sendSaveRequest = async () => {
+    const response = await fetch(`/api/users/${userId}/devices`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(deviceData),
+    });
+
+    if (!response.ok) {
+      if (response.status === 409) {
+        throw new Error('Device is temporarily busy, please try again.');
+      }
+      throw new Error(await readApiError(response, 'Failed to save device'));
+    }
+
+    const data = await response.json();
+    return data.device;
+  };
+
+  const maxAttempts = 6;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await sendSaveRequest();
+    } catch (error: any) {
+      if (!isRetryableDeviceError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      const waitMs = 250 * attempt;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
   }
 
-  const data = await response.json();
-  return data.device;
+  throw new Error('Failed to save device');
 }
 
 /**
@@ -221,22 +287,45 @@ export async function updateDevice(
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
-  const response = await fetch(`/api/users/${userId}/devices/${deviceId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(deviceData),
-  });
+  const sendUpdateRequest = async () => {
+    const response = await fetch(`/api/users/${userId}/devices/${deviceId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(deviceData),
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to update device');
+    if (!response.ok) {
+      if (response.status === 409) {
+        throw new Error('Device is temporarily busy, please try again.');
+      }
+      throw new Error(await readApiError(response, 'Failed to update device'));
+    }
+
+    const data = await response.json();
+    return data.device;
+  };
+
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await sendUpdateRequest();
+    } catch (error: any) {
+      const message = (error?.message || '').toLowerCase();
+      const isRetryable = message.includes('lock timeout') || message.includes('canceling statement due to lock timeout') || message.includes('temporarily busy');
+
+      if (!isRetryable || attempt === maxAttempts) {
+        throw error;
+      }
+
+      const waitMs = 300 * attempt;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
   }
 
-  const data = await response.json();
-  return data.device;
+  throw new Error('Failed to update device');
 }
 
 /**
@@ -326,22 +415,54 @@ export async function saveObracun(
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
-  const response = await fetch(`/api/users/${userId}/obracuni`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(obracunData),
-  });
+  const sendSaveRequest = async () => {
+    const response = await fetch(`/api/users/${userId}/obracuni`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(obracunData),
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to save obracun');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const message =
+        error?.error && error.error !== 'Database error' && error.error !== 'Internal server error'
+          ? error.error
+          : (error?.message || error?.detail || error?.hint || `Failed to save obracun (HTTP ${response.status})`);
+      throw new Error(message);
+    }
+
+    const data = await response.json();
+    return data.obracun;
+  };
+
+  const isRetryable = (error: any) => {
+    const message = (error?.message || '').toLowerCase();
+    return (
+      message.includes('lock timeout') ||
+      message.includes('temporarily busy') ||
+      message.includes('trenutno zauzeti') ||
+      message.includes('http 409')
+    );
+  };
+
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await sendSaveRequest();
+    } catch (error: any) {
+      if (!isRetryable(error) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      const waitMs = 250 * attempt;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
   }
 
-  const data = await response.json();
-  return data.obracun;
+  throw new Error('Failed to save obracun');
 }
 
 /**
@@ -367,15 +488,15 @@ export async function getObracuni(userId: string, datum?: string) {
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    const errorMessage = await readApiError(response, 'Failed to fetch obracuni');
     console.error('getObracuni error:', {
       status: response.status,
       statusText: response.statusText,
-      errorData,
+      errorMessage,
       userId,
       url,
     });
-    throw new Error(errorData.error || errorData.message || 'Failed to fetch obracuni');
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
@@ -610,22 +731,54 @@ export async function updateCurrentUser(updates: { appName?: string }) {
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
-  const response = await fetch('/api/users/me', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(updates),
-  });
+  const sendUpdateRequest = async () => {
+    const response = await fetch('/api/users/me', {
+      method: 'PUT',
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(updates),
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to update user');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const primaryMessage =
+        error?.error && error.error !== 'Internal server error'
+          ? error.error
+          : (error?.message || error?.detail || error?.hint || `Failed to update user (HTTP ${response.status})`);
+      throw new Error(primaryMessage);
+    }
+
+    return response.json();
+  };
+
+  const isRetryable = (error: any) => {
+    const message = (error?.message || '').toLowerCase();
+    return (
+      message.includes('lock timeout') ||
+      message.includes('temporarily busy') ||
+      message.includes('trenutno zauzeti') ||
+      message.includes('http 409')
+    );
+  };
+
+  const maxAttempts = 4;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await sendUpdateRequest();
+    } catch (error: any) {
+      if (!isRetryable(error) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      const waitMs = 250 * attempt;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
   }
 
-  const data = await response.json();
-  return data;
+  throw new Error('Failed to update user');
 }
 
 /**
@@ -646,8 +799,7 @@ export async function getCjenovnik(userId: string) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to get cjenovnik');
+    throw new Error(await readApiError(response, 'Failed to get cjenovnik'));
   }
 
   const data = await response.json();
@@ -671,8 +823,7 @@ export async function saveCjenovnik(userId: string, cjenovnik: any[]) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to save cjenovnik');
+    throw new Error(await readApiError(response, 'Failed to save cjenovnik'));
   }
 
   const data = await response.json();
@@ -728,19 +879,22 @@ export async function logout() {
 /**
  * Get subscription for user
  */
-export async function getSubscription(userId: string) {
+export async function getSubscription(userId?: string) {
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
-  const response = await fetch(`/api/users/${userId}/subscription`, {
+  const endpoint = userId ? `/api/users/${userId}/subscription` : '/api/users/me/subscription';
+
+  const response = await fetch(endpoint, {
+    cache: 'no-store',
     headers: {
       'Authorization': `Bearer ${token}`,
     },
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to get subscription');
+    const errorMessage = await readApiError(response, 'Failed to get subscription');
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
@@ -780,6 +934,7 @@ export async function updateSubscription(
   }
 
   const data = await response.json();
+  notifySubscriptionUpdated(userId);
   return data.subscription;
 }
 
@@ -810,6 +965,7 @@ export async function addPaymentToSubscription(
   }
 
   const data = await response.json();
+  notifySubscriptionUpdated(userId);
   return data.payment;
 }
 
@@ -835,6 +991,7 @@ export async function adminAdjustPremiumDays(userId: string, days: number) {
   }
 
   const data = await response.json();
+  notifySubscriptionUpdated(userId);
   return data.subscription;
 }
 
@@ -860,6 +1017,7 @@ export async function adminAdjustTrialDays(userId: string, days: number) {
   }
 
   const data = await response.json();
+  notifySubscriptionUpdated(userId);
   return data.subscription;
 }
 
@@ -888,6 +1046,7 @@ export async function adminChangeSubscriptionStatus(
   }
 
   const data = await response.json();
+  notifySubscriptionUpdated(userId);
   return data.subscription;
 }
 
@@ -913,6 +1072,7 @@ export async function adminToggleSubscription(userId: string, isActive: boolean)
   }
 
   const data = await response.json();
+  notifySubscriptionUpdated(userId);
   return data.subscription;
 }
 
@@ -986,7 +1146,11 @@ export async function adminDeleteUser(userId: string) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to delete user');
+    const message =
+      error?.error && error.error !== 'Internal server error'
+        ? error.error
+        : (error?.message || error?.detail || error?.hint || 'Failed to delete user');
+    throw new Error(message);
   }
 
   return true;

@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
+import { randomUUID } from 'crypto';
 
 // Helper funkcija za čišćenje datuma - uklanja tačku sa kraja ako postoji
 // Datum se čuva kao text u formatu DD.MM.YYYY (bez tačke na kraju)
 function cleanDatum(datum: string): string {
   return datum.toString().replace(/\.$/, ''); // Remove trailing dot if present
+}
+
+function isLockTimeoutError(error: any): boolean {
+  const message = (error?.message || '').toLowerCase();
+  return (
+    error?.code === '55P03' ||
+    message.includes('lock timeout') ||
+    message.includes('could not obtain lock') ||
+    message.includes('canceling statement due to lock timeout')
+  );
 }
 
 // GET - Get all obracuni for user
@@ -181,7 +192,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
     
     sql = `SELECT id, datum, artikli, saved_at
            FROM obracuni
-           WHERE user_id = $1::text`;
+          WHERE user_id::text = $1`;
     
     if (cleanedDatumForPostgres) {
       sql += ' AND datum = $2';
@@ -211,7 +222,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
         // Expiration = kraj dana + INTERVAL '12 hours' (12:00 sljedeći dan)
         await query(
           `DELETE FROM obracuni 
-           WHERE user_id = $1::text 
+           WHERE user_id::text = $1 
            AND COALESCE((artikli->>'isAzuriran')::text, 'false') = 'true'
            AND NOW() > (datum::timestamp + INTERVAL '1 day' - INTERVAL '1 second' + INTERVAL '12 hours')`,
           [userIdForDb]
@@ -583,8 +594,8 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       count: normalizedInvoiceImages.length
     });
 
-    // Combine all data into artikli JSONB (invoiceImages merged sa postojećim zapisima malo niže)
-    const obracunData: any = {
+    // Combine all data into artikli JSONB
+    const obracunData = {
       artikli: artikli || [],
       rashodi: rashodi || [],
       prihodi: prihodi || [],
@@ -596,119 +607,59 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       imaUlaz: imaUlaz || false,
       invoiceImages: normalizedInvoiceImages || [],
     };
+    
+    const obracunDataJson = JSON.stringify(obracunData);
 
-    // Upsert obracun - always use simple query without is_draft column
-    // is_draft column doesn't exist in database, ali isAzuriran je u JSONB polju
-    // obracunDataJson je već deklarisan i inicijalizovan gore
+    // Stabilno čuvanje bez UPDATE nad obracuni (u nekim bazama postoji trigger koji očekuje updated_at)
+    // Strategija: DELETE postojeći zapis za datum + INSERT novog zapisa
     let result;
     try {
-      // VAŽNO: Razlikujemo draft (isAzuriran: true) od finalnog (isAzuriran: false)
-      // Prvo proveri da li postoji BILO KAKAV obračun za taj datum (bez obzira na isAzuriran)
-      // UNIQUE constraint je na (user_id, datum), ne na (user_id, datum, isAzuriran)
-      const existingCheck = await query(
-        `SELECT id, artikli FROM obracuni 
-         WHERE user_id = $1::text 
-         AND datum = $2`,
-        [userIdForDb, datumForPostgres]
-      );
-      
-      // Upari postojeće slike faktura (draft ili final) sa novim da se slike ne izgube pri prelasku draft -> final
-      const existingImages: string[] = [];
-      for (const row of existingCheck.rows) {
-        let existingArtikli = row.artikli;
-        if (typeof existingArtikli === 'string') {
-          try {
-            existingArtikli = JSON.parse(existingArtikli);
-          } catch (err) {
-            console.warn('Save obracun - parse existing artikli failed for invoice merge:', err);
-            existingArtikli = null;
+      const maxAttempts = 5;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await query(
+            `DELETE FROM obracuni
+             WHERE user_id::text = $1
+             AND datum = $2`,
+            [userIdForDb, datumForPostgres]
+          );
+
+          const newObracunId = randomUUID();
+          result = await query(
+            `INSERT INTO obracuni (id, user_id, datum, artikli, saved_at)
+             VALUES ($1, $2, $3, $4::jsonb, NOW())
+             RETURNING id, datum, saved_at`,
+            [newObracunId, userIdForDb, datumForPostgres, obracunDataJson]
+          );
+
+          break;
+        } catch (saveError: any) {
+          const retryable = isLockTimeoutError(saveError) || saveError?.code === '23505';
+          const isLastAttempt = attempt === maxAttempts;
+
+          if (!retryable || isLastAttempt) {
+            throw saveError;
           }
-        }
-        const imgs = existingArtikli?.invoiceImages;
-        if (Array.isArray(imgs)) {
-          existingImages.push(...imgs);
+
+          const waitMs = 200 * attempt;
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
         }
       }
 
-      const mergedInvoiceImages = [...new Set([...(normalizedInvoiceImages || []), ...existingImages])];
-      obracunData.invoiceImages = mergedInvoiceImages;
-      const obracunDataJson = JSON.stringify(obracunData);
-      
-      // Ako postoji obračun, proveri da li ima isti isAzuriran status
-      let existingIsAzuriran: boolean | null = null;
-      if (existingCheck.rows.length > 0) {
-        const existingArtikli = existingCheck.rows[0].artikli;
-        if (existingArtikli && typeof existingArtikli === 'object') {
-          existingIsAzuriran = existingArtikli.isAzuriran === true;
-        }
-      }
-      
-      // Koristimo UPDATE ako postoji obračun SA ISTIM isAzuriran statusom, inače INSERT
-      // Ali pošto postoji UNIQUE constraint, ako postoji obračun sa različitim isAzuriran statusom,
-      // treba da se UPDATE-uje postojeći umesto da se pokušava INSERT
-      const exists = existingCheck.rows.length > 0 && existingIsAzuriran === (isAzuriran || false);
-      if (exists || existingCheck.rows.length > 0) {
-        // UPDATE postojeći obračun (sa istim ili različitim isAzuriran statusom)
-        // UPDATE postojeći - kombinuj postojeće slike sa novim ako postoje
-        let finalObracunDataJson = obracunDataJson;
-        try {
-          const existingObracunResult = await query(
-            `SELECT artikli FROM obracuni 
-             WHERE user_id = $1::text AND datum = $2
-             AND COALESCE((artikli->>'isAzuriran')::text, 'false') = $3`,
-            [userIdForDb, datumForPostgres, String(isAzuriran || false)]
-          );
-          
-          if (existingObracunResult.rows.length > 0) {
-            const existingArtikli = existingObracunResult.rows[0].artikli;
-            if (existingArtikli && typeof existingArtikli === 'object' && existingArtikli.invoiceImages && Array.isArray(existingArtikli.invoiceImages)) {
-              const existingImagesSameStatus = existingArtikli.invoiceImages || [];
-              const allImages = [...new Set([...existingImagesSameStatus, ...mergedInvoiceImages])];
-              obracunData.invoiceImages = allImages;
-              finalObracunDataJson = JSON.stringify(obracunData);
-            }
-          }
-        } catch (mergeError: any) {
-          console.warn('Save obracun - Greška pri kombinovanju slika, koristimo nove slike:', mergeError);
-        }
-        
-        // UPDATE postojeći obračun - ažuriraj bez obzira na prethodni isAzuriran status
-        result = await query(
-          `UPDATE obracuni 
-           SET artikli = $3::jsonb,
-               datum_raw = $4,
-               saved_at = NOW()
-           WHERE user_id = $1::text 
-           AND datum = $2
-           RETURNING id, datum, saved_at`,
-          [userIdForDb, datumForPostgres, finalObracunDataJson, datumRaw]
-        );
-      } else {
-        // INSERT novi obračun (draft ili finalni)
-        // Ako se čuva finalni obračun (isAzuriran: false), obriši draft (isAzuriran: true) ako postoji
-        if (!isAzuriran && !isDraft) {
-          try {
-            await query(
-              `DELETE FROM obracuni 
-               WHERE user_id = $1::text 
-               AND datum = $2
-               AND COALESCE((artikli->>'isAzuriran')::text, 'false') = 'true'`,
-              [userIdForDb, datumForPostgres]
-            );
-          } catch (deleteError: any) {
-            console.warn('Save obracun - Greška pri brisanju draft-a:', deleteError);
-          }
-        }
-        
-        result = await query(
-          `INSERT INTO obracuni (user_id, datum, datum_raw, artikli, saved_at)
-           VALUES ($1::text, $2, $3, $4::jsonb, NOW())
-           RETURNING id, datum, saved_at`,
-          [userIdForDb, datumForPostgres, datumRaw, obracunDataJson]
+      if (!result || result.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Database error', message: 'Obračun nije sačuvan.' },
+          { status: 500 }
         );
       }
-      
     } catch (dbError: any) {
+      if (isLockTimeoutError(dbError)) {
+        return NextResponse.json(
+          { error: 'Podaci su trenutno zauzeti, pokušajte ponovo za par sekundi.', code: 'LOCK_TIMEOUT' },
+          { status: 409 }
+        );
+      }
+
       console.error('Save obracun - Database error:', {
         message: dbError.message,
         code: dbError.code,
@@ -919,7 +870,7 @@ async function deleteHandler(req: AuthRequest, { params }: { params: Promise<{ u
     const datumForPostgres = `${godina}-${mjesec.padStart(2, '0')}-${dan.padStart(2, '0')}`; // YYYY-MM-DD
 
     await query(
-      'DELETE FROM obracuni WHERE user_id = $1::text AND datum = $2',
+      'DELETE FROM obracuni WHERE user_id::text = $1 AND datum = $2',
       [userIdForDb, datumForPostgres]
     );
 

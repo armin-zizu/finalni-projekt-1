@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
 
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'gitara.zizu@gmail.com').toLowerCase().trim();
+
+function isAdminEmail(email?: string | null): boolean {
+  return (email || '').toLowerCase().trim() === ADMIN_EMAIL;
+}
+
+function isLockTimeoutError(error: any): boolean {
+  const code = error?.code;
+  const message = (error?.message || '').toLowerCase();
+  return code === '55P03' || message.includes('lock timeout') || message.includes('canceling statement due to lock timeout');
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // GET - Get all devices for user
 async function getHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> | { userId: string } }): Promise<NextResponse> {
   try {
@@ -21,19 +37,10 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
     if (!uuidRegex.test(userId)) {
       console.log('Get devices - Non-UUID userId detected, looking up in database:', userId);
       try {
-        // First try to find by id (in case it's an old ID format)
-        let userResult = await query(
-          'SELECT id FROM users WHERE id = $1 LIMIT 1',
+        const userResult = await query(
+          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
           [userId]
         );
-        
-        // If not found by id, try to find by email
-        if (userResult.rows.length === 0) {
-          userResult = await query(
-            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-            [userId]
-          );
-        }
         
         if (userResult.rows.length > 0) {
           userId = userResult.rows[0].id;
@@ -61,7 +68,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
     
     if (!uuidRegex2.test(requestUserId)) {
       const userResult = await query(
-        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
         [requestUserId]
       );
       if (userResult.rows.length > 0) {
@@ -69,7 +76,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       }
     }
     
-    if (requestUserIdResolved !== userId && !req.user.isOwner) {
+    if (requestUserIdResolved !== userId && !req.user.isOwner && !isAdminEmail(req.user.email)) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -127,19 +134,10 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
     if (!uuidRegex.test(userId)) {
       console.log('Save device - Non-UUID userId detected, looking up in database:', userId);
       try {
-        // First try to find by id (in case it's an old ID format)
-        let userResult = await query(
-          'SELECT id FROM users WHERE id = $1 LIMIT 1',
+        const userResult = await query(
+          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
           [userId]
         );
-        
-        // If not found by id, try to find by email
-        if (userResult.rows.length === 0) {
-          userResult = await query(
-            'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-            [userId]
-          );
-        }
         
         if (userResult.rows.length > 0) {
           userId = userResult.rows[0].id;
@@ -167,7 +165,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
     
     if (!uuidRegex2.test(requestUserId)) {
       const userResult = await query(
-        'SELECT id FROM users WHERE id = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+        'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
         [requestUserId]
       );
       if (userResult.rows.length > 0) {
@@ -175,7 +173,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       }
     }
     
-    if (requestUserIdResolved !== userId && !req.user.isOwner) {
+    if (requestUserIdResolved !== userId && !req.user.isOwner && !isAdminEmail(req.user.email)) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -211,10 +209,15 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
 
     // Upsert device - use (user_id, device_id) combination to prevent duplicates
     // Check if device exists first to decide whether to update or insert
-    let existingDevice = await query(
-      'SELECT id, device_name, device_info, role, permissions, is_blocked, status FROM devices WHERE user_id = $1 AND device_id = $2',
-      [userId, deviceId]
-    );
+    const loadExistingDevice = async () => {
+      return await query(
+        'SELECT id, device_name, device_info, role, permissions, is_blocked, status FROM devices WHERE user_id = $1 AND device_id = $2',
+        [userId, deviceId]
+      );
+    };
+
+    let existingDevice = await loadExistingDevice();
+    let existingDeviceRowId: string | null = existingDevice.rows[0]?.id || null;
 
     // If device not found by device_id, try to find by fingerprint hash (backup mechanism)
     if (existingDevice.rows.length === 0 && deviceInfo?.fingerprintHash) {
@@ -229,11 +232,9 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       if (fingerprintResult.rows.length > 0) {
         // Found device by fingerprint - use existing device_id
         existingDevice = fingerprintResult;
-        // Update device_id in the found device to match the new one (migration)
-        await query(
-          'UPDATE devices SET device_id = $1, updated_at = NOW() WHERE id = $2',
-          [deviceId, fingerprintResult.rows[0].id]
-        );
+        existingDeviceRowId = fingerprintResult.rows[0].id;
+        // Nemoj migrirati device_id ovdje (izbjegava lock timeout konflikte).
+        // Koristimo postojeći red identificiran po fingerprint-u.
       }
     }
 
@@ -283,18 +284,63 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         updateValues.push(status);
       }
 
-      // Add userId and deviceId for WHERE clause
-      const userIdParamIndex = paramIndex;
-      const deviceIdParamIndex = paramIndex + 1;
-      updateValues.push(userId, deviceId);
+      let result: any = null;
+      const maxUpdateAttempts = 6;
+      for (let attempt = 1; attempt <= maxUpdateAttempts; attempt++) {
+        try {
+          if (existingDeviceRowId) {
+            const rowIdParamIndex = paramIndex;
+            result = await query(
+              `WITH target_device AS (
+                 SELECT id
+                 FROM devices
+                 WHERE id = $${rowIdParamIndex}
+                 FOR UPDATE SKIP LOCKED
+                 LIMIT 1
+               )
+               UPDATE devices 
+               SET ${updateFields.join(', ')}
+               WHERE id IN (SELECT id FROM target_device)
+               RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
+              [...updateValues, existingDeviceRowId]
+            );
+          } else {
+            // Fallback path
+            const userIdParamIndex = paramIndex;
+            const deviceIdParamIndex = paramIndex + 1;
+            result = await query(
+              `WITH target_device AS (
+                 SELECT id
+                 FROM devices
+                 WHERE user_id::text = $${userIdParamIndex} AND device_id = $${deviceIdParamIndex}
+                 FOR UPDATE SKIP LOCKED
+                 LIMIT 1
+               )
+               UPDATE devices 
+               SET ${updateFields.join(', ')}
+               WHERE id IN (SELECT id FROM target_device)
+               RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
+              [...updateValues, userId, deviceId]
+            );
+          }
+          break;
+        } catch (updateError: any) {
+          if (!isLockTimeoutError(updateError) || attempt === maxUpdateAttempts) {
+            throw updateError;
+          }
+          await delay(180 * attempt);
+        }
+      }
 
-      const result = await query(
-        `UPDATE devices 
-         SET ${updateFields.join(', ')}
-         WHERE user_id = $${userIdParamIndex} AND device_id = $${deviceIdParamIndex}
-         RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
-        updateValues
-      );
+      if (!result || result.rows.length === 0) {
+        const existsAfterRetry = await loadExistingDevice();
+        if (existsAfterRetry.rows.length > 0) {
+          return NextResponse.json(
+            { error: 'Device is temporarily busy, please try again.' },
+            { status: 409 }
+          );
+        }
+      }
 
       const device = result.rows[0];
       return NextResponse.json({
@@ -315,21 +361,68 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       });
     } else {
       // Insert new device
-      const result = await query(
-        `INSERT INTO devices (user_id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-         RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
-        [
-          userId,
-          deviceId,
-          deviceName || null,
-          deviceInfo ? JSON.stringify(deviceInfo) : null,
-          role || null,
-          permissions ? JSON.stringify(permissions) : '{}',
-          isBlocked || false,
-          status || 'pending',
-        ]
-      );
+      let result;
+      try {
+        const maxInsertAttempts = 6;
+        for (let attempt = 1; attempt <= maxInsertAttempts; attempt++) {
+          try {
+            result = await query(
+              `INSERT INTO devices (user_id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, updated_at)
+               VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, NOW(), NOW())
+               RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
+              [
+                userId,
+                deviceId,
+                deviceName || null,
+                deviceInfo ? JSON.stringify(deviceInfo) : null,
+                role || null,
+                permissions ? JSON.stringify(permissions) : '{}',
+                isBlocked || false,
+                status || 'pending',
+              ]
+            );
+            break;
+          } catch (insertAttemptError: any) {
+            if (!isLockTimeoutError(insertAttemptError) || attempt === maxInsertAttempts) {
+              throw insertAttemptError;
+            }
+            await delay(180 * attempt);
+          }
+        }
+      } catch (insertError: any) {
+        if (insertError?.code === '23505') {
+          result = await query(
+            `UPDATE devices
+             SET user_id = $1,
+                 device_name = COALESCE($3, device_name),
+                 device_info = COALESCE($4::jsonb, device_info),
+                 role = COALESCE($5, role),
+                 permissions = COALESCE($6::jsonb, permissions),
+                 is_blocked = COALESCE($7, is_blocked),
+                 status = COALESCE($8, status),
+                 last_login = NOW(),
+                 updated_at = NOW()
+             WHERE device_id = $2
+             RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
+            [
+              userId,
+              deviceId,
+              deviceName || null,
+              deviceInfo ? JSON.stringify(deviceInfo) : null,
+              role || null,
+              permissions ? JSON.stringify(permissions) : null,
+              isBlocked ?? null,
+              status || null,
+            ]
+          );
+
+          if (!result.rows?.length) {
+            throw insertError;
+          }
+        } else {
+          throw insertError;
+        }
+      }
 
       const device = result.rows[0];
       return NextResponse.json({
@@ -351,6 +444,12 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
     }
   } catch (error: any) {
     console.error('Save device error:', error);
+    if (isLockTimeoutError(error)) {
+      return NextResponse.json(
+        { error: 'Device is temporarily busy, please try again.' },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: 'Internal server error', message: error.message },
       { status: 500 }

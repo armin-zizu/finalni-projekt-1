@@ -386,7 +386,15 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
       })
     );
 
-    return NextResponse.json({ users: usersWithData });
+    return NextResponse.json(
+      { users: usersWithData },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          Pragma: 'no-cache',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Error loading users:', error);
     return NextResponse.json(

@@ -102,6 +102,19 @@ export function getPool(): Pool {
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000, // Increased from 2000 to 10000 for remote connections
+      query_timeout: 15000,
+    });
+
+    pool.on('connect', (client) => {
+      client
+        .query(`
+          SET statement_timeout = '15s';
+          SET lock_timeout = '5s';
+          SET idle_in_transaction_session_timeout = '30s';
+        `)
+        .catch((err) => {
+          console.error('Failed to apply PostgreSQL session timeouts:', err);
+        });
     });
 
     pool.on('error', (err) => {
@@ -123,10 +136,16 @@ export async function query<T extends import('pg').QueryResultRow = import('pg')
   try {
     const res = await pool.query<T>(text, params);
     const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
+    if (duration > 2000) {
+      console.warn('Slow query detected', { text, duration, rows: res.rowCount });
+    } else {
+      console.log('Executed query', { text, duration, rows: res.rowCount });
+    }
     return res;
   } catch (error: any) {
     console.error('Database query error:', {
+      text,
+      params,
       message: error.message,
       code: error.code,
       detail: error.detail,

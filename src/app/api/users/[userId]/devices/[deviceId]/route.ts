@@ -2,8 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
 
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'gitara.zizu@gmail.com').toLowerCase().trim();
+
+function isAdminEmail(email?: string | null): boolean {
+  return (email || '').toLowerCase().trim() === ADMIN_EMAIL;
+}
+
+function isLockTimeoutError(error: any): boolean {
+  const code = error?.code;
+  const message = (error?.message || '').toLowerCase();
+  return code === '55P03' || message.includes('lock timeout') || message.includes('canceling statement due to lock timeout');
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function resolveUserIdToUuid(userIdOrEmail: string | undefined | null): Promise<string | null> {
+  if (!userIdOrEmail || typeof userIdOrEmail !== 'string') return null;
+
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(userIdOrEmail)) return userIdOrEmail;
+
+  const result = await query(
+    'SELECT id::text as id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
+    [userIdOrEmail]
+  );
+
+  return result.rows[0]?.id || null;
+}
+
 // PUT - Update device
-async function putHandler(req: AuthRequest, { params }: { params: { userId: string; deviceId: string } }): Promise<NextResponse> {
+async function putHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string; deviceId: string }> | { userId: string; deviceId: string } }): Promise<NextResponse> {
   try {
     if (!req.user) {
       return NextResponse.json(
@@ -12,63 +42,38 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
       );
     }
 
-    // Resolve userId from JWT token to UUID if needed
-    let userId = req.user.userId;
-    const deviceId = params.deviceId;
-    let requestedUserId = params.userId;
+    const resolvedParams = await params;
+    const deviceId = resolvedParams.deviceId;
 
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
-    // Resolve JWT userId to UUID if needed
-    if (!uuidRegex.test(userId)) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      let userResult;
-      if (emailRegex.test(userId)) {
-        userResult = await query(
-          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-          [userId]
-        );
-      } else {
-        userResult = await query(
-          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
-          [userId]
-        );
-      }
-      if (userResult.rows.length > 0) {
-        userId = userResult.rows[0].id;
-      } else {
-        console.error('Update device - JWT userId not found:', req.user.userId);
-        return NextResponse.json(
-          { error: 'User not found. Please log out and log in again.' },
-          { status: 404 }
-        );
-      }
-    }
-    
-    // Resolve requested userId to UUID if needed
-    if (!uuidRegex.test(requestedUserId)) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      let userResult;
-      if (emailRegex.test(requestedUserId)) {
-        userResult = await query(
-          'SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-          [requestedUserId]
-        );
-      } else {
-        userResult = await query(
-          'SELECT id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1',
-          [requestedUserId]
-        );
-      }
-      if (userResult.rows.length > 0) {
-        requestedUserId = userResult.rows[0].id;
-      }
+    if (!deviceId || typeof deviceId !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid device id' },
+        { status: 400 }
+      );
     }
 
-    console.log('Update device - JWT userId:', req.user.userId, '-> resolved:', userId, 'Requested userId:', params.userId, '-> resolved:', requestedUserId, 'deviceId:', deviceId);
+    const jwtUserIdResolved = await resolveUserIdToUuid(req.user.userId || req.user.email);
+    if (!jwtUserIdResolved) {
+      console.error('Update device - JWT userId not found:', req.user.userId, req.user.email);
+      return NextResponse.json(
+        { error: 'User not found. Please log out and log in again.' },
+        { status: 404 }
+      );
+    }
+
+    const requestedUserIdResolved = await resolveUserIdToUuid(resolvedParams.userId);
+
+    if (!requestedUserIdResolved) {
+      return NextResponse.json(
+        { error: 'Requested user not found' },
+        { status: 404 }
+      );
+    }
+
+    console.log('Update device - JWT userId:', req.user.userId, '-> resolved:', jwtUserIdResolved, 'Requested userId:', resolvedParams.userId, '-> resolved:', requestedUserIdResolved, 'deviceId:', deviceId);
 
     // Check if user can modify devices (compare resolved UUIDs)
-    if (userId !== requestedUserId && !req.user.isOwner) {
+    if (!req.user.isOwner && !isAdminEmail(req.user.email) && (!requestedUserIdResolved || jwtUserIdResolved !== requestedUserIdResolved)) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -78,7 +83,7 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
     const body = await req.json();
     const { deviceName, role, permissions, isBlocked, status } = body;
 
-    // Update device - use resolved userId (UUID)
+    // Update device
     const updateFields: string[] = [];
     const updateValues: any[] = [];
     let paramIndex = 1;
@@ -92,8 +97,8 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
       updateValues.push(role);
     }
     if (permissions !== undefined) {
-      updateFields.push(`permissions = $${paramIndex++}`);
-      updateValues.push(JSON.stringify(permissions));
+      updateFields.push(`permissions = $${paramIndex++}::jsonb`);
+      updateValues.push(JSON.stringify(permissions ?? {}));
     }
     if (isBlocked !== undefined) {
       updateFields.push(`is_blocked = $${paramIndex++}`);
@@ -112,31 +117,83 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
     }
 
     updateFields.push(`updated_at = NOW()`);
-    // Add userId and deviceId as parameters for WHERE clause
-    const userIdParamIndex = paramIndex;
-    const deviceIdParamIndex = paramIndex + 1;
-    updateValues.push(userId, deviceId); // Use resolved UUID
+    const deviceIdParamIndex = paramIndex;
+    const userIdParamIndex = paramIndex + 1;
+    updateValues.push(deviceId.trim());
+    const targetUserId = req.user.isOwner ? requestedUserIdResolved : jwtUserIdResolved;
+    updateValues.push(targetUserId);
+
+    let sql = `WITH target_device AS (
+      SELECT id
+      FROM devices
+      WHERE (device_id = $${deviceIdParamIndex} OR id::text = $${deviceIdParamIndex})
+        AND user_id::text = $${userIdParamIndex}
+      FOR UPDATE SKIP LOCKED
+      LIMIT 1
+    )
+    UPDATE devices SET ${updateFields.join(', ')}`;
+    sql += ` WHERE id IN (SELECT id FROM target_device)`;
+
+    sql += ` RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`;
 
     console.log('Update device query:', {
-      userId,
+      jwtUserIdResolved,
       deviceId,
       updateFields: updateFields.join(', '),
       paramCount: updateValues.length,
-      userIdParamIndex,
       deviceIdParamIndex
     });
 
-    const result = await query(
-      `UPDATE devices
-       SET ${updateFields.join(', ')}
-       WHERE user_id = $${userIdParamIndex} AND device_id = $${deviceIdParamIndex}
-       RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`,
-      updateValues
-    );
+    let result: any = null;
+    const maxAttempts = 12;
+    let lastRowWasLocked = false;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        result = await query(sql, updateValues);
+
+        if (result.rows.length > 0) {
+          lastRowWasLocked = false;
+          break;
+        }
+
+        const existsResult = await query(
+          `SELECT 1
+           FROM devices
+           WHERE (device_id = $1 OR id::text = $1)
+             AND user_id::text = $2
+           LIMIT 1`,
+          [deviceId.trim(), targetUserId]
+        );
+
+        if (existsResult.rows.length === 0) {
+          break;
+        }
+
+        lastRowWasLocked = true;
+        if (attempt < maxAttempts) {
+          await delay(200 * attempt);
+          continue;
+        }
+        break;
+      } catch (error: any) {
+        if (!isLockTimeoutError(error) || attempt === maxAttempts) {
+          throw error;
+        }
+        lastRowWasLocked = true;
+        await delay(250 * attempt);
+      }
+    }
 
     console.log('Update device result:', { rows: result.rows.length, found: result.rows.length > 0 });
 
     if (result.rows.length === 0) {
+      if (lastRowWasLocked) {
+        return NextResponse.json(
+          { error: 'Device is temporarily busy, please try again.' },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         { error: 'Device not found' },
         { status: 404 }
@@ -162,9 +219,15 @@ async function putHandler(req: AuthRequest, { params }: { params: { userId: stri
       },
     });
   } catch (error: any) {
-    console.error('Update device error:', error);
+    console.error('Update device error:', {
+      message: error?.message,
+      code: error?.code,
+      detail: error?.detail,
+      hint: error?.hint,
+      stack: error?.stack,
+    });
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      { error: error?.message || 'Internal server error', code: error?.code, detail: error?.detail, hint: error?.hint },
       { status: 500 }
     );
   }
@@ -256,7 +319,7 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
 
     // Check if user can delete devices (compare resolved UUIDs)
     // Owner može brisati bilo koji uređaj; ostali samo svoje
-    if (userId !== requestedUserIdResolved && !req.user.isOwner) {
+    if (userId !== requestedUserIdResolved && !req.user.isOwner && !isAdminEmail(req.user.email)) {
       console.warn('Delete device - Forbidden:', { userId, requestedUserIdResolved, isOwner: req.user.isOwner });
       return NextResponse.json(
         { error: 'Forbidden' },
@@ -358,7 +421,7 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
   }
 }
 
-export const PUT = (req: NextRequest, context: { params: { userId: string; deviceId: string } }) => {
+export const PUT = (req: NextRequest, context: { params: Promise<{ userId: string; deviceId: string }> | { userId: string; deviceId: string } }) => {
   return withAuth((authReq: AuthRequest) => putHandler(authReq, context))(req);
 };
 

@@ -36,7 +36,7 @@ async function postHandler(
     // If userId is an email or non-UUID, try to resolve it
     if (emailRegex.test(userIdParam) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdParam)) {
       let lookupResult = await query(
-        `SELECT id::text as id FROM users WHERE id = $1 OR email = $1 LIMIT 1`,
+        `SELECT id::text as id FROM users WHERE id::text = $1 OR LOWER(email) = LOWER($1) LIMIT 1`,
         [userIdParam]
       );
       
@@ -71,7 +71,7 @@ async function postHandler(
 
     // Get current subscription to calculate expiry date
     const subscriptionResult = await query(
-      `SELECT end_date, trial_end_date FROM subscriptions WHERE user_id = $1`,
+      `SELECT end_date, trial_end_date FROM subscriptions WHERE user_id = $1::uuid`,
       [userId]
     );
 
@@ -99,7 +99,7 @@ async function postHandler(
     // Insert payment
     const paymentResult = await query(
       `INSERT INTO payments (user_id, amount, note, date, valid_until)
-       VALUES ($1, $2, $3, $4, $5)
+       VALUES ($1::uuid, $2, $3, $4, $5)
        RETURNING id, amount, note, date, valid_until, created_at`,
       [
         userId,
@@ -114,7 +114,7 @@ async function postHandler(
 
     // Get existing subscription_data to merge with payment request clearing
     const existingSubResult = await query(
-      `SELECT subscription_data FROM subscriptions WHERE user_id = $1`,
+      `SELECT subscription_data FROM subscriptions WHERE user_id = $1::uuid`,
       [userId]
     );
     
@@ -146,7 +146,7 @@ async function postHandler(
            grace_end_date = NULL,
            subscription_data = $4::jsonb,
            updated_at = NOW()
-       WHERE user_id = $3`,
+       WHERE user_id = $3::uuid`,
       [newExpiryDate, now, userId, JSON.stringify(subscriptionDataJson)]
     );
 

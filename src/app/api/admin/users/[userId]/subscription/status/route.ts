@@ -43,7 +43,7 @@ async function putHandler(
     const subscriptionResult = await query(
       `SELECT id, user_id, end_date, trial_end_date, grace_end_date, last_payment_date, is_active
        FROM subscriptions
-       WHERE user_id = $1`,
+       WHERE user_id = $1::uuid`,
       [userId]
     );
 
@@ -118,7 +118,7 @@ async function putHandler(
     const result = await query(
       `INSERT INTO subscriptions (user_id, monthly_price, trial_end_date, grace_end_date, 
                                   last_payment_date, is_active, end_date, status, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, NOW())
        ON CONFLICT (user_id)
        DO UPDATE SET
          trial_end_date = EXCLUDED.trial_end_date,

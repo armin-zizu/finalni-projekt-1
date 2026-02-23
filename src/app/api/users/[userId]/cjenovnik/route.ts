@@ -162,7 +162,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       result = await query(
         `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje, display_order, created_at, updated_at
          FROM cjenovnik
-         WHERE user_id = $1::text
+         WHERE user_id::text = $1
          ORDER BY COALESCE(display_order, 999999) ASC, naziv ASC`,
         [userId]
       );
@@ -171,7 +171,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       result = await query(
         `SELECT id, naziv, cijena, proizvodna_cijena, zestoko_kolicina, nabavna_cijena, nabavna_cijena_flase, zapremina_flase, pocetno_stanje, created_at, updated_at
          FROM cjenovnik
-         WHERE user_id = $1::text
+         WHERE user_id::text = $1
          ORDER BY naziv ASC`,
         [userId]
       );
@@ -506,7 +506,7 @@ async function deleteHandler(req: AuthRequest, { params }: { params: Promise<{ u
     // Eksplicitno obriši artikal
     const deleteResult = await query(
       `DELETE FROM cjenovnik 
-       WHERE user_id = $1::text 
+       WHERE user_id::text = $1 
        AND naziv = $2`,
       [userId, naziv]
     );

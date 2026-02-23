@@ -85,6 +85,22 @@ ORDER BY d.created_at DESC;
 COMMIT;
 ```
 
+### ⚠️ Važno: ako prekinete izvršavanje poslije `BEGIN;`
+
+Ako prekinete sesiju ili komande prije `COMMIT;`, transakcija može ostati otvorena i zaključati redove (`users`/`devices`), što uzrokuje jako spore login/device pozive.
+
+U istom `psql` prozoru obavezno završite sa:
+
+```sql
+ROLLBACK;
+```
+
+Ako sumnjate na lock, pokrenite:
+
+```bash
+psql -h 46.224.115.49 -U office_user -d office_app -f scripts/check-db-locks.sql
+```
+
 ---
 
 ## 📋 Opcija 4: Odobri samo jedan specifičan uređaj

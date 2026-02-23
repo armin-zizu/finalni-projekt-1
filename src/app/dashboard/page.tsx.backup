@@ -12,8 +12,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FaArrowUp, FaArrowDown, FaDollarSign } from "react-icons/fa";
+// TEMPORARY: Disabled Firebase imports for development
+// import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { useRouter } from "next/navigation";
+// import { getDocs, collection, onSnapshot } from "firebase/firestore";
+// import { db } from "../../lib/firestore";
 import { useCjenovnik } from "../context/CjenovnikContext";
+import { useAppName } from "../context/AppNameContext";
 import { useRole } from "../context/RoleContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { getObracuni } from "../../lib/api";
@@ -146,53 +151,60 @@ export default function DashboardPage() {
   const [chartKey, setChartKey] = useState(0);
   const router = useRouter();
   const { cjenovnik } = useCjenovnik();
+  const { appName } = useAppName();
   const { user } = useRole();
   const { subscription, loading: subscriptionLoading } = useSubscription();
-  const enableDashboardDebug = false;
 
-  // Stabilna detekcija mobilnog uređaja (bez post-mount oscilacija)
+  // Detekcija mobilnog uređaja - poboljšana za produkciju
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    let orientationTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const applyMobileState = () => {
-      const nextMobile = detectMobile();
-      setIsMobile((prevMobile) => {
-        if (prevMobile !== nextMobile) {
-          setChartKey((prevKey) => prevKey + 1);
-          return nextMobile;
-        }
-        return prevMobile;
-      });
-    };
-
-    applyMobileState();
-
+    
+    const checkMobile = () => detectMobile();
+    
+    // Postavi odmah (bez čekanja na event)
+    const initialMobile = checkMobile();
+    if (initialMobile !== isMobile) {
+      setIsMobile(initialMobile);
+      setChartKey(prev => prev + 1);
+    }
+    
     const handleResize = () => {
-      applyMobileState();
-    };
-
-    const handleOrientationChange = () => {
-      if (orientationTimer) {
-        clearTimeout(orientationTimer);
+      const newMobile = checkMobile();
+      if (newMobile !== isMobile) {
+        setIsMobile(newMobile);
+        setChartKey(prev => prev + 1);
       }
-      orientationTimer = setTimeout(() => {
-        applyMobileState();
-      }, 120);
     };
-
+    
+    const handleOrientationChange = () => {
+      setTimeout(() => {
+        const newMobile = checkMobile();
+        if (newMobile !== isMobile) {
+          setIsMobile(newMobile);
+          setChartKey(prev => prev + 1);
+        }
+      }, 150);
+    };
+    
+    // Dodaj listener-e
     window.addEventListener('resize', handleResize, { passive: true });
     window.addEventListener('orientationchange', handleOrientationChange);
-
-    return () => {
-      if (orientationTimer) {
-        clearTimeout(orientationTimer);
+    
+    // Re-check nakon kratkog delay-a (za mobilne browser-e koji možda ne detektuju odmah)
+    const timer = setTimeout(() => {
+      const newMobile = checkMobile();
+      if (newMobile !== isMobile) {
+        setIsMobile(newMobile);
+        setChartKey(prev => prev + 1);
       }
+    }, 100);
+    
+    return () => {
+      clearTimeout(timer);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
-  }, []);
+  }, [isMobile]);
 
   // Učitaj arhivu iz API-ja
   const loadArhiva = useCallback(async (userId: string) => {
@@ -217,7 +229,7 @@ export default function DashboardPage() {
       // API već vraća podatke u ispravnom formatu, samo provjeri da su arrayi
       console.log("Dashboard - Primjer obračuna iz API-ja:", obracuni[0] || null);
       
-      const apiArhiva: ArhiviraniObracun[] = obracuni.map((ob: any, index: number) => {
+      const firestoreArhiva: ArhiviraniObracun[] = obracuni.map((ob: any, index: number) => {
         const mapped = {
           datum: ob.datum || "",
           ukupnoArtikli: Number(ob.ukupnoArtikli) || 0,
@@ -242,12 +254,12 @@ export default function DashboardPage() {
         return mapped;
       });
       
-      console.log("Dashboard - Učitano obračuna:", apiArhiva.length);
-      console.log("Dashboard - Finalni obračuni (bez isAzuriran):", apiArhiva.filter(o => !o.isAzuriran).length);
-      console.log("Dashboard - Ažurirani obračuni (isAzuriran: true):", apiArhiva.filter(o => o.isAzuriran).length);
+      console.log("Dashboard - Učitano obračuna:", firestoreArhiva.length);
+      console.log("Dashboard - Finalni obračuni (bez isAzuriran):", firestoreArhiva.filter(o => !o.isAzuriran).length);
+      console.log("Dashboard - Ažurirani obračuni (isAzuriran: true):", firestoreArhiva.filter(o => o.isAzuriran).length);
       
       // Sortiraj po datumu (rastući redoslijed za dashboard)
-      const sortedArhiva = apiArhiva.sort((a, b) => {
+      const sortedArhiva = firestoreArhiva.sort((a, b) => {
         const dateA = parseDatumToDate(a.datum).getTime();
         const dateB = parseDatumToDate(b.datum).getTime();
         return dateA - dateB;
@@ -273,6 +285,32 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // TEMPORARY: Disabled Firebase auth listener - comment out to re-enable
+  /*
+  // ČEKA NA AUTENTIFIKACIJU PRIJE UČITAVANJA
+  useEffect(() => {
+    console.log("Dashboard - Postavljanje auth listenera...");
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      console.log("Dashboard - Auth state promijenjen:", user ? `Korisnik: ${user.uid}` : "Nema korisnika");
+      
+      if (!user) {
+        console.log("Dashboard - Nema korisnika, ne učitavam podatke");
+        setLoading(false);
+        return;
+      }
+
+      // Sačekaj mali delay da se sve inicijalizuje
+      setTimeout(() => {
+        loadArhiva(user.uid);
+      }, 100);
+    });
+
+    return () => {
+      unsubscribeAuth();
+    };
+  }, [loadArhiva]);
+  */
   
   // Učitaj arhivu kada se korisnik učita
   useEffect(() => {
@@ -321,6 +359,26 @@ export default function DashboardPage() {
     }
   }, [monthDropdownOpen, yearDropdownOpen, rangeDropdownOpen, artiklRangeDropdownOpen]);
 
+  // TEMPORARY: Disabled Firebase listener - comment out to re-enable
+  /*
+  // Listener za promjene u arhivi
+  useEffect(() => {
+    const handleArhivaChange = () => {
+      const user = auth.currentUser;
+      if (user) {
+        setTimeout(() => {
+          loadArhiva(user.uid);
+        }, 100);
+      }
+    };
+
+    window.addEventListener("arhivaChanged", handleArhivaChange);
+    return () => {
+      window.removeEventListener("arhivaChanged", handleArhivaChange);
+    };
+  }, [loadArhiva]);
+  */
+
   // Priprema podataka za grafikon - samo finalni obračuni (bez isAzuriran: true)
   const obracuni: Obracun[] = arhiva
     .filter((o) => !o.isAzuriran) // Filtriraj samo finalne obračune (isAzuriran: false ili undefined)
@@ -343,26 +401,41 @@ export default function DashboardPage() {
       return dateA - dateB;
     });
   
-  if (enableDashboardDebug) {
-    console.log("Dashboard - Priprema podataka za grafikon:", {
-      arhivaCount: arhiva.length,
-      finalniObracuniCount: obracuni.length,
-      arhivaIsAzuriranCount: arhiva.filter(o => o.isAzuriran).length,
-      primjerPodataka: obracuni[0] || null,
-      chartDataLength: obracuni.length,
-      prviObracunIzArhive: arhiva[0] || null,
+  // Debug logiranje
+  console.log("Dashboard - Priprema podataka za grafikon:", {
+    arhivaCount: arhiva.length,
+    finalniObracuniCount: obracuni.length,
+    arhivaIsAzuriranCount: arhiva.filter(o => o.isAzuriran).length,
+    primjerPodataka: obracuni[0] || null,
+    chartDataLength: obracuni.length,
+    prviObracunIzArhive: arhiva[0] || null,
+  });
+  
+  if (obracuni.length === 0) {
+    console.warn("Dashboard - Nema obračuna za grafikon!", {
+      arhivaLength: arhiva.length,
+      arhivaPrimer: arhiva[0] || null,
     });
   }
 
-  // Dobivanje svih artikala za dropdown - samo artikli iz cjenovnika (sortirani po displayOrder)
+  // Dobivanje svih artikala za dropdown - koristi artikle iz cjenovnika i arhive
+  // Sortiraj po displayOrder iz cjenovnika (kako su spremljeni u cjenovniku)
+  const artikliIzArhive = [...new Set(arhiva.flatMap((o) => (o.artikli && Array.isArray(o.artikli)) ? o.artikli.map((a) => a.naziv) : []))];
+  
   // Sortiraj artikle iz cjenovnika po displayOrder
-  const allArtikli = [...cjenovnik]
+  const artikliIzCjenovnika = [...cjenovnik]
     .sort((a, b) => {
       const orderA = a.displayOrder !== null && a.displayOrder !== undefined ? a.displayOrder : 999999;
       const orderB = b.displayOrder !== null && b.displayOrder !== undefined ? b.displayOrder : 999999;
       return orderA - orderB;
     })
     .map((item) => item.naziv);
+  
+  // Kombiniraj - prvo artikli iz cjenovnika (po displayOrder), zatim artikli iz arhive koji nisu u cjenovniku
+  const allArtikli = [
+    ...artikliIzCjenovnika,
+    ...artikliIzArhive.filter(a => !artikliIzCjenovnika.includes(a))
+  ];
 
   // Funkcija za agregaciju podataka
   const aggregateData = (
@@ -503,288 +576,43 @@ export default function DashboardPage() {
       
       return sevenDaysData;
     } else if (selectedRange === "monthly") {
-      // Mjesečni - prikaži samo zbir mjeseca sa 0 na početku i kraju za vidljivu liniju
+      // Trenutni mjesec - od početka mjeseca do danas
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       firstDay.setHours(0, 0, 0, 0);
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
-      
-      const monthObracuni = data.filter((o) => {
+      filteredData = data.filter((o) => {
         const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
-      
-      const totalArtikli = monthObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
-      const totalRashod = monthObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
-      const totalPrihod = monthObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
-      const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
-      
-      const month = String(today.getMonth() + 1).padStart(2, "0");
-      const year = today.getFullYear();
-      const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-      const midLabel = `${month}/${year}`;
-      
-      // Vrati početnu točku (0), srednju tačku (zbir mjeseca), i završnu točku mjeseca (0)
-      return [
-        {
-          datum: `01.${month}.${year}`,
-          artikli: 0,
-          rashod: 0,
-          prihod: 0,
-          neto: 0,
-        },
-        {
-          datum: midLabel,
-          artikli: totalArtikli,
-          rashod: totalRashod,
-          prihod: totalPrihod,
-          neto: totalNeto,
-        },
-        {
-          datum: `${String(lastDayOfMonth).padStart(2, "0")}.${month}.${year}`,
-          artikli: 0,
-          rashod: 0,
-          prihod: 0,
-          neto: 0,
-        }
-      ];
     } else if (selectedRange === "selectMonth") {
-      // Odabrani mjesec - prikaži samo zbir mjeseca sa 0 na početku i kraju za vidljivu liniju
+      // Odabrani mjesec
       const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
       firstDay.setHours(0, 0, 0, 0);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
-      
-      const monthObracuni = data.filter((o) => {
+      filteredData = data.filter((o) => {
         const dTime = parseDatumToDate(o.datum).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
-      
-      const totalArtikli = monthObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
-      const totalRashod = monthObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
-      const totalPrihod = monthObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
-      const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
-      
-      const month = String(selectedMonth).padStart(2, "0");
-      const year = selectedYear;
-      const lastDayOfMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-      
-      const midLabel = `${month}/${year}`;
-
-      // Vrati početnu točku (0), srednju tačku (zbir mjeseca), i završnu točku mjeseca (0)
-      return [
-        {
-          datum: `01.${month}.${year}`,
-          artikli: 0,
-          rashod: 0,
-          prihod: 0,
-          neto: 0,
-        },
-        {
-          datum: midLabel,
-          artikli: totalArtikli,
-          rashod: totalRashod,
-          prihod: totalPrihod,
-          neto: totalNeto,
-        },
-        {
-          datum: `${String(lastDayOfMonth).padStart(2, "0")}.${month}.${year}`,
-          artikli: 0,
-          rashod: 0,
-          prihod: 0,
-          neto: 0,
-        }
-      ];
     } else if (selectedRange === "quarterly") {
-      // Tromjesečni - prikaži 3 LINIJE (po mjesecu) sa zbirom svakog mjeseca
-      const quarterlyData: AggregatedData[] = [];
-      
-      // Kreiraj 3 mjeseca (od prije 3 mjeseca do sada)
-      for (let i = 0; i < 3; i++) {
-        const monthStart = new Date(today);
-        monthStart.setMonth(today.getMonth() - 2 + i);
-        monthStart.setDate(1);
-        monthStart.setHours(0, 0, 0, 0);
-        
-        const monthEnd = new Date(monthStart);
-        if (i === 2) {
-          // Za zadnji mjesec, koristi današnji datum
-          monthEnd.setHours(23, 59, 59, 999);
-        } else {
-          // Za druge mjesece, koristi zadnji dan mjeseca
-          monthEnd.setMonth(monthStart.getMonth() + 1);
-          monthEnd.setDate(0);
-          monthEnd.setHours(23, 59, 59, 999);
-        }
-        
-        const monthObracuni = data.filter((o) => {
-          const dTime = parseDatumToDate(o.datum).getTime();
-          return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
-        });
-        
-        const totalArtikli = monthObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
-        const totalRashod = monthObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
-        const totalPrihod = monthObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
-        const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
-        
-        const month = String(monthStart.getMonth() + 1).padStart(2, "0");
-        const year = monthStart.getFullYear();
-        
-        quarterlyData.push({
-          datum: `${month}/${year}`,
-          artikli: totalArtikli,
-          rashod: totalRashod,
-          prihod: totalPrihod,
-          neto: totalNeto,
-        });
-      }
-      
-      return quarterlyData;
+      // Tromjesečni - zadnja 3 mjeseca (kvartal)
+      const threeMonthsAgo = new Date(today);
+      threeMonthsAgo.setMonth(today.getMonth() - 3);
+      threeMonthsAgo.setDate(1);
+      threeMonthsAgo.setHours(0, 0, 0, 0);
+      const lastDay = new Date(today);
+      lastDay.setHours(23, 59, 59, 999);
+      filteredData = data.filter((o) => {
+        const dTime = parseDatumToDate(o.datum).getTime();
+        return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
+      });
     } else if (selectedRange === "custom") {
-      // Prilagođeni raspon - dinamička rezolucija podataka
       const fromTime = new Date(customFrom).getTime();
       const toTime = new Date(customTo).getTime();
-      
-      // Izračunaj broj dana
-      const numberOfDays = Math.ceil((toTime - fromTime) / (1000 * 60 * 60 * 24));
-      
-      if (numberOfDays <= 15) {
-        // 0-15 dana: prikaži po danima
-        const customDaysData: AggregatedData[] = [];
-        const startDate = new Date(customFrom);
-        startDate.setHours(0, 0, 0, 0);
-        
-        for (let i = 0; i <= numberOfDays; i++) {
-          const date = new Date(startDate);
-          date.setDate(startDate.getDate() + i);
-          
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          const datumStr = `${day}.${month}.${year}`;
-          
-          // Pronađi SVE podatke za ovaj dan i sumiraj ih
-          const dayObracuni = data.filter((o) => {
-            const dTime = parseDatumToDate(o.datum).getTime();
-            return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
-          });
-          
-          if (dayObracuni.length > 0) {
-            const totalArtikli = dayObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
-            const totalRashod = dayObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
-            const totalPrihod = dayObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
-            const totalNeto = dayObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
-            
-            customDaysData.push({
-              datum: datumStr,
-              artikli: totalArtikli,
-              rashod: totalRashod,
-              prihod: totalPrihod,
-              neto: totalNeto,
-            });
-          } else {
-            customDaysData.push({
-              datum: datumStr,
-              artikli: 0,
-              rashod: 0,
-              prihod: 0,
-              neto: 0,
-            });
-          }
-        }
-        return customDaysData;
-      } else if (numberOfDays <= 60) {
-        // 16-60 dana: prikaži po sedmicama
-        const customWeeksData: AggregatedData[] = [];
-        const startDate = new Date(customFrom);
-        startDate.setHours(0, 0, 0, 0);
-        
-        // Zaokruži na početak sedmice (ponedeljak)
-        const day = startDate.getDay();
-        const diff = day === 0 ? -6 : 1 - day;
-        startDate.setDate(startDate.getDate() + diff);
-        
-        let currentDate = new Date(startDate);
-        const endDate = new Date(customTo);
-        endDate.setHours(23, 59, 59, 999);
-        
-        while (currentDate < endDate) {
-          const weekStart = new Date(currentDate);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekStart.getDate() + 6);
-          weekEnd.setHours(23, 59, 59, 999);
-          
-          // Pronađi sve podatke za ovu sedmicu
-          const weekObracuni = data.filter((o) => {
-            const dTime = parseDatumToDate(o.datum).getTime();
-            return dTime >= weekStart.getTime() && dTime <= weekEnd.getTime();
-          });
-          
-          const totalArtikli = weekObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
-          const totalRashod = weekObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
-          const totalPrihod = weekObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
-          const totalNeto = weekObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
-          
-          const day1 = String(weekStart.getDate()).padStart(2, "0");
-          const month1 = String(weekStart.getMonth() + 1).padStart(2, "0");
-          const year1 = weekStart.getFullYear();
-          const day2 = String(weekEnd.getDate()).padStart(2, "0");
-          const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
-          
-          customWeeksData.push({
-            datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
-            artikli: totalArtikli,
-            rashod: totalRashod,
-            prihod: totalPrihod,
-            neto: totalNeto,
-          });
-          
-          currentDate.setDate(currentDate.getDate() + 7);
-        }
-        return customWeeksData;
-      } else {
-        // 60+ dana: prikaži po mjesecima
-        const customMonthsData: AggregatedData[] = [];
-        const startDate = new Date(customFrom);
-        startDate.setHours(0, 0, 0, 0);
-        startDate.setDate(1);
-        
-        let currentDate = new Date(startDate);
-        const endDate = new Date(customTo);
-        endDate.setHours(23, 59, 59, 999);
-        
-        while (currentDate < endDate) {
-          const monthStart = new Date(currentDate);
-          const monthEnd = new Date(monthStart);
-          monthEnd.setMonth(monthStart.getMonth() + 1);
-          monthEnd.setDate(0);
-          monthEnd.setHours(23, 59, 59, 999);
-          
-          // Pronađi sve podatke za ovaj mjesec
-          const monthObracuni = data.filter((o) => {
-            const dTime = parseDatumToDate(o.datum).getTime();
-            return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
-          });
-          
-          const totalArtikli = monthObracuni.reduce((sum, o) => sum + (Number(o.artikli) || 0), 0);
-          const totalRashod = monthObracuni.reduce((sum, o) => sum + (Number(o.rashod) || 0), 0);
-          const totalPrihod = monthObracuni.reduce((sum, o) => sum + (Number(o.prihod) || 0), 0);
-          const totalNeto = monthObracuni.reduce((sum, o) => sum + (Number(o.neto) || 0), 0);
-          
-          const month = String(monthStart.getMonth() + 1).padStart(2, "0");
-          const year = monthStart.getFullYear();
-          
-          customMonthsData.push({
-            datum: `${month}/${year}`,
-            artikli: totalArtikli,
-            rashod: totalRashod,
-            prihod: totalPrihod,
-            neto: totalNeto,
-          });
-          
-          currentDate.setMonth(currentDate.getMonth() + 1);
-        }
-        return customMonthsData;
-      }
+      filteredData = data.filter((o) => {
+        const dTime = parseDatumToDate(o.datum).getTime();
+        return dTime >= fromTime && dTime <= toTime;
+      });
     }
 
     return filteredData.map((o) => ({
@@ -902,203 +730,57 @@ export default function DashboardPage() {
       
       return sevenDaysData;
     } else if (selectedRange === "monthly") {
-      // Mjesečni - vratiti 3 tačke: 0 na početku, zbir u sredini, 0 na kraju
+      // Trenutni mjesec
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDay = new Date(today);
       lastDay.setHours(23, 59, 59, 999);
-      const monthObracuni = allData.filter((o) => {
-        const dTime = parseDatumToDate(o.datum).getTime();
+      const filteredData = allData.filter((o) => {
+        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
-
-      const totalUtroseno = monthObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
-      const month = String(today.getMonth() + 1).padStart(2, "0");
-      const year = today.getFullYear();
-
-      const firstLabel = `01.${month}.${year}`;
-      const midLabel = `${month}/${year}`;
-      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
-
-      return [
-        { datum: firstLabel, utroseno: 0 },
-        { datum: midLabel, utroseno: totalUtroseno },
-        { datum: lastLabel, utroseno: 0 },
-      ];
+      return filteredData.map((o) => ({
+        datum: o.datum,
+        utroseno: Number(o.utroseno),
+      }));
     } else if (selectedRange === "selectMonth") {
-      // Odabrani mjesec - prikaži SAMO 1 liniju sa zbirom tog mjeseca
+      // Odabrani mjesec
       const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
       const lastDay = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
-      const monthObracuni = allData.filter((o) => {
-        const dTime = parseDatumToDate(o.datum).getTime();
+      const filteredData = allData.filter((o) => {
+        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
         return dTime >= firstDay.getTime() && dTime <= lastDay.getTime();
       });
-      
-      const totalUtroseno = monthObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
-      const month = String(selectedMonth).padStart(2, "0");
-      const year = selectedYear;
-      
-      const firstLabel = `01.${month}.${year}`;
-      const midLabel = `${month}/${year}`;
-      const lastLabel = `${String(lastDay.getDate()).padStart(2, "0")}.${month}.${year}`;
-
-      return [
-        { datum: firstLabel, utroseno: 0 },
-        { datum: midLabel, utroseno: totalUtroseno },
-        { datum: lastLabel, utroseno: 0 },
-      ];
+      return filteredData.map((o) => ({
+        datum: o.datum,
+        utroseno: Number(o.utroseno),
+      }));
     } else if (selectedRange === "quarterly") {
-      // Tromjesečni - prikaži 3 LINIJE (po mjesecu) sa zbirom svakog mjeseca
-      const quarterlyData: ArtiklData[] = [];
-      
-      for (let i = 0; i < 3; i++) {
-        const monthStart = new Date(today);
-        monthStart.setMonth(today.getMonth() - 2 + i);
-        monthStart.setDate(1);
-        monthStart.setHours(0, 0, 0, 0);
-        
-        const monthEnd = new Date(monthStart);
-        if (i === 2) {
-          monthEnd.setHours(23, 59, 59, 999);
-        } else {
-          monthEnd.setMonth(monthStart.getMonth() + 1);
-          monthEnd.setDate(0);
-          monthEnd.setHours(23, 59, 59, 999);
-        }
-        
-        const monthObracuni = allData.filter((o) => {
-          const dTime = parseDatumToDate(o.datum).getTime();
-          return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
-        });
-        
-        const totalUtroseno = monthObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
-        const month = String(monthStart.getMonth() + 1).padStart(2, "0");
-        const year = monthStart.getFullYear();
-        
-        quarterlyData.push({
-          datum: `${month}/${year}`,
-          utroseno: totalUtroseno,
-        });
-      }
-      
-      return quarterlyData;
+      // Tromjesečni - zadnja 3 mjeseca
+      const threeMonthsAgo = new Date(today);
+      threeMonthsAgo.setMonth(today.getMonth() - 3);
+      threeMonthsAgo.setDate(1);
+      threeMonthsAgo.setHours(0, 0, 0, 0);
+      const lastDay = new Date(today);
+      lastDay.setHours(23, 59, 59, 999);
+      const filteredData = allData.filter((o) => {
+        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        return dTime >= threeMonthsAgo.getTime() && dTime <= lastDay.getTime();
+      });
+      return filteredData.map((o) => ({
+        datum: o.datum,
+        utroseno: Number(o.utroseno),
+      }));
     } else if (selectedRange === "custom") {
-      // Prilagođeni raspon - dinamička rezolucija podataka
       const fromTime = new Date(customFrom).getTime();
       const toTime = new Date(customTo).getTime();
-      
-      // Izračunaj broj dana
-      const numberOfDays = Math.ceil((toTime - fromTime) / (1000 * 60 * 60 * 24));
-      
-      if (numberOfDays <= 15) {
-        // 0-15 dana: prikaži po danima
-        const customDaysData: ArtiklData[] = [];
-        const startDate = new Date(customFrom);
-        startDate.setHours(0, 0, 0, 0);
-        
-        for (let i = 0; i <= numberOfDays; i++) {
-          const date = new Date(startDate);
-          date.setDate(startDate.getDate() + i);
-          
-          const day = String(date.getDate()).padStart(2, "0");
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const year = date.getFullYear();
-          const datumStr = `${day}.${month}.${year}`;
-          
-          // Pronađi SVE podatke za ovaj dan i sumiraj ih
-          const dayObracuni = allData.filter((o) => {
-            const dTime = parseDatumToDate(o.datum).getTime();
-            return dTime >= date.getTime() && dTime < date.getTime() + 86400000;
-          });
-          
-          const totalUtroseno = dayObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
-          
-          customDaysData.push({
-            datum: datumStr,
-            utroseno: totalUtroseno,
-          });
-        }
-        return customDaysData;
-      } else if (numberOfDays <= 60) {
-        // 16-60 dana: prikaži po sedmicama
-        const customWeeksData: ArtiklData[] = [];
-        const startDate = new Date(customFrom);
-        startDate.setHours(0, 0, 0, 0);
-        
-        // Zaokruži na početak sedmice (ponedeljak)
-        const day = startDate.getDay();
-        const diff = day === 0 ? -6 : 1 - day;
-        startDate.setDate(startDate.getDate() + diff);
-        
-        let currentDate = new Date(startDate);
-        const endDate = new Date(customTo);
-        endDate.setHours(23, 59, 59, 999);
-        
-        while (currentDate < endDate) {
-          const weekStart = new Date(currentDate);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekStart.getDate() + 6);
-          weekEnd.setHours(23, 59, 59, 999);
-          
-          // Pronađi sve podatke za ovu sedmicu
-          const weekObracuni = allData.filter((o) => {
-            const dTime = parseDatumToDate(o.datum).getTime();
-            return dTime >= weekStart.getTime() && dTime <= weekEnd.getTime();
-          });
-          
-          const totalUtroseno = weekObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
-          
-          const day1 = String(weekStart.getDate()).padStart(2, "0");
-          const month1 = String(weekStart.getMonth() + 1).padStart(2, "0");
-          const year1 = weekStart.getFullYear();
-          const day2 = String(weekEnd.getDate()).padStart(2, "0");
-          const month2 = String(weekEnd.getMonth() + 1).padStart(2, "0");
-          
-          customWeeksData.push({
-            datum: `${day1}.${month1}-${day2}.${month2}.${year1}`,
-            utroseno: totalUtroseno,
-          });
-          
-          currentDate.setDate(currentDate.getDate() + 7);
-        }
-        return customWeeksData;
-      } else {
-        // 60+ dana: prikaži po mjesecima
-        const customMonthsData: ArtiklData[] = [];
-        const startDate = new Date(customFrom);
-        startDate.setHours(0, 0, 0, 0);
-        startDate.setDate(1);
-        
-        let currentDate = new Date(startDate);
-        const endDate = new Date(customTo);
-        endDate.setHours(23, 59, 59, 999);
-        
-        while (currentDate < endDate) {
-          const monthStart = new Date(currentDate);
-          const monthEnd = new Date(monthStart);
-          monthEnd.setMonth(monthStart.getMonth() + 1);
-          monthEnd.setDate(0);
-          monthEnd.setHours(23, 59, 59, 999);
-          
-          // Pronađi sve podatke za ovaj mjesec
-          const monthObracuni = allData.filter((o) => {
-            const dTime = parseDatumToDate(o.datum).getTime();
-            return dTime >= monthStart.getTime() && dTime <= monthEnd.getTime();
-          });
-          
-          const totalUtroseno = monthObracuni.reduce((sum, o) => sum + (Number(o.utroseno) || 0), 0);
-          
-          const month = String(monthStart.getMonth() + 1).padStart(2, "0");
-          const year = monthStart.getFullYear();
-          
-          customMonthsData.push({
-            datum: `${month}/${year}`,
-            utroseno: totalUtroseno,
-          });
-          
-          currentDate.setMonth(currentDate.getMonth() + 1);
-        }
-        return customMonthsData;
-      }
+      const filteredData = allData.filter((o) => {
+        const dTime = new Date(o.datum.split(".").reverse().join("-")).getTime();
+        return dTime >= fromTime && dTime <= toTime;
+      });
+      return filteredData.map((o) => ({
+        datum: o.datum,
+        utroseno: Number(o.utroseno),
+      }));
     }
 
     // Fallback (ne bi trebalo da se desi)
@@ -1275,7 +957,7 @@ export default function DashboardPage() {
   const chartData = aggregateData(obracuni, range);
   
   // Debug: Provjeri stvarne vrijednosti u chartData
-  if (enableDashboardDebug && typeof window !== 'undefined' && isMobile) {
+  if (typeof window !== 'undefined' && isMobile) {
     console.log('📊 CHART DATA DEBUG - Stvarne vrijednosti:', {
       chartDataLength: chartData.length,
       chartDataSviPodaci: chartData,
@@ -1364,7 +1046,7 @@ export default function DashboardPage() {
 
   // Debug logiranje za chart podatke - NAKON izračuna varijabli
   useEffect(() => {
-    if (enableDashboardDebug && typeof window !== 'undefined' && !loading) {
+    if (typeof window !== 'undefined' && !loading) {
       try {
         console.log("Dashboard - Debug Info:", {
           loading,
@@ -1393,10 +1075,10 @@ export default function DashboardPage() {
         }
       } catch (error) {
         // Ignoriši greške u debug logovanju
-          console.warn("Dashboard - Debug log error:", error);
+        console.warn("Dashboard - Debug log error:", error);
       }
     }
-  }, [enableDashboardDebug, loading, isMobile, range, totalBruto, totalRashod, totalNeto, chartData, obracuni, arhiva]);
+  }, [loading, isMobile, range, totalBruto, totalRashod, totalNeto, chartData, obracuni, arhiva]);
 
   const growth = (current: number, previous: number) =>
     previous === 0 ? "0" : (((current - previous) / previous) * 100).toFixed(1);
@@ -1471,6 +1153,96 @@ export default function DashboardPage() {
           h1 { font-size: 22px !important; margin-bottom: 16px !important; }
           div[style*='fontSize: 36'] { font-size: 22px !important; }
           div[style*='fontSize: 28'] { font-size: 18px !important; }
+          /* Ime aplikacije - mobilni stil - maksimalno pojačan selector za produkciju */
+          div.app-name-header,
+          div[class="app-name-header"],
+          div[class*="app-name-header"],
+          div[style*="app-name-header"] {
+            padding: 12px 16px !important;
+            margin-bottom: 16px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+          }
+          /* SVI mogući selektori za h1 naslov - maksimalna specifičnost */
+          h1.app-name-title,
+          div.app-name-header h1,
+          div[class="app-name-header"] h1,
+          div[class*="app-name-header"] h1,
+          div[style*="app-name-header"] h1,
+          .app-name-header .app-name-title,
+          .app-name-header h1.app-name-title,
+          div.app-name-header > h1,
+          h1[class="app-name-title"],
+          h1[class*="app-name-title"] {
+            font-size: 22px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            line-height: 1.3 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            letter-spacing: 0 !important;
+            box-sizing: border-box !important;
+            font-weight: 700 !important;
+          }
+          /* Override inline stilove - maksimalna specifičnost */
+          div[style*="fontSize"] h1.app-name-title,
+          div[style*="fontSize: 36"] h1.app-name-title,
+          div[style*="fontSize: 22"] h1.app-name-title,
+          div[style*="fontSize: 14"] h1.app-name-title,
+          div[style*="fontSize: 12"] h1.app-name-title,
+          div[style*="fontSize: 36"].app-name-title,
+          .app-name-header h1[style*="fontSize: 36"],
+          .app-name-header h1[style*="fontSize: 22"],
+          .app-name-header h1[style*="fontSize: 14"],
+          .app-name-header h1[style*="fontSize: 12"],
+          .app-name-header h1[style*="fontSize"],
+          h1.app-name-title[style*="fontSize: 36"],
+          h1.app-name-title[style*="fontSize: 22"],
+          h1.app-name-title[style*="fontSize: 14"],
+          h1.app-name-title[style*="fontSize: 12"] {
+            font-size: 22px !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            font-weight: 700 !important;
+          }
+          /* Override svi h1 elementi unutar app-name-header - dodatna sigurnost */
+          .app-name-header h1,
+          div.app-name-header h1,
+          h1.app-name-title,
+          h1[data-mobile="true"],
+          h1.app-name-title[data-mobile="true"],
+          .app-name-header h1[data-mobile="true"] {
+            font-size: 22px !important;
+            font-weight: 700 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+          }
+          /* Najjači mogući override za inline stilove na mobilnim */
+          h1.app-name-title[style] {
+            font-size: 22px !important;
+            font-weight: 700 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+          }
+          .decorative-circle-1,
+          .decorative-circle-2 {
+            display: none !important;
+          }
           div[style*='display: flex'][style*='flexWrap'][style*='marginBottom: 30'] { 
             flex-direction: column; 
             gap: 10px; 
@@ -1510,6 +1282,12 @@ export default function DashboardPage() {
             margin-left: 0 !important;
             margin-right: 0 !important;
             box-sizing: border-box !important;
+          }
+          div[style*='background: linear-gradient'][style*='#667eea'] {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
           }
           div[style*='backgroundColor: #fff'][style*='borderRadius: 12'] {
             width: 100% !important;
@@ -1554,28 +1332,172 @@ export default function DashboardPage() {
         }
       `}</style>
 
-      {/* Range za prvi grafikon - Box samo na mobilnom */}
-      {isMobile ? (
-        <div style={{ 
-          marginBottom: "20px", 
-          background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)", 
-          padding: "16px", 
-          borderRadius: "16px", 
-          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04)", 
-          width: "100%", 
-          maxWidth: "100%", 
-          boxSizing: "border-box",
-          border: "1px solid rgba(0, 0, 0, 0.05)"
+      {/* Profesionalni vremenski odabir */}
+      <div style={{
+        marginBottom: "24px",
+        backgroundColor: "#ffffff",
+        borderRadius: "12px",
+        padding: "20px",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
+        border: "1px solid #e5e7eb"
+      }}>
+        <h3 style={{
+          fontSize: "16px",
+          fontWeight: 600,
+          color: "#374151",
+          margin: "0 0 16px 0",
+          textAlign: "center"
         }}>
-          {/* Dropdown za vremenski period */}
-          <div style={{ position: "relative", width: "100%" }} data-dropdown-container>
+          Vremenski period
+        </h3>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+          gap: "12px"
+        }}>
+          {[
+            { value: "currentWeek", label: "Trenutna sedmica", icon: "📅" },
+            { value: "previousWeek", label: "Prošla sedmica", icon: "⏪" },
+            { value: "monthly", label: "Mjesečni", icon: "📆" },
+            { value: "quarterly", label: "Tromjesečni", icon: "🗓️" },
+            { value: "selectMonth", label: "Odaberi mjesec", icon: "📅" },
+            { value: "custom", label: "Prilagođeno", icon: "⚙️" },
+          ].map((option) => (
             <button
-              type="button"
-              onClick={() => {
-                setRangeDropdownOpen(!rangeDropdownOpen);
-                setMonthDropdownOpen(false);
-                setYearDropdownOpen(false);
+              key={option.value}
+              onClick={() => setRange(option.value as any)}
+              style={{
+                padding: "12px 16px",
+                borderRadius: "8px",
+                border: range === option.value ? "2px solid #3b82f6" : "2px solid #e5e7eb",
+                backgroundColor: range === option.value ? "#eff6ff" : "#ffffff",
+                color: range === option.value ? "#1d4ed8" : "#6b7280",
+                fontSize: "14px",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "6px",
+                textAlign: "center",
+                minHeight: "70px",
+                justifyContent: "center"
               }}
+              onMouseEnter={(e) => {
+                if (range !== option.value) {
+                  e.currentTarget.style.borderColor = "#cbd5e1";
+                  e.currentTarget.style.backgroundColor = "#f9fafb";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (range !== option.value) {
+                  e.currentTarget.style.borderColor = "#e5e7eb";
+                  e.currentTarget.style.backgroundColor = "#ffffff";
+                }
+              }}
+            >
+              <span style={{ fontSize: "18px" }}>{option.icon}</span>
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Additional controls for selectMonth and custom */}
+        {range === "selectMonth" && (
+          <div style={{
+            marginTop: "16px",
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
+            justifyContent: "center",
+            flexWrap: "wrap"
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  backgroundColor: "#ffffff",
+                  cursor: "pointer"
+                }}
+              >
+                {["Januar", "Februar", "Mart", "April", "Maj", "Jun", "Jul", "August", "Septembar", "Oktobar", "Novembar", "Decembar"].map((month, index) => (
+                  <option key={index + 1} value={index + 1}>{month}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 500, color: "#6b7280" }}>Godina:</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  backgroundColor: "#ffffff",
+                  cursor: "pointer"
+                }}
+              >
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {range === "custom" && (
+          <div style={{
+            marginTop: "16px",
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
+            justifyContent: "center",
+            flexWrap: "wrap"
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 500, color: "#6b7280" }}>Od:</label>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  backgroundColor: "#ffffff"
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 500, color: "#6b7280" }}>Do:</label>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  backgroundColor: "#ffffff"
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+
               style={{
                 width: "100%",
                 padding: "14px 44px 14px 16px",
@@ -1658,21 +1580,7 @@ export default function DashboardPage() {
             </button>
             {rangeDropdownOpen && (
               <>
-                {/* Backdrop overlay with blur */}
-                <div
-                  style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: "rgba(0, 0, 0, 0.08)",
-                    backdropFilter: "blur(4px)",
-                    WebkitBackdropFilter: "blur(4px)",
-                    zIndex: 9999,
-                  }}
-                  onClick={() => setRangeDropdownOpen(false)}
-                />
+
                 <div
                   style={{
                     position: "absolute",
@@ -2232,54 +2140,60 @@ export default function DashboardPage() {
                 marginTop: "12px",
                 display: "flex",  
                 gap: 8, 
-                alignItems: "center", 
-                width: "100%",
+                alignItems: "flex-end", 
+                width: "100%", 
+                flexWrap: "wrap",
                 opacity: 1,
                 visibility: "visible"
               }}>
-                <input
-                  type="date"
-                  value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  style={{ 
-                    padding: "8px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px", 
-                    fontSize: "13px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
-                    boxSizing: "border-box",
-                    minWidth: "110px",
-                    flex: isMobile ? "1 1 auto" : "auto"
-                  }}
-                />
-                <span style={{ color: "#6b7280", fontSize: "13px", whiteSpace: "nowrap" }}>do</span>
-                <input
-                  type="date"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  style={{ 
-                    padding: "8px 12px", 
-                    border: "1px solid #d1d5db", 
-                    borderRadius: "8px", 
-                    fontSize: "13px", 
-                    outline: "none",
-                    backgroundColor: "#fff",
-                    cursor: "pointer",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    transition: "all 0.2s ease",
-                    fontWeight: 500,
-                    color: "#1f2937",
-                    boxSizing: "border-box",
-                    minWidth: "110px",
-                    flex: isMobile ? "1 1 auto" : "auto"
-                  }}
-                />
+                {/* Custom Date Input za Od */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Od datuma:</label>
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    style={{ 
+                      padding: "8px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
+                      outline: "none",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
+                {/* Custom Date Input za Do */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
+                  <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Do datuma:</label>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    style={{ 
+                      padding: "8px 12px", 
+                      border: "1px solid #d1d5db", 
+                      borderRadius: "8px", 
+                      fontSize: "13px", 
+                      outline: "none",
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.2s ease",
+                      fontWeight: 500,
+                      color: "#1f2937",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
               </div>
             )}
         </div>
@@ -2582,7 +2496,7 @@ export default function DashboardPage() {
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           {(() => {
             // Debug log za mobilne uređaje
-            if (enableDashboardDebug && typeof window !== 'undefined' && isMobile) {
+            if (typeof window !== 'undefined' && isMobile) {
               console.log('Dashboard Mobile Debug:', {
                 loading,
                 chartDataLength: chartData.length,
@@ -2604,23 +2518,22 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
+                <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 25 : 6 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
                     tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
-                    angle={0}
-                    textAnchor="middle"
-                    height={isMobile ? 30 : 40}
-                    tickMargin={isMobile ? 6 : 8}
+                    angle={-45}
+                    textAnchor="end"
+                    height={isMobile ? 25 : 66}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
-                  <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
-                  <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
-                  <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
-                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
+                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -2635,7 +2548,7 @@ export default function DashboardPage() {
       {/* Kartice */}
       {(() => {
         // Debug log za mobilne uređaje
-        if (enableDashboardDebug && typeof window !== 'undefined' && isMobile) {
+        if (typeof window !== 'undefined' && isMobile) {
           console.log('📱 Dashboard Cards Mobile Debug:', {
             totalBruto,
             totalRashod,
@@ -3401,7 +3314,7 @@ export default function DashboardPage() {
                 gap: 4, 
                 alignItems: "center", 
                 width: "100%", 
-                flexWrap: "nowrap"
+                flexWrap: "wrap" 
               }}>
                 <input
                   type="date"
@@ -3413,17 +3326,15 @@ export default function DashboardPage() {
                     borderRadius: "6px", 
                     fontSize: 13, 
                     outline: "none",
-                    minWidth: "110px",
-                    flex: isMobile ? "1 1 auto" : "auto",
-                    boxSizing: "border-box",
-                    color: "#1f2937",
-                    backgroundColor: "#fff",
-                    fontWeight: "bold"
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
                   }}
                 />
                 <span style={{ 
                   whiteSpace: "nowrap", 
-                  color: "#374151",
+                  color: "#6b7280",
                   fontSize: 13
                 }}>
                   do
@@ -3438,12 +3349,10 @@ export default function DashboardPage() {
                     borderRadius: "6px", 
                     fontSize: 13, 
                     outline: "none",
-                    minWidth: "110px",
-                    flex: isMobile ? "1 1 auto" : "auto",
-                    boxSizing: "border-box",
-                    color: "#1f2937",
-                    backgroundColor: "#fff",
-                    fontWeight: "bold"
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    boxSizing: "border-box"
                   }}
                 />
               </div>
@@ -4014,57 +3923,37 @@ export default function DashboardPage() {
                 </div>
               )}
               {artiklRange === "custom" && (
-                <div style={{ 
-                  display: "flex",  
-                  gap: 8, 
-                  alignItems: "center", 
-                  marginLeft: 10,
-                  width: "100%",
-                  opacity: 1,
-                  visibility: "visible"
-                }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginLeft: 10 }}>
                   <input
                     type="date"
                     value={customFrom}
                     onChange={(e) => setCustomFrom(e.target.value)}
                     style={{ 
                       padding: "8px 12px", 
+                      borderRadius: 6, 
                       border: "1px solid #d1d5db", 
-                      borderRadius: "8px", 
-                      fontSize: "13px", 
                       outline: "none",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: "bold",
-                      color: "#1f2937",
-                      boxSizing: "border-box",
-                      minWidth: "110px",
-                      flex: isMobile ? "1 1 auto" : "auto"
+                      fontSize: "14px",
+                      transition: "border-color 0.2s"
                     }}
+                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                   />
-                  <span style={{ color: "#6b7280", fontSize: "13px", whiteSpace: "nowrap" }}>do</span>
+                  <span style={{ color: "#6b7280", fontSize: "14px" }}>do</span>
                   <input
                     type="date"
                     value={customTo}
                     onChange={(e) => setCustomTo(e.target.value)}
                     style={{ 
                       padding: "8px 12px", 
+                      borderRadius: 6, 
                       border: "1px solid #d1d5db", 
-                      borderRadius: "8px", 
-                      fontSize: "13px", 
                       outline: "none",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: "bold",
-                      color: "#1f2937",
-                      boxSizing: "border-box",
-                      minWidth: "110px",
-                      flex: isMobile ? "1 1 auto" : "auto"
+                      fontSize: "14px",
+                      transition: "border-color 0.2s"
                     }}
+                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                   />
                 </div>
               )}
@@ -4094,7 +3983,7 @@ export default function DashboardPage() {
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           {(() => {
             // Debug log za mobilne uređaje
-            if (enableDashboardDebug && typeof window !== 'undefined' && isMobile) {
+            if (typeof window !== 'undefined' && isMobile) {
               console.log('📱 Dashboard Artikl Chart Mobile Debug:', {
                 loading,
                 selectedDataLength: selectedData.length,
@@ -4113,20 +4002,19 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
+                <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 25 : 6 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
                     tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
-                    angle={0}
-                    textAnchor="middle"
-                    height={isMobile ? 30 : 40}
-                    tickMargin={isMobile ? 6 : 8}
+                    angle={-45}
+                    textAnchor="end"
+                    height={isMobile ? 25 : 66}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
-                  <Line type="monotone" dataKey="utroseno" name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="utroseno" name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

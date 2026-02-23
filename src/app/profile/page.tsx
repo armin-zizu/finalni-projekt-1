@@ -1,19 +1,25 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+// TODO: Uklonjen Firebase import - implementirati API pozive
 import { useAppName } from "../context/AppNameContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole, UserRole, PagePermission } from "../context/RoleContext";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
-import { getUserId, updateCurrentUser, logout, getUserDevices, updateDevice, deleteDevice, saveDevice, getObracuni, getCjenovnik, getAuthToken } from "../../lib/api";
+import { updateCurrentUser, logout, getUserDevices, updateDevice, deleteDevice, saveDevice, getObracuni, getCjenovnik, getAuthToken } from "../../lib/api";
+// TEMPORARY: Disabled Firebase imports for development - using mocks
+// import { db } from "../../lib/firestore";
+// TODO: Uklonjen Firebase import - implementirati API pozive
 import { FaSearch, FaSpinner, FaMobile, FaDesktop } from "react-icons/fa";
 import dynamic from "next/dynamic";
 
 // Dynamic import za chat komponente
 const SupportChatButton = dynamic(() => import("../components/SupportChatButton"), { ssr: false });
 const SupportChatWindow = dynamic(() => import("../components/SupportChatWindow"), { ssr: false });
+
+// Firebase imports removed - using API calls instead
 
 const containerStyle: React.CSSProperties = {
   maxWidth: "1200px",
@@ -91,6 +97,7 @@ export default function Profile() {
   const [message, setMessage] = useState("");
   const { appName, setAppName } = useAppName();
   const [localAppName, setLocalAppName] = useState(appName); // Lokalni state za input
+  const [isAppNameDirty, setIsAppNameDirty] = useState(false);
   // Sessions removed - use devices instead
   const [isAppNameUpdated, setIsAppNameUpdated] = useState(false);
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(null);
@@ -152,6 +159,7 @@ export default function Profile() {
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const canManageDeviceRoles = isOwner === true;
   const [loginApprovals, setLoginApprovals] = useState<any[]>([]);
   const [loadingApprovals, setLoadingApprovals] = useState(false);
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
@@ -179,8 +187,10 @@ export default function Profile() {
 
   // Sinhronizuj localAppName sa appName iz contexta
   useEffect(() => {
-    setLocalAppName(appName);
-  }, [appName]);
+    if (!isAppNameDirty) {
+      setLocalAppName(appName);
+    }
+  }, [appName, isAppNameDirty]);
 
   // Učitaj paymentRequested status
   useEffect(() => {
@@ -228,20 +238,22 @@ export default function Profile() {
   };
 
   const handleSaveAppName = async () => {
-    if (localAppName.trim() === "") {
+    const normalizedAppName = localAppName.trim();
+
+    if (normalizedAppName === "") {
       setMessage("Unesite ime aplikacije!");
       return;
     }
 
     // Provjeri da li je ime promijenjeno
-    if (localAppName.trim() === appName) {
+    if (normalizedAppName === appName) {
       setMessage("Ime aplikacije nije promijenjeno!");
       return;
     }
 
     // Potvrdi prije spremanja
     const confirmed = window.confirm(
-      `Jeste li sigurni da želite promijeniti ime aplikacije na "${localAppName.trim()}"?\n\n` +
+      `Jeste li sigurni da želite promijeniti ime aplikacije na "${normalizedAppName}"?\n\n` +
       `Ova promjena će se automatski primijeniti na svim vašim uređajima.`
     );
 
@@ -249,20 +261,27 @@ export default function Profile() {
       return;
     }
 
-    // Koristi user.id iz RoleContext ili getUserId() kao fallback
-    const userId = user?.id || (await getUserId());
-    if (!userId) {
+    const token = getAuthToken();
+    if (!token) {
       setMessage("Morate biti prijavljeni!");
       return;
     }
 
     try {
       // Spremi preko API-ja
-
-      await updateCurrentUser({ appName: localAppName.trim() });
+      const updatedUser = await updateCurrentUser({ appName: normalizedAppName });
       
       // Ažuriraj context
-      setAppName(localAppName.trim());
+      setAppName(updatedUser?.appName || normalizedAppName);
+      setIsAppNameDirty(false);
+
+      // Obavijesti druge tabove/stranice (npr. admin panel) da je appName ažuriran
+      const appNameUpdatedPayload = {
+        appName: updatedUser?.appName || normalizedAppName,
+        at: Date.now(),
+      };
+      window.dispatchEvent(new CustomEvent('app-name-updated', { detail: appNameUpdatedPayload }));
+      localStorage.setItem('app-name-updated', JSON.stringify(appNameUpdatedPayload));
       
       setIsAppNameUpdated(true);
       // Formatiraj datum samo na klijentu da izbjegnemo hydration mismatch
@@ -435,14 +454,22 @@ export default function Profile() {
       await updateDevice(user.id, deviceId, {
           role: deviceRole,
           status: "approved",
-        permissions: defaultPermissions,
+          isBlocked: false,
       });
       await loadDevices();
+
+      const verifiedDevices = await getUserDevices(user.id);
+      const verifiedDevice = verifiedDevices.find((d: any) => d.deviceId === deviceId || d.id === deviceId);
+      if (!verifiedDevice || verifiedDevice.status !== 'approved') {
+        throw new Error('Promjena nije potvrđena u bazi. Pokušaj ponovo.');
+      }
+
       setMessage(`Uređaj uspješno odobren kao ${deviceRole === "vlasnik" ? "vlasnik" : "konobar"}`);
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Greška pri odobravanju uređaja:", error);
-      setMessage("Greška pri odobravanju uređaja");
+      const errorMessage = error instanceof Error ? error.message : "Nepoznata greška";
+      setMessage(`Greška pri odobravanju uređaja: ${errorMessage}`);
       setTimeout(() => setMessage(""), 5000);
     } finally {
       setSavingRole(false);
@@ -960,6 +987,7 @@ export default function Profile() {
             value={localAppName}
             onChange={(e) => {
               setLocalAppName(e.target.value);
+              setIsAppNameDirty(true);
               setIsAppNameUpdated(false);
             }}
             style={inputStyle}
@@ -989,7 +1017,7 @@ export default function Profile() {
 
 
       {/* Upravljanje uređajima - samo za vlasnika */}
-      {isOwner === true && role !== "konobar" && (
+      {canManageDeviceRoles && (
         <div style={{ marginBottom: "32px", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "16px", background: "#f9fafb" }}>
           <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
             📱 Upravljanje Uređajima
@@ -1179,9 +1207,10 @@ export default function Profile() {
                             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                               <button
                                 onClick={() => handleApproveDevice(device, "konobar")}
-                                style={{ ...buttonStyle, background: "#16a34a", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px" }}
+                                disabled={savingRole}
+                                style={{ ...buttonStyle, background: savingRole ? "#9ca3af" : "#16a34a", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px", cursor: savingRole ? "not-allowed" : "pointer" }}
                               >
-                                ✓ Odobri (Konobar)
+                                {savingRole ? "Obrada..." : "✓ Odobri (Konobar)"}
                               </button>
                               {isOwner && (
                                 <button
@@ -1190,9 +1219,10 @@ export default function Profile() {
                                       handleApproveDevice(device, "vlasnik");
                                     }
                                   }}
-                                  style={{ ...buttonStyle, background: "#2563eb", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px" }}
+                                  disabled={savingRole}
+                                  style={{ ...buttonStyle, background: savingRole ? "#9ca3af" : "#2563eb", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px", cursor: savingRole ? "not-allowed" : "pointer" }}
                                 >
-                                  ✓ Odobri (Vlasnik)
+                                  {savingRole ? "Obrada..." : "✓ Odobri (Vlasnik)"}
                                 </button>
                               )}
                             </div>
@@ -1200,6 +1230,7 @@ export default function Profile() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (!canManageDeviceRoles) return;
                                 setSelectedDevice(device);
                                 setShowDeviceModal(true);
                                 if (device.deviceName) {
@@ -1385,6 +1416,7 @@ export default function Profile() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (!canManageDeviceRoles) return;
                                 setSelectedDevice(device);
                                 setShowDeviceModal(true);
                                 if (device.deviceName) {
@@ -2660,7 +2692,7 @@ export default function Profile() {
       </div>
 
       {/* Modal za uređivanje uređaja */}
-      {showDeviceModal && selectedDevice && (
+      {canManageDeviceRoles && showDeviceModal && selectedDevice && (
         <div
           style={{
             position: "fixed",

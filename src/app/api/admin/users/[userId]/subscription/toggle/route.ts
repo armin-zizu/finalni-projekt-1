@@ -43,7 +43,7 @@ async function putHandler(
     const subscriptionResult = await query(
       `SELECT id, user_id, end_date, trial_end_date, is_active
        FROM subscriptions
-       WHERE user_id = $1`,
+       WHERE user_id = $1::uuid`,
       [userId]
     );
 
@@ -71,7 +71,7 @@ async function putHandler(
       const result = await query(
         `UPDATE subscriptions
          SET is_active = $1, end_date = $2, grace_end_date = NULL, updated_at = NOW()
-         WHERE user_id = $3
+         WHERE user_id = $3::uuid
          RETURNING id, user_id, status, start_date, end_date, monthly_price, 
                    trial_end_date, grace_end_date, last_payment_date, is_active, 
                    subscription_data, created_at, updated_at`,
@@ -104,7 +104,7 @@ async function putHandler(
 
       const result = await query(
         `INSERT INTO subscriptions (user_id, monthly_price, is_active, end_date, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+         VALUES ($1::uuid, $2, $3, $4, $5, NOW(), NOW())
          RETURNING id, user_id, status, start_date, end_date, monthly_price, 
                    trial_end_date, grace_end_date, last_payment_date, is_active, 
                    subscription_data, created_at, updated_at`,

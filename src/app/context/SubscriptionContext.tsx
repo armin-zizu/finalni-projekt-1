@@ -48,6 +48,7 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 // Funkcija za izračunavanje subscription statusa
 function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): SubscriptionStatus {
   const now = new Date();
+  const normalizedStatus = typeof data.status === "string" ? data.status.toLowerCase().trim() : null;
   let trialEndDate: Date | null = null;
   let expiryDate: Date | null = null;
   let graceEndDate: Date | null = null;
@@ -60,6 +61,10 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
 
   // Ako postoji eksplicitno postavljen isActive flag, koristi ga
   const explicitIsActive = data.isActive !== undefined ? data.isActive : null;
+  const hasManualPremiumStatus = normalizedStatus === "active" || normalizedStatus === "premium";
+  const hasManualTrialStatus = normalizedStatus === "trial";
+  const hasManualGraceStatus = normalizedStatus === "grace" || normalizedStatus === "expired";
+  const hasManualInactiveStatus = normalizedStatus === "inactive";
   
   // Ako postoji trialEndDate u podacima, koristi ga
   if (data.trialEndDate) {
@@ -74,7 +79,7 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
   const hasPayment = data.lastPaymentDate != null;
   
   // Provjeri da li je u trial periodu (samo ako nema uplate)
-  if (trialEndDate && now < trialEndDate && !hasPayment && explicitIsActive !== false) {
+  if (trialEndDate && now < trialEndDate && !hasPayment && explicitIsActive !== false && !hasManualPremiumStatus) {
     // U trial periodu
     isTrial = true;
     isActive = explicitIsActive !== null ? explicitIsActive : true;
@@ -140,9 +145,60 @@ function calculateSubscriptionStatus(data: any, userCreatedAt: Date | null): Sub
 
   // Payment history is already parsed in loadSubscription, use it directly
   const paymentHistory: Payment[] = data.paymentHistory || [];
+
+  // Manual status iz admin panela je izvor istine
+  if (hasManualInactiveStatus) {
+    isTrial = false;
+    isGracePeriod = false;
+    isActive = false;
+    daysRemaining = 0;
+    daysInGrace = 0;
+  } else if (hasManualGraceStatus) {
+    isTrial = false;
+    isActive = false;
+
+    if (!graceEndDate) {
+      if (data.graceEndDate) {
+        graceEndDate = data.graceEndDate instanceof Date ? data.graceEndDate : new Date(data.graceEndDate);
+      } else if (expiryDate) {
+        graceEndDate = new Date(expiryDate);
+        graceEndDate.setDate(graceEndDate.getDate() + 5);
+      }
+    }
+
+    if (graceEndDate && now < graceEndDate) {
+      isGracePeriod = true;
+      daysInGrace = Math.ceil((graceEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    } else {
+      isGracePeriod = false;
+      daysInGrace = 0;
+    }
+  } else if (hasManualTrialStatus) {
+    isGracePeriod = false;
+    isActive = explicitIsActive !== null ? explicitIsActive : true;
+
+    if (!trialEndDate) {
+      const baseDate = userCreatedAt ? new Date(userCreatedAt) : new Date(now);
+      baseDate.setDate(baseDate.getDate() + 15);
+      trialEndDate = baseDate;
+    }
+
+    if (trialEndDate && now < trialEndDate) {
+      isTrial = true;
+      daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    } else {
+      isTrial = false;
+      daysRemaining = 0;
+    }
+  } else if (hasManualPremiumStatus) {
+    isTrial = false;
+    if (!isGracePeriod) {
+      isActive = explicitIsActive !== null ? explicitIsActive : true;
+    }
+  }
   
   // Provjeri da li je Premium (ima uplatu i nije u trial periodu)
-  const isPremium = hasPayment && !isTrial && (isActive || isGracePeriod);
+  const isPremium = (hasPayment && !isTrial && (isActive || isGracePeriod)) || (hasManualPremiumStatus && !isGracePeriod);
 
   return {
     isActive,
@@ -178,8 +234,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const isLoadingRef = useRef(false);
   const lastLoadedUserIdRef = useRef<string | null>(null);
 
-  // Memorize userIdForApi to prevent unnecessary re-creation of loadSubscription
-  const userIdForApi = useMemo(() => user?.email || user?.id, [user?.email, user?.id]);
+  // Koristi user.id kao prioritet (isti identifikator koji admin koristi pri spremanju u bazu)
+  // Email ostaje fallback radi kompatibilnosti
+  const userIdForApi = useMemo(() => user?.id || user?.email, [user?.id, user?.email]);
 
   const loadSubscription = useCallback(async () => {
     // API endpoint može primiti email ili id
@@ -204,7 +261,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       lastLoadedUserIdRef.current = userIdForApi;
       setLoading(true);
       console.log("SubscriptionContext - Loading subscription for user:", userIdForApi, "email:", user?.email, "id:", user?.id);
-      const subscriptionData = await getSubscription(userIdForApi);
+      const subscriptionData = await getSubscription();
       console.log("SubscriptionContext - Subscription data received:", {
         hasData: !!subscriptionData,
         keys: subscriptionData ? Object.keys(subscriptionData) : [],
@@ -256,6 +313,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       }
 
       const dataForCalculation = {
+        status: subscriptionData.status || null,
         isActive: subscriptionData.isActive !== undefined ? subscriptionData.isActive : true,
         monthlyPrice: subscriptionData.monthlyPrice || 12,
         lastPaymentDate: subscriptionData.lastPaymentDate ? (() => {
@@ -319,6 +377,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       })() : null;
       
       console.log("SubscriptionContext - Data for calculation:", {
+        status: dataForCalculation.status,
         isActive: dataForCalculation.isActive,
         monthlyPrice: dataForCalculation.monthlyPrice,
         hasLastPaymentDate: !!dataForCalculation.lastPaymentDate,
@@ -368,6 +427,41 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userIdForApi]);
 
+  // Auto-refresh subscription podataka da se admin izmjene brzo reflektuju kod korisnika
+  useEffect(() => {
+    if (!userIdForApi) {
+      return;
+    }
+
+    const refreshIfNeeded = () => {
+      if (!isLoadingRef.current) {
+        loadSubscription();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshIfNeeded();
+      }
+    };
+
+    const handleSubscriptionUpdated = () => {
+      refreshIfNeeded();
+    };
+
+    const intervalId = window.setInterval(refreshIfNeeded, 30000);
+    window.addEventListener("focus", refreshIfNeeded);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("subscription-updated", handleSubscriptionUpdated as EventListener);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshIfNeeded);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("subscription-updated", handleSubscriptionUpdated as EventListener);
+    };
+  }, [userIdForApi, loadSubscription]);
+
   const refreshSubscription = useCallback(async () => {
     await loadSubscription();
   }, [loadSubscription]);
@@ -375,8 +469,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const addPayment = async (amount: number, months: number = 1, note?: string) => {
     if (!user?.id) throw new Error("Korisnik nije prijavljen");
 
-    // API endpoint očekuje email u URL-u
-    const userIdForApi = user.email || user.id;
+    // Koristi user.id kao glavni ključ da bude isti izvor kao admin panel
+    const userIdForApi = user.id || user.email;
 
     try {
       await addPaymentToSubscription(userIdForApi, amount, months, note);
@@ -390,8 +484,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const updateMonthlyPrice = async (price: number) => {
     if (!user?.id) throw new Error("Korisnik nije prijavljen");
 
-    // API endpoint očekuje email u URL-u
-    const userIdForApi = user.email || user.id;
+    // Koristi user.id kao glavni ključ da bude isti izvor kao admin panel
+    const userIdForApi = user.id || user.email;
 
     try {
       await updateSubscription(userIdForApi, { monthlyPrice: price });

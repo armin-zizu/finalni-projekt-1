@@ -59,6 +59,20 @@ interface Subscription {
   daysInGrace?: number;
 }
 
+interface Device {
+  id: string;
+  deviceId: string;
+  deviceName?: string | null;
+  role?: string | null;
+  permissions?: Record<string, boolean>;
+  isBlocked?: boolean;
+  status?: string | null;
+  lastLogin?: string | Date | null;
+  createdAt?: string | Date | null;
+  updatedAt?: string | Date | null;
+  deviceInfo?: any;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -71,6 +85,9 @@ export default function AdminPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedUserDetails, setSelectedUserDetails] = useState<User | null>(null);
+  const [showDevicesModal, setShowDevicesModal] = useState(false);
+  const [userDevices, setUserDevices] = useState<any[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMonths, setPaymentMonths] = useState(1);
   const [paymentNote, setPaymentNote] = useState("");
@@ -187,8 +204,40 @@ export default function AdminPage() {
     // Check admin status on mount
     checkAdmin();
   }, [router]);
-  
-  // Automatsko osvježavanje uklonjeno - poruke dolaze preko SSE-a, ostali podaci se učitaju pri refresh-u
+
+  // Osvježi listu korisnika (focus + appName event + tihi periodični refresh)
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const refreshUsersOnFocus = () => {
+      void loadUsers(true);
+    };
+
+    const refreshUsersOnAppNameUpdate = () => {
+      void loadUsers(true);
+    };
+
+    const refreshUsersOnStorage = (event: StorageEvent) => {
+      if (event.key === 'app-name-updated') {
+        void loadUsers(true);
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void loadUsers(true);
+    }, 15000);
+
+    window.addEventListener('focus', refreshUsersOnFocus);
+    window.addEventListener('app-name-updated', refreshUsersOnAppNameUpdate as EventListener);
+    window.addEventListener('storage', refreshUsersOnStorage);
+
+    return () => {
+      window.removeEventListener('focus', refreshUsersOnFocus);
+      window.removeEventListener('app-name-updated', refreshUsersOnAppNameUpdate as EventListener);
+      window.removeEventListener('storage', refreshUsersOnStorage);
+      window.clearInterval(intervalId);
+    };
+  }, [isAdmin]);
 
   // Ažuriraj state varijable kada se promijeni selectedUserDetails
   useEffect(() => {
@@ -219,22 +268,27 @@ export default function AdminPage() {
   }, [selectedUserDetails?.id]); // Osiguraj da se pokrene kada se promijeni ID korisnika
 
   // Učitaj sve korisnike sa servera (iz PostgreSQL baze)
-  const loadUsers = async () => {
+  const loadUsers = async (silent = false) => {
     try {
-      setLoading(true);
-      setMessage(null);
+      if (!silent) {
+        setLoading(true);
+        setMessage(null);
+      }
 
       // Uzmi token za autentifikaciju
       const token = getAuthToken();
       if (!token) {
-        setMessage({ type: "error", text: "Niste prijavljeni" });
-        setLoading(false);
+        if (!silent) {
+          setMessage({ type: "error", text: "Niste prijavljeni" });
+          setLoading(false);
+        }
         return;
       }
       
       // Pozovi API route koji vraća sve korisnike iz PostgreSQL baze
       const response = await fetch('/api/list-users', {
         method: 'GET',
+        cache: 'no-store',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -307,7 +361,9 @@ export default function AdminPage() {
       
       setUsers(usersList);
       setSubscriptions(subscriptionsMap);
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
       
       if (usersList.length === 0) {
         console.warn("Admin - No users found in database");
@@ -317,11 +373,13 @@ export default function AdminPage() {
       }
     } catch (error: any) {
       console.error("Greška pri učitavanju korisnika:", error);
-      setMessage({ 
-        type: "error", 
-        text: `Greška pri učitavanju korisnika: ${error.message || "Nepoznata greška"}` 
-      });
-      setLoading(false);
+      if (!silent) {
+        setMessage({ 
+          type: "error", 
+          text: `Greška pri učitavanju korisnika: ${error.message || "Nepoznata greška"}` 
+        });
+        setLoading(false);
+      }
     }
   };
 
@@ -459,6 +517,157 @@ export default function AdminPage() {
         text: `Greška pri brisanju korisnika: ${error?.message || "Nepoznata greška"}` 
       });
       setTimeout(() => setMessage(null), 5000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Dohvati uređaje korisnika
+  const fetchUserDevices = async (userId: string) => {
+    try {
+      setLoadingDevices(true);
+      const token = getAuthToken();
+      const response = await fetch(`/api/users/${userId}/devices`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("API odgovor - Dohvaćeni uređaji:", data);
+      
+      // API vraća { devices: [...] } struktura
+      let devices = data.devices || data || [];
+      
+      // Osiguraj da je data niz
+      if (!Array.isArray(devices)) {
+        devices = [];
+      }
+      
+      console.log("Finalni uređaji za prikaz:", devices);
+      setUserDevices(devices);
+      setShowDevicesModal(true);
+    } catch (error: any) {
+      console.error("Greška pri dohvatanju uređaja:", error);
+      setUserDevices([]);
+      setMessage({ type: "error", text: "Greška pri dohvatanju uređaja" });
+      setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
+  // Odobri uređaj
+  const approveDevice = async (userId: string, deviceId: string) => {
+    try {
+      setSaving(true);
+      const token = getAuthToken();
+      const response = await fetch(`/api/users/${userId}/devices/${deviceId}`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "approved",
+          role: "konobar",
+          permissions: {
+            dashboard: true,
+            obracun: true,
+            arhiva: true,
+            cjenovnik: true,
+            profit: true,
+            profile: true,
+            admin: false,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Osveži listu uređaja
+      if (selectedUserDetails) {
+        await fetchUserDevices(selectedUserDetails.id);
+      }
+      setMessage({ type: "success", text: "Uređaj odobren" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      console.error("Greška pri odobravanju uređaja:", error);
+      setMessage({ type: "error", text: "Greška pri odobravanju uređaja" });
+      setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Zabrani uređaj
+  const blockDevice = async (userId: string, deviceId: string) => {
+    try {
+      setSaving(true);
+      const token = getAuthToken();
+      const response = await fetch(`/api/users/${userId}/devices/${deviceId}`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isBlocked: true,
+          status: "blocked",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Osveži listu uređaja
+      if (selectedUserDetails) {
+        await fetchUserDevices(selectedUserDetails.id);
+      }
+      setMessage({ type: "success", text: "Uređaj zabranjen" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      console.error("Greška pri zabranjivanju uređaja:", error);
+      setMessage({ type: "error", text: "Greška pri zabranjivanju uređaja" });
+      setTimeout(() => setMessage(null), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Obriši uređaj
+  const deleteDevice = async (userId: string, deviceId: string) => {
+    try {
+      setSaving(true);
+      const token = getAuthToken();
+      const response = await fetch(`/api/users/${userId}/devices/${deviceId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Osveži listu uređaja
+      if (selectedUserDetails) {
+        await fetchUserDevices(selectedUserDetails.id);
+      }
+      setMessage({ type: "success", text: "Uređaj obrisan" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      console.error("Greška pri brisanju uređaja:", error);
+      setMessage({ type: "error", text: "Greška pri brisanju uređaja" });
+      setTimeout(() => setMessage(null), 3000);
     } finally {
       setSaving(false);
     }
@@ -3149,6 +3358,202 @@ export default function AdminPage() {
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* Devices Modal */}
+      {showDevicesModal && selectedUserDetails && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1001,
+          }}
+          onClick={() => {
+            setShowDevicesModal(false);
+            setUserDevices([]);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "800px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1f2937", marginBottom: "20px" }}>
+              📱 Uređaji - {selectedUserDetails.appName}
+            </h2>
+
+            {loadingDevices ? (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b7280" }}>
+                <p style={{ fontSize: "16px", margin: 0 }}>Učitavanje uređaja...</p>
+              </div>
+            ) : !userDevices || userDevices.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b7280" }}>
+                <p style={{ fontSize: "16px", margin: 0 }}>Nema registrovanih uređaja</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {Array.isArray(userDevices) && userDevices.map((device, index) => (
+                  <div
+                    key={device.id || device.deviceId || index}
+                    style={{
+                      padding: "16px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      background: device.isBlocked ? "#fef2f2" : "#f9fafb",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "12px" }}>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937", margin: "0 0 4px 0" }}>
+                          {device.deviceName || "Neimenovani uređaj"}
+                        </p>
+                        <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                          ID: {(device.deviceId || device.device_id || "").substring(0, 12)}...
+                        </p>
+                      </div>
+                      <span
+                        style={{
+                          padding: "4px 12px",
+                          borderRadius: "12px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          backgroundColor: device.isBlocked ? "#fee2e2" : device.status === "approved" ? "#dcfce7" : "#fef3c7",
+                          color: device.isBlocked ? "#dc2626" : device.status === "approved" ? "#16a34a" : "#f59e0b",
+                        }}
+                      >
+                        {device.isBlocked ? "ZABRANJEN" : device.status === "approved" ? "ODOBREN" : "ČEKA ODOBRENJE"}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px", fontSize: "12px" }}>
+                      <div>
+                        <p style={{ color: "#6b7280", margin: "0 0 4px 0" }}>Browser:</p>
+                        <p style={{ color: "#1f2937", margin: 0, fontWeight: 500 }}>
+                          {device.deviceInfo?.browser || "Nepoznat"}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ color: "#6b7280", margin: "0 0 4px 0" }}>OS:</p>
+                        <p style={{ color: "#1f2937", margin: 0, fontWeight: 500 }}>
+                          {device.deviceInfo?.os || "Nepoznat"}
+                        </p>
+                      </div>
+                      {device.lastLogin && (
+                        <div>
+                          <p style={{ color: "#6b7280", margin: "0 0 4px 0" }}>Posljednja prijava:</p>
+                          <p style={{ color: "#1f2937", margin: 0, fontWeight: 500 }}>
+                            {new Date(device.lastLogin).toLocaleDateString("bs-BA")}
+                          </p>
+                        </div>
+                      )}
+                      {device.createdAt && (
+                        <div>
+                          <p style={{ color: "#6b7280", margin: "0 0 4px 0" }}>Registrovan:</p>
+                          <p style={{ color: "#1f2937", margin: 0, fontWeight: 500 }}>
+                            {new Date(device.createdAt).toLocaleDateString("bs-BA")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {!device.isBlocked && device.status !== "approved" && (
+                        <button
+                          onClick={() => approveDevice(selectedUserDetails.id, device.deviceId || device.device_id)}
+                          disabled={saving}
+                          style={{
+                            padding: "6px 12px",
+                            background: "#16a34a",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: saving ? "not-allowed" : "pointer",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            opacity: saving ? 0.6 : 1,
+                          }}
+                        >
+                          ✓ Odobri
+                        </button>
+                      )}
+                      {!device.isBlocked && (
+                        <button
+                          onClick={() => blockDevice(selectedUserDetails.id, device.deviceId || device.device_id)}
+                          disabled={saving}
+                          style={{
+                            padding: "6px 12px",
+                            background: "#f59e0b",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: saving ? "not-allowed" : "pointer",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            opacity: saving ? 0.6 : 1,
+                          }}
+                        >
+                          🚫 Zabrani
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteDevice(selectedUserDetails.id, device.deviceId || device.device_id)}
+                        disabled={saving}
+                        style={{
+                          padding: "6px 12px",
+                          background: "#dc2626",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: saving ? "not-allowed" : "pointer",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          opacity: saving ? 0.6 : 1,
+                        }}
+                      >
+                        🗑️ Obriši
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "20px" }}>
+              <button
+                onClick={() => {
+                  setShowDevicesModal(false);
+                  setUserDevices([]);
+                }}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: "#374151",
+                  color: "#fff",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Zatvori
+              </button>
+            </div>
           </div>
         </div>
       )}

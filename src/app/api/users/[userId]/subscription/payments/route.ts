@@ -27,7 +27,7 @@ async function postHandler(req: AuthRequest): Promise<NextResponse> {
 
     // Get current subscription to calculate expiry date
     const subscriptionResult = await query(
-      `SELECT end_date, trial_end_date FROM subscriptions WHERE user_id = $1`,
+      `SELECT end_date, trial_end_date FROM subscriptions WHERE user_id = $1::uuid`,
       [userId]
     );
 
@@ -57,7 +57,7 @@ async function postHandler(req: AuthRequest): Promise<NextResponse> {
     // Insert payment
     const paymentResult = await query(
       `INSERT INTO payments (user_id, amount, note, date, valid_until)
-       VALUES ($1, $2, $3, $4, $5)
+       VALUES ($1::uuid, $2, $3, $4, $5)
        RETURNING id, amount, note, date, valid_until, created_at`,
       [
         userId,
@@ -79,7 +79,7 @@ async function postHandler(req: AuthRequest): Promise<NextResponse> {
            status = 'active',
            grace_end_date = NULL,
            updated_at = NOW()
-       WHERE user_id = $3`,
+       WHERE user_id = $3::uuid`,
       [newExpiryDate, now, userId]
     );
 

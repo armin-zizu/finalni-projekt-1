@@ -111,16 +111,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Update last login time (if you have that column)
-    try {
-      await query(
-        'UPDATE users SET updated_at = NOW() WHERE id = $1',
-        [user.id]
-      );
-    } catch (error) {
+    // Update last login time in background to avoid blocking login response on potential row locks
+    query(
+      'UPDATE users SET updated_at = NOW() WHERE id = $1',
+      [user.id]
+    ).catch((error) => {
       console.error('Error updating last login:', error);
-      // Don't fail login if this fails
-    }
+    });
 
     // Return success response
     const response = NextResponse.json({

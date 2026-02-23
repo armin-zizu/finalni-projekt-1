@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthRequest } from '@/lib/auth-middleware';
-import { query } from '@/lib/db';
+import { query, transaction } from '@/lib/db';
 
 async function deleteHandler(
   req: AuthRequest,
@@ -32,7 +32,7 @@ async function deleteHandler(
 
     // Check if target user exists
     const targetUserResult = await query(
-      `SELECT id FROM users WHERE id = $1`,
+      `SELECT id, email FROM users WHERE id::text = $1`,
       [userId]
     );
 
@@ -43,42 +43,63 @@ async function deleteHandler(
       );
     }
 
-    // Delete user and ALL related data - explicit deletion to ensure complete removal
-    // Delete in order to respect foreign key constraints
-    
-    // 1. Delete obracun_artikli, obracun_prihodi, obracun_rashodi (related to obracuni)
-    await query(`
-      DELETE FROM obracun_artikli 
-      WHERE obracun_id IN (SELECT id FROM obracuni WHERE user_id = $1)
-    `, [userId]);
-    
-    await query(`
-      DELETE FROM obracun_prihodi 
-      WHERE obracun_id IN (SELECT id FROM obracuni WHERE user_id = $1)
-    `, [userId]);
-    
-    await query(`
-      DELETE FROM obracun_rashodi 
-      WHERE obracun_id IN (SELECT id FROM obracuni WHERE user_id = $1)
-    `, [userId]);
-    
-    // 2. Delete obracuni (daily reports)
-    await query(`DELETE FROM obracuni WHERE user_id = $1`, [userId]);
-    
-    // 3. Delete cjenovnik (price list)
-    await query(`DELETE FROM cjenovnik WHERE user_id = $1`, [userId]);
-    
-    // 4. Delete payments (payment history)
-    await query(`DELETE FROM payments WHERE user_id = $1`, [userId]);
-    
-    // 5. Delete subscriptions
-    await query(`DELETE FROM subscriptions WHERE user_id = $1`, [userId]);
-    
-    // 6. Delete devices
-    await query(`DELETE FROM devices WHERE user_id = $1`, [userId]);
-    
-    // 7. Finally delete the user (this will cascade delete anything else if CASCADE is set)
-    await query(`DELETE FROM users WHERE id = $1`, [userId]);
+    const targetUserEmail = (targetUserResult.rows[0]?.email || '').toLowerCase().trim();
+    if (targetUserEmail && targetUserEmail === adminEmailLower) {
+      return NextResponse.json(
+        { error: 'Admin korisnik se ne može obrisati.' },
+        { status: 400 }
+      );
+    }
+
+    await transaction(async (client) => {
+      const tableExists = async (tableName: string) => {
+        const existsResult = await client.query(
+          `SELECT to_regclass($1) AS regclass_name`,
+          [tableName]
+        );
+        return !!existsResult.rows[0]?.regclass_name;
+      };
+
+      const safeDelete = async (tableName: string, sql: string, params: any[] = []) => {
+        if (!(await tableExists(tableName))) return;
+        await client.query(sql, params);
+      };
+
+      // Legacy detaljne tabele (ako postoje)
+      await safeDelete(
+        'obracun_artikli',
+        `DELETE FROM obracun_artikli
+         WHERE obracun_id IN (SELECT id FROM obracuni WHERE user_id::text = $1)`,
+        [userId]
+      );
+
+      await safeDelete(
+        'obracun_prihodi',
+        `DELETE FROM obracun_prihodi
+         WHERE obracun_id IN (SELECT id FROM obracuni WHERE user_id::text = $1)`,
+        [userId]
+      );
+
+      await safeDelete(
+        'obracun_rashodi',
+        `DELETE FROM obracun_rashodi
+         WHERE obracun_id IN (SELECT id FROM obracuni WHERE user_id::text = $1)`,
+        [userId]
+      );
+
+      // Standardne aplikacijske tabele
+      await safeDelete('support_messages', `DELETE FROM support_messages WHERE user_id::text = $1`, [userId]);
+      await safeDelete('file_uploads', `DELETE FROM file_uploads WHERE user_id::text = $1`, [userId]);
+      await safeDelete('sessions', `DELETE FROM sessions WHERE user_id::text = $1`, [userId]);
+      await safeDelete('devices', `DELETE FROM devices WHERE user_id::text = $1`, [userId]);
+      await safeDelete('payments', `DELETE FROM payments WHERE user_id::text = $1`, [userId]);
+      await safeDelete('subscriptions', `DELETE FROM subscriptions WHERE user_id::text = $1`, [userId]);
+      await safeDelete('cjenovnik', `DELETE FROM cjenovnik WHERE user_id::text = $1`, [userId]);
+      await safeDelete('obracuni', `DELETE FROM obracuni WHERE user_id::text = $1`, [userId]);
+
+      // Korisnik na kraju
+      await client.query(`DELETE FROM users WHERE id::text = $1`, [userId]);
+    });
 
     return NextResponse.json({ success: true, message: 'User deleted successfully' });
   } catch (error: any) {

@@ -5,6 +5,32 @@ import { useCjenovnik } from "../context/CjenovnikContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
 import { getUserId, uploadFile, saveObracun, getObracuni /* , getDraftObracun */ } from "../../lib/api";
+// TEMPORARY: Disabled Firebase imports for development - using mocks
+// import { auth } from "../../lib/firebase";
+// import { db, storage } from "../../lib/firebase";
+// import { doc, setDoc, getDoc, deleteDoc, collection, getDocs, serverTimestamp, onSnapshot, Timestamp } from "firebase/firestore";
+// import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
+// import { onAuthStateChanged } from "firebase/auth";
+
+// TEMPORARY: Mock Firebase objects for development
+const auth = { currentUser: { uid: 'dev-user-id' } } as any;
+const db = {} as any;
+const storage = {} as any;
+const doc = (...args: any[]) => ({ id: 'mock-doc' }) as any;
+const setDoc = async (...args: any[]) => {};
+const getDoc = async (...args: any[]) => ({ exists: () => false, data: () => null } as any);
+const deleteDoc = async (...args: any[]) => {};
+const collection = (...args: any[]) => ({ id: 'mock-collection' }) as any;
+const getDocs = async (...args: any[]) => ({ docs: [] } as any);
+const serverTimestamp = (...args: any[]) => new Date();
+const onSnapshot = (...args: any[]) => () => {};
+const Timestamp = { fromDate: (date: Date) => date } as any;
+const ref = (...args: any[]) => ({ fullPath: 'mock/path' }) as any;
+const uploadBytes = async (...args: any[]) => ({ metadata: { fullPath: 'mock/path' } } as any);
+const getDownloadURL = async (...args: any[]) => 'mock-url';
+const listAll = async (...args: any[]) => ({ items: [] } as any);
+const deleteObject = async (...args: any[]) => {};
+const onAuthStateChanged = (...args: any[]) => () => {};
 
 // ---- Tipovi ----
 type Artikal = {
@@ -117,18 +143,14 @@ const inputStyle: React.CSSProperties = {
 };
 
 const dateInputStyle: React.CSSProperties = {
-  padding: "12px 16px",
-  border: "2px solid #e5e7eb",
-  borderRadius: "10px",
-  fontSize: "15px",
-  fontWeight: 600,
+  width: "100%",
+  maxWidth: "160px",
+  padding: "8px",
+  border: "1px solid #e5e7eb",
+  borderRadius: "6px",
+  fontSize: "14px",
   outline: "none",
-  background: "linear-gradient(to bottom, #ffffff, #f9fafb)",
-  color: "#1f2937",
-  transition: "all 0.3s ease-in-out",
-  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-  cursor: "pointer",
-  minWidth: "160px",
+  background: "#fff",
 };
 
 const containerStyle: React.CSSProperties = {
@@ -226,26 +248,16 @@ export default function ObracunPage() {
   const [editPrihodIndex, setEditPrihodIndex] = useState<number | null>(null);
   const [editRashod, setEditRashod] = useState<Rashod>({ naziv: "", cijena: 0 });
   const [editPrihod, setEditPrihod] = useState<Prihod>({ naziv: "", cijena: 0 });
-  const [trenutniDatum, setTrenutniDatum] = useState<Date | null>(null);
+  const [trenutniDatum, setTrenutniDatum] = useState<Date>(new Date());
   const [isAzuriran, setIsAzuriran] = useState<boolean>(false); // Praćenje da li je obračun bio ažuriran
   const [resetKey, setResetKey] = useState<number>(0); // Key za reset input polja
   const [isOwner, setIsOwner] = useState<boolean>(false); // Provjera da li je korisnik vlasnik
   const [hasUlazInCache, setHasUlazInCache] = useState<boolean>(false); // Provjera da li postoji ulaz u cache-u
   const [isUlazLocked, setIsUlazLocked] = useState<boolean>(false); // Provjera da li su ulazi zaključani
-  const [isMobile, setIsMobile] = useState<boolean>(false);
-  // Pamti zadnje sinhronizirano stanje da ne pregazimo lokalne izmjene live sync-om
-  const lastSyncedStateRef = useRef<{ artikliStr: string; rashodiStr: string; prihodiStr: string }>({
-    artikliStr: "[]",
-    rashodiStr: "[]",
-    prihodiStr: "[]",
-  });
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
 
-  // Inicijalizacija datuma i detekcija mobilnog uređaja (samo na klijentu)
+  // Detekcija mobilnog uređaja
   useEffect(() => {
-    if (trenutniDatum === null) {
-      setTrenutniDatum(new Date());
-    }
-    
     const checkMobile = () => {
       if (typeof window === 'undefined') return;
       setIsMobile(window.innerWidth <= 768);
@@ -254,7 +266,7 @@ export default function ObracunPage() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, [trenutniDatum]);
+  }, []);
   
   // Postavke za malu zalihu
   const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
@@ -296,6 +308,62 @@ export default function ObracunPage() {
   
   // SVI KORISNICI MOGU KORISTITI OBRACUN - isReadOnly uklonjen
   
+  // TEMPORARY: Disabled Firebase listener - comment out to re-enable
+  /*
+  // Učitaj postavke za malu zalihu iz Firestore sa real-time osluškivanjem
+  useEffect(() => {
+    let unsubscribeSnapshot: (() => void) | null = null;
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // Očisti prethodni snapshot listener ako postoji
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+
+      if (user) {
+        const userDocRef = doc(db, "users", user.uid);
+        
+        // Postavi real-time listener za automatsku sinkronizaciju
+        unsubscribeSnapshot = onSnapshot(
+          userDocRef,
+          (docSnapshot) => {
+            if (docSnapshot.exists()) {
+              const data = docSnapshot.data();
+              if (data.lowStockSettings) {
+                setLowStockEnabled(data.lowStockSettings.enabled || false);
+                setLowStockThresholdZestoka(data.lowStockSettings.thresholdZestoka || 100);
+                setLowStockThresholdOstala(data.lowStockSettings.thresholdOstala || 10);
+              } else {
+                // Ako nema postavki, koristi default vrijednosti
+                setLowStockEnabled(false);
+                setLowStockThresholdZestoka(100);
+                setLowStockThresholdOstala(10);
+              }
+            }
+          },
+          (error: any) => {
+            // Ignoriraj greške dozvola
+            const errorCode = error?.code || "";
+            if (errorCode !== "permission-denied" && !errorCode.includes("permission") && !errorCode.includes("insufficient")) {
+              console.error("Greška pri osluškivanju postavki za malu zalihu:", error);
+            } else {
+              console.warn("Greška pri real-time listeneru: Missing or insufficient permissions.");
+            }
+          }
+        );
+      }
+    });
+    
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+    };
+  }, []);
+  */
+  
   // TEMPORARY: Set default values for development
   useEffect(() => {
     setLowStockEnabled(false);
@@ -307,149 +375,6 @@ export default function ObracunPage() {
   // Ovo osigurava da se staroPocetnoStanje učitava iz cache-a prije nego što se artikli kreiraju
   const [ulazCacheForDatum, setUlazCacheForDatum] = useState<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }>({});
   const [isCacheLoaded, setIsCacheLoaded] = useState<boolean>(false);
-
-  // LIVE SYNC: Polling za automatsku sinhronizaciju obračuna sa drugim uređajima
-  // Svaki 3 sekunde provjeri da li se obračun promijenio i ažuriraj state ako treba
-  useEffect(() => {
-    if (!user?.email || !trenutniDatum) return;
-    
-    const pollInterval = setInterval(async () => {
-      try {
-        const userId = user.email || user.id;
-        if (!userId) return;
-        
-        // Učitaj obračune za danas
-        const obracuni = await getObracuni(userId);
-        const datumStr = formatDatum(trenutniDatum);
-        const todayObracun = obracuni.find((ob: any) => ob.datum === datumStr);
-        
-        if (!todayObracun) {
-          // Ako nema obračuna za danas, ne radi ništa (novi obračun)
-          return;
-        }
-        
-        // Provjeri da li su se artikli promijenili (redoslijed, broj, nazivi, vrijednosti)
-        const dbArtikli = todayObracun.artikli || [];
-        const stateArtikli = artikli;
-        
-        const dbArtikliStr = JSON.stringify(dbArtikli.map((a: any) => ({
-          naziv: a.naziv,
-          utroseno: a.utroseno,
-          krajnjeStanje: a.krajnjeStanje,
-          ulaz: a.ulaz,
-        })));
-        
-        const stateArtikliStr = JSON.stringify(stateArtikli.map((a: any) => ({
-          naziv: a.naziv,
-          utroseno: a.utroseno,
-          krajnjeStanje: a.krajnjeStanje,
-          ulaz: a.ulaz,
-        })));
-
-        // Ako lokalno stanje odstupa od posljednjeg sinhronizovanog (korisnik trenutno unosi), ne prepisuj
-        const stateRashodiStr = JSON.stringify(rashodi.map((r: any) => ({ naziv: r.naziv, cijena: r.cijena })));
-        const statePrihodiStr = JSON.stringify(prihodi.map((p: any) => ({ naziv: p.naziv, cijena: p.cijena })));
-        const localDirty =
-          stateArtikliStr !== lastSyncedStateRef.current.artikliStr ||
-          stateRashodiStr !== lastSyncedStateRef.current.rashodiStr ||
-          statePrihodiStr !== lastSyncedStateRef.current.prihodiStr;
-
-        if (localDirty) {
-          // Korisnik unosi podatke – preskoči auto-sync da se ne pregaze vrijednosti
-          return;
-        }
-        
-        // Ako se artikli razlikuju, ažuriraj state
-        if (dbArtikliStr !== stateArtikliStr) {
-          console.log("🔄 Live sync: Obračun se promijenio na drugom uređaju, ažuriram...");
-          setArtikli(dbArtikli.map((a: any) => ({
-            naziv: a.naziv,
-            cijena: a.cijena,
-            pocetnoStanje: a.pocetnoStanje,
-            ulaz: a.ulaz || 0,
-            ukupno: (a.pocetnoStanje || 0) + (a.ulaz || 0),
-            utroseno: a.utroseno || 0,
-            krajnjeStanje: a.krajnjeStanje || 0,
-            vrijednostKM: a.vrijednostKM || 0,
-            zestokoKolicina: a.zestokoKolicina,
-            proizvodnaCijena: a.proizvodnaCijena,
-            isKrajnjeSet: a.krajnjeStanje !== undefined && a.krajnjeStanje !== null,
-          })));
-        }
-        
-        // Provjeri rashode i prihode
-        const dbRashodi = todayObracun.rashodi || [];
-        const dbPrihodi = todayObracun.prihodi || [];
-        
-        const dbRashodiStr = JSON.stringify(dbRashodi.map((r: any) => ({ naziv: r.naziv, cijena: r.cijena })));
-        const dbPrihodiStr = JSON.stringify(dbPrihodi.map((p: any) => ({ naziv: p.naziv, cijena: p.cijena })));
-        
-        if (dbRashodiStr !== stateRashodiStr) {
-          console.log("🔄 Live sync: Rashodi se promijenili, ažuriram...");
-          setRashodi(dbRashodi);
-        }
-        
-        if (dbPrihodiStr !== statePrihodiStr) {
-          console.log("🔄 Live sync: Prihodi se promijenili, ažuriram...");
-          setPrihodi(dbPrihodi);
-        }
-
-        // Nakon uspješnog sync-a ažuriraj zadnje sinhronizovano stanje
-        lastSyncedStateRef.current = {
-          artikliStr: dbArtikliStr,
-          rashodiStr: dbRashodiStr,
-          prihodiStr: dbPrihodiStr,
-        };
-      } catch (error: any) {
-        // Tiho greške - polling se nastavlja
-        console.warn("⚠️ Live sync polling error:", error.message);
-      }
-    }, 3000); // Poll svaki 3 sekunde
-    
-    return () => clearInterval(pollInterval);
-  }, [user?.email, user?.id, trenutniDatum, artikli, rashodi, prihodi]);
-
-  // LIVE SYNC za cjenovnik: Prati promjene u redoslijedu cjenovnika
-  // Ako se redoslijed promijeni u cjenovniku, primijeni ga na artikle u obračunu
-  useEffect(() => {
-    if (cjenovnik.length === 0 || artikli.length === 0) return;
-    
-    // Kreiraj mapu redoslijeda iz cjenovnika (displayOrder)
-    const cjenovnikMap = new Map<string, number>();
-    cjenovnik.forEach((c: any) => {
-      cjenovnikMap.set(c.naziv, c.displayOrder !== null && c.displayOrder !== undefined ? c.displayOrder : 999999);
-    });
-    
-    // Provjeri da li je redoslijed artikala drugačiji od redoslijeda u cjenovniku
-    const artikliSorted = [...artikli].sort((a, b) => {
-      const orderA = cjenovnikMap.get(a.naziv) ?? 999999;
-      const orderB = cjenovnikMap.get(b.naziv) ?? 999999;
-      return orderA - orderB;
-    });
-    
-    // Provjeri da li se redoslijed razlikuje
-    let redoslijedPromijenjen = false;
-    for (let i = 0; i < artikli.length; i++) {
-      if (artikli[i].naziv !== artikliSorted[i].naziv) {
-        redoslijedPromijenjen = true;
-        break;
-      }
-    }
-    
-    // Ako se redoslijed promijenio, ažuriraj state
-    if (redoslijedPromijenjen) {
-      console.log("🔄 Live sync cjenovnik: Redoslijed cjenovnika se promijenio, ažuriram redoslijed artikala...");
-      setArtikli(artikliSorted);
-    }
-  }, [cjenovnik]); // Prati samo cjenovnik
-
-  // Helper funkcija za formatiranje datuma
-  const formatDatum = (date: Date): string => {
-    const dan = String(date.getDate()).padStart(2, '0');
-    const mjesec = String(date.getMonth() + 1).padStart(2, '0');
-    const godina = date.getFullYear();
-    return `${dan}.${mjesec}.${godina}.`;
-  };
 
   // Helper funkcija za provjeru da li je prihod još uvijek relevantan (tj. da li postoji plaćen dug u arhivi)
   const isPrihodRelevant = async (prihodNaziv: string, userId: string): Promise<boolean> => {
@@ -533,33 +458,7 @@ export default function ObracunPage() {
 
   // Funkcija autoSaveDraftAsFinal je uklonjena - handleSaveObracun direktno sprema finalni obračun
 
-  // BONUS: Učitaj ulazCache iz localStorage ako postoji (iz prihvaćenih faktura)
   useEffect(() => {
-    if (!trenutniDatum) return;
-    const datumString = formatirajDatum(trenutniDatum);
-    
-    // Čitaj ulazCache iz localStorage za ovaj datum
-    const cacheKey = `ulazCache_${datumString}`;
-    const savedCache = localStorage.getItem(cacheKey);
-    
-    if (savedCache) {
-      try {
-        const parsedCache = JSON.parse(savedCache);
-        console.log(`📂 Učitano iz localStorage cache: ${cacheKey}`, parsedCache);
-        
-        // Ažuriraj ulazCacheForDatum sa čitanjem iz localStorage
-        setUlazCacheForDatum((prev) => {
-          // Spoji cache iz localStorage sa prethodnim cache (prioritet ulazCache iz localStorage)
-          return { ...prev, ...parsedCache };
-        });
-      } catch (e) {
-        console.error(`❌ Greška pri parsiranju cache-a za ${cacheKey}:`, e);
-      }
-    }
-  }, [trenutniDatum]);
-
-  useEffect(() => {
-    if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
     const datumAktivan = isDatumAktivan(trenutniDatum);
     
@@ -567,7 +466,7 @@ export default function ObracunPage() {
     const loadCacheFirst = async () => {
       setIsCacheLoaded(false);
 
-      const userId = user?.email || user?.id;
+      const userId = user?.id || user?.email;
       if (!userId) {
         setUlazCacheForDatum({});
         setSavedInvoiceImagesCount(0);
@@ -790,29 +689,13 @@ export default function ObracunPage() {
       // Nastavi sa inicijalizacijom - artikli će biti inicijalizovani iz cjenovnika
     }
     
-    if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
     const datumAktivan = isDatumAktivan(trenutniDatum);
     
     // Koristi već učitani cache umjesto ponovnog učitavanja
     const loadCacheAndInit = async () => {
-      // PRVO: Čitaj cache iz localStorage za ovaj datum
-      const datumCacheKey = `ulazCache_${datumString}`;
-      let localStorageCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number } } = {};
-      
-      try {
-        const savedCache = localStorage.getItem(datumCacheKey);
-        if (savedCache) {
-          localStorageCache = JSON.parse(savedCache);
-          console.log(`📂 Učitano iz localStorage za ${datumCacheKey}:`, localStorageCache);
-        }
-      } catch (e) {
-        console.error(`❌ Greška pri parsiranju localStorage cache-a za ${datumCacheKey}:`, e);
-      }
-      
-      // Spoji cache sa localStorage i state cache-om (prioritet: state cache)
-      const ulazCache = { ...localStorageCache, ...ulazCacheForDatum };
-      console.log("🟡 Inicijalizacija artikala, kombinovani cache:", ulazCache);
+      const ulazCache = ulazCacheForDatum; // Koristi već učitani cache
+      console.log("🟡 Inicijalizacija artikala, cache:", ulazCache);
       
       // Draft obračun je uklonjen - inicijaliziraj artikle iz cjenovnika i cache-a
       
@@ -1013,6 +896,7 @@ export default function ObracunPage() {
     return `${dan}.${mjesec}.${godina}.`;
   };
 
+  // Firebase cache funkcije su uklonjene - koristimo draft sistem umjesto cache-a
   // Ulaz se čuva u draft obračunu, ne u posebnoj cache kolekciji
 
   // Funkcija za promjenu datuma
@@ -1130,13 +1014,12 @@ export default function ObracunPage() {
       // Upload slike ako postoji
       if (newRashodImage) {
         try {
-          const userId = user?.email || user?.id || (await getUserId());
+          const userId = user?.id || user?.email || (await getUserId());
           if (!userId) {
             throw new Error("Korisnik nije autentifikovan");
           }
           
-          const datumRef = trenutniDatum ?? new Date();
-          const datumString = formatirajDatum(datumRef).replace(/\.$/, '');
+          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
           const uploadedFile = await uploadFile(newRashodImage, 'rashod', datumString);
           imageUrl = uploadedFile.url;
         } catch (error: any) {
@@ -1158,13 +1041,12 @@ export default function ObracunPage() {
       // Upload slike ako postoji
       if (newPrihodImage) {
         try {
-          const userId = user?.email || user?.id || (await getUserId());
+          const userId = user?.id || user?.email || (await getUserId());
           if (!userId) {
             throw new Error("Korisnik nije autentifikovan");
           }
           
-          const datumRef = trenutniDatum ?? new Date();
-          const datumString = formatirajDatum(datumRef).replace(/\.$/, '');
+          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
           const uploadedFile = await uploadFile(newPrihodImage, 'prihod', datumString);
           imageUrl = uploadedFile.url;
         } catch (error: any) {
@@ -1213,7 +1095,7 @@ export default function ObracunPage() {
     // Ako je prihod obrisan, provjeri da li postoji dug u arhivi sa tim imenom (ime dužnika)
     // i ako postoji, označi ga kao neplaćen i ukloni datum plaćanja
     if (prihodToDelete && prihodToDelete.naziv) {
-      const userId = user?.email || user?.id;
+      const userId = user?.id || user?.email;
       if (!userId) {
         console.warn("Korisnik nije prijavljen, ne mogu ažurirati dug u arhivi");
         return;
@@ -1308,13 +1190,12 @@ export default function ObracunPage() {
       // Upload nove slike ako je dodana
       if (editRashodImage) {
         try {
-          const userId = user?.email || user?.id || (await getUserId());
+          const userId = user?.id || user?.email || (await getUserId());
           if (!userId) {
             throw new Error("Korisnik nije autentifikovan");
           }
           
-          const datumRef = trenutniDatum ?? new Date();
-          const datumString = formatirajDatum(datumRef).replace(/\.$/, '');
+          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
           const uploadedFile = await uploadFile(editRashodImage, 'rashod', datumString);
           imageUrl = uploadedFile.url;
         } catch (error: any) {
@@ -1339,13 +1220,12 @@ export default function ObracunPage() {
       // Upload nove slike ako je dodana
       if (editPrihodImage) {
         try {
-          const userId = user?.email || user?.id || (await getUserId());
+          const userId = user?.id || user?.email || (await getUserId());
           if (!userId) {
             throw new Error("Korisnik nije autentifikovan");
           }
           
-          const datumRef = trenutniDatum ?? new Date();
-          const datumString = formatirajDatum(datumRef).replace(/\.$/, '');
+          const datumString = formatirajDatum(trenutniDatum).replace(/\.$/, '');
           const uploadedFile = await uploadFile(editPrihodImage, 'prihod', datumString);
           imageUrl = uploadedFile.url;
         } catch (error: any) {
@@ -1384,9 +1264,8 @@ export default function ObracunPage() {
       return;
     }
 
-    if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
-    const userId = user?.email || user?.id;
+    const userId = user?.id || user?.email;
     if (!userId) {
       alert("Korisnik nije autentifikovan!");
       return;
@@ -1475,7 +1354,7 @@ export default function ObracunPage() {
     }
     
     // Email je glavni identifikator
-    const userId = user?.email || user?.id || (await getUserId());
+    const userId = user?.id || user?.email || (await getUserId());
     if (!userId) {
       throw new Error("Korisnik nije autentifikovan");
     }
@@ -1517,13 +1396,12 @@ export default function ObracunPage() {
     setInvoiceImages(invoiceImages.filter((_, i) => i !== index));
   };
 
-  // Čuvanje obračuna (sprema se preko API-ja)
+  // Čuvanje obračuna (localStorage + opcionalno Firestore)
   const handleSaveObracun = async () => {
     const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
     const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
     const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
     const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
-    if (!trenutniDatum) return;
     const datumString = formatirajDatum(trenutniDatum);
 
     // Provjeri da li obračun ima ulaz - provjeri samo trenutni state (draft je već učitan ako postoji)
@@ -1616,7 +1494,7 @@ export default function ObracunPage() {
     // Cache se automatski ažurira kada se promijeni datum
 
     // Email je glavni identifikator
-    const userId = user?.email || user?.id || (await getUserId());
+    const userId = user?.id || user?.email || (await getUserId());
     if (!userId) {
       alert("Greška: Niste prijavljeni. Molimo prijavite se ponovo.");
       return;
@@ -1670,7 +1548,7 @@ export default function ObracunPage() {
     const allInvoiceImageUrls = [...draftInvoiceImageUrls, ...newInvoiceImageUrls];
     console.log(`📸 Ukupno slika za finalni obračun: ${allInvoiceImageUrls.length}`, allInvoiceImageUrls);
     
-    // Dodaj slike u obračun
+    // Dodaj slike u obračun - kao što je Firebase radio
     if (allInvoiceImageUrls.length > 0) {
       (arhiviraniObracun as any).invoiceImages = allInvoiceImageUrls;
     }
@@ -1721,13 +1599,6 @@ export default function ObracunPage() {
       setIsUlazLocked(false);
       setIsAzuriran(false);
       setUlazCacheForDatum({}); // Očisti cache za ulaz
-
-      // Označi da je lokalno stanje ponovo sinkronizovano (prazno za novi dan)
-      lastSyncedStateRef.current = {
-        artikliStr: JSON.stringify([]),
-        rashodiStr: JSON.stringify([]),
-        prihodiStr: JSON.stringify([]),
-      };
       
       // Prebaci se na sljedeći dan nakon što se sačuva obračun
       const sljedeciDan = new Date(trenutniDatum);
@@ -2142,10 +2013,7 @@ export default function ObracunPage() {
             flex: 1 1 100%;
             max-width: 100%;
           }
-          h1 { font-size: 20px; margin-bottom: 16px; }
-          h2 { font-size: 16px; margin-bottom: 12px; }
-          h3 { font-size: 14px; margin: 6px 0; }
-          /* Poboljšan layout za buttoni i datum na mobilnoj verziji */
+          /* Mobilni raspored za akcijske gumbe kao u referentnom push-u */
           .date-controls-container {
             flex-direction: column !important;
             align-items: stretch !important;
@@ -2194,166 +2062,20 @@ export default function ObracunPage() {
             flex: 0 0 calc(50% - 4px) !important;
             box-sizing: border-box !important;
           }
-          /* Osiguraj da Artikli i (Ažurirano) budu u istoj liniji */
-          .artikli-header {
-            display: flex !important;
-            flex-direction: row !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-          }
-          .artikli-header h2 {
-            margin: 0 !important;
-          }
-          /* Sinhronizuj veličine action buttona */
           .action-button {
             width: 160px !important;
             min-width: 160px !important;
             max-width: 160px !important;
           }
-          /* Grid layout za sažetak na mobilnoj verziji */
-          .summary-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 12px !important;
-          }
-          .summary-container {
-            padding: 20px 16px !important;
-          }
-          .neto-card {
-            grid-column: span 2 !important;
-          }
-          .summary-container h2 {
-            font-size: 16px !important;
-          }
-          .summary-grid > div {
-            padding: 14px !important;
-          }
-          .summary-grid > div > div:first-child {
-            font-size: 11px !important;
-          }
-          .summary-grid > div > div:last-child {
-            font-size: 18px !important;
-          }
-          .neto-card > div:last-child {
-            font-size: 22px !important;
-          }
-          /* Header layout za mobilnu verziju - datum u istoj liniji desno */
-          .page-header {
-            flex-direction: row !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            flex-wrap: nowrap !important;
-            width: 100% !important;
-          }
-          .page-header h1 {
-            flex-shrink: 0 !important;
-            font-size: 20px !important;
-            margin: 0 !important;
-            white-space: nowrap !important;
-          }
-          .page-header .header-date-input {
-            flex-shrink: 0 !important;
-            width: auto !important;
-            min-width: 130px !important;
-            max-width: 150px !important;
-            padding: 10px 12px !important;
-            font-size: 13px !important;
-            margin: 0 !important;
-          }
-        }
-        @media (min-width: 769px) {
-          .summary-grid {
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 20px !important;
-          }
-          .summary-container {
-            padding: 32px !important;
-          }
-          .summary-grid > div {
-            padding: 20px !important;
-          }
-          .summary-grid > div > div:first-child {
-            font-size: 13px !important;
-          }
-          .summary-grid > div > div:last-child {
-            font-size: 24px !important;
-          }
-          .neto-card {
-            grid-column: span 1 !important;
-          }
-          .neto-card > div:last-child {
-            font-size: 28px !important;
-          }
-          .date-controls-container {
-            flex-direction: row !important;
-            align-items: center !important;
-            gap: 12px !important;
-          }
-          /* Osiguraj da buttoni imaju odgovarajuću veličinu */
-          .date-controls-container button.action-button {
-            width: 160px !important;
-            min-width: 160px !important;
-            max-width: 160px !important;
-          }
-          .date-controls-container > label {
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            margin-bottom: 0 !important;
-            margin-right: 8px !important;
-          }
-          /* Stil za datum u header-u */
-          .header-date-input {
-            min-width: 140px !important;
-            max-width: 160px !important;
-            padding: 10px 12px !important;
-            font-size: 14px !important;
-            font-weight: 600 !important;
-          }
-          /* Desktop verzija - header je već postavljen u inline stilovima */
-          .page-header {
-            flex-direction: row !important;
-            align-items: center !important;
-            flex-wrap: nowrap !important;
-          }
-          .page-header h1 {
-            flex-shrink: 0 !important;
-          }
-          .page-header .header-date-input {
-            flex-shrink: 0 !important;
-          }
-          .date-controls-container > button {
-            width: auto !important;
-            max-width: 160px !important;
-            padding: 8px 16px !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
-            margin-right: 8px !important;
-            margin-bottom: 8px !important;
-          }
+          h1 { font-size: 20px; margin-bottom: 16px; }
+          h2 { font-size: 16px; margin-bottom: 12px; }
+          h3 { font-size: 14px; margin: 6px 0; }
         }
       `}</style>
 
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", gap: "16px", width: "100%" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", margin: 0, flexShrink: 0 }}>
-          Obračun
-        </h1>
-        <input
-          type="date"
-          className="header-date-input"
-          value={trenutniDatum ? formatDateForInput(trenutniDatum) : ''}
-          onChange={handleDatumChange}
-          style={dateInputStyle}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = "#3b82f6";
-            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)";
-            e.currentTarget.style.transform = "translateY(-1px)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = "#e5e7eb";
-            e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
-            e.currentTarget.style.transform = "translateY(0)";
-          }}
-        />
-      </div>
+      <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", marginBottom: "24px" }}>
+        Obračun
+      </h1>
 
       {false && (
         <div style={{ 
@@ -2370,19 +2092,29 @@ export default function ObracunPage() {
 
       <div className="date-controls-container" style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "1 1 auto" }}>
-          <button 
+          <label style={{ fontSize: "14px", color: "#1f2937", marginRight: "8px" }}>
+            Datum obračuna:
+          </label>
+          <input
+            type="date"
+            value={formatDateForInput(trenutniDatum)}
+            onChange={handleDatumChange}
+            style={dateInputStyle}
+          />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", flex: "1 1 auto" }}>
+          <button
             className="action-button"
-            style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", minWidth: "160px", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed", margin: 0 }} 
+            style={{ ...buttonStyle, background: "#f59e0b", maxWidth: "160px", minWidth: "160px", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed", margin: 0 }}
             onClick={handleAzurirajObracun}
             disabled={!canEdit || isUlazLocked}
           >
             Ažuriraj obračun
           </button>
-          {/* Gumb "Uredi" za otključavanje ulaza - prikazuje se samo ako su ulazi zaključani */}
           {isUlazLocked && (
-            <button 
+            <button
               className="action-button"
-              style={{ 
+              style={{
                 padding: "8px 16px",
                 background: "#6366f1",
                 color: "white",
@@ -2399,14 +2131,13 @@ export default function ObracunPage() {
                 opacity: canEdit ? 1 : 0.5,
                 cursor: canEdit ? "pointer" : "not-allowed",
                 margin: 0
-              }} 
+              }}
               onClick={() => setIsUlazLocked(false)}
               disabled={!canEdit}
             >
               Uredi ulaz
             </button>
           )}
-          {/* Upload slika faktura - prikazuje se samo ako ima ulaz (sve dok obračun nije sačuvan) */}
           {hasUlaz && (
             <label
               className="action-button"
@@ -2439,13 +2170,18 @@ export default function ObracunPage() {
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
                   setInvoiceImages([...invoiceImages, ...files]);
-                  e.target.value = ""; // Reset input
+                  e.target.value = "";
                 }}
                 style={{ display: "none" }}
                 disabled={!canEdit}
               />
               📸 Dodaj slike fakture{(invoiceImages.length > 0 || savedInvoiceImagesCount > 0) ? ` (${invoiceImages.length + savedInvoiceImagesCount})` : ""}
             </label>
+          )}
+          {isAzuriran && (
+            <span style={{ fontSize: "14px", color: "#f59e0b", fontWeight: 500, marginLeft: "8px" }}>
+              (Ažurirano)
+            </span>
           )}
         </div>
       </div>
@@ -2488,7 +2224,7 @@ export default function ObracunPage() {
                 <>
                   <button
                     onClick={async () => {
-                      const datumString = formatirajDatum(trenutniDatum ?? new Date());
+                      const datumString = formatirajDatum(trenutniDatum);
                       const userId = user?.id || (await getUserId());
                       
                       if (!userId) {
@@ -2689,16 +2425,9 @@ export default function ObracunPage() {
       )}
 
       {/* Artikli */}
-      <div className="artikli-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isMobile ? "12px" : "16px", width: "100%" }}>
-        <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", margin: 0, flexShrink: 0 }}>
-          Artikli
-        </h2>
-        {isAzuriran && (
-          <span style={{ fontSize: "14px", color: "#f59e0b", fontWeight: 500, flexShrink: 0, marginLeft: "16px" }}>
-            (Ažurirano)
-          </span>
-        )}
-      </div>
+      <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: isMobile ? "12px" : "16px" }}>
+        Artikli
+      </h2>
       <table style={tableStyle}>
         <thead>
           <tr>
@@ -3672,111 +3401,113 @@ export default function ObracunPage() {
         </div>
       )}
 
-      {/* Ukupno - Poboljšan prikaz */}
-      <div className="summary-container" style={{ 
-        marginTop: "32px", 
-        padding: "24px",
-        background: "linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)",
-        borderRadius: "12px",
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
-      }}>
-        <h2 style={{ 
-          margin: "0 0 20px 0", 
-          fontSize: "18px", 
-          fontWeight: 600, 
-          color: "#1f2937",
-          textAlign: "center"
-        }}>
-          📊 Sažetak obračuna
-        </h2>
-        <div className="summary-grid" style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "16px",
-        }}>
-          {/* Ukupno rashod */}
-          <div style={{
-            padding: "16px",
-            background: "#fffef0",
-            borderRadius: "8px",
-            border: "1px solid #fde68a",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: "12px", color: "#92400e", fontWeight: 500, marginBottom: "4px" }}>
-              Ukupno Rashod
-            </div>
-            <div style={{ fontSize: "20px", fontWeight: 700, color: "#78350f" }}>
-              {ukupnoRashod.toFixed(2)} KM
-            </div>
-          </div>
+      {/* Sažetak ukupno - moderni blokovi */}
+      <div style={{ marginTop: "24px" }}>
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: "12px",
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+            padding: isMobile ? "20px 16px" : "32px",
+          }}
+        >
+          <h2 style={{ fontSize: isMobile ? "16px" : "20px", fontWeight: 700, color: "#1f2937", marginBottom: "16px" }}>
+            Sažetak obračuna
+          </h2>
 
-          {/* Ukupno prihod */}
-          <div style={{
-            padding: "16px",
-            background: "#eff6ff",
-            borderRadius: "8px",
-            border: "1px solid #93c5fd",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: "12px", color: "#1e40af", fontWeight: 500, marginBottom: "4px" }}>
-              Ukupno Prihod
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+              gap: isMobile ? "12px" : "20px",
+            }}
+          >
+            <div
+              style={{
+                padding: isMobile ? "14px" : "20px",
+                background: "#eff6ff",
+                borderRadius: "8px",
+                border: "1px solid #bfdbfe",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: isMobile ? "11px" : "13px", color: "#1d4ed8", fontWeight: 600, marginBottom: "4px" }}>
+                Ukupno Prihod
+              </div>
+              <div style={{ fontSize: isMobile ? "18px" : "24px", fontWeight: 700, color: "#1e40af" }}>
+                {ukupnoPrihod.toFixed(2)} KM
+              </div>
             </div>
-            <div style={{ fontSize: "20px", fontWeight: 700, color: "#1e3a8a" }}>
-              {ukupnoPrihod.toFixed(2)} KM
-            </div>
-          </div>
 
-          {/* Ukupno artikli */}
-          <div style={{
-            padding: "16px",
-            background: "#f0fdf4",
-            borderRadius: "8px",
-            border: "1px solid #86efac",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: "12px", color: "#166534", fontWeight: 500, marginBottom: "4px" }}>
-              Ukupno Artikli
+            <div
+              style={{
+                padding: isMobile ? "14px" : "20px",
+                background: "#fef2f2",
+                borderRadius: "8px",
+                border: "1px solid #fecaca",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: isMobile ? "11px" : "13px", color: "#b91c1c", fontWeight: 600, marginBottom: "4px" }}>
+                Ukupno Rashod
+              </div>
+              <div style={{ fontSize: isMobile ? "18px" : "24px", fontWeight: 700, color: "#991b1b" }}>
+                {ukupnoRashod.toFixed(2)} KM
+              </div>
             </div>
-            <div style={{ fontSize: "20px", fontWeight: 700, color: "#14532d" }}>
-              {ukupnoArtikli.toFixed(2)} KM
-            </div>
-          </div>
 
-          {/* Neto */}
-          <div className="neto-card" style={{
-            padding: "16px",
-            background: neto >= 0 ? "#f0fdf4" : "#fef2f2",
-            borderRadius: "8px",
-            border: `2px solid ${neto >= 0 ? "#22c55e" : "#ef4444"}`,
-            textAlign: "center",
-          }}>
-            <div style={{ 
-              fontSize: "12px", 
-              color: neto >= 0 ? "#15803d" : "#dc2626", 
-              fontWeight: 600, 
-              marginBottom: "4px",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px"
-            }}>
-              Neto
+            <div
+              style={{
+                padding: isMobile ? "14px" : "20px",
+                background: "#f0fdf4",
+                borderRadius: "8px",
+                border: "1px solid #86efac",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: isMobile ? "11px" : "13px", color: "#166534", fontWeight: 600, marginBottom: "4px" }}>
+                Ukupno Artikli
+              </div>
+              <div style={{ fontSize: isMobile ? "18px" : "24px", fontWeight: 700, color: "#14532d" }}>
+                {ukupnoArtikli.toFixed(2)} KM
+              </div>
             </div>
-            <div style={{ 
-              fontSize: "24px", 
-              fontWeight: 800, 
-              color: neto >= 0 ? "#15803d" : "#dc2626"
-            }}>
-              {neto.toFixed(2)} KM
+
+            <div
+              style={{
+                gridColumn: isMobile ? "span 2" : "span 1",
+                padding: isMobile ? "14px" : "20px",
+                background: neto >= 0 ? "#f0fdf4" : "#fef2f2",
+                borderRadius: "8px",
+                border: `2px solid ${neto >= 0 ? "#22c55e" : "#ef4444"}`,
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: isMobile ? "11px" : "13px",
+                  color: neto >= 0 ? "#15803d" : "#dc2626",
+                  fontWeight: 700,
+                  marginBottom: "4px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Neto
+              </div>
+              <div style={{ fontSize: isMobile ? "22px" : "28px", fontWeight: 800, color: neto >= 0 ? "#15803d" : "#dc2626" }}>
+                {neto.toFixed(2)} KM
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sačuvaj obračun button - na kraju stranice */}
       <div style={{ marginTop: "32px", marginBottom: "24px", paddingBottom: "16px", display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <button 
-          style={{ ...saveButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed", maxWidth: "300px", width: "100%" }} 
-          onClick={handleSaveObracun} 
+        <button
+          style={{ ...saveButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed", maxWidth: "300px", width: "100%" }}
+          onClick={handleSaveObracun}
           className="save-button"
           disabled={!canEdit || uploadingImages}
         >

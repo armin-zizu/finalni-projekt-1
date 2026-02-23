@@ -2,65 +2,20 @@
 
 import React from "react";
 import { useSubscription } from "../context/SubscriptionContext";
+import { useRole } from "../context/RoleContext";
 import { useRouter } from "next/navigation";
 
 export default function SubscriptionBanner() {
   const { subscription, loading } = useSubscription();
+  const { user } = useRole();
   const router = useRouter();
+  const adminEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com").toLowerCase().trim();
+  const userEmail = (user?.email || "").toLowerCase().trim();
+  const isAdmin = !!userEmail && userEmail === adminEmail;
+  const activationTargetPath = isAdmin ? "/admin" : "/profile";
 
   if (loading || !subscription) {
     return null;
-  }
-
-  // Trial period - prikaži banner samo ako korisnik nije uplatio
-  // Ako ima lastPaymentDate, znači da je uplatio i ne prikazujemo trial banner
-  if (subscription.isTrial && !subscription.lastPaymentDate) {
-    return (
-      <div
-        style={{
-          background: subscription.daysRemaining <= 3 ? "#fef3c7" : "#dbeafe",
-          borderBottom: `2px solid ${subscription.daysRemaining <= 3 ? "#f59e0b" : "#3b82f6"}`,
-          padding: "12px 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "12px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
-          <span style={{ fontSize: "20px" }}>
-            {subscription.daysRemaining <= 3 ? "⚠️" : "🎉"}
-          </span>
-          <div>
-            <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
-              {subscription.daysRemaining <= 3
-                ? `Probni period ističe za ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}!`
-                : `Probni period: Preostalo ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}`}
-            </p>
-            <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
-              Aktiviraj pretplatu da nastaviš koristiti aplikaciju
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => router.push("/profile")}
-          style={{
-            padding: "8px 16px",
-            background: "#3b82f6",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: 500,
-            whiteSpace: "nowrap",
-          }}
-        >
-          Aktiviraj pretplatu
-        </button>
-      </div>
-    );
   }
 
   // Grace period - prikaži upozorenje
@@ -90,7 +45,7 @@ export default function SubscriptionBanner() {
           </div>
         </div>
         <button
-          onClick={() => router.push("/profile")}
+          onClick={() => router.push(activationTargetPath)}
           style={{
             padding: "8px 16px",
             background: "#f59e0b",
@@ -104,6 +59,107 @@ export default function SubscriptionBanner() {
           }}
         >
           Aktiviraj pretplatu
+        </button>
+      </div>
+    );
+  }
+
+  // Premium/aktivna pretplata - ne prikazuj banner
+  if (subscription.isPremium || (subscription.isActive && !subscription.isTrial)) {
+    return null;
+  }
+
+  // Trial period - prikaži banner samo kad je stvarno trial (ne premium)
+  if (subscription.isTrial && !subscription.isPremium) {
+    return (
+      <div
+        style={{
+          background: subscription.daysRemaining <= 3 ? "#fef3c7" : "#dbeafe",
+          borderBottom: `2px solid ${subscription.daysRemaining <= 3 ? "#f59e0b" : "#3b82f6"}`,
+          padding: "12px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "12px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
+          <span style={{ fontSize: "20px" }}>
+            {subscription.daysRemaining <= 3 ? "⚠️" : "🎉"}
+          </span>
+          <div>
+            <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+              {subscription.daysRemaining <= 3
+                ? `Probni period ističe za ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}!`
+                : `Probni period: Preostalo ${subscription.daysRemaining} ${subscription.daysRemaining === 1 ? "dan" : "dana"}`}
+            </p>
+            <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
+              Aktiviraj pretplatu da nastaviš koristiti aplikaciju
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => router.push(activationTargetPath)}
+          style={{
+            padding: "8px 16px",
+            background: "#3b82f6",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Aktiviraj pretplatu
+        </button>
+      </div>
+    );
+  }
+
+  // Neaktivan status - prikaži blokirajući info banner
+  if (!subscription.isActive && !subscription.isTrial && !subscription.isGracePeriod) {
+    return (
+      <div
+        style={{
+          background: "#fee2e2",
+          borderBottom: "2px solid #dc2626",
+          padding: "12px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "12px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1 }}>
+          <span style={{ fontSize: "20px" }}>⛔</span>
+          <div>
+            <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+              Pretplata je neaktivna
+            </p>
+            <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
+              Kontaktiraj administratora ili aktiviraj pretplatu da nastaviš koristiti aplikaciju
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => router.push(activationTargetPath)}
+          style={{
+            padding: "8px 16px",
+            background: "#dc2626",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Otvori profil
         </button>
       </div>
     );

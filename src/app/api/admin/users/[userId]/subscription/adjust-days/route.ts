@@ -43,7 +43,7 @@ async function postHandler(
     const subscriptionResult = await query(
       `SELECT id, user_id, end_date, trial_end_date, is_active, updated_at
        FROM subscriptions
-       WHERE user_id = $1`,
+       WHERE user_id = $1::uuid`,
       [userId]
     );
 
@@ -88,13 +88,13 @@ async function postHandler(
     const updateQuery = type === 'premium'
       ? `UPDATE subscriptions 
          SET end_date = $1, is_active = $2, updated_at = NOW()
-         WHERE user_id = $3
+        WHERE user_id = $3::uuid
          RETURNING id, user_id, status, start_date, end_date, monthly_price, 
                    trial_end_date, grace_end_date, last_payment_date, is_active, 
                    subscription_data, created_at, updated_at`
       : `UPDATE subscriptions 
          SET trial_end_date = $1, updated_at = NOW()
-         WHERE user_id = $2
+        WHERE user_id = $2::uuid
          RETURNING id, user_id, status, start_date, end_date, monthly_price, 
                    trial_end_date, grace_end_date, last_payment_date, is_active, 
                    subscription_data, created_at, updated_at`;

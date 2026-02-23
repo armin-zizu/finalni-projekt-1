@@ -28,7 +28,7 @@ async function ensureSupportMessagesTable(): Promise<boolean> {
       await query(`
         CREATE TABLE IF NOT EXISTS support_messages (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           message TEXT NOT NULL,
           created_at TIMESTAMP DEFAULT NOW(),
           is_read BOOLEAN DEFAULT FALSE,

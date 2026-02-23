@@ -1,7 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* Sprječava tap highlight na mobilnim uređajima */
+
 * {
-  -webkit-tap-highlight-color: transparent;
+	-webkit-tap-highlight-color: transparent;
 }

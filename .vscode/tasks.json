@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "dev-3003",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"next",
+				"dev",
+				"-p",
+				"3003"
+			],
+			"isBackground": true
+		}
+	]
+}
