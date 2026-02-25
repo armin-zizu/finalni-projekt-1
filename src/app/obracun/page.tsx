@@ -2168,21 +2168,50 @@ export default function ObracunPage() {
           }
           .date-controls-container > div:last-child > button,
           .date-controls-container > div:last-child > label {
-            width: calc(50% - 4px) !important;
-            min-width: calc(50% - 4px) !important;
-            max-width: calc(50% - 4px) !important;
+            width: 160px !important;
+            min-width: 160px !important;
+            max-width: 160px !important;
             padding: 8px 12px !important;
             font-size: 13px !important;
             font-weight: 500 !important;
             border-radius: 6px !important;
             margin: 0 !important;
-            flex: 0 0 calc(50% - 4px) !important;
+            flex: 0 0 160px !important;
             box-sizing: border-box !important;
           }
           .action-button {
             width: 160px !important;
             min-width: 160px !important;
             max-width: 160px !important;
+            height: 38px !important;
+            padding: 8px 12px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+            white-space: nowrap !important;
+          }
+          .mobile-top-row {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            flex-wrap: nowrap !important;
+            width: 100% !important;
+            gap: 8px !important;
+          }
+          .mobile-top-row h1 {
+            margin: 0 !important;
+            font-size: 20px !important;
+            white-space: nowrap !important;
+            flex: 0 0 auto !important;
+          }
+          .mobile-top-row .mobile-date-box {
+            width: 142px !important;
+            min-width: 142px !important;
+            max-width: 142px !important;
+            flex: 0 0 142px !important;
+            margin: 0 !important;
           }
           h1 { font-size: 20px; margin-bottom: 16px; }
           h2 { font-size: 16px; margin-bottom: 12px; }
@@ -2221,9 +2250,46 @@ export default function ObracunPage() {
         }
       `}</style>
 
-      <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", marginBottom: "24px" }}>
-        Obračun
-      </h1>
+      <div
+        className="mobile-top-row"
+        style={{
+          display: "flex",
+          alignItems: isMobile ? "center" : "baseline",
+          justifyContent: "space-between",
+          flexWrap: "nowrap",
+          marginBottom: "20px",
+          gap: "12px",
+          width: "100%",
+        }}
+      >
+        <h1
+          style={{
+            fontSize: isMobile ? "20px" : "24px",
+            fontWeight: 600,
+            color: "#1f2937",
+            marginBottom: 0,
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          Obračun
+        </h1>
+        <input
+          className="mobile-date-box"
+          type="date"
+          value={formatDateForInput(trenutniDatum)}
+          onChange={handleDatumChange}
+          style={{
+            ...dateInputStyle,
+            width: isMobile ? "142px" : "160px",
+            maxWidth: isMobile ? "142px" : "160px",
+            padding: isMobile ? "7px 8px" : "8px",
+            fontSize: isMobile ? "13px" : "14px",
+            margin: 0,
+            flexShrink: 0,
+          }}
+        />
+      </div>
 
       {false && (
         <div style={{ 
@@ -2240,15 +2306,6 @@ export default function ObracunPage() {
 
       <div className="date-controls-container" style={{ marginBottom: "20px", display: "flex", alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap", gap: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: isMobile ? "wrap" : "nowrap", flex: isMobile ? "1 1 auto" : "0 0 auto" }}>
-          <label style={{ fontSize: "14px", color: "#1f2937", marginRight: "8px" }}>
-            Datum obračuna:
-          </label>
-          <input
-            type="date"
-            value={formatDateForInput(trenutniDatum)}
-            onChange={handleDatumChange}
-            style={dateInputStyle}
-          />
           <button
             className="action-button"
             style={{ ...buttonStyle, background: "#f59e0b", opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "pointer" : "not-allowed", margin: 0 }}
@@ -3644,7 +3701,7 @@ export default function ObracunPage() {
           className="save-button"
           disabled={!canEdit || uploadingImages}
         >
-          {uploadingImages ? `Upload slika... ${Math.round(uploadProgress)}%` : "Sačuvaj obračun"}
+          {uploadingImages ? `Upload slika... ${Math.round(uploadProgress)}%` : "Završi obračun"}
         </button>
       </div>
     </div>

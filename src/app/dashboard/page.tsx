@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   LineChart,
   Line,
@@ -98,6 +98,8 @@ export default function DashboardPage() {
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const [rangeDropdownOpen, setRangeDropdownOpen] = useState(false);
+  const [customFromWheelOpen, setCustomFromWheelOpen] = useState(false);
+  const [customToWheelOpen, setCustomToWheelOpen] = useState(false);
   const [chartSeriesView, setChartSeriesView] = useState<"all" | "artikli" | "prihod" | "rashod" | "neto">("all");
   const [chartSeriesDropdownOpen, setChartSeriesDropdownOpen] = useState(false);
   const [selectedArtikl, setSelectedArtikl] = useState<string>("");
@@ -106,6 +108,10 @@ export default function DashboardPage() {
   const [artiklViewDropdownOpen, setArtiklViewDropdownOpen] = useState(false);
   const [artiklMonthDropdownOpen, setArtiklMonthDropdownOpen] = useState(false);
   const [artiklYearDropdownOpen, setArtiklYearDropdownOpen] = useState(false);
+  const [artiklCustomFromWheelOpen, setArtiklCustomFromWheelOpen] = useState(false);
+  const [artiklCustomToWheelOpen, setArtiklCustomToWheelOpen] = useState(false);
+  const [artiklSelectDropdownOpen, setArtiklSelectDropdownOpen] = useState(false);
+  const [hoveredDropdownOption, setHoveredDropdownOption] = useState<string | null>(null);
   const [artiklSelectedMonth, setArtiklSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [artiklSelectedYear, setArtiklSelectedYear] = useState<number>(new Date().getFullYear());
   const [artiklCustomFrom, setArtiklCustomFrom] = useState<string>(
@@ -155,6 +161,8 @@ export default function DashboardPage() {
     return false;
   });
   const [chartKey, setChartKey] = useState(0);
+  const wheelMomentumLockUntilRef = useRef<{ day: number; month: number; year: number }>({ day: 0, month: 0, year: 0 });
+  const WHEEL_STEP_LOCK_MS = 85;
   const router = useRouter();
   const { cjenovnik } = useCjenovnik();
   const { user } = useRole();
@@ -302,6 +310,31 @@ export default function DashboardPage() {
     setArtiklCustomFrom(customFrom);
     setArtiklCustomTo(customTo);
   }, [selectedMonth, selectedYear, customFrom, customTo]);
+
+  const closeAllDropdowns = useCallback(() => {
+    setMonthDropdownOpen(false);
+    setYearDropdownOpen(false);
+    setRangeDropdownOpen(false);
+    setCustomFromWheelOpen(false);
+    setCustomToWheelOpen(false);
+    setChartSeriesDropdownOpen(false);
+    setArtiklRangeDropdownOpen(false);
+    setArtiklViewDropdownOpen(false);
+    setArtiklMonthDropdownOpen(false);
+    setArtiklYearDropdownOpen(false);
+    setArtiklCustomFromWheelOpen(false);
+    setArtiklCustomToWheelOpen(false);
+    setArtiklSelectDropdownOpen(false);
+  }, []);
+
+  const toggleExclusiveDropdown = useCallback(
+    (isOpen: boolean, setOpen: (value: boolean) => void) => {
+      const nextOpen = !isOpen;
+      closeAllDropdowns();
+      setOpen(nextOpen);
+    },
+    [closeAllDropdowns]
+  );
   
   // Listener za promjene u arhivi (kada se doda novi obračun)
   useEffect(() => {
@@ -324,14 +357,7 @@ export default function DashboardPage() {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest('[data-dropdown-container]')) {
-        setMonthDropdownOpen(false);
-        setYearDropdownOpen(false);
-        setRangeDropdownOpen(false);
-        setChartSeriesDropdownOpen(false);
-        setArtiklRangeDropdownOpen(false);
-        setArtiklViewDropdownOpen(false);
-        setArtiklMonthDropdownOpen(false);
-        setArtiklYearDropdownOpen(false);
+        closeAllDropdowns();
       }
     };
 
@@ -339,11 +365,16 @@ export default function DashboardPage() {
       monthDropdownOpen ||
       yearDropdownOpen ||
       rangeDropdownOpen ||
+      customFromWheelOpen ||
+      customToWheelOpen ||
       chartSeriesDropdownOpen ||
       artiklRangeDropdownOpen ||
       artiklViewDropdownOpen ||
       artiklMonthDropdownOpen ||
-      artiklYearDropdownOpen
+      artiklYearDropdownOpen ||
+      artiklCustomFromWheelOpen ||
+      artiklCustomToWheelOpen ||
+      artiklSelectDropdownOpen
     ) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
@@ -351,14 +382,20 @@ export default function DashboardPage() {
       };
     }
   }, [
+    closeAllDropdowns,
     monthDropdownOpen,
     yearDropdownOpen,
     rangeDropdownOpen,
+    customFromWheelOpen,
+    customToWheelOpen,
     chartSeriesDropdownOpen,
     artiklRangeDropdownOpen,
     artiklViewDropdownOpen,
     artiklMonthDropdownOpen,
     artiklYearDropdownOpen,
+    artiklCustomFromWheelOpen,
+    artiklCustomToWheelOpen,
+    artiklSelectDropdownOpen,
   ]);
 
   // Priprema podataka za grafikon - samo finalni obračuni (bez isAzuriran: true)
@@ -1393,6 +1430,676 @@ export default function DashboardPage() {
   const topArtikl = calculateTopArtikl(artiklRange);
   const artiklRanking = calculateArtiklRanking(artiklRange);
   const artiklToDisplay = artiklViewType === "top" ? topArtikl : selectedArtikl;
+
+  const rangeDesktopOptions: Array<{ value: "currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom"; label: string }> = [
+    { value: "currentWeek", label: "Ova sedmica" },
+    { value: "previousWeek", label: "Prošla sedmica" },
+    { value: "monthly", label: "Mjesečni pregled" },
+    { value: "quarterly", label: "Kvartalni pregled" },
+    { value: "selectMonth", label: "Odabir mjeseca" },
+    { value: "custom", label: "Prilagođeni raspon" },
+  ];
+
+  const chartSeriesDesktopOptions: Array<{ value: "all" | "artikli" | "prihod" | "rashod" | "neto"; label: string }> = [
+    { value: "all", label: "Kompletan pregled" },
+    { value: "artikli", label: "Bruto promet" },
+    { value: "prihod", label: "Ukupni prihod" },
+    { value: "rashod", label: "Ukupni rashod" },
+    { value: "neto", label: "Neto rezultat" },
+  ];
+
+  const artiklRangeDesktopOptions: Array<{ value: "currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom"; label: string }> = [
+    { value: "currentWeek", label: "Ova sedmica" },
+    { value: "previousWeek", label: "Prošla sedmica" },
+    { value: "monthly", label: "Mjesečni pregled" },
+    { value: "quarterly", label: "Kvartalni pregled" },
+    { value: "selectMonth", label: "Odabir mjeseca" },
+    { value: "custom", label: "Prilagođeni raspon" },
+  ];
+
+  const artiklViewDesktopOptions: Array<{ value: "custom" | "top"; label: string }> = [
+    { value: "custom", label: "Detalj po artiklu" },
+    { value: "top", label: "Top artikal" },
+  ];
+
+  const monthDesktopOptions = ["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"];
+  const yearDesktopOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+
+  const selectedRangeDesktopLabel = rangeDesktopOptions.find((opt) => opt.value === range)?.label ?? "Ova sedmica";
+  const selectedChartSeriesDesktopLabel = chartSeriesDesktopOptions.find((opt) => opt.value === chartSeriesView)?.label ?? "Kompletan pregled";
+  const selectedArtiklRangeDesktopLabel = artiklRangeDesktopOptions.find((opt) => opt.value === artiklRange)?.label ?? "Ova sedmica";
+  const selectedArtiklViewDesktopLabel = artiklViewDesktopOptions.find((opt) => opt.value === artiklViewType)?.label ?? "Detalj po artiklu";
+  const selectedArtiklDesktopLabel = selectedArtikl || "Izaberi artikal";
+  const selectedMonthDesktopLabel = monthDesktopOptions[selectedMonth - 1] ?? "Mjesec";
+  const selectedYearDesktopLabel = String(selectedYear);
+  const wheelYearOptions = Array.from({ length: 31 }, (_, i) => new Date().getFullYear() - 15 + i);
+
+  const parseIsoDateParts = (value: string) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) {
+      const today = new Date();
+      return { year: today.getFullYear(), month: today.getMonth() + 1, day: today.getDate() };
+    }
+    return {
+      year: Number(match[1]),
+      month: Number(match[2]),
+      day: Number(match[3]),
+    };
+  };
+
+  const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
+
+  const formatIsoDate = (year: number, month: number, day: number) => {
+    const mm = String(month).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    return `${year}-${mm}-${dd}`;
+  };
+
+  const formatIsoDateDisplay = (value: string) => {
+    const { year, month, day } = parseIsoDateParts(value);
+    return `${String(day).padStart(2, "0")}.${String(month).padStart(2, "0")}.${year}`;
+  };
+
+  const updateIsoDatePart = (currentValue: string, part: "day" | "month" | "year", nextValue: number) => {
+    const current = parseIsoDateParts(currentValue);
+    const next = {
+      year: part === "year" ? nextValue : current.year,
+      month: part === "month" ? nextValue : current.month,
+      day: part === "day" ? nextValue : current.day,
+    };
+    const maxDay = daysInMonth(next.year, next.month);
+    next.day = Math.min(next.day, maxDay);
+    return formatIsoDate(next.year, next.month, next.day);
+  };
+
+  const renderDateWheelPicker = (value: string, setValue: (next: string) => void) => {
+    const current = parseIsoDateParts(value);
+    const totalDays = daysInMonth(current.year, current.month);
+    const minYear = wheelYearOptions[0];
+    const maxYear = wheelYearOptions[wheelYearOptions.length - 1];
+
+    const withWrap = (num: number, min: number, max: number) => {
+      if (num < min) return max;
+      if (num > max) return min;
+      return num;
+    };
+
+    const shiftPart = (part: "day" | "month" | "year", step: -1 | 1) => {
+      const parsed = parseIsoDateParts(value);
+
+      if (part === "month") {
+        const nextMonth = withWrap(parsed.month + step, 1, 12);
+        setValue(updateIsoDatePart(value, "month", nextMonth));
+        return;
+      }
+
+      if (part === "year") {
+        const nextYear = Math.min(maxYear, Math.max(minYear, parsed.year + step));
+        setValue(updateIsoDatePart(value, "year", nextYear));
+        return;
+      }
+
+      const maxDay = daysInMonth(parsed.year, parsed.month);
+      const nextDay = withWrap(parsed.day + step, 1, maxDay);
+      setValue(updateIsoDatePart(value, "day", nextDay));
+    };
+
+    const handleWheel = (part: "day" | "month" | "year") => (e: React.WheelEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (Math.abs(e.deltaY) < 1) return;
+
+      const now = Date.now();
+      if (now < wheelMomentumLockUntilRef.current[part]) return;
+
+      shiftPart(part, e.deltaY > 0 ? 1 : -1);
+      wheelMomentumLockUntilRef.current[part] = now + WHEEL_STEP_LOCK_MS;
+    };
+
+    const wheelShellStyle: React.CSSProperties = {
+      display: "flex",
+      gap: 0,
+      border: "1px solid #d8e6f7",
+      borderRadius: 12,
+      overflow: "hidden",
+      background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+      boxShadow: "0 10px 24px rgba(30, 58, 138, 0.12)",
+      overscrollBehavior: "contain",
+      position: "relative",
+      isolation: "isolate",
+    };
+
+    const wheelTopFadeStyle: React.CSSProperties = {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 56,
+      background: "linear-gradient(180deg, rgba(216, 230, 247, 0.42) 0%, rgba(216, 230, 247, 0.11) 62%, rgba(216, 230, 247, 0) 100%)",
+      pointerEvents: "none",
+      zIndex: 1,
+    };
+
+    const wheelBottomFadeStyle: React.CSSProperties = {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 56,
+      background: "linear-gradient(0deg, rgba(216, 230, 247, 0.42) 0%, rgba(216, 230, 247, 0.11) 62%, rgba(216, 230, 247, 0) 100%)",
+      pointerEvents: "none",
+      zIndex: 1,
+    };
+
+    const wheelCenterFocusStyle: React.CSSProperties = {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 56,
+      height: 36,
+      background: "linear-gradient(90deg, rgba(216, 230, 247, 0.18) 0%, rgba(186, 215, 246, 0.32) 50%, rgba(216, 230, 247, 0.18) 100%)",
+      borderTop: "1px solid rgba(142, 178, 222, 0.26)",
+      borderBottom: "1px solid rgba(142, 178, 222, 0.26)",
+      boxShadow: "inset 0 0 10px rgba(116, 162, 218, 0.16), 0 0 12px rgba(116, 162, 218, 0.14)",
+      backdropFilter: "saturate(125%)",
+      pointerEvents: "none",
+      zIndex: 1,
+    };
+
+    const colBaseStyle: React.CSSProperties = {
+      display: "grid",
+      gridTemplateRows: "28px 28px 36px 28px 28px",
+      alignItems: "center",
+      textAlign: "center",
+      userSelect: "none",
+      perspective: "420px",
+      transformStyle: "preserve-3d",
+    };
+
+    const rowBtnStyle: React.CSSProperties = {
+      border: "none",
+      background: "transparent",
+      cursor: "pointer",
+      fontSize: "12px",
+      fontWeight: 500,
+      color: "#64748b",
+      transition: "background-color 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease",
+      width: "100%",
+      height: "100%",
+      padding: 0,
+      margin: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 1,
+      transform: "translateZ(0)",
+      position: "relative",
+      zIndex: 2,
+    };
+
+    const rowActiveStyle: React.CSSProperties = {
+      fontSize: "15px",
+      fontWeight: 700,
+      color: "#0f2f77",
+      background: "transparent",
+      borderTop: "1px solid rgba(142, 178, 222, 0.24)",
+      borderBottom: "1px solid rgba(142, 178, 222, 0.24)",
+      lineHeight: "36px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      textShadow: "0 1px 0 rgba(255,255,255,0.45)",
+      letterSpacing: "0.01em",
+      position: "relative",
+      zIndex: 2,
+      transform: "translateZ(1px)",
+    };
+
+    const getWheelRowStyle = (
+      isHovered: boolean,
+      tone: "outer" | "near",
+      position: "far-up" | "near-up" | "near-down" | "far-down"
+    ): React.CSSProperties => {
+      const baseTilt =
+        position === "far-up"
+          ? "rotateX(22deg) translateY(2px) scale(0.9)"
+          : position === "near-up"
+            ? "rotateX(10deg) translateY(1px) scale(0.96)"
+            : position === "near-down"
+              ? "rotateX(-10deg) translateY(-1px) scale(0.96)"
+              : "rotateX(-22deg) translateY(-2px) scale(0.9)";
+
+      const hoveredTilt =
+        position === "far-up"
+          ? "rotateX(16deg) translateY(1px) scale(0.95)"
+          : position === "near-up"
+            ? "rotateX(6deg) translateY(0px) scale(1.01)"
+            : position === "near-down"
+              ? "rotateX(-6deg) translateY(0px) scale(1.01)"
+              : "rotateX(-16deg) translateY(-1px) scale(0.95)";
+
+      if (tone === "outer") {
+        return {
+          ...rowBtnStyle,
+          background: isHovered ? "#f1f6fd" : "#ffffff",
+          color: isHovered ? "#1e3a8a" : "#64748b",
+          fontSize: isHovered ? "12px" : "11.5px",
+          opacity: isHovered ? 1 : 0.66,
+          transform: isHovered ? hoveredTilt : baseTilt,
+          boxShadow: isHovered
+            ? "inset 0 0 0 1px rgba(116, 162, 218, 0.32), 0 0 8px rgba(116, 162, 218, 0.2)"
+            : "none",
+        };
+      }
+
+      return {
+        ...rowBtnStyle,
+        background: isHovered ? "#ddeafd" : "#f4f8fd",
+        color: isHovered ? "#1e3a8a" : "#334155",
+        fontSize: isHovered ? "12.5px" : "12px",
+        opacity: isHovered ? 1 : 0.88,
+        transform: isHovered ? hoveredTilt : baseTilt,
+        boxShadow: isHovered
+          ? "inset 0 0 0 1px rgba(116, 162, 218, 0.32), 0 0 8px rgba(116, 162, 218, 0.2)"
+          : "none",
+      };
+    };
+
+    const prevDay = current.day === 1 ? totalDays : current.day - 1;
+    const prevDay2 = prevDay === 1 ? totalDays : prevDay - 1;
+    const nextDay = current.day === totalDays ? 1 : current.day + 1;
+    const nextDay2 = nextDay === totalDays ? 1 : nextDay + 1;
+
+    const prevMonth = current.month === 1 ? 12 : current.month - 1;
+    const prevMonth2 = prevMonth === 1 ? 12 : prevMonth - 1;
+    const nextMonth = current.month === 12 ? 1 : current.month + 1;
+    const nextMonth2 = nextMonth === 12 ? 1 : nextMonth + 1;
+
+    const prevYear = Math.max(minYear, current.year - 1);
+    const prevYear2 = Math.max(minYear, prevYear - 1);
+    const nextYear = Math.min(maxYear, current.year + 1);
+    const nextYear2 = Math.min(maxYear, nextYear + 1);
+
+    return (
+      <div style={wheelShellStyle}>
+        <div style={wheelTopFadeStyle} />
+        <div style={wheelCenterFocusStyle} />
+        <div style={wheelBottomFadeStyle} />
+        <div
+          style={{ ...colBaseStyle, width: 52, borderRight: "1px solid #f0f5fb", position: "relative", zIndex: 2 }}
+          onWheel={handleWheel("day")}
+          onWheelCapture={handleWheel("day")}
+        >
+          <button
+            type="button"
+            onClick={() => shiftPart("day", -1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-day-${prevDay2}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-day-${prevDay2}`, "outer", "far-up")}
+          >
+            {prevDay2}
+          </button>
+          <button
+            type="button"
+            onClick={() => shiftPart("day", -1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-day-${prevDay}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-day-${prevDay}`, "near", "near-up")}
+          >
+            {prevDay}
+          </button>
+          <div style={rowActiveStyle}>{current.day}</div>
+          <button
+            type="button"
+            onClick={() => shiftPart("day", 1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-day-${nextDay}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-day-${nextDay}`, "near", "near-down")}
+          >
+            {nextDay}
+          </button>
+          <button
+            type="button"
+            onClick={() => shiftPart("day", 1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-day-${nextDay2}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-day-${nextDay2}`, "outer", "far-down")}
+          >
+            {nextDay2}
+          </button>
+        </div>
+
+        <div
+          style={{ ...colBaseStyle, width: 112, borderRight: "1px solid #f0f5fb", position: "relative", zIndex: 2 }}
+          onWheel={handleWheel("month")}
+          onWheelCapture={handleWheel("month")}
+        >
+          <button
+            type="button"
+            onClick={() => shiftPart("month", -1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-month-${prevMonth2}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-month-${prevMonth2}`, "outer", "far-up")}
+          >
+            {monthDesktopOptions[prevMonth2 - 1]}
+          </button>
+          <button
+            type="button"
+            onClick={() => shiftPart("month", -1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-month-${prevMonth}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-month-${prevMonth}`, "near", "near-up")}
+          >
+            {monthDesktopOptions[prevMonth - 1]}
+          </button>
+          <div style={rowActiveStyle}>{monthDesktopOptions[current.month - 1]}</div>
+          <button
+            type="button"
+            onClick={() => shiftPart("month", 1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-month-${nextMonth}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-month-${nextMonth}`, "near", "near-down")}
+          >
+            {monthDesktopOptions[nextMonth - 1]}
+          </button>
+          <button
+            type="button"
+            onClick={() => shiftPart("month", 1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-month-${nextMonth2}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-month-${nextMonth2}`, "outer", "far-down")}
+          >
+            {monthDesktopOptions[nextMonth2 - 1]}
+          </button>
+        </div>
+
+        <div
+          style={{ ...colBaseStyle, width: 72, position: "relative", zIndex: 2 }}
+          onWheel={handleWheel("year")}
+          onWheelCapture={handleWheel("year")}
+        >
+          <button
+            type="button"
+            onClick={() => shiftPart("year", -1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-year-${prevYear2}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-year-${prevYear2}`, "outer", "far-up")}
+          >
+            {prevYear2}
+          </button>
+          <button
+            type="button"
+            onClick={() => shiftPart("year", -1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-year-${prevYear}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-year-${prevYear}`, "near", "near-up")}
+          >
+            {prevYear}
+          </button>
+          <div style={rowActiveStyle}>{current.year}</div>
+          <button
+            type="button"
+            onClick={() => shiftPart("year", 1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-year-${nextYear}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-year-${nextYear}`, "near", "near-down")}
+          >
+            {nextYear}
+          </button>
+          <button
+            type="button"
+            onClick={() => shiftPart("year", 1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-year-${nextYear2}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-year-${nextYear2}`, "outer", "far-down")}
+          >
+            {nextYear2}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMonthYearWheelPicker = (
+    part: "month" | "year",
+    value: number,
+    setValue: (next: number) => void
+  ) => {
+    const minYear = yearDesktopOptions[0] ?? new Date().getFullYear() - 2;
+    const maxYear = yearDesktopOptions[yearDesktopOptions.length - 1] ?? new Date().getFullYear() + 2;
+
+    const withWrap = (num: number, min: number, max: number) => {
+      if (num < min) return max;
+      if (num > max) return min;
+      return num;
+    };
+
+    const shiftPart = (step: -1 | 1) => {
+      if (part === "month") {
+        setValue(withWrap(value + step, 1, 12));
+        return;
+      }
+
+      const nextYear = Math.min(maxYear, Math.max(minYear, value + step));
+      setValue(nextYear);
+    };
+
+    const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (Math.abs(e.deltaY) < 1) return;
+
+      const now = Date.now();
+      if (now < wheelMomentumLockUntilRef.current[part]) return;
+
+      shiftPart(e.deltaY > 0 ? 1 : -1);
+      wheelMomentumLockUntilRef.current[part] = now + WHEEL_STEP_LOCK_MS;
+    };
+
+    const prev = part === "month" ? withWrap(value - 1, 1, 12) : Math.max(minYear, value - 1);
+    const prev2 = part === "month" ? withWrap(prev - 1, 1, 12) : Math.max(minYear, prev - 1);
+    const next = part === "month" ? withWrap(value + 1, 1, 12) : Math.min(maxYear, value + 1);
+    const next2 = part === "month" ? withWrap(next + 1, 1, 12) : Math.min(maxYear, next + 1);
+
+    const labelFor = (num: number) => (part === "month" ? monthDesktopOptions[num - 1] : `${num}`);
+
+    const wheelShellStyle: React.CSSProperties = {
+      display: "flex",
+      gap: 0,
+      border: "1px solid #d8e6f7",
+      borderRadius: 12,
+      overflow: "hidden",
+      background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+      boxShadow: "0 10px 24px rgba(30, 58, 138, 0.12)",
+      overscrollBehavior: "contain",
+      position: "relative",
+      isolation: "isolate",
+    };
+
+    const wheelTopFadeStyle: React.CSSProperties = {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 56,
+      background: "linear-gradient(180deg, rgba(216, 230, 247, 0.42) 0%, rgba(216, 230, 247, 0.11) 62%, rgba(216, 230, 247, 0) 100%)",
+      pointerEvents: "none",
+      zIndex: 1,
+    };
+
+    const wheelBottomFadeStyle: React.CSSProperties = {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 56,
+      background: "linear-gradient(0deg, rgba(216, 230, 247, 0.42) 0%, rgba(216, 230, 247, 0.11) 62%, rgba(216, 230, 247, 0) 100%)",
+      pointerEvents: "none",
+      zIndex: 1,
+    };
+
+    const wheelCenterFocusStyle: React.CSSProperties = {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 56,
+      height: 36,
+      background: "linear-gradient(90deg, rgba(216, 230, 247, 0.18) 0%, rgba(186, 215, 246, 0.32) 50%, rgba(216, 230, 247, 0.18) 100%)",
+      borderTop: "1px solid rgba(142, 178, 222, 0.26)",
+      borderBottom: "1px solid rgba(142, 178, 222, 0.26)",
+      boxShadow: "inset 0 0 10px rgba(116, 162, 218, 0.16), 0 0 12px rgba(116, 162, 218, 0.14)",
+      backdropFilter: "saturate(125%)",
+      pointerEvents: "none",
+      zIndex: 1,
+    };
+
+    const colBaseStyle: React.CSSProperties = {
+      display: "grid",
+      gridTemplateRows: "28px 28px 36px 28px 28px",
+      alignItems: "center",
+      textAlign: "center",
+      userSelect: "none",
+      perspective: "420px",
+      transformStyle: "preserve-3d",
+      width: "100%",
+    };
+
+    const rowBtnStyle: React.CSSProperties = {
+      border: "none",
+      background: "transparent",
+      cursor: "pointer",
+      fontSize: "12px",
+      fontWeight: 500,
+      color: "#64748b",
+      transition: "background-color 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease",
+      width: "100%",
+      height: "100%",
+      padding: 0,
+      margin: 0,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 1,
+      transform: "translateZ(0)",
+      position: "relative",
+      zIndex: 2,
+    };
+
+    const rowActiveStyle: React.CSSProperties = {
+      fontSize: "15px",
+      fontWeight: 700,
+      color: "#0f2f77",
+      background: "transparent",
+      borderTop: "1px solid rgba(142, 178, 222, 0.24)",
+      borderBottom: "1px solid rgba(142, 178, 222, 0.24)",
+      lineHeight: "36px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      textShadow: "0 1px 0 rgba(255,255,255,0.45)",
+      letterSpacing: "0.01em",
+      position: "relative",
+      zIndex: 2,
+      transform: "translateZ(1px)",
+    };
+
+    const getWheelRowStyle = (
+      isHovered: boolean,
+      tone: "outer" | "near",
+      position: "far-up" | "near-up" | "near-down" | "far-down"
+    ): React.CSSProperties => {
+      const baseTilt =
+        position === "far-up"
+          ? "rotateX(22deg) translateY(2px) scale(0.9)"
+          : position === "near-up"
+            ? "rotateX(10deg) translateY(1px) scale(0.96)"
+            : position === "near-down"
+              ? "rotateX(-10deg) translateY(-1px) scale(0.96)"
+              : "rotateX(-22deg) translateY(-2px) scale(0.9)";
+
+      const hoveredTilt =
+        position === "far-up"
+          ? "rotateX(16deg) translateY(1px) scale(0.95)"
+          : position === "near-up"
+            ? "rotateX(6deg) translateY(0px) scale(1.01)"
+            : position === "near-down"
+              ? "rotateX(-6deg) translateY(0px) scale(1.01)"
+              : "rotateX(-16deg) translateY(-1px) scale(0.95)";
+
+      if (tone === "outer") {
+        return {
+          ...rowBtnStyle,
+          background: isHovered ? "#f1f6fd" : "#ffffff",
+          color: isHovered ? "#1e3a8a" : "#64748b",
+          fontSize: isHovered ? "12px" : "11.5px",
+          opacity: isHovered ? 1 : 0.66,
+          transform: isHovered ? hoveredTilt : baseTilt,
+          boxShadow: isHovered
+            ? "inset 0 0 0 1px rgba(116, 162, 218, 0.32), 0 0 8px rgba(116, 162, 218, 0.2)"
+            : "none",
+        };
+      }
+
+      return {
+        ...rowBtnStyle,
+        background: isHovered ? "#ddeafd" : "#f4f8fd",
+        color: isHovered ? "#1e3a8a" : "#334155",
+        fontSize: isHovered ? "12.5px" : "12px",
+        opacity: isHovered ? 1 : 0.88,
+        transform: isHovered ? hoveredTilt : baseTilt,
+        boxShadow: isHovered
+          ? "inset 0 0 0 1px rgba(116, 162, 218, 0.32), 0 0 8px rgba(116, 162, 218, 0.2)"
+          : "none",
+      };
+    };
+
+    return (
+      <div style={wheelShellStyle}>
+        <div style={wheelTopFadeStyle} />
+        <div style={wheelCenterFocusStyle} />
+        <div style={wheelBottomFadeStyle} />
+        <div style={colBaseStyle} onWheel={handleWheel} onWheelCapture={handleWheel}>
+          <button
+            type="button"
+            onClick={() => shiftPart(-1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-${part}-${prev2}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-${part}-${prev2}`, "outer", "far-up")}
+          >
+            {labelFor(prev2)}
+          </button>
+          <button
+            type="button"
+            onClick={() => shiftPart(-1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-${part}-${prev}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-${part}-${prev}`, "near", "near-up")}
+          >
+            {labelFor(prev)}
+          </button>
+          <div style={rowActiveStyle}>{labelFor(value)}</div>
+          <button
+            type="button"
+            onClick={() => shiftPart(1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-${part}-${next}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-${part}-${next}`, "near", "near-down")}
+          >
+            {labelFor(next)}
+          </button>
+          <button
+            type="button"
+            onClick={() => shiftPart(1)}
+            onMouseEnter={() => setHoveredDropdownOption(`wheel-${part}-${next2}`)}
+            onMouseLeave={() => setHoveredDropdownOption(null)}
+            style={getWheelRowStyle(hoveredDropdownOption === `wheel-${part}-${next2}`, "outer", "far-down")}
+          >
+            {labelFor(next2)}
+          </button>
+        </div>
+      </div>
+    );
+  };
   
   // Generiši podatke - ako nema odabranog artikla i artiklRange je "currentWeek", generiši prazan chart sa datumima
   let selectedData: ArtiklData[] = [];
@@ -1654,32 +2361,81 @@ export default function DashboardPage() {
           <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
               <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Period izvještaja</label>
-              <select
-                value={range}
-                onChange={(e) => setRange(e.target.value as any)}
-                style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
-              >
-                <option value="currentWeek">Trenutna sedmica</option>
-                <option value="previousWeek">Prošla sedmica</option>
-                <option value="monthly">Mjesečni</option>
-                <option value="quarterly">Tromjesečni</option>
-                <option value="selectMonth">Odaberi mjesec</option>
-                <option value="custom">Prilagođeno</option>
-              </select>
+              <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => toggleExclusiveDropdown(rangeDropdownOpen, setRangeDropdownOpen)}
+                  style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                >
+                  {selectedRangeDesktopLabel}
+                </button>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: rangeDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                  <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                </svg>
+                {rangeDropdownOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "10px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 60, overflow: "hidden" }}>
+                    {rangeDesktopOptions.map((opt, index) => {
+                      const isActive = opt.value === range;
+                      const hoverKey = `range-mobile-${opt.value}`;
+                      const isHovered = hoveredDropdownOption === hoverKey;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                          onMouseLeave={() => setHoveredDropdownOption(null)}
+                          onClick={() => {
+                            setRange(opt.value);
+                            setRangeDropdownOpen(false);
+                          }}
+                          style={{ width: "100%", textAlign: "left", padding: "10px", border: "none", borderBottom: index === rangeDesktopOptions.length - 1 ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer" }}
+                        >
+                          <div style={{ fontSize: "12.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a" }}>{opt.label}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
               <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Prikaz vrijednosti</label>
-              <select
-                value={chartSeriesView}
-                onChange={(e) => setChartSeriesView(e.target.value as any)}
-                style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
-              >
-                <option value="all">Sve ukupno</option>
-                <option value="artikli">Bruto</option>
-                <option value="prihod">Prihod</option>
-                <option value="rashod">Rashod</option>
-                <option value="neto">Neto</option>
-              </select>
+              <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => toggleExclusiveDropdown(chartSeriesDropdownOpen, setChartSeriesDropdownOpen)}
+                  style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                >
+                  {selectedChartSeriesDesktopLabel}
+                </button>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: chartSeriesDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                  <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                </svg>
+                {chartSeriesDropdownOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "10px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 60, overflow: "hidden" }}>
+                    {chartSeriesDesktopOptions.map((opt, index) => {
+                      const isActive = opt.value === chartSeriesView;
+                      const hoverKey = `series-mobile-${opt.value}`;
+                      const isHovered = hoveredDropdownOption === hoverKey;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                          onMouseLeave={() => setHoveredDropdownOption(null)}
+                          onClick={() => {
+                            setChartSeriesView(opt.value);
+                            setChartSeriesDropdownOpen(false);
+                          }}
+                          style={{ width: "100%", textAlign: "left", padding: "10px", border: "none", borderBottom: index === chartSeriesDesktopOptions.length - 1 ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer" }}
+                        >
+                          <div style={{ fontSize: "12.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a" }}>{opt.label}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1687,19 +2443,43 @@ export default function DashboardPage() {
             <div style={{ marginTop: "8px", display: "flex", gap: "6px", width: "100%" }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                 <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Mjesec</label>
-                <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
-                  {["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"].map((month, index) => (
-                    <option key={month} value={index + 1}>{month}</option>
-                  ))}
-                </select>
+                <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(monthDropdownOpen, setMonthDropdownOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                  >
+                    {selectedMonthDesktopLabel}
+                  </button>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: monthDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {monthDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 10, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderMonthYearWheelPicker("month", selectedMonth, setSelectedMonth)}
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                 <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Godina</label>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+                <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(yearDropdownOpen, setYearDropdownOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                  >
+                    {selectedYearDesktopLabel}
+                  </button>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: yearDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {yearDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 10, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderMonthYearWheelPicker("year", selectedYear, setSelectedYear)}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1708,17 +2488,49 @@ export default function DashboardPage() {
               <div style={{ marginTop: "8px", display: "flex", gap: "6px", width: "100%" }}>
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                   <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Od datuma</label>
-                  <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" }} />
+                  <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleExclusiveDropdown(customFromWheelOpen, setCustomFromWheelOpen)}
+                      style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                    >
+                      {formatIsoDateDisplay(customFrom)}
+                    </button>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: customFromWheelOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                      <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                    </svg>
+                    {customFromWheelOpen && (
+                      <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 10, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                        {renderDateWheelPicker(customFrom, setCustomFrom)}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                   <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Do datuma</label>
-                  <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" }} />
+                  <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleExclusiveDropdown(customToWheelOpen, setCustomToWheelOpen)}
+                      style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                    >
+                      {formatIsoDateDisplay(customTo)}
+                    </button>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: customToWheelOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                      <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                    </svg>
+                    {customToWheelOpen && (
+                      <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 10, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                        {renderDateWheelPicker(customTo, setCustomTo)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: isMobile ? 16 : 30, alignItems: "stretch", width: "100%", overflowX: "auto", padding: "14px", borderRadius: "12px", border: "1px solid rgba(0, 0, 0, 0.05)", background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", boxSizing: "border-box" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: isMobile ? 16 : 30, alignItems: "stretch", width: "100%", overflow: "visible", padding: "14px", borderRadius: "12px", border: "1px solid rgba(0, 0, 0, 0.05)", background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", boxSizing: "border-box" }}>
           <h2 style={{
             fontSize: "18px",
             fontWeight: 700,
@@ -1727,77 +2539,174 @@ export default function DashboardPage() {
           }}>
             Pregled prometa i zarade
           </h2>
-          <div style={{ display: "flex", flexWrap: "nowrap", gap: 12, alignItems: "flex-end", width: "100%", overflowX: "auto" }}>
+          <div style={{ display: "flex", flexWrap: "nowrap", gap: 12, alignItems: "flex-end", width: "100%", overflow: "visible" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
-            <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Period izvještaja</label>
-            <div style={{ position: "relative" }}>
-              <select value={range} onChange={(e) => setRange(e.target.value as any)} style={{ WebkitAppearance: "none", MozAppearance: "none", appearance: "none", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "14px", width: "220px", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 600, color: "#0f172a", outline: "none", transition: "all 0.2s ease" }}>
-                <option value="currentWeek">Trenutna sedmica</option>
-                <option value="previousWeek">Prošla sedmica</option>
-                <option value="monthly">Mjesečni</option>
-                <option value="quarterly">Tromjesečni</option>
-                <option value="selectMonth">Odaberi mjesec</option>
-                <option value="custom">Prilagođeno</option>
-              </select>
-              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+            <label style={{ fontSize: "10.5px", fontWeight: 800, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase" }}>Period izvještaja</label>
+            <div data-dropdown-container style={{ position: "relative", width: "220px" }}>
+              <button
+                type="button"
+                onClick={() => toggleExclusiveDropdown(rangeDropdownOpen, setRangeDropdownOpen)}
+                style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", lineHeight: 1.35, letterSpacing: "0.01em", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 700, color: "#0b1324", outline: "none", transition: "all 0.2s ease" }}
+              >
+                {selectedRangeDesktopLabel}
+              </button>
+              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: rangeDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
                 <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
               </svg>
+
+              {rangeDropdownOpen && (
+                <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "12px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 50, overflow: "hidden" }}>
+                  {rangeDesktopOptions.map((opt, index) => {
+                    const isActive = opt.value === range;
+                    const hoverKey = `range-${opt.value}`;
+                    const isHovered = hoveredDropdownOption === hoverKey;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                        onMouseLeave={() => setHoveredDropdownOption(null)}
+                        onClick={() => {
+                          setRange(opt.value);
+                          setRangeDropdownOpen(false);
+                        }}
+                        style={{ width: "100%", textAlign: "left", padding: "11px 12px", border: "none", borderBottom: index === rangeDesktopOptions.length - 1 ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer", transition: "background-color 0.12s ease, color 0.12s ease" }}
+                      >
+                        <div style={{ fontSize: "13.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a", letterSpacing: "0.01em", lineHeight: 1.25 }}>{opt.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
-            <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Prikaz vrijednosti</label>
-            <div style={{ position: "relative" }}>
-              <select value={chartSeriesView} onChange={(e) => setChartSeriesView(e.target.value as any)} style={{ WebkitAppearance: "none", MozAppearance: "none", appearance: "none", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "14px", width: "180px", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 600, color: "#0f172a", outline: "none", transition: "all 0.2s ease" }}>
-                <option value="all">Sve ukupno</option>
-                <option value="artikli">Bruto</option>
-                <option value="prihod">Prihod</option>
-                <option value="rashod">Rashod</option>
-                <option value="neto">Neto</option>
-              </select>
-              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+            <label style={{ fontSize: "10.5px", fontWeight: 800, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase" }}>Prikaz vrijednosti</label>
+            <div data-dropdown-container style={{ position: "relative", width: "200px" }}>
+              <button
+                type="button"
+                onClick={() => toggleExclusiveDropdown(chartSeriesDropdownOpen, setChartSeriesDropdownOpen)}
+                style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", lineHeight: 1.35, letterSpacing: "0.01em", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 700, color: "#0b1324", outline: "none", transition: "all 0.2s ease" }}
+              >
+                {selectedChartSeriesDesktopLabel}
+              </button>
+              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: chartSeriesDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
                 <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
               </svg>
+
+              {chartSeriesDropdownOpen && (
+                <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "12px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 50, overflow: "hidden" }}>
+                  {chartSeriesDesktopOptions.map((opt, index) => {
+                    const isActive = opt.value === chartSeriesView;
+                    const hoverKey = `series-${opt.value}`;
+                    const isHovered = hoveredDropdownOption === hoverKey;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                        onMouseLeave={() => setHoveredDropdownOption(null)}
+                        onClick={() => {
+                          setChartSeriesView(opt.value);
+                          setChartSeriesDropdownOpen(false);
+                        }}
+                        style={{ width: "100%", textAlign: "left", padding: "11px 12px", border: "none", borderBottom: index === chartSeriesDesktopOptions.length - 1 ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer", transition: "background-color 0.12s ease, color 0.12s ease" }}
+                      >
+                        <div style={{ fontSize: "13.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a", letterSpacing: "0.01em", lineHeight: 1.25 }}>{opt.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
           {range === "selectMonth" && (
             <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginLeft: 0, flexWrap: "nowrap", flex: "0 0 auto" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
-                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Mjesec</label>
-                <div style={{ position: "relative" }}>
-                  <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} style={{ WebkitAppearance: "none", MozAppearance: "none", appearance: "none", width: "150px", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "14px", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 600, color: "#0f172a", outline: "none" }}>
-                    {["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"].map((month, index) => (
-                      <option key={month} value={index + 1}>{month}</option>
-                    ))}
-                  </select>
-                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                <label style={{ fontSize: "10.5px", fontWeight: 800, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase" }}>Mjesec</label>
+                <div data-dropdown-container style={{ position: "relative", width: "150px" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(monthDropdownOpen, setMonthDropdownOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", lineHeight: 1.35, letterSpacing: "0.01em", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 700, color: "#0b1324", outline: "none" }}
+                  >
+                    {selectedMonthDesktopLabel}
+                  </button>
+                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: monthDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
                     <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
                   </svg>
+
+                  {monthDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 12, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderMonthYearWheelPicker("month", selectedMonth, setSelectedMonth)}
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
-                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Godina</label>
-                <div style={{ position: "relative" }}>
-                  <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} style={{ WebkitAppearance: "none", MozAppearance: "none", appearance: "none", width: "110px", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "14px", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 600, color: "#0f172a", outline: "none" }}>
-                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                <label style={{ fontSize: "10.5px", fontWeight: 800, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase" }}>Godina</label>
+                <div data-dropdown-container style={{ position: "relative", width: "110px" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(yearDropdownOpen, setYearDropdownOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", lineHeight: 1.35, letterSpacing: "0.01em", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 700, color: "#0b1324", outline: "none" }}
+                  >
+                    {selectedYearDesktopLabel}
+                  </button>
+                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: yearDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
                     <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
                   </svg>
+
+                  {yearDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 12, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderMonthYearWheelPicker("year", selectedYear, setSelectedYear)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
           {range === "custom" && (
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginLeft: 0, opacity: 1, visibility: "visible", flexWrap: "nowrap", flex: "0 0 auto" }}>
+            <div style={{ display: "flex", gap: 0, alignItems: "flex-end", marginLeft: 0, opacity: 1, visibility: "visible", flexWrap: "nowrap", flex: "0 0 auto" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
-                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Od datuma</label>
-                <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid #cbd5e1", outline: "none", color: "#0f172a", fontWeight: 600, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }} />
+                <label style={{ fontSize: "10.5px", fontWeight: 800, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase" }}>Od datuma</label>
+                <div data-dropdown-container style={{ position: "relative", width: 236 }}>
+                  <button
+                    type="button"
+                      onClick={() => toggleExclusiveDropdown(customFromWheelOpen, setCustomFromWheelOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: 10, background: "#fff", fontSize: "13px", fontWeight: 700, color: "#0b1324", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }}
+                  >
+                    {formatIsoDateDisplay(customFrom)}
+                  </button>
+                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: customFromWheelOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {customFromWheelOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 12, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderDateWheelPicker(customFrom, setCustomFrom)}
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
-                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Do datuma</label>
-                <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid #cbd5e1", outline: "none", color: "#0f172a", fontWeight: 600, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }} />
+                <label style={{ fontSize: "10.5px", fontWeight: 800, color: "#334155", letterSpacing: "0.08em", textTransform: "uppercase" }}>Do datuma</label>
+                <div data-dropdown-container style={{ position: "relative", width: 236 }}>
+                  <button
+                    type="button"
+                      onClick={() => toggleExclusiveDropdown(customToWheelOpen, setCustomToWheelOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: 10, background: "#fff", fontSize: "13px", fontWeight: 700, color: "#0b1324", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }}
+                  >
+                    {formatIsoDateDisplay(customTo)}
+                  </button>
+                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: customToWheelOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {customToWheelOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 12, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderDateWheelPicker(customTo, setCustomTo)}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1984,32 +2893,82 @@ export default function DashboardPage() {
           <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
               <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "6px", display: "block" }}>Tip prikaza</label>
-              <select
-                value={artiklViewType}
-                onChange={(e) => {
-                  setArtiklViewType(e.target.value as "custom" | "top");
-                  setSelectedArtikl("");
-                }}
-                style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
-              >
-                <option value="custom">Po Artiklu</option>
-                <option value="top">Najprodavaniji</option>
-              </select>
+              <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => toggleExclusiveDropdown(artiklViewDropdownOpen, setArtiklViewDropdownOpen)}
+                  style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                >
+                  {selectedArtiklViewDesktopLabel}
+                </button>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: artiklViewDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                  <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                </svg>
+                {artiklViewDropdownOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "10px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 60, overflow: "hidden" }}>
+                    {artiklViewDesktopOptions.map((opt, index) => {
+                      const isActive = opt.value === artiklViewType;
+                      const hoverKey = `artikl-view-mobile-${opt.value}`;
+                      const isHovered = hoveredDropdownOption === hoverKey;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                          onMouseLeave={() => setHoveredDropdownOption(null)}
+                          onClick={() => {
+                            setArtiklViewType(opt.value);
+                            setSelectedArtikl("");
+                            setArtiklViewDropdownOpen(false);
+                          }}
+                          style={{ width: "100%", textAlign: "left", padding: "10px", border: "none", borderBottom: index === artiklViewDesktopOptions.length - 1 ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer" }}
+                        >
+                          <div style={{ fontSize: "12.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a" }}>{opt.label}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
               <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "6px", display: "block" }}>Period</label>
-              <select
-                value={artiklRange}
-                onChange={(e) => setArtiklRange(e.target.value as any)}
-                style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
-              >
-                <option value="currentWeek">Trenutna sedmica</option>
-                <option value="previousWeek">Prošla sedmica</option>
-                <option value="monthly">Mjesečni</option>
-                <option value="quarterly">Tromjesečni</option>
-                <option value="selectMonth">Odaberi mjesec</option>
-                <option value="custom">Prilagođeno</option>
-              </select>
+              <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => toggleExclusiveDropdown(artiklRangeDropdownOpen, setArtiklRangeDropdownOpen)}
+                  style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                >
+                  {selectedArtiklRangeDesktopLabel}
+                </button>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: artiklRangeDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                  <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                </svg>
+                {artiklRangeDropdownOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "10px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 60, overflow: "hidden" }}>
+                    {artiklRangeDesktopOptions.map((opt, index) => {
+                      const isActive = opt.value === artiklRange;
+                      const hoverKey = `artikl-range-mobile-${opt.value}`;
+                      const isHovered = hoveredDropdownOption === hoverKey;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                          onMouseLeave={() => setHoveredDropdownOption(null)}
+                          onClick={() => {
+                            setArtiklRange(opt.value);
+                            setArtiklRangeDropdownOpen(false);
+                          }}
+                          style={{ width: "100%", textAlign: "left", padding: "10px", border: "none", borderBottom: index === artiklRangeDesktopOptions.length - 1 ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer" }}
+                        >
+                          <div style={{ fontSize: "12.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a" }}>{opt.label}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -2019,16 +2978,45 @@ export default function DashboardPage() {
               <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "6px", display: "block" }}>
                 Odaberi artikal
               </label>
-              <select
-                value={selectedArtikl}
-                onChange={(e) => setSelectedArtikl(e.target.value)}
-                style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
-              >
-                <option value="">Odaberi artikal</option>
-                {allArtikli.map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
+              <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => toggleExclusiveDropdown(artiklSelectDropdownOpen, setArtiklSelectDropdownOpen)}
+                  style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: selectedArtikl ? "#0b1324" : "#64748b", backgroundColor: "#fff", cursor: "pointer" }}
+                >
+                  {selectedArtiklDesktopLabel}
+                </button>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: artiklSelectDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                  <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                </svg>
+                {artiklSelectDropdownOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", maxHeight: "260px", overflowY: "auto", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "10px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 60 }}>
+                    {["", ...allArtikli].map((a, index) => {
+                      const isEmpty = a === "";
+                      const isActive = isEmpty ? selectedArtikl === "" : selectedArtikl === a;
+                      const hoverKey = `artikl-select-mobile-${isEmpty ? "empty" : a}`;
+                      const isHovered = hoveredDropdownOption === hoverKey;
+                      return (
+                        <button
+                          key={isEmpty ? "empty" : a}
+                          type="button"
+                          onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                          onMouseLeave={() => setHoveredDropdownOption(null)}
+                          onClick={() => {
+                            setSelectedArtikl(isEmpty ? "" : a);
+                            setArtiklSelectDropdownOpen(false);
+                          }}
+                          style={{ width: "100%", textAlign: "left", padding: "10px", border: "none", borderBottom: index === allArtikli.length ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer" }}
+                        >
+                          <div style={{ fontSize: "12.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {isEmpty ? "Izaberi artikal" : a}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -2036,27 +3024,43 @@ export default function DashboardPage() {
             <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                 <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "6px", display: "block" }}>Mjesec</label>
-                <select
-                  value={artiklSelectedMonth}
-                  onChange={(e) => setArtiklSelectedMonth(Number(e.target.value))}
-                  style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
-                >
-                  {["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"].map((month, index) => (
-                    <option key={month} value={index + 1}>{month}</option>
-                  ))}
-                </select>
+                <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(artiklMonthDropdownOpen, setArtiklMonthDropdownOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                  >
+                    {monthDesktopOptions[artiklSelectedMonth - 1] ?? "Mjesec"}
+                  </button>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: artiklMonthDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {artiklMonthDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 10, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderMonthYearWheelPicker("month", artiklSelectedMonth, setArtiklSelectedMonth)}
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                 <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "6px", display: "block" }}>Godina</label>
-                <select
-                  value={artiklSelectedYear}
-                  onChange={(e) => setArtiklSelectedYear(Number(e.target.value))}
-                  style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
-                >
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+                <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(artiklYearDropdownOpen, setArtiklYearDropdownOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                  >
+                    {String(artiklSelectedYear)}
+                  </button>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: artiklYearDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {artiklYearDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 10, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderMonthYearWheelPicker("year", artiklSelectedYear, setArtiklSelectedYear)}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -2064,21 +3068,43 @@ export default function DashboardPage() {
             <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                 <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "6px", display: "block" }}>Od datuma</label>
-                <input
-                  type="date"
-                  value={artiklCustomFrom}
-                  onChange={(e) => setArtiklCustomFrom(e.target.value)}
-                  style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" }}
-                />
+                <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(artiklCustomFromWheelOpen, setArtiklCustomFromWheelOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                  >
+                    {formatIsoDateDisplay(artiklCustomFrom)}
+                  </button>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: artiklCustomFromWheelOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {artiklCustomFromWheelOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 10, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderDateWheelPicker(artiklCustomFrom, setArtiklCustomFrom)}
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                 <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "6px", display: "block" }}>Do datuma</label>
-                <input
-                  type="date"
-                  value={artiklCustomTo}
-                  onChange={(e) => setArtiklCustomTo(e.target.value)}
-                  style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" }}
-                />
+                <div data-dropdown-container style={{ position: "relative", width: "100%" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(artiklCustomToWheelOpen, setArtiklCustomToWheelOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "9px 34px 9px 10px", border: "1px solid #cbd5e1", borderRadius: "9px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer" }}
+                  >
+                    {formatIsoDateDisplay(artiklCustomTo)}
+                  </button>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: artiklCustomToWheelOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {artiklCustomToWheelOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 10, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                      {renderDateWheelPicker(artiklCustomTo, setArtiklCustomTo)}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -2210,56 +3236,174 @@ export default function DashboardPage() {
           }}>
             Detalji po artiklu
           </h2>
-          <div style={{ display: "flex", flexWrap: "nowrap", gap: 12, alignItems: "flex-end", width: "100%", overflowX: "auto", paddingBottom: "2px", marginBottom: "24px" }}>
+          <div style={{ display: "flex", flexWrap: "nowrap", gap: 12, alignItems: "flex-end", width: "100%", overflow: "visible", marginBottom: "24px" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
               <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Tip prikaza</label>
-              <select value={artiklViewType} onChange={(e) => { setArtiklViewType(e.target.value as "custom" | "top"); setSelectedArtikl(""); }} style={{ width: "170px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
-                <option value="custom">Po Artiklu</option>
-                <option value="top">Najprodavaniji</option>
-              </select>
+              <div data-dropdown-container style={{ position: "relative", width: "170px" }}>
+                <button
+                  type="button"
+                  onClick={() => toggleExclusiveDropdown(artiklViewDropdownOpen, setArtiklViewDropdownOpen)}
+                  style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", lineHeight: 1.35, letterSpacing: "0.01em", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 700, color: "#0b1324" }}
+                >
+                  {selectedArtiklViewDesktopLabel}
+                </button>
+                <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: artiklViewDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                  <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                </svg>
+                {artiklViewDropdownOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "12px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 50, overflow: "hidden" }}>
+                    {artiklViewDesktopOptions.map((opt, index) => {
+                      const isActive = opt.value === artiklViewType;
+                      const hoverKey = `artikl-view-${opt.value}`;
+                      const isHovered = hoveredDropdownOption === hoverKey;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                          onMouseLeave={() => setHoveredDropdownOption(null)}
+                          onClick={() => {
+                            setArtiklViewType(opt.value);
+                            setSelectedArtikl("");
+                            setArtiklViewDropdownOpen(false);
+                          }}
+                          style={{ width: "100%", textAlign: "left", padding: "11px 12px", border: "none", borderBottom: index === artiklViewDesktopOptions.length - 1 ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer", transition: "background-color 0.12s ease, color 0.12s ease" }}
+                        >
+                          <div style={{ fontSize: "13.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a", letterSpacing: "0.01em", lineHeight: 1.25 }}>{opt.label}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {artiklViewType === "custom" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                 <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Odaberi artikal</label>
-                <select value={selectedArtikl} onChange={(e) => setSelectedArtikl(e.target.value)} style={{ width: "220px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
-                  <option value="">Odaberi artikal</option>
-                  {allArtikli.map((a) => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
+                <div data-dropdown-container style={{ position: "relative", width: "220px" }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExclusiveDropdown(artiklSelectDropdownOpen, setArtiklSelectDropdownOpen)}
+                    style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", lineHeight: 1.35, letterSpacing: "0.01em", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 700, color: selectedArtikl ? "#0b1324" : "#64748b" }}
+                  >
+                    {selectedArtiklDesktopLabel}
+                  </button>
+                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: artiklSelectDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                  {artiklSelectDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", maxHeight: "280px", overflowY: "auto", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "12px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 50 }}>
+                      {["", ...allArtikli].map((a, index) => {
+                        const isEmpty = a === "";
+                        const isActive = isEmpty ? selectedArtikl === "" : selectedArtikl === a;
+                        const hoverKey = `artikl-select-${isEmpty ? "empty" : a}`;
+                        const isHovered = hoveredDropdownOption === hoverKey;
+                        return (
+                          <button
+                            key={isEmpty ? "empty" : a}
+                            type="button"
+                            onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                            onMouseLeave={() => setHoveredDropdownOption(null)}
+                            onClick={() => {
+                              setSelectedArtikl(isEmpty ? "" : a);
+                              setArtiklSelectDropdownOpen(false);
+                            }}
+                            style={{ width: "100%", textAlign: "left", padding: "11px 12px", border: "none", borderBottom: index === allArtikli.length ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer", transition: "background-color 0.12s ease, color 0.12s ease" }}
+                          >
+                            <div style={{ fontSize: "13.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a", letterSpacing: "0.01em", lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {isEmpty ? "Izaberi artikal" : a}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
               <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Period</label>
-              <select value={artiklRange} onChange={(e) => setArtiklRange(e.target.value as any)} style={{ width: "210px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
-                <option value="currentWeek">Trenutna sedmica</option>
-                <option value="previousWeek">Prošla sedmica</option>
-                <option value="monthly">Mjesečni</option>
-                <option value="quarterly">Tromjesečni</option>
-                <option value="selectMonth">Odaberi mjesec</option>
-                <option value="custom">Prilagođeno</option>
-              </select>
+              <div data-dropdown-container style={{ position: "relative", width: "210px" }}>
+                <button
+                  type="button"
+                  onClick={() => toggleExclusiveDropdown(artiklRangeDropdownOpen, setArtiklRangeDropdownOpen)}
+                  style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", lineHeight: 1.35, letterSpacing: "0.01em", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)", fontWeight: 700, color: "#0b1324" }}
+                >
+                  {selectedArtiklRangeDesktopLabel}
+                </button>
+                <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: artiklRangeDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                  <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                </svg>
+                {artiklRangeDropdownOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", background: "#ffffff", border: "1px solid #c8dcf3", borderRadius: "12px", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", zIndex: 50, overflow: "hidden" }}>
+                    {artiklRangeDesktopOptions.map((opt, index) => {
+                      const isActive = opt.value === artiklRange;
+                      const hoverKey = `artikl-range-${opt.value}`;
+                      const isHovered = hoveredDropdownOption === hoverKey;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onMouseEnter={() => setHoveredDropdownOption(hoverKey)}
+                          onMouseLeave={() => setHoveredDropdownOption(null)}
+                          onClick={() => {
+                            setArtiklRange(opt.value);
+                            setArtiklRangeDropdownOpen(false);
+                          }}
+                          style={{ width: "100%", textAlign: "left", padding: "11px 12px", border: "none", borderBottom: index === artiklRangeDesktopOptions.length - 1 ? "none" : "1px solid #eef2f7", background: isHovered ? "#f1f5f9" : "#fff", cursor: "pointer", transition: "background-color 0.12s ease, color 0.12s ease" }}
+                        >
+                          <div style={{ fontSize: "13.5px", fontWeight: isActive ? 700 : 600, color: isActive ? "#2563eb" : isHovered ? "#0b1f44" : "#0f172a", letterSpacing: "0.01em", lineHeight: 1.25 }}>{opt.label}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {artiklRange === "selectMonth" && (
               <>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                   <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Mjesec</label>
-                  <select value={artiklSelectedMonth} onChange={(e) => setArtiklSelectedMonth(Number(e.target.value))} style={{ width: "150px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
-                    {["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"].map((month, index) => (
-                      <option key={month} value={index + 1}>{month}</option>
-                    ))}
-                  </select>
+                  <div data-dropdown-container style={{ position: "relative", width: "150px" }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleExclusiveDropdown(artiklMonthDropdownOpen, setArtiklMonthDropdownOpen)}
+                      style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }}
+                    >
+                      {monthDesktopOptions[artiklSelectedMonth - 1] ?? "Mjesec"}
+                    </button>
+                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: artiklMonthDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                      <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                    </svg>
+                    {artiklMonthDropdownOpen && (
+                      <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 12, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                        {renderMonthYearWheelPicker("month", artiklSelectedMonth, setArtiklSelectedMonth)}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                   <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Godina</label>
-                  <select value={artiklSelectedYear} onChange={(e) => setArtiklSelectedYear(Number(e.target.value))} style={{ width: "110px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
-                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
+                  <div data-dropdown-container style={{ position: "relative", width: "110px" }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleExclusiveDropdown(artiklYearDropdownOpen, setArtiklYearDropdownOpen)}
+                      style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: "10px", fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }}
+                    >
+                      {String(artiklSelectedYear)}
+                    </button>
+                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: artiklYearDropdownOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                      <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                    </svg>
+                    {artiklYearDropdownOpen && (
+                      <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 12, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                        {renderMonthYearWheelPicker("year", artiklSelectedYear, setArtiklSelectedYear)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -2268,11 +3412,43 @@ export default function DashboardPage() {
               <>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                   <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Od datuma</label>
-                  <input type="date" value={artiklCustomFrom} onChange={(e) => setArtiklCustomFrom(e.target.value)} style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid #cbd5e1", outline: "none", color: "#0f172a", fontWeight: 600, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }} />
+                  <div data-dropdown-container style={{ position: "relative", width: "220px" }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleExclusiveDropdown(artiklCustomFromWheelOpen, setArtiklCustomFromWheelOpen)}
+                      style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: 10, fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }}
+                    >
+                      {formatIsoDateDisplay(artiklCustomFrom)}
+                    </button>
+                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: artiklCustomFromWheelOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                      <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                    </svg>
+                    {artiklCustomFromWheelOpen && (
+                      <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 12, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                        {renderDateWheelPicker(artiklCustomFrom, setArtiklCustomFrom)}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
                   <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Do datuma</label>
-                  <input type="date" value={artiklCustomTo} onChange={(e) => setArtiklCustomTo(e.target.value)} style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid #cbd5e1", outline: "none", color: "#0f172a", fontWeight: 600, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }} />
+                  <div data-dropdown-container style={{ position: "relative", width: "220px" }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleExclusiveDropdown(artiklCustomToWheelOpen, setArtiklCustomToWheelOpen)}
+                      style={{ width: "100%", textAlign: "left", padding: "11px 40px 11px 14px", border: "1px solid #cbd5e1", borderRadius: 10, fontSize: "13px", fontWeight: 700, color: "#0b1324", backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }}
+                    >
+                      {formatIsoDateDisplay(artiklCustomTo)}
+                    </button>
+                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: artiklCustomToWheelOpen ? "translateY(-50%) rotate(180deg)" : "translateY(-50%)", pointerEvents: "none", transition: "transform 0.2s ease" }}>
+                      <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                    </svg>
+                    {artiklCustomToWheelOpen && (
+                      <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", boxSizing: "border-box", zIndex: 60, padding: 0, borderRadius: 12, border: "1px solid #c8dcf3", background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,251,255,0.98) 100%)", boxShadow: "0 0 0 1px rgba(116, 162, 218, 0.26), 0 14px 30px rgba(30, 64, 175, 0.18), 0 6px 14px rgba(15, 23, 42, 0.1)", overflow: "hidden" }}>
+                        {renderDateWheelPicker(artiklCustomTo, setArtiklCustomTo)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
