@@ -9,7 +9,7 @@ Ovaj vodič sadrži sve potrebne SQL komande za upravljanje korisnicima i uređa
 ### Preko komandne linije (psql):
 
 ```bash
-psql -h 46.224.115.49 -U office_user -d office_app
+psql -h localhost -U office_user -d office_app
 ```
 
 (Unesite lozinku kada se zatraži)
@@ -17,7 +17,7 @@ psql -h 46.224.115.49 -U office_user -d office_app
 ### Alternativno sa lozinkom u komandi (manje sigurno):
 
 ```bash
-PGPASSWORD='vaša_lozinka' psql -h 46.224.115.49 -U office_user -d office_app
+PGPASSWORD='vaša_lozinka' psql -h localhost -U office_user -d office_app
 ```
 
 ### Provjera konekcije:

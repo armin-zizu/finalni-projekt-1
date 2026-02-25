@@ -47,6 +47,13 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    const applyAppNameFromPayload = (payload: any) => {
+      const nextAppName = payload?.appName;
+      if (typeof nextAppName === 'string' && nextAppName.trim().length > 0) {
+        setAppName(nextAppName.trim());
+      }
+    };
+
     // Učita appName kada se komponenta učita
     loadAppName();
 
@@ -55,6 +62,16 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
       if (e.key === 'token') {
         // Token se promijenio - ponovno učitaj appName
         loadAppName();
+        return;
+      }
+
+      if (e.key === 'app-name-updated' && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          applyAppNameFromPayload(payload);
+        } catch {
+          // ignore invalid storage payload
+        }
       }
     };
 
@@ -63,8 +80,14 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
       loadAppName();
     };
 
+    const handleAppNameUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      applyAppNameFromPayload(customEvent.detail);
+    };
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('auth-changed', handleAuthChange);
+    window.addEventListener('app-name-updated', handleAppNameUpdated as EventListener);
     
     // Osvježi appName kada se prozor fokusira (korisnik se vratio na aplikaciju)
     const handleFocus = () => {
@@ -80,6 +103,7 @@ export function AppNameProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('auth-changed', handleAuthChange);
+      window.removeEventListener('app-name-updated', handleAppNameUpdated as EventListener);
       window.removeEventListener('focus', handleFocus);
       clearInterval(intervalId);
     };

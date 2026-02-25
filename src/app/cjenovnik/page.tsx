@@ -284,10 +284,6 @@ function SortableRow({
           artikl.nabavnaCijena.toFixed(2)
         )}
       </td>
-      <td style={tdStyle}>
-        {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
-        {artikl.jeZestoko ? " L" : " kom"}
-      </td>
       <td style={tdStyle}>{artikl.jeZestoko ? (artikl.zestokoKolicina || 0).toFixed(2) : "-"}</td>
       <td style={tdStyle}>{artikl.jeZestoko ? (artikl.proizvodnaCijena || 0).toFixed(2) : "-"}</td>
       <td style={tdStyle}>
@@ -395,9 +391,10 @@ function SortableRow({
 
 // ---- Glavna komponenta ----
 export default function CjenovnikPage() {
-  const { cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik, refreshPrethodniCjenovnik } = useCjenovnik();
+  const { cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik, refreshCjenovnik, refreshPrethodniCjenovnik } = useCjenovnik();
   const { user } = useRole();
   const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [isRefreshingCjenovnik, setIsRefreshingCjenovnik] = useState(false);
 
   const [newArtiklNaziv, setNewArtiklNaziv] = useState<string>("");
   const [newArtiklCijena, setNewArtiklCijena] = useState<string>("");
@@ -968,7 +965,31 @@ export default function CjenovnikPage() {
           Cjenovnik
         </h1>
         <div style={{ position: "absolute", top: 0, right: 0 }}>
-          <OrdersButton onClick={() => setShowOrdersModal(true)} />
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button
+              type="button"
+              onClick={async () => {
+                if (isRefreshingCjenovnik) return;
+                try {
+                  setIsRefreshingCjenovnik(true);
+                  await refreshCjenovnik();
+                } catch (e: any) {
+                  alert(`Greška pri osvježavanju cjenovnika: ${e?.message || e}`);
+                } finally {
+                  setIsRefreshingCjenovnik(false);
+                }
+              }}
+              disabled={isRefreshingCjenovnik}
+              style={{
+                ...buttonStyle,
+                background: isRefreshingCjenovnik ? "#9ca3af" : "#3b82f6",
+                cursor: isRefreshingCjenovnik ? "not-allowed" : "pointer",
+              }}
+            >
+              {isRefreshingCjenovnik ? "Osvježavam..." : "Osvježi"}
+            </button>
+            <OrdersButton onClick={() => setShowOrdersModal(true)} />
+          </div>
         </div>
       </div>
 
@@ -981,6 +1002,7 @@ export default function CjenovnikPage() {
             // Save order items to localStorage for the specific date
             // Format: ulazCache_DD.MM.YYYY.
             const ulazData: Record<string, { ulaz: number; staroPocetnoStanje: number }> = {};
+            const normalizedDate = (date || '').replace(/\.$/, '').trim();
             
             items.forEach(item => {
               // Pronađi artikal u cjenovniku da dobiješ pocetnoStanje
@@ -992,15 +1014,21 @@ export default function CjenovnikPage() {
             });
             
             // Spremi u localStorage - ključ mora biti u formatu ulazCache_DD.MM.YYYY.
-            const cacheKey = `ulazCache_${date}`;
-            localStorage.setItem(cacheKey, JSON.stringify(ulazData));
-            console.log(`💾 Faktura spaljena u cache sa ključem: "${cacheKey}"`);
+            const cacheKeys = [`ulazCache_${date}`, `ulazCache_${normalizedDate}`];
+            cacheKeys.forEach((cacheKey) => {
+              localStorage.setItem(cacheKey, JSON.stringify(ulazData));
+            });
+            console.log(`💾 Faktura spaljena u cache sa ključevima:`, cacheKeys);
             console.log(`💾 Sadržaj cache-a:`, ulazData);
             console.log(`💾 Sve stavke u localStorage:`, Object.keys(localStorage).filter(k => k.includes('ulazCache')));
             
             // Također spremi globalnu listu prihvaćenih faktura za trigger-ovanje obračuna
             const acceptedInvoices = JSON.parse(localStorage.getItem('acceptedInvoices') || '{}');
             acceptedInvoices[date] = {
+              items: items,
+              timestamp: new Date().toISOString()
+            };
+            acceptedInvoices[normalizedDate] = {
               items: items,
               timestamp: new Date().toISOString()
             };
@@ -2065,7 +2093,6 @@ export default function CjenovnikPage() {
               <th style={thStyle}>Artikal</th>
               <th style={thStyle}>Prodajna cijena</th>
               <th style={thStyle}>Nabavna cijena</th>
-              <th style={thStyle}>Početna količina</th>
               <th style={thStyle}>Žestoko Količina (L)</th>
               <th style={thStyle}>Proizvodna Cijena</th>
               <th style={thStyle}>Akcija</th>
@@ -2121,7 +2148,6 @@ export default function CjenovnikPage() {
                 <th style={thStyle}>Artikal</th>
                 <th style={thStyle}>Prodajna cijena</th>
                 <th style={thStyle}>Nabavna cijena</th>
-                <th style={thStyle}>Početna količina</th>
                 <th style={thStyle}>Žestoko Količina (L)</th>
                 <th style={thStyle}>Proizvodna Cijena</th>
               </tr>
@@ -2132,10 +2158,6 @@ export default function CjenovnikPage() {
                   <td style={tdStyle}>{artikl.naziv}</td>
                   <td style={tdStyle}>{artikl.cijena.toFixed(2)}</td>
                   <td style={tdStyle}>{artikl.nabavnaCijena.toFixed(2)}</td>
-                  <td style={tdStyle}>
-                    {artikl.pocetnoStanje.toFixed(artikl.jeZestoko ? 2 : 0)}
-                    {artikl.jeZestoko ? " L" : " kom"}
-                  </td>
                   <td style={tdStyle}>{artikl.jeZestoko ? (artikl.zestokoKolicina || 0).toFixed(2) : "-"}</td>
                   <td style={tdStyle}>{artikl.jeZestoko ? (artikl.proizvodnaCijena || 0).toFixed(2) : "-"}</td>
                 </tr>

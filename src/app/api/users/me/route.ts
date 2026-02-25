@@ -160,7 +160,40 @@ async function putHandler(req: AuthRequest): Promise<NextResponse> {
         );
       }
 
-      const maxAttempts = 4;
+      const currentUserResult = await query(
+        `SELECT id, email, app_name, role, is_owner, permissions, created_at, updated_at
+         FROM users
+         WHERE id = $1`,
+        [userId]
+      );
+
+      if (currentUserResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
+
+      const currentUser = currentUserResult.rows[0];
+      if ((currentUser.app_name || '').trim() === normalizedAppName) {
+        return NextResponse.json({
+          id: currentUser.id,
+          email: currentUser.email,
+          appName: currentUser.app_name,
+          role: currentUser.role,
+          isOwner: currentUser.is_owner,
+          permissions: currentUser.permissions || {},
+          createdAt: currentUser.created_at,
+          updatedAt: currentUser.updated_at,
+        }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            Pragma: 'no-cache',
+          },
+        });
+      }
+
+      const maxAttempts = 2;
       let updateSucceeded = false;
       let updatedUserRow: any | null = null;
 
@@ -170,15 +203,29 @@ async function putHandler(req: AuthRequest): Promise<NextResponse> {
             `UPDATE users
              SET app_name = $1, updated_at = NOW()
              WHERE id = $2
+               AND app_name IS DISTINCT FROM $1
              RETURNING id, email, app_name, role, is_owner, permissions, created_at, updated_at`,
             [normalizedAppName, userId]
           );
 
           if (updatedResult.rows.length === 0) {
-            return NextResponse.json(
-              { error: 'User not found' },
-              { status: 404 }
+            const afterNoopResult = await query(
+              `SELECT id, email, app_name, role, is_owner, permissions, created_at, updated_at
+               FROM users
+               WHERE id = $1`,
+              [userId]
             );
+
+            if (afterNoopResult.rows.length === 0) {
+              return NextResponse.json(
+                { error: 'User not found' },
+                { status: 404 }
+              );
+            }
+
+            updatedUserRow = afterNoopResult.rows[0];
+            updateSucceeded = true;
+            break;
           }
 
           updatedUserRow = updatedResult.rows[0];
@@ -198,7 +245,7 @@ async function putHandler(req: AuthRequest): Promise<NextResponse> {
             throw error;
           }
 
-          const waitMs = 200 * attempt;
+          const waitMs = 120 * attempt;
           await new Promise((resolve) => setTimeout(resolve, waitMs));
         }
       }

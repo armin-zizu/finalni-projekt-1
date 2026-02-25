@@ -7,7 +7,7 @@ Ako ste zaključani sa svih uređaja i ne možete se prijaviti u aplikaciju, mo�
 ### Korak 1: Prijavite se na bazu podataka
 
 ```bash
-psql -h 46.224.115.49 -U office_user -d office_app
+psql -h localhost -U office_user -d office_app
 ```
 
 (Unesite lozinku kada se zatraži)
@@ -27,7 +27,7 @@ ILI kopirajte i zalijepite SQL komande direktno iz fajla.
 ## 📋 Opcija 2: Preko komandne linije (jedna komanda)
 
 ```bash
-psql -h 46.224.115.49 -U office_user -d office_app -f scripts/approve-admin-devices-recovery.sql
+psql -h localhost -U office_user -d office_app -f scripts/approve-admin-devices-recovery.sql
 ```
 
 ---
@@ -98,7 +98,7 @@ ROLLBACK;
 Ako sumnjate na lock, pokrenite:
 
 ```bash
-psql -h 46.224.115.49 -U office_user -d office_app -f scripts/check-db-locks.sql
+psql -h localhost -U office_user -d office_app -f scripts/check-db-locks.sql
 ```
 
 ---

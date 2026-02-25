@@ -6,7 +6,7 @@
 
 2. Poveži se na PostgreSQL server sa:
 ```bash
-psql -h 46.224.115.49 -U office_user -d office_app
+psql -h localhost -U office_user -d office_app
 ```
 
 3. Kada se zatraži lozinka, unesi lozinku iz `.env.local` fajla (promenljiva `DB_PASSWORD`)
@@ -42,7 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_cjenovnik_user_naziv ON cjenovnik(user_id, naziv)
 
 2. Pokreni:
 ```bash
-psql -h 46.224.115.49 -U office_user -d office_app -f scripts/create-cjenovnik-table.sql
+psql -h localhost -U office_user -d office_app -f scripts/create-cjenovnik-table.sql
 ```
 
 3. Unesi lozinku kada se zatraži
@@ -54,7 +54,7 @@ psql -h 46.224.115.49 -U office_user -d office_app -f scripts/create-cjenovnik-t
 1. Otvori pgAdmin ili svoj omiljeni PostgreSQL admin tool
 
 2. Poveži se na server:
-   - Host: `46.224.115.49`
+    - Host: `localhost`
    - Port: `5432`
    - Database: `office_app`
    - Username: `office_user`

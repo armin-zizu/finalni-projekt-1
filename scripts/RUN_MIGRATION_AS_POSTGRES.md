@@ -10,7 +10,7 @@
 sudo -u postgres psql -d office_app
 
 # Ili direktno:
-psql -h 46.224.115.49 -U postgres -d office_app
+psql -h localhost -U postgres -d office_app
 ```
 
 Zatim pokreni migraciju:

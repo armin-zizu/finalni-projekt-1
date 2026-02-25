@@ -340,9 +340,20 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
             { status: 409 }
           );
         }
+
+        return NextResponse.json(
+          { error: 'Device not found after concurrent update. Please retry.' },
+          { status: 404 }
+        );
       }
 
       const device = result.rows[0];
+      if (!device) {
+        return NextResponse.json(
+          { error: 'Device update returned empty result. Please retry.' },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({
         success: true,
         device: {

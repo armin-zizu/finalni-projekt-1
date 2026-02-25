@@ -377,7 +377,37 @@ export default function ObracunPage() {
   // PRVO: Učitaj cache za trenutni datum PRIJE nego što se inicijaliziraju artikli
   // Ovo osigurava da se staroPocetnoStanje učitava iz cache-a prije nego što se artikli kreiraju
   const [ulazCacheForDatum, setUlazCacheForDatum] = useState<{ [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } }>({});
+  const [prethodnoStanjePoNazivu, setPrethodnoStanjePoNazivu] = useState<{ [naziv: string]: number }>({});
   const [isCacheLoaded, setIsCacheLoaded] = useState<boolean>(false);
+
+  function normalizeDatumString(datum: string): string {
+    return (datum || '').replace(/\.$/, '').trim();
+  }
+
+  function datumToSortableNumber(datum: string): number | null {
+    const normalized = normalizeDatumString(datum);
+    const parts = normalized.split('.');
+    if (parts.length !== 3) return null;
+
+    const [dan, mjesec, godina] = parts;
+    const dd = dan.padStart(2, '0');
+    const mm = mjesec.padStart(2, '0');
+    if (!/^\d{2}$/.test(dd) || !/^\d{2}$/.test(mm) || !/^\d{4}$/.test(godina)) return null;
+
+    return Number(`${godina}${mm}${dd}`);
+  }
+
+  function extractStartValueFromArtikal(artikal: any): number {
+    if (artikal?.krajnjeStanje !== undefined && artikal?.krajnjeStanje !== null && Number(artikal.krajnjeStanje) > 0) {
+      return Number(artikal.krajnjeStanje) || 0;
+    }
+
+    if (artikal?.ukupno !== undefined && artikal?.ukupno !== null && Number(artikal.ukupno) >= 0) {
+      return Number(artikal.ukupno) || 0;
+    }
+
+    return Number(artikal?.pocetnoStanje) || 0;
+  }
 
   // Helper funkcija za provjeru da li je prihod još uvijek relevantan (tj. da li postoji plaćen dug u arhivi)
   const isPrihodRelevant = async (prihodNaziv: string, userId: string): Promise<boolean> => {
@@ -472,6 +502,7 @@ export default function ObracunPage() {
       const userId = user?.id || user?.email;
       if (!userId) {
         setUlazCacheForDatum({});
+        setPrethodnoStanjePoNazivu({});
         setSavedInvoiceImagesCount(0);
         setHasUlazInCache(false);
         setIsUlazLocked(false);
@@ -487,8 +518,32 @@ export default function ObracunPage() {
         console.log("🔍 Traženje draft obračuna - ukupno obračuna:", obracuni.length, "traženi datum:", datumString);
         
         // Normalizuj datum (ukloni tačku sa kraja ako postoji)
-        const normalizedDatum = datumString.replace(/\.$/, '').trim();
+        const normalizedDatum = normalizeDatumString(datumString);
         console.log("🔍 Normalizovan datum:", normalizedDatum);
+
+        const finalniObracuni = obracuni.filter((ob: any) => ob && ob.isAzuriran !== true);
+        const trenutniDatumBroj = datumToSortableNumber(normalizedDatum);
+
+        const prethodniObracuni = finalniObracuni
+          .map((ob: any) => {
+            const obDatumNormalized = normalizeDatumString(ob?.datum || '');
+            const obDatumBroj = datumToSortableNumber(obDatumNormalized);
+            return { ...ob, __datumBroj: obDatumBroj };
+          })
+          .filter((ob: any) => ob.__datumBroj !== null && (trenutniDatumBroj === null || ob.__datumBroj < trenutniDatumBroj))
+          .sort((a: any, b: any) => (b.__datumBroj || 0) - (a.__datumBroj || 0));
+
+        const zadnjiFinalniObracun = prethodniObracuni[0] || null;
+        const novoPrethodnoStanjePoNazivu: { [naziv: string]: number } = {};
+
+        if (zadnjiFinalniObracun && Array.isArray(zadnjiFinalniObracun.artikli)) {
+          zadnjiFinalniObracun.artikli.forEach((a: any) => {
+            if (!a?.naziv) return;
+            novoPrethodnoStanjePoNazivu[a.naziv] = extractStartValueFromArtikal(a);
+          });
+        }
+
+        setPrethodnoStanjePoNazivu(novoPrethodnoStanjePoNazivu);
         
         // Filtriraj sve draft obračune i provjeri datume
         const draftObracuni = obracuni.filter((ob: any) => ob.isAzuriran === true);
@@ -647,18 +702,74 @@ export default function ObracunPage() {
           
           console.log("🟢 Ažurirani obračun učitano:", azuriraniObracun.artikli?.length || 0, "artikala");
         } else {
-          // Nema ažuriranog obračuna - inicijalizuj prazan cache
+          // Nema ažuriranog obračuna - pokušaj fallback iz narudžbi/faktura localStorage
           console.log("🟡 Nema ažuriranog obračuna za datum:", datumString);
-          setUlazCacheForDatum({});
+
+          const cacheKeys = [`ulazCache_${datumString}`, `ulazCache_${normalizedDatum}`];
+          let fallbackUlazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = {};
+
+          if (typeof window !== 'undefined') {
+            for (const key of cacheKeys) {
+              const raw = localStorage.getItem(key);
+              if (!raw) continue;
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                  Object.keys(parsed).forEach((naziv) => {
+                    const entry = parsed[naziv];
+                    const ulaz = Number(entry?.ulaz) || 0;
+                    if (ulaz === 0) return;
+                    fallbackUlazCache[naziv] = {
+                      ulaz,
+                      staroPocetnoStanje: Number(entry?.staroPocetnoStanje) || 0,
+                      sačuvanUlaz: Number(entry?.sačuvanUlaz) || ulaz,
+                    };
+                  });
+                }
+              } catch (e) {
+                console.warn(`⚠️ Ne mogu parsirati ${key}:`, e);
+              }
+            }
+
+            if (Object.keys(fallbackUlazCache).length === 0) {
+              try {
+                const acceptedInvoicesRaw = localStorage.getItem('acceptedInvoices');
+                const acceptedInvoices = acceptedInvoicesRaw ? JSON.parse(acceptedInvoicesRaw) : {};
+                const acceptedForDate = acceptedInvoices?.[datumString] || acceptedInvoices?.[normalizedDatum];
+                if (acceptedForDate?.items && Array.isArray(acceptedForDate.items)) {
+                  acceptedForDate.items.forEach((item: any) => {
+                    const naziv = item?.name;
+                    const ulaz = Number(item?.quantity) || 0;
+                    if (!naziv || ulaz === 0) return;
+                    fallbackUlazCache[naziv] = {
+                      ulaz,
+                      staroPocetnoStanje: 0,
+                      sačuvanUlaz: ulaz,
+                    };
+                  });
+                }
+              } catch (e) {
+                console.warn('⚠️ Ne mogu parsirati acceptedInvoices fallback:', e);
+              }
+            }
+          }
+
+          const hasFallbackUlaz = Object.keys(fallbackUlazCache).length > 0;
+          setUlazCacheForDatum(fallbackUlazCache);
           setSavedInvoiceImagesCount(0);
-          setHasUlazInCache(false);
-          setIsUlazLocked(false);
-          setIsAzuriran(false);
+          setHasUlazInCache(hasFallbackUlaz);
+          setIsUlazLocked(hasFallbackUlaz);
+          setIsAzuriran(hasFallbackUlaz);
+
+          if (hasFallbackUlaz) {
+            console.log('🟢 Učitane narudžbe/fakture iz localStorage fallback-a za obračun:', fallbackUlazCache);
+          }
         }
       } catch (error: any) {
         console.warn("Greška pri učitavanju ažuriranog obračuna:", error);
         // U slučaju greške, inicijalizuj prazan cache
         setUlazCacheForDatum({});
+        setPrethodnoStanjePoNazivu({});
         setSavedInvoiceImagesCount(0);
         setHasUlazInCache(false);
         setIsUlazLocked(false);
@@ -706,7 +817,8 @@ export default function ObracunPage() {
       if (artikli.length === 0) {
       const inicijalniArtikli = cjenovnik.map((item: { naziv: string; cijena: number; pocetnoStanje: number; zestokoKolicina?: number; proizvodnaCijena?: number }) => {
         const cached = ulazCache[item.naziv];
-        const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
+        const prethodnoStanje = prethodnoStanjePoNazivu[item.naziv];
+        const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : (prethodnoStanje ?? item.pocetnoStanje);
         
         // Ako postoji cache sa ulazom, učitaj ga (ulaz ostaje vidljiv sve dok se obračun ne sačuva)
         if (cached && cached.ulaz !== 0) {
@@ -773,7 +885,8 @@ export default function ObracunPage() {
       
       const noviArtikliZaDodati = noviArtikli.map((item: { naziv: string; cijena: number; pocetnoStanje: number; zestokoKolicina?: number; proizvodnaCijena?: number }) => {
         const cached = ulazCache[item.naziv];
-        const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : item.pocetnoStanje;
+        const prethodnoStanje = prethodnoStanjePoNazivu[item.naziv];
+        const pocetnoStanje = item.naziv.toLowerCase().includes("kafa") ? 0 : (prethodnoStanje ?? item.pocetnoStanje);
         
         // Ako postoji cache sa ulazom, učitaj ga
         if (cached && cached.ulaz !== 0) {
@@ -826,7 +939,8 @@ export default function ObracunPage() {
           const cjenovnikItem = cjenovnik.find((item: { naziv: string; pocetnoStanje: number; zestokoKolicina?: number; proizvodnaCijena?: number }) => item.naziv === artikal.naziv);
           if (cjenovnikItem) {
             // Ažuriraj cijenu i početno stanje iz cjenovnika
-            const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : cjenovnikItem.pocetnoStanje;
+            const prethodnoStanje = prethodnoStanjePoNazivu[cjenovnikItem.naziv];
+            const pocetnoStanje = cjenovnikItem.naziv.toLowerCase().includes("kafa") ? 0 : (prethodnoStanje ?? cjenovnikItem.pocetnoStanje);
             const cached = ulazCache[artikal.naziv];
             
             // PRIORITET: Učitaj ulaz iz cache-a ako postoji (ulaz ostaje vidljiv sve dok se obračun ne sačuva)
@@ -883,7 +997,7 @@ export default function ObracunPage() {
     };
     
     loadCacheAndInit();
-  }, [cjenovnik, trenutniDatum, isCacheLoaded, ulazCacheForDatum]);
+  }, [cjenovnik, trenutniDatum, isCacheLoaded, ulazCacheForDatum, prethodnoStanjePoNazivu]);
 
   // Draft obračun je uklonjen - koristimo samo cache za ulaz vrijednosti
 

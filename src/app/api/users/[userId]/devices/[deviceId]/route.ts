@@ -123,18 +123,20 @@ async function putHandler(req: AuthRequest, { params }: { params: Promise<{ user
     const targetUserId = req.user.isOwner ? requestedUserIdResolved : jwtUserIdResolved;
     updateValues.push(targetUserId);
 
-    let sql = `WITH target_device AS (
-      SELECT id
-      FROM devices
-      WHERE (device_id = $${deviceIdParamIndex} OR id::text = $${deviceIdParamIndex})
-        AND user_id::text = $${userIdParamIndex}
-      FOR UPDATE SKIP LOCKED
-      LIMIT 1
-    )
-    UPDATE devices SET ${updateFields.join(', ')}`;
-    sql += ` WHERE id IN (SELECT id FROM target_device)`;
-
-    sql += ` RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`;
+    // Use SKIP LOCKED so we don't wait for locked rows (avoids 55P03 lock timeout)
+    // If row is locked by another transaction, update returns 0 rows and we respond 409.
+    const sql = `WITH target_device AS (
+        SELECT id
+        FROM devices
+        WHERE (device_id = $${deviceIdParamIndex} OR id::text = $${deviceIdParamIndex})
+          AND user_id::text = $${userIdParamIndex}
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      )
+      UPDATE devices
+      SET ${updateFields.join(', ')}
+      WHERE id IN (SELECT id FROM target_device)
+      RETURNING id, device_id, device_name, device_info, role, permissions, is_blocked, status, last_login, created_at, updated_at`;
 
     console.log('Update device query:', {
       jwtUserIdResolved,
@@ -144,50 +146,36 @@ async function putHandler(req: AuthRequest, { params }: { params: Promise<{ user
       deviceIdParamIndex
     });
 
-    let result: any = null;
+    // Retry a few times: SKIP LOCKED returns 0 rows when row is currently locked.
+    // This avoids spamming the client with repeated 409s for short, frequent locks.
     const maxAttempts = 12;
-    let lastRowWasLocked = false;
+    let result: any = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        result = await query(sql, updateValues);
+      result = await query(sql, updateValues);
 
-        if (result.rows.length > 0) {
-          lastRowWasLocked = false;
-          break;
-        }
-
-        const existsResult = await query(
-          `SELECT 1
-           FROM devices
-           WHERE (device_id = $1 OR id::text = $1)
-             AND user_id::text = $2
-           LIMIT 1`,
-          [deviceId.trim(), targetUserId]
-        );
-
-        if (existsResult.rows.length === 0) {
-          break;
-        }
-
-        lastRowWasLocked = true;
-        if (attempt < maxAttempts) {
-          await delay(200 * attempt);
-          continue;
-        }
+      if (result.rows.length > 0) {
         break;
-      } catch (error: any) {
-        if (!isLockTimeoutError(error) || attempt === maxAttempts) {
-          throw error;
-        }
-        lastRowWasLocked = true;
-        await delay(250 * attempt);
+      }
+
+      if (attempt < maxAttempts) {
+        await delay(120 * attempt);
       }
     }
 
     console.log('Update device result:', { rows: result.rows.length, found: result.rows.length > 0 });
 
     if (result.rows.length === 0) {
-      if (lastRowWasLocked) {
+      // Could be either: (a) device doesn't exist, or (b) row is locked and skipped.
+      const existsResult = await query(
+        `SELECT 1
+         FROM devices
+         WHERE (device_id = $1 OR id::text = $1)
+           AND user_id::text = $2
+         LIMIT 1`,
+        [deviceId.trim(), targetUserId]
+      );
+
+      if (existsResult.rows.length > 0) {
         return NextResponse.json(
           { error: 'Device is temporarily busy, please try again.' },
           { status: 409 }

@@ -11,7 +11,7 @@ Promijeniti UNIQUE constraint sa `device_id` na `(user_id, device_id)` kombinaci
 ### Opcija 1: Koristeći Node.js skriptu (preporučeno)
 ```bash
 # SSH na server
-ssh root@46.224.115.49
+ssh root@localhost
 
 # Idi u direktorij aplikacije
 cd ~/bar-app
@@ -26,7 +26,7 @@ npm run migrate:devices
 ### Opcija 2: Direktno SQL komande
 ```bash
 # SSH na server
-ssh root@46.224.115.49
+ssh root@localhost
 
 # Poveži se na PostgreSQL
 sudo -u postgres psql -d office_app

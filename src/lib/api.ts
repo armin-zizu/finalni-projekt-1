@@ -754,31 +754,9 @@ export async function updateCurrentUser(updates: { appName?: string }) {
     return response.json();
   };
 
-  const isRetryable = (error: any) => {
-    const message = (error?.message || '').toLowerCase();
-    return (
-      message.includes('lock timeout') ||
-      message.includes('temporarily busy') ||
-      message.includes('trenutno zauzeti') ||
-      message.includes('http 409')
-    );
-  };
-
-  const maxAttempts = 4;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await sendUpdateRequest();
-    } catch (error: any) {
-      if (!isRetryable(error) || attempt === maxAttempts) {
-        throw error;
-      }
-
-      const waitMs = 250 * attempt;
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
-    }
-  }
-
-  throw new Error('Failed to update user');
+  // Server already retries lock-timeout cases for /api/users/me.
+  // Avoid client-side retry loop which can multiply total wait time.
+  return await sendUpdateRequest();
 }
 
 /**

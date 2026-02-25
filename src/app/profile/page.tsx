@@ -98,6 +98,8 @@ export default function Profile() {
   const { appName, setAppName } = useAppName();
   const [localAppName, setLocalAppName] = useState(appName); // Lokalni state za input
   const [isAppNameDirty, setIsAppNameDirty] = useState(false);
+  const [isEditingAppName, setIsEditingAppName] = useState(false);
+  const [isSavingAppName, setIsSavingAppName] = useState(false);
   // Sessions removed - use devices instead
   const [isAppNameUpdated, setIsAppNameUpdated] = useState(false);
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(null);
@@ -157,7 +159,7 @@ export default function Profile() {
   const isAdmin = user?.email?.toLowerCase() === (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "gitara.zizu@gmail.com").toLowerCase();
   const [devices, setDevices] = useState<any[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
-  const [savingRole, setSavingRole] = useState(false);
+  const [deviceBusyMap, setDeviceBusyMap] = useState<Record<string, boolean>>({});
   const [isOwner, setIsOwner] = useState(false);
   const canManageDeviceRoles = isOwner === true;
   const [loginApprovals, setLoginApprovals] = useState<any[]>([]);
@@ -184,6 +186,27 @@ export default function Profile() {
   const [loadingArhivaCount, setLoadingArhivaCount] = useState<boolean>(false);
   const { cjenovnik } = useCjenovnik();
   const router = useRouter();
+
+  const getDeviceActionKey = (deviceOrId: any): string | null => {
+    if (!deviceOrId) return null;
+    if (typeof deviceOrId === 'string') return deviceOrId;
+    return deviceOrId.deviceId || deviceOrId.id || null;
+  };
+
+  const setDeviceBusy = (deviceOrId: any, busy: boolean) => {
+    const key = getDeviceActionKey(deviceOrId);
+    if (!key) return;
+    setDeviceBusyMap((prev) => ({
+      ...prev,
+      [key]: busy,
+    }));
+  };
+
+  const isDeviceBusy = (deviceOrId: any): boolean => {
+    const key = getDeviceActionKey(deviceOrId);
+    if (!key) return false;
+    return deviceBusyMap[key] === true;
+  };
 
   // Sinhronizuj localAppName sa appName iz contexta
   useEffect(() => {
@@ -238,6 +261,8 @@ export default function Profile() {
   };
 
   const handleSaveAppName = async () => {
+    if (isSavingAppName) return;
+
     const normalizedAppName = localAppName.trim();
 
     if (normalizedAppName === "") {
@@ -268,16 +293,20 @@ export default function Profile() {
     }
 
     try {
+      setIsSavingAppName(true);
       // Spremi preko API-ja
       const updatedUser = await updateCurrentUser({ appName: normalizedAppName });
+      const finalAppName = updatedUser?.appName || normalizedAppName;
       
       // Ažuriraj context
-      setAppName(updatedUser?.appName || normalizedAppName);
+      setAppName(finalAppName);
+      setLocalAppName(finalAppName);
       setIsAppNameDirty(false);
+      setIsEditingAppName(false);
 
       // Obavijesti druge tabove/stranice (npr. admin panel) da je appName ažuriran
       const appNameUpdatedPayload = {
-        appName: updatedUser?.appName || normalizedAppName,
+        appName: finalAppName,
         at: Date.now(),
       };
       window.dispatchEvent(new CustomEvent('app-name-updated', { detail: appNameUpdatedPayload }));
@@ -304,7 +333,24 @@ export default function Profile() {
       console.error("Greška pri spremanju imena aplikacije:", error);
       setMessage("Greška pri spremanju imena aplikacije: " + (error.message || "Nepoznata greška"));
       setTimeout(() => setMessage(""), 5000);
+    } finally {
+      setIsSavingAppName(false);
     }
+  };
+
+  const handleStartEditAppName = () => {
+    setLocalAppName(appName);
+    setIsAppNameDirty(false);
+    setIsAppNameUpdated(false);
+    setIsEditingAppName(true);
+  };
+
+  const handleCancelEditAppName = () => {
+    setLocalAppName(appName);
+    setIsAppNameDirty(false);
+    setIsEditingAppName(false);
+    setIsAppNameUpdated(false);
+    setMessage("");
   };
 
   // Učitaj uređaje za trenutnog korisnika
@@ -320,8 +366,13 @@ export default function Profile() {
         id: device.id,
         ...device,
         deviceId: device.deviceId,
-        status: device.status || (device.role === null ? "verifikacija" : "approved"),
-        isBlocked: device.isBlocked === false ? false : true,
+        // Backend koristi status "pending"; UI koristi label "verifikacija"
+        status:
+          device.status === "pending"
+            ? "verifikacija"
+            : (device.status || (device.role === null ? "verifikacija" : "approved")),
+        // null/undefined u bazi ne smije automatski značiti blocked
+        isBlocked: device.isBlocked === true,
         deviceName: device.deviceName || "",
           deviceInfo: {
           ...device.deviceInfo,
@@ -384,8 +435,10 @@ export default function Profile() {
     // Ako je prosleđen objekat, uzmi deviceId, inače koristi prosleđeni string
     const deviceId = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId.deviceId || deviceOrId.id);
 
+    if (isDeviceBusy(deviceOrId)) return;
+
     try {
-      setSavingRole(true);
+      setDeviceBusy(deviceOrId, true);
       await updateDevice(user.id, deviceId, {
         role: newRole || null,
         permissions: permissions || {},
@@ -402,7 +455,7 @@ export default function Profile() {
       setMessage("Greška pri dodjeljivanju uloge");
       setTimeout(() => setMessage(""), 5000);
     } finally {
-      setSavingRole(false);
+      setDeviceBusy(deviceOrId, false);
     }
   };
 
@@ -425,21 +478,23 @@ export default function Profile() {
     // Ako je prosleđen objekat, uzmi deviceId, inače koristi prosleđeni string
     const deviceId = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId.deviceId || deviceOrId.id);
 
+    if (isDeviceBusy(deviceOrId)) return;
+
     try {
-      setSavingRole(true);
+      setDeviceBusy(deviceOrId, true);
       
       // Ako vlasnik želi postaviti kao vlasnika, dozvoli to
       const deviceRole: UserRole = preferredRole || "konobar";
       
       // Default dozvole za konobara (sve osim admina)
-      const defaultPermissions = deviceRole === "vlasnik" ? {
+      const defaultPermissions: PagePermission = deviceRole === "vlasnik" ? {
         dashboard: true,
         obracun: true,
         arhiva: true,
         cjenovnik: true,
         profit: true,
         profile: true,
-        admin: false,
+        admin: true,
       } : {
         // Za konobara - default dozvole (može se promijeniti kasnije kroz "Uredi")
         dashboard: true,
@@ -455,6 +510,7 @@ export default function Profile() {
           role: deviceRole,
           status: "approved",
           isBlocked: false,
+          permissions: defaultPermissions,
       });
       await loadDevices();
 
@@ -472,7 +528,7 @@ export default function Profile() {
       setMessage(`Greška pri odobravanju uređaja: ${errorMessage}`);
       setTimeout(() => setMessage(""), 5000);
     } finally {
-      setSavingRole(false);
+      setDeviceBusy(deviceOrId, false);
     }
   };
 
@@ -484,8 +540,10 @@ export default function Profile() {
     // Ako je prosleđen objekat, uzmi deviceId, inače koristi prosleđeni string
     const deviceId = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId.deviceId || deviceOrId.id);
 
+    if (isDeviceBusy(deviceOrId)) return;
+
     try {
-      setSavingRole(true);
+      setDeviceBusy(deviceOrId, true);
       await updateDevice(user.id, deviceId, {
           isBlocked: !currentBlocked,
         status: !currentBlocked ? 'blocked' : 'approved',
@@ -498,7 +556,7 @@ export default function Profile() {
       setMessage("Greška pri blokiranju/odblokiranju uređaja");
       setTimeout(() => setMessage(""), 5000);
     } finally {
-      setSavingRole(false);
+      setDeviceBusy(deviceOrId, false);
     }
   };
 
@@ -538,8 +596,10 @@ export default function Profile() {
       return;
     }
 
+    if (isDeviceBusy(device)) return;
+
     try {
-      setSavingRole(true);
+      setDeviceBusy(device, true);
       console.log("Pokušavam da obrišem uređaj:", { 
         userId: user.id, 
         deviceId: deviceIdToDelete, 
@@ -573,7 +633,7 @@ export default function Profile() {
       setMessage(`Greška pri brisanju login-a: ${errorMessage}`);
       setTimeout(() => setMessage(""), 5000);
     } finally {
-      setSavingRole(false);
+      setDeviceBusy(device, false);
     }
   };
 
@@ -585,8 +645,10 @@ export default function Profile() {
     // Ako je prosleđen objekat, uzmi deviceId, inače koristi prosleđeni string
     const deviceId = typeof deviceOrId === 'string' ? deviceOrId : (deviceOrId.deviceId || deviceOrId.id);
 
+    if (isDeviceBusy(deviceOrId)) return;
+
     try {
-      setSavingRole(true);
+      setDeviceBusy(deviceOrId, true);
       await updateDevice(user.id, deviceId, {
           deviceName: deviceName.trim() || "",
       });
@@ -598,7 +660,7 @@ export default function Profile() {
       setMessage("Greška pri spremanju imena uređaja");
       setTimeout(() => setMessage(""), 5000);
     } finally {
-      setSavingRole(false);
+      setDeviceBusy(deviceOrId, false);
     }
   };
 
@@ -985,17 +1047,47 @@ export default function Profile() {
           <input
             type="text"
             value={localAppName}
+            readOnly={!isEditingAppName || isSavingAppName}
+            disabled={!isEditingAppName || isSavingAppName}
             onChange={(e) => {
               setLocalAppName(e.target.value);
               setIsAppNameDirty(true);
               setIsAppNameUpdated(false);
             }}
-            style={inputStyle}
+            style={{
+              ...inputStyle,
+              opacity: !isEditingAppName || isSavingAppName ? 0.7 : 1,
+              cursor: !isEditingAppName || isSavingAppName ? "not-allowed" : "text",
+              backgroundColor: !isEditingAppName || isSavingAppName ? "#f3f4f6" : "white",
+            }}
             placeholder="Unesite ime aplikacije"
           />
-          <button style={buttonStyle} onClick={handleSaveAppName}>
-            Spremi ime
-          </button>
+          {!isEditingAppName ? (
+            <button style={buttonStyle} onClick={handleStartEditAppName}>
+              Uredi ime
+            </button>
+          ) : (
+            <>
+              <button
+                style={{
+                  ...buttonStyle,
+                  background: (!isAppNameDirty || isSavingAppName) ? "#9ca3af" : "#3b82f6",
+                  cursor: (!isAppNameDirty || isSavingAppName) ? "not-allowed" : "pointer",
+                }}
+                onClick={handleSaveAppName}
+                disabled={!isAppNameDirty || isSavingAppName}
+              >
+                {isSavingAppName ? "Spremanje..." : "Sačuvaj"}
+              </button>
+              <button
+                style={{ ...buttonStyle, background: "#6b7280" }}
+                onClick={handleCancelEditAppName}
+                disabled={isSavingAppName}
+              >
+                Odustani
+              </button>
+            </>
+          )}
           {isAppNameUpdated && (
             <span style={{ 
               color: "#16a34a", 
@@ -1051,6 +1143,7 @@ export default function Profile() {
                     const deviceStatus = device.status || (device.role === null ? "verifikacija" : null);
                     const isBlocked = device.isBlocked === true;
                     const needsVerification = deviceStatus === "verifikacija";
+                    const deviceBusy = isDeviceBusy(device);
                     const roleColor = device.role ? roleColors[device.role] || { bg: "#f3f4f6", color: "#6b7280" } : 
                                       needsVerification ? roleColors.verifikacija : { bg: "#f3f4f6", color: "#6b7280" };
 
@@ -1207,10 +1300,10 @@ export default function Profile() {
                             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                               <button
                                 onClick={() => handleApproveDevice(device, "konobar")}
-                                disabled={savingRole}
-                                style={{ ...buttonStyle, background: savingRole ? "#9ca3af" : "#16a34a", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px", cursor: savingRole ? "not-allowed" : "pointer" }}
+                                disabled={deviceBusy}
+                                style={{ ...buttonStyle, background: deviceBusy ? "#9ca3af" : "#16a34a", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px", cursor: deviceBusy ? "not-allowed" : "pointer" }}
                               >
-                                {savingRole ? "Obrada..." : "✓ Odobri (Konobar)"}
+                                {deviceBusy ? "Obrada..." : "✓ Odobri (Konobar)"}
                               </button>
                               {isOwner && (
                                 <button
@@ -1219,10 +1312,10 @@ export default function Profile() {
                                       handleApproveDevice(device, "vlasnik");
                                     }
                                   }}
-                                  disabled={savingRole}
-                                  style={{ ...buttonStyle, background: savingRole ? "#9ca3af" : "#2563eb", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px", cursor: savingRole ? "not-allowed" : "pointer" }}
+                                  disabled={deviceBusy}
+                                  style={{ ...buttonStyle, background: deviceBusy ? "#9ca3af" : "#2563eb", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px", cursor: deviceBusy ? "not-allowed" : "pointer" }}
                                 >
-                                  {savingRole ? "Obrada..." : "✓ Odobri (Vlasnik)"}
+                                  {deviceBusy ? "Obrada..." : "✓ Odobri (Vlasnik)"}
                                 </button>
                               )}
                             </div>
@@ -1255,7 +1348,7 @@ export default function Profile() {
                               e.stopPropagation();
                               handleToggleBlockDevice(device, isBlocked);
                             }}
-                            disabled={savingRole || needsVerification}
+                            disabled={deviceBusy || needsVerification}
                             style={{
                               ...buttonStyle,
                               background: isBlocked ? "#16a34a" : "#dc2626",
@@ -1263,8 +1356,8 @@ export default function Profile() {
                               padding: "8px 16px",
                               width: "100%",
                               justifyContent: "center",
-                              opacity: (savingRole || needsVerification) ? 0.5 : 1,
-                              cursor: (savingRole || needsVerification) ? "not-allowed" : "pointer",
+                              opacity: (deviceBusy || needsVerification) ? 0.5 : 1,
+                              cursor: (deviceBusy || needsVerification) ? "not-allowed" : "pointer",
                             }}
                           >
                             {isBlocked ? "Odblokiraj" : "Blokiraj"}
@@ -1302,6 +1395,7 @@ export default function Profile() {
                     const deviceStatus = device.status || (device.role === null ? "verifikacija" : null);
                     const isBlocked = device.isBlocked === true;
                     const needsVerification = deviceStatus === "verifikacija";
+                    const deviceBusy = isDeviceBusy(device);
                     const roleColor = device.role ? roleColors[device.role] || { bg: "#f3f4f6", color: "#6b7280" } : 
                                       needsVerification ? roleColors.verifikacija : { bg: "#f3f4f6", color: "#6b7280" };
                     const isEditing = editingDeviceId === device.id;
@@ -1449,14 +1543,14 @@ export default function Profile() {
                               e.stopPropagation();
                               handleToggleBlockDevice(device, isBlocked);
                             }}
-                            disabled={savingRole || needsVerification}
+                            disabled={deviceBusy || needsVerification}
                             style={{
                               ...buttonStyle,
                               background: isBlocked ? "#16a34a" : "#dc2626",
                               fontSize: "12px",
                               padding: "4px 8px",
-                              opacity: (savingRole || needsVerification) ? 0.5 : 1,
-                              cursor: (savingRole || needsVerification) ? "not-allowed" : "pointer",
+                              opacity: (deviceBusy || needsVerification) ? 0.5 : 1,
+                              cursor: (deviceBusy || needsVerification) ? "not-allowed" : "pointer",
                             }}
                           >
                             {isBlocked ? "Odblokiraj" : "Blokiraj"}
@@ -2508,6 +2602,7 @@ export default function Profile() {
                     };
 
                     const roleColor = device.role ? roleColors[device.role] || { bg: "#fee2e2", color: "#dc2626" } : { bg: "#f3f4f6", color: "#6b7280" };
+                    const deviceBusy = isDeviceBusy(device);
 
                     return (
                       <tr key={device.id}>
@@ -2547,7 +2642,7 @@ export default function Profile() {
                           <select
                             value={device.role || ""}
                             onChange={(e) => handleAssignRole(device, e.target.value as UserRole || null)}
-                            disabled={savingRole}
+                            disabled={deviceBusy}
                             style={{
                               padding: "6px 12px",
                               border: "1px solid #e5e7eb",
@@ -2555,7 +2650,7 @@ export default function Profile() {
                               fontSize: "14px",
                               backgroundColor: "#fff",
                               color: "#1f2937",
-                              cursor: savingRole ? "not-allowed" : "pointer",
+                              cursor: deviceBusy ? "not-allowed" : "pointer",
                             }}
                           >
                             <option value="">Nedodijeljena</option>
@@ -2896,17 +2991,17 @@ export default function Profile() {
                       e.stopPropagation();
                       handleToggleBlockDevice(selectedDevice, selectedDevice.isBlocked);
                     }}
-                    disabled={savingRole}
+                    disabled={isDeviceBusy(selectedDevice)}
                     style={{
                       padding: "8px 16px",
                       borderRadius: "6px",
                       border: "none",
                       fontSize: "14px",
                       fontWeight: 500,
-                      cursor: savingRole ? "not-allowed" : "pointer",
+                      cursor: isDeviceBusy(selectedDevice) ? "not-allowed" : "pointer",
                       backgroundColor: selectedDevice.isBlocked ? "#16a34a" : "#dc2626",
                       color: "#fff",
-                      opacity: savingRole ? 0.5 : 1,
+                      opacity: isDeviceBusy(selectedDevice) ? 0.5 : 1,
                     }}
                   >
                     {selectedDevice.isBlocked ? "Odblokiraj" : "Blokiraj"}
@@ -2963,19 +3058,19 @@ export default function Profile() {
                   setSelectedRole({ ...selectedRole, [selectedDevice.id]: undefined as any });
                   setDeviceNames({ ...deviceNames, [selectedDevice.id]: undefined as any });
                 }}
-                disabled={savingRole}
+                disabled={isDeviceBusy(selectedDevice)}
                 style={{
                   padding: "10px 20px",
                   borderRadius: "6px",
                   border: "none",
                   fontSize: "14px",
                   fontWeight: 600,
-                  cursor: savingRole ? "not-allowed" : "pointer",
-                  backgroundColor: savingRole ? "#9ca3af" : "#3b82f6",
+                  cursor: isDeviceBusy(selectedDevice) ? "not-allowed" : "pointer",
+                  backgroundColor: isDeviceBusy(selectedDevice) ? "#9ca3af" : "#3b82f6",
                   color: "#fff",
                 }}
               >
-                {savingRole ? "Spremanje..." : "Spremi"}
+                {isDeviceBusy(selectedDevice) ? "Spremanje..." : "Spremi"}
               </button>
               <button
                 onClick={async (e) => {

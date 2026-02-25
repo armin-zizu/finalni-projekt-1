@@ -7,7 +7,7 @@
 # ============================================
 
 # PostgreSQL konfiguracija
-$DB_HOST = if ($env:DB_HOST) { $env:DB_HOST } else { "46.224.115.49" }
+$DB_HOST = if ($env:DB_HOST) { $env:DB_HOST } else { "localhost" }
 $DB_USER = if ($env:DB_USER) { $env:DB_USER } else { "office_user" }
 $DB_NAME = if ($env:DB_NAME) { $env:DB_NAME } else { "office_app" }
 $ADMIN_EMAIL = if ($env:ADMIN_EMAIL) { $env:ADMIN_EMAIL } else { "gitara.zizu@gmail.com" }

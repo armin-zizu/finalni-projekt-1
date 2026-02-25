@@ -70,7 +70,7 @@ async function checkTable() {
       }
     } else {
       console.log('\n⚠️  Subscriptions table does not exist!');
-      console.log('Please run: psql -h 46.224.115.49 -U office_user -d office_app -f scripts/create-subscriptions-table.sql');
+      console.log('Please run: psql -h localhost -U office_user -d office_app -f scripts/create-subscriptions-table.sql');
       console.log('Or use the SQL script in scripts/create-subscriptions-table.sql');
     }
     

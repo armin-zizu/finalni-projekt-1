@@ -10,7 +10,7 @@ Migracija menja tip kolone u `text` kako bi se mogao čuvati datum u formatu `DD
 
 1. Povežite se na PostgreSQL server kao administrator:
 ```bash
-psql -h 46.224.115.49 -U postgres -d office_app
+psql -h localhost -U postgres -d office_app
 ```
 (Ili koristite vaš username ako niste postgres)
 
@@ -21,14 +21,14 @@ psql -h 46.224.115.49 -U postgres -d office_app
 
 ILI direktno:
 ```bash
-psql -h 46.224.115.49 -U postgres -d office_app -f scripts/migrate-datum-to-text-admin.sql
+psql -h localhost -U postgres -d office_app -f scripts/migrate-datum-to-text-admin.sql
 ```
 
 ### Opcija 2: Kopiraj i nalepi SQL direktno u psql
 
 1. Otvori fajl `scripts/migrate-datum-to-text-admin.sql`
 2. Kopiraj ceo sadržaj
-3. Poveži se na bazu: `psql -h 46.224.115.49 -U postgres -d office_app`
+3. Poveži se na bazu: `psql -h localhost -U postgres -d office_app`
 4. Nalepi SQL kod i pritisni Enter
 
 ### Opcija 3: Preko pgAdmin ili drugog SQL klijenta

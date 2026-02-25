@@ -6,7 +6,7 @@
 --
 -- UPUTSTVO:
 -- 1. Prijavite se na PostgreSQL bazu podataka:
---    psql -h 46.224.115.49 -U office_user -d office_app
+--    psql -h localhost -U office_user -d office_app
 --
 -- 2. Pokrenite ovu skriptu:
 --    \i scripts/approve-admin-devices-recovery.sql

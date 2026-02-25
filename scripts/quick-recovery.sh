@@ -16,7 +16,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # PostgreSQL konfiguracija (podesite prema vašim podacima)
-DB_HOST="${DB_HOST:-46.224.115.49}"
+DB_HOST="${DB_HOST:-localhost}"
 DB_USER="${DB_USER:-office_user}"
 DB_NAME="${DB_NAME:-office_app}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-gitara.zizu@gmail.com}"
