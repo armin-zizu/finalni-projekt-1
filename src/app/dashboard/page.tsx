@@ -167,6 +167,7 @@ export default function DashboardPage() {
   const { cjenovnik } = useCjenovnik();
   const { user } = useRole();
   const { subscription, loading: subscriptionLoading } = useSubscription();
+  const { appName } = require("../context/AppNameContext").useAppName();
   const enableDashboardDebug = false;
 
   // Stabilna detekcija mobilnog uređaja (bez post-mount oscilacija)
@@ -2380,7 +2381,7 @@ export default function DashboardPage() {
               Dashboard premium pregled
             </div>
             <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "#f8fafc", lineHeight: 1.2 }}>
-              Dobrodošli, {userDisplayName}
+              Dobrodošli, {appName}
             </div>
             <div style={{ marginTop: 6, fontSize: isMobile ? 12 : 13, color: "#e2e8f0", display: "flex", alignItems: "center", gap: 6 }}>
               <FaClock size={12} /> {todayLabel}
