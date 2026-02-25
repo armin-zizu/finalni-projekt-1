@@ -162,22 +162,6 @@ const FilterSection: React.FC<{
   isMobile?: boolean;
 }> = ({ filter, setFilter, customPeriod, setCustomPeriod, selectedMonth, setSelectedMonth, selectedYear, setSelectedYear, monthDropdownOpen, setMonthDropdownOpen, yearDropdownOpen, setYearDropdownOpen, label = "Filter arhive", isMobile = false }) => {
   const hasLabel = !!label;
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-
-  // Close dropdown on click outside
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-dropdown-container]')) {
-        setDropdownOpen(false);
-        if (setMonthDropdownOpen) setMonthDropdownOpen(false);
-        if (setYearDropdownOpen) setYearDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [dropdownOpen, setMonthDropdownOpen, setYearDropdownOpen]);
 
   const filterOptions = [
     { value: "currentWeek", label: "Trenutna sedmica" },
@@ -187,8 +171,6 @@ const FilterSection: React.FC<{
     { value: "selectMonth", label: "Odaberi mjesec" },
     { value: "custom", label: "Prilagođeno" },
   ];
-
-  const currentLabel = filterOptions.find(f => f.value === filter)?.label || "Trenutna sedmica";
 
   return (
     <div style={{ 
@@ -217,722 +199,114 @@ const FilterSection: React.FC<{
         </h2>
       )}
       {isMobile ? (
-        <div style={{ position: "relative", width: "100%" }} data-dropdown-container>
-          <button
-            type="button"
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            style={{
-              width: "100%",
-              padding: "14px 40px 14px 16px",
-              border: dropdownOpen ? "2px solid #3b82f6" : "1px solid #d1d5db",
-              borderRadius: "12px",
-              fontSize: "15px",
-              backgroundColor: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              boxShadow: dropdownOpen ? "0 8px 20px rgba(59,130,246,0.2), 0 0 0 1px rgba(59,130,246,0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              fontWeight: 600,
-              color: "#1f2937",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            <span>{currentLabel}</span>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              style={{
-                transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                position: "absolute",
-                right: "16px",
-              }}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+            <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "4px", display: "block" }}>Period</label>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as any)}
+              style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
             >
-              <path 
-                d="M5 7.5L10 12.5L15 7.5" 
-                stroke={dropdownOpen ? "#3b82f6" : "#6b7280"} 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          {dropdownOpen && (
-            <>
-              <div
-                style={{
-                  position: "fixed",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: "rgba(0, 0, 0, 0.08)",
-                  backdropFilter: "blur(4px)",
-                  WebkitBackdropFilter: "blur(4px)",
-                  zIndex: 9999,
-                }}
-                onClick={() => setDropdownOpen(false)}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 8px)",
-                  left: 0,
-                  right: 0,
-                  background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%)",
-                  backdropFilter: "blur(20px) saturate(180%)",
-                  WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                  border: "1px solid rgba(255, 255, 255, 0.8)",
-                  borderRadius: "16px",
-                  boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1), 0 10px 30px rgba(0, 0, 0, 0.15)",
-                  zIndex: 10000,
-                  maxHeight: "320px",
-                  overflowY: "auto",
-                  overflowX: "hidden",
-                }}
-              >
-                <style>{`
-                  @keyframes dropdownSlideIn {
-                    from {
-                      opacity: 0;
-                      transform: translateY(-10px) scale(0.95);
-                    }
-                    to {
-                      opacity: 1;
-                      transform: translateY(0) scale(1);
-                    }
-                  }
-                  @keyframes itemSlideIn {
-                    from {
-                      opacity: 0;
-                      transform: translateX(-10px);
-                    }
-                    to {
-                      opacity: 1;
-                      transform: translateX(0);
-                    }
-                  }
-                `}</style>
-                {filterOptions.map((option, index) => {
-                  const isSelected = filter === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => {
-                        setFilter(option.value as any);
-                        setDropdownOpen(false);
-                        if (setMonthDropdownOpen) setMonthDropdownOpen(false);
-                        if (setYearDropdownOpen) setYearDropdownOpen(false);
-                      }}
-                      style={{
-                        width: "100%",
-                        padding: "16px 18px",
-                        textAlign: "left",
-                        border: "none",
-                        backgroundColor: isSelected ? "#eff6ff" : "#fff",
-                        background: isSelected ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)" : "#fff",
-                        opacity: 1,
-                        color: isSelected ? "#1e40af" : "#374151",
-                        fontSize: "15px",
-                        cursor: "pointer",
-                        transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-                        fontWeight: isSelected ? 600 : 500,
-                        borderBottom: index < filterOptions.length - 1 ? "1px solid #f1f5f9" : "none",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        animation: `itemSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) ${index * 0.05}s both`,
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = "#f1f5f9";
-                          e.currentTarget.style.background = "#f1f5f9";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = "#fff";
-                          e.currentTarget.style.background = "#fff";
-                        }
-                      }}
-                    >
-                      <span>{option.label}</span>
-                      {isSelected && (
-                        <svg 
-                          width="22" 
-                          height="22" 
-                          viewBox="0 0 22 22" 
-                          fill="none" 
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <circle cx="11" cy="11" r="10" fill="#3b82f6" opacity="0.15"/>
-                          <path 
-                            d="M7.5 11L10 13.5L14.5 9" 
-                            stroke="#3b82f6" 
-                            strokeWidth="2.5" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  );
-                })}
+              {filterOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {filter === "selectMonth" && selectedMonth && setSelectedMonth && selectedYear && setSelectedYear && (
+            <div style={{ display: "flex", gap: "6px" }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "4px", display: "block" }}>Mjesec</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
+                >
+                  {["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"].map((month, index) => (
+                    <option key={month} value={index + 1}>{month}</option>
+                  ))}
+                </select>
               </div>
-            </>
-          )}
-          {filter === "selectMonth" && selectedMonth && setSelectedMonth && selectedYear && setSelectedYear && monthDropdownOpen !== undefined && setMonthDropdownOpen && yearDropdownOpen !== undefined && setYearDropdownOpen && (
-            <div style={{ 
-              marginTop: "12px",
-              display: "flex", 
-              gap: 8, 
-              alignItems: "flex-end", 
-              width: "100%", 
-              flexWrap: "wrap",
-              opacity: 1,
-              visibility: "visible"
-            }}>
-              {/* Custom Dropdown za Mjesec */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
-                <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Mjesec:</label>
-                <div style={{ position: "relative" }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMonthDropdownOpen(!monthDropdownOpen);
-                      if (setYearDropdownOpen) setYearDropdownOpen(false);
-                      setDropdownOpen(false);
-                    }}
-                    style={{
-                      padding: "8px 32px 8px 12px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      width: "100%",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      boxShadow: monthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937",
-                    }}
-                  >
-                    <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][selectedMonth - 1]}</span>
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      style={{
-                        transform: monthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                        transition: "transform 0.2s ease",
-                        position: "absolute",
-                        right: "8px",
-                      }}
-                    >
-                      <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                    </svg>
-                  </button>
-                  {monthDropdownOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        marginTop: "4px",
-                        backgroundColor: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "8px",
-                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                        zIndex: 10000,
-                        maxHeight: "240px",
-                        overflowY: "auto",
-                      }}
-                    >
-                      {[
-                        "Januar", "Februar", "Mart", "April", "Maj", "Juni",
-                        "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
-                      ].map((month, index) => (
-                        <button
-                          key={index + 1}
-                          type="button"
-                          onClick={() => {
-                            if (setSelectedMonth) setSelectedMonth(index + 1);
-                            if (setMonthDropdownOpen) setMonthDropdownOpen(false);
-                            setDropdownOpen(false);
-                          }}
-                          style={{
-                            width: "100%",
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            border: "none",
-                            backgroundColor: selectedMonth === index + 1 ? "#eff6ff" : "#fff",
-                            color: selectedMonth === index + 1 ? "#2563eb" : "#1f2937",
-                            fontSize: "13px",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            fontWeight: selectedMonth === index + 1 ? 600 : 400,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (selectedMonth !== index + 1) {
-                              e.currentTarget.style.backgroundColor = "#f9fafb";
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (selectedMonth !== index + 1) {
-                              e.currentTarget.style.backgroundColor = "#fff";
-                            }
-                          }}
-                        >
-                          {month}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* Custom Dropdown za Godinu */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative", flex: "1 1 auto", minWidth: 0 }} data-dropdown-container>
-                <label style={{ fontSize: "11px", fontWeight: 500, color: "#6b7280" }}>Godina:</label>
-                <div style={{ position: "relative" }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (setYearDropdownOpen) setYearDropdownOpen(!yearDropdownOpen);
-                      if (setMonthDropdownOpen) setMonthDropdownOpen(false);
-                      setDropdownOpen(false);
-                    }}
-                    style={{
-                      padding: "8px 32px 8px 12px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      width: "100%",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      boxShadow: yearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937",
-                    }}
-                  >
-                    <span>{selectedYear}</span>
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      style={{
-                        transform: yearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                        transition: "transform 0.2s ease",
-                        position: "absolute",
-                        right: "8px",
-                      }}
-                    >
-                      <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                    </svg>
-                  </button>
-                  {yearDropdownOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        marginTop: "4px",
-                        backgroundColor: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "8px",
-                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                        zIndex: 10000,
-                        maxHeight: "200px",
-                        overflowY: "auto",
-                      }}
-                    >
-                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                        <button
-                          key={year}
-                          type="button"
-                          onClick={() => {
-                            if (setSelectedYear) setSelectedYear(year);
-                            if (setYearDropdownOpen) setYearDropdownOpen(false);
-                            setDropdownOpen(false);
-                          }}
-                          style={{
-                            width: "100%",
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            border: "none",
-                            backgroundColor: selectedYear === year ? "#eff6ff" : "#fff",
-                            color: selectedYear === year ? "#2563eb" : "#1f2937",
-                            fontSize: "13px",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            fontWeight: selectedYear === year ? 600 : 400,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (selectedYear !== year) {
-                              e.currentTarget.style.backgroundColor = "#f9fafb";
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (selectedYear !== year) {
-                              e.currentTarget.style.backgroundColor = "#fff";
-                            }
-                          }}
-                        >
-                          {year}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "4px", display: "block" }}>Godina</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
+                >
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
               </div>
             </div>
           )}
+
           {filter === "custom" && (
-            <div style={{ 
-              marginTop: "12px",
-              display: "flex", 
-              gap: 8, 
-              alignItems: "center", 
-              justifyContent: "center",
-              width: "100%", 
-              flexWrap: "nowrap",
-              opacity: 1,
-              visibility: "visible"
-            }}>
-              <input 
-                type="date" 
-                value={customPeriod.from} 
-                onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
-                style={{ 
-                  flex: "1 1 auto",
-                  minWidth: 0,
-                  padding: "8px 12px", 
-                  border: "1px solid #d1d5db", 
-                  borderRadius: "8px", 
-                  fontSize: "13px", 
-                  outline: "none",
-                  backgroundColor: "#fff",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  boxSizing: "border-box",
-                  color: "#1f2937",
-                  fontWeight: 500
-                }} 
-              />
-              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
-              <input 
-                type="date" 
-                value={customPeriod.to} 
-                onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
-                style={{ 
-                  flex: "1 1 auto",
-                  minWidth: 0,
-                  padding: "8px 12px", 
-                  border: "1px solid #d1d5db", 
-                  borderRadius: "8px", 
-                  fontSize: "13px", 
-                  outline: "none",
-                  backgroundColor: "#fff",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  boxSizing: "border-box",
-                  color: "#1f2937",
-                  fontWeight: 500
-                }} 
-              />
+            <div style={{ display: "flex", gap: "6px" }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "4px", display: "block" }}>Od datuma</label>
+                <input
+                  type="date"
+                  value={customPeriod.from}
+                  onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" }}
+                />
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", marginBottom: "4px", display: "block" }}>Do datuma</label>
+                <input
+                  type="date"
+                  value={customPeriod.to}
+                  onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })}
+                  style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" }}
+                />
+              </div>
             </div>
           )}
         </div>
       ) : (
-        <div style={{ 
-          display: "flex", 
-          gap: 12, 
-          flexWrap: "nowrap", 
-          alignItems: "center", 
-          width: "100%",
-          overflowX: "auto"
-        }}>
-          {filterOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setFilter(option.value as any)}
-              style={{
-                ...buttonStyle,
-                backgroundColor: filter === option.value ? "#3b82f6" : "#e5e7eb",
-                color: filter === option.value ? "#fff" : "#374151",
-                padding: "8px 16px",
-                fontSize: 14,
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-          {filter === "selectMonth" && selectedMonth && setSelectedMonth && selectedYear && setSelectedYear && monthDropdownOpen !== undefined && setMonthDropdownOpen && yearDropdownOpen !== undefined && setYearDropdownOpen && (
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginLeft: 10, flexWrap: "wrap" }}>
-              {/* Custom Dropdown za Mjesec */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Mjesec:</label>
-                <div style={{ position: "relative" }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMonthDropdownOpen(!monthDropdownOpen);
-                      if (setYearDropdownOpen) setYearDropdownOpen(false);
-                    }}
-                    style={{
-                      padding: "10px 40px 10px 14px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      fontSize: "14px",
-                      minWidth: "160px",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      boxShadow: monthDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937",
-                    }}
-                  >
-                    <span>{["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"][selectedMonth - 1]}</span>
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      style={{
-                        transform: monthDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                        transition: "transform 0.2s ease",
-                        position: "absolute",
-                        right: "8px",
-                      }}
-                    >
-                      <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                    </svg>
-                  </button>
-                  {monthDropdownOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        marginTop: "4px",
-                        backgroundColor: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "8px",
-                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                        zIndex: 1000,
-                        maxHeight: "240px",
-                        overflowY: "auto",
-                      }}
-                    >
-                      {[
-                        "Januar", "Februar", "Mart", "April", "Maj", "Juni",
-                        "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"
-                      ].map((month, index) => (
-                        <button
-                          key={index + 1}
-                          type="button"
-                          onClick={() => {
-                            if (setSelectedMonth) setSelectedMonth(index + 1);
-                            if (setMonthDropdownOpen) setMonthDropdownOpen(false);
-                          }}
-                          style={{
-                            width: "100%",
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            border: "none",
-                            backgroundColor: selectedMonth === index + 1 ? "#eff6ff" : "#fff",
-                            color: selectedMonth === index + 1 ? "#2563eb" : "#1f2937",
-                            fontSize: "13px",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            fontWeight: selectedMonth === index + 1 ? 600 : 400,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (selectedMonth !== index + 1) {
-                              e.currentTarget.style.backgroundColor = "#f9fafb";
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (selectedMonth !== index + 1) {
-                              e.currentTarget.style.backgroundColor = "#fff";
-                            }
-                          }}
-                        >
-                          {month}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+        <div style={{ display: "flex", flexWrap: "nowrap", gap: 12, alignItems: "flex-end", width: "100%", overflowX: "auto", paddingBottom: "2px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+            <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Period</label>
+            <select value={filter} onChange={(e) => setFilter(e.target.value as any)} style={{ width: "210px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
+              {filterOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {filter === "selectMonth" && selectedMonth && setSelectedMonth && selectedYear && setSelectedYear && (
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Mjesec</label>
+                <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} style={{ width: "150px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
+                  {["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"].map((month, index) => (
+                    <option key={month} value={index + 1}>{month}</option>
+                  ))}
+                </select>
               </div>
-              {/* Custom Dropdown za Godinu */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px", position: "relative" }} data-dropdown-container>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>Godina:</label>
-                <div style={{ position: "relative" }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (setYearDropdownOpen) setYearDropdownOpen(!yearDropdownOpen);
-                      if (setMonthDropdownOpen) setMonthDropdownOpen(false);
-                    }}
-                    style={{
-                      padding: "10px 40px 10px 14px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      fontSize: "14px",
-                      minWidth: "160px",
-                      backgroundColor: "#fff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      boxShadow: yearDropdownOpen ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "0 1px 3px rgba(0, 0, 0, 0.1)",
-                      transition: "all 0.2s ease",
-                      fontWeight: 500,
-                      color: "#1f2937",
-                    }}
-                  >
-                    <span>{selectedYear}</span>
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      style={{
-                        transform: yearDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                        transition: "transform 0.2s ease",
-                        position: "absolute",
-                        right: "8px",
-                      }}
-                    >
-                      <path d="M6 9L1 4H11L6 9Z" fill="#6b7280" />
-                    </svg>
-                  </button>
-                  {yearDropdownOpen && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        marginTop: "4px",
-                        backgroundColor: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "8px",
-                        boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1)",
-                        zIndex: 1000,
-                        maxHeight: "200px",
-                        overflowY: "auto",
-                      }}
-                    >
-                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
-                        <button
-                          key={year}
-                          type="button"
-                          onClick={() => {
-                            if (setSelectedYear) setSelectedYear(year);
-                            if (setYearDropdownOpen) setYearDropdownOpen(false);
-                          }}
-                          style={{
-                            width: "100%",
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            border: "none",
-                            backgroundColor: selectedYear === year ? "#eff6ff" : "#fff",
-                            color: selectedYear === year ? "#2563eb" : "#1f2937",
-                            fontSize: "13px",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            fontWeight: selectedYear === year ? 600 : 400,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (selectedYear !== year) {
-                              e.currentTarget.style.backgroundColor = "#f9fafb";
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (selectedYear !== year) {
-                              e.currentTarget.style.backgroundColor = "#fff";
-                            }
-                          }}
-                        >
-                          {year}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Godina</label>
+                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} style={{ width: "110px", padding: "11px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
               </div>
-            </div>
+            </>
           )}
+
           {filter === "custom" && (
             <>
-              <input 
-                type="date" 
-                value={customPeriod.from} 
-                onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} 
-                style={{ 
-                  flex: "0 0 auto",
-                  minWidth: "140px",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  outline: "none",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  transition: "border-color 0.2s ease",
-                  fontWeight: 500,
-                  color: "#1f2937",
-                  boxSizing: "border-box",
-                  marginLeft: 10
-                }} 
-              />
-              <span style={{ whiteSpace: "nowrap", fontSize: "13px", color: "#6b7280" }}>do</span>
-              <input 
-                type="date" 
-                value={customPeriod.to} 
-                onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} 
-                style={{ 
-                  flex: "0 0 auto",
-                  minWidth: "140px",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  outline: "none",
-                  backgroundColor: "#fff",
-                  cursor: "pointer",
-                  transition: "border-color 0.2s ease",
-                  fontWeight: 500,
-                  color: "#1f2937",
-                  boxSizing: "border-box"
-                }} 
-              />
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Od datuma</label>
+                <input type="date" value={customPeriod.from} onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid #cbd5e1", outline: "none", color: "#0f172a", fontWeight: 600, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>Do datuma</label>
+                <input type="date" value={customPeriod.to} onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid #cbd5e1", outline: "none", color: "#0f172a", fontWeight: 600, boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)" }} />
+              </div>
             </>
           )}
         </div>
@@ -1008,6 +382,7 @@ export default function ProfitPage() {
   const [filteredObracuni, setFilteredObracuni] = useState<ObracunProfit[]>([]);
   const [selectedArtikl, setSelectedArtikl] = useState<string>("");
   const [artiklFilter, setArtiklFilter] = useState<"currentWeek" | "previousWeek" | "monthly" | "quarterly" | "selectMonth" | "custom">("currentWeek");
+  const [chartMode, setChartMode] = useState<"ukupni" | "artikl">("ukupni");
   // Dropdown state za artikl filter custom period
   const [artiklCustomFromDay, setArtiklCustomFromDay] = useState<number>(new Date().getDate());
   const [artiklCustomFromMonth, setArtiklCustomFromMonth] = useState<number>(new Date().getMonth() + 1);
@@ -2213,6 +1588,10 @@ export default function ProfitPage() {
     );
   }, [filteredObracuni]);
 
+  const activeFilter = chartMode === "ukupni" ? filter : artiklFilter;
+  const activeSetFilter = chartMode === "ukupni" ? setFilter : setArtiklFilter;
+  const activeChartData = chartMode === "ukupni" ? displayChartData : selectedArtiklData;
+
   // ---- Custom Tooltip za grafikon ----
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any; label?: string }) => {
     if (active && payload && payload.length) {
@@ -2451,27 +1830,298 @@ export default function ProfitPage() {
           }
         }
       `}</style>
-      <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24 }}>Profit</h1>
-      
-      {/* ---- Filter za ukupni profit ---- */}
-      <FilterSection
-        filter={filter}
-        setFilter={setFilter}
-        customPeriod={customPeriod}
-        setCustomPeriod={setCustomPeriod}
-        selectedMonth={selectedMonth}
-        setSelectedMonth={setSelectedMonth}
-        selectedYear={selectedYear}
-        setSelectedYear={setSelectedYear}
-        monthDropdownOpen={monthDropdownOpen}
-        setMonthDropdownOpen={setMonthDropdownOpen}
-        yearDropdownOpen={yearDropdownOpen}
-        setYearDropdownOpen={setYearDropdownOpen}
-        label="Filter ukupnog profita"
-        isMobile={isMobile}
-      />
+      <div style={{
+        marginBottom: 20,
+        width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
+        background: "#fff",
+        borderRadius: "12px",
+        padding: isMobile ? "12px" : "24px",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+        border: "1px solid #e5e7eb"
+      }}>
+        <div style={{
+          marginBottom: isMobile ? "12px" : "20px",
+          paddingBottom: isMobile ? "10px" : "16px",
+          borderBottom: "2px solid #f3f4f6"
+        }}>
+          <h2 style={{
+            fontSize: isMobile ? "18px" : "20px",
+            fontWeight: 600,
+            color: "#1f2937",
+            margin: 0
+          }}>
+            Profit grafikon
+          </h2>
+          <p style={{
+            fontSize: isMobile ? "13px" : "14px",
+            color: "#6b7280",
+            margin: "4px 0 0 0"
+          }}>
+            Izaberite prikaz ukupnog profita ili profita po artiklu
+          </p>
+        </div>
 
-      {/* ---- Chart ukupnog profita ---- */}
+        {!isMobile ? (
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", width: "100%", overflowX: "auto", flexWrap: "nowrap", paddingBottom: "2px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+              <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                Tip prikaza
+              </label>
+              <div style={{ position: "relative" }}>
+                <select
+                  value={chartMode}
+                  onChange={(e) => setChartMode(e.target.value as "ukupni" | "artikl")}
+                  style={{
+                    width: "170px",
+                    WebkitAppearance: "none",
+                    MozAppearance: "none",
+                    appearance: "none",
+                    padding: "11px 40px 11px 14px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "10px",
+                    fontSize: "15px",
+                    backgroundColor: "#fff",
+                    color: "#0f172a",
+                    cursor: "pointer",
+                    outline: "none",
+                    transition: "all 0.2s ease",
+                    boxSizing: "border-box",
+                    boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)",
+                    fontWeight: 600,
+                  }}
+                >
+                  <option value="ukupni">Ukupni profit</option>
+                  <option value="artikl">Profit po artiklu</option>
+                </select>
+                <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                  <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                </svg>
+              </div>
+            </div>
+
+            {chartMode === "artikl" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", borderRadius: "12px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Odaberi artikal
+                </label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={selectedArtikl}
+                    onChange={(e) => setSelectedArtikl(e.target.value)}
+                    style={{
+                      width: "220px",
+                      WebkitAppearance: "none",
+                      MozAppearance: "none",
+                      appearance: "none",
+                      padding: "11px 40px 11px 14px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "10px",
+                      fontSize: "15px",
+                      backgroundColor: "#fff",
+                      color: "#0f172a",
+                      cursor: "pointer",
+                      outline: "none",
+                      transition: "all 0.2s ease",
+                      boxSizing: "border-box",
+                      boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <option value="">Odaberi artikal...</option>
+                    {allArtikli.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                    <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                  </svg>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: "flex" }}>
+              <FilterSection
+                filter={activeFilter}
+                setFilter={activeSetFilter}
+                customPeriod={customPeriod}
+                setCustomPeriod={setCustomPeriod}
+                selectedMonth={selectedMonth}
+                setSelectedMonth={setSelectedMonth}
+                selectedYear={selectedYear}
+                setSelectedYear={setSelectedYear}
+                monthDropdownOpen={monthDropdownOpen}
+                setMonthDropdownOpen={setMonthDropdownOpen}
+                yearDropdownOpen={yearDropdownOpen}
+                setYearDropdownOpen={setYearDropdownOpen}
+                label=""
+                isMobile={false}
+              />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: chartMode === "artikl" ? "1.2fr 1fr" : "1fr 1fr", gap: "8px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    Tip prikaza
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <select
+                      value={chartMode}
+                      onChange={(e) => setChartMode(e.target.value as "ukupni" | "artikl")}
+                      style={{
+                        width: "100%",
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        appearance: "none",
+                        padding: "9px 30px 9px 10px",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "9px",
+                        fontSize: "13px",
+                        backgroundColor: "#fff",
+                        color: "#0f172a",
+                        cursor: "pointer",
+                        outline: "none",
+                        transition: "all 0.2s ease",
+                        boxSizing: "border-box",
+                        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <option value="ukupni">Ukupni</option>
+                      <option value="artikl">Po artiklu</option>
+                    </select>
+                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                      <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                    </svg>
+                  </div>
+                </div>
+
+                {chartMode === "ukupni" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                      Period
+                    </label>
+                    <select
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value as any)}
+                      style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}
+                    >
+                      <option value="currentWeek">Trenutna sedmica</option>
+                      <option value="previousWeek">Prošla sedmica</option>
+                      <option value="monthly">Mjesečni</option>
+                      <option value="quarterly">Tromjesečni</option>
+                      <option value="selectMonth">Odaberi mjesec</option>
+                      <option value="custom">Prilagođeno</option>
+                    </select>
+                  </div>
+                )}
+
+                {chartMode === "artikl" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                      Odaberi artikal
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <select
+                        value={selectedArtikl}
+                        onChange={(e) => setSelectedArtikl(e.target.value)}
+                        style={{
+                          width: "100%",
+                          WebkitAppearance: "none",
+                          MozAppearance: "none",
+                          appearance: "none",
+                          padding: "9px 30px 9px 10px",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: "9px",
+                          fontSize: "13px",
+                          backgroundColor: "#fff",
+                          color: "#0f172a",
+                          cursor: "pointer",
+                          outline: "none",
+                          transition: "all 0.2s ease",
+                          boxSizing: "border-box",
+                          boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        <option value="">Odaberi artikal</option>
+                        {allArtikli.map((a) => (
+                          <option key={a} value={a}>{a}</option>
+                        ))}
+                      </select>
+                      <svg width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                        <path d="M6 9L1 4H11L6 9Z" fill="#64748b" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {chartMode === "ukupni" ? (
+                <>
+                  {filter === "selectMonth" && (
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                        <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Mjesec</label>
+                        <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
+                          {["Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"].map((month, index) => (
+                            <option key={month} value={index + 1}>{month}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                        <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Godina</label>
+                        <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff" }}>
+                          {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                            <option key={year} value={year}>{year}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  {filter === "custom" && (
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                        <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Od datuma</label>
+                        <input type="date" value={customPeriod.from} onChange={(e) => setCustomPeriod({ ...customPeriod, from: e.target.value })} style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px", padding: "8px 10px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)" }}>
+                        <label style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Do datuma</label>
+                        <input type="date" value={customPeriod.to} onChange={(e) => setCustomPeriod({ ...customPeriod, to: e.target.value })} style={{ width: "100%", padding: "9px 10px", borderRadius: "9px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: 600, color: "#0f172a", backgroundColor: "#fff", boxSizing: "border-box" }} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div>
+                  <FilterSection
+                    filter={activeFilter}
+                    setFilter={activeSetFilter}
+                    customPeriod={customPeriod}
+                    setCustomPeriod={setCustomPeriod}
+                    selectedMonth={selectedMonth}
+                    setSelectedMonth={setSelectedMonth}
+                    selectedYear={selectedYear}
+                    setSelectedYear={setSelectedYear}
+                    monthDropdownOpen={monthDropdownOpen}
+                    setMonthDropdownOpen={setMonthDropdownOpen}
+                    yearDropdownOpen={yearDropdownOpen}
+                    setYearDropdownOpen={setYearDropdownOpen}
+                    label=""
+                    isMobile={true}
+                  />
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ---- Jedinstveni chart profita ---- */}
       <div style={{ 
         width: "100%", 
         maxWidth: "100%", 
@@ -2493,21 +2143,21 @@ export default function ProfitPage() {
             if (typeof window !== 'undefined' && isMobile) {
               console.log('📱 Profit Chart Mobile Debug:', {
                 loading: false,
-                chartDataLength: chartData.length,
+                chartDataLength: activeChartData.length,
                 isMobile,
                 chartKey,
                 windowWidth: window.innerWidth,
-                hasChartData: chartData.length > 0,
-                chartDataSample: chartData[0] || null
+                hasChartData: activeChartData.length > 0,
+                chartDataSample: activeChartData[0] || null
               });
             }
             return (
               <ResponsiveContainer 
-                key={`profit-chart-${isMobile}-${filter}-${customPeriod.from}-${customPeriod.to}-${chartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
+                key={`profit-chart-${chartMode}-${isMobile}-${activeFilter}-${customPeriod.from}-${customPeriod.to}-${activeChartData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} 
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <LineChart data={displayChartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
+                <LineChart data={activeChartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
@@ -2520,9 +2170,11 @@ export default function ProfitPage() {
                   <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-                  <Line type="monotone" dataKey="bruto" name="Bruto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
-                  <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
-                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#10b981" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  <Line type="monotone" dataKey="bruto" name={chartMode === "ukupni" ? "Bruto" : "Bruto artikal"} stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  {chartMode === "ukupni" && (
+                    <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#ef4444" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                  )}
+                  <Line type="monotone" dataKey="neto" name={chartMode === "ukupni" ? "Neto" : "Neto artikal"} stroke="#10b981" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                 </LineChart>
               </ResponsiveContainer>
             );
@@ -2530,232 +2182,37 @@ export default function ProfitPage() {
         </div>
       </div>
 
-      {/* Kartice sa ukupnim bruto, rashod i neto vrednostima */}
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 16 : 30, width: "100%", boxSizing: "border-box" }}>
-        {[
-          {
-            label: "Bruto",
-            value: ukupnoPeriod.bruto,
-            icon: <FaArrowUp color="#3b82f6" size={20} />,
-          },
-          {
-            label: "Rashod",
-            value: ukupnoPeriod.rashod,
-            icon: <FaArrowDown color="#ef4444" size={20} />,
-          },
-          {
-            label: "Neto",
-            value: ukupnoPeriod.neto,
-            icon: <FaDollarSign color="#10b981" size={20} />,
-          },
-        ].map((item) => (
-          <div
-            key={item.label}
-            style={{
-              flex: 1,
-              minWidth: isMobile ? "calc(50% - 10px)" : 160,
-              backgroundColor: "#fff",
-              borderRadius: 12,
-              padding: isMobile ? 16 : 20,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-              transition: "transform 0.2s, box-shadow 0.2s",
-              cursor: "default",
-            }}
-            className="dashboard-card"
-          >
-            <div>{item.icon}</div>
-            <div style={{ textAlign: isMobile ? "center" : "left", flex: 1 }}>
-              <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
-              <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ---- Odabir artikla i filter za grafikon profita po artiklu ---- */}
-      <div style={{
-        marginBottom: 20,
-        width: "100%",
-        maxWidth: "100%",
-        boxSizing: "border-box",
-        background: "#fff",
-        borderRadius: "12px",
-        padding: isMobile ? "16px" : "24px",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-        border: "1px solid #e5e7eb"
-      }}>
-        {/* Naslov sekcije */}
-        <div style={{
-          marginBottom: isMobile ? "16px" : "20px",
-          paddingBottom: isMobile ? "12px" : "16px",
-          borderBottom: "2px solid #f3f4f6"
-        }}>
-          <h2 style={{
-            fontSize: isMobile ? "18px" : "20px",
-            fontWeight: 600,
-            color: "#1f2937",
-            margin: 0
-          }}>
-            Profit po artiklu
-          </h2>
-          <p style={{
-            fontSize: isMobile ? "13px" : "14px",
-            color: "#6b7280",
-            margin: "4px 0 0 0"
-          }}>
-            Odaberite artikal i vremenski period za detaljnu analizu
-          </p>
-        </div>
-
-        {/* Odabir artikla */}
-        <div style={{
-          marginBottom: isMobile ? "20px" : "24px"
-        }}>
-          <label style={{
-            display: "block",
-            fontWeight: 600,
-            fontSize: isMobile ? "14px" : "15px",
-            color: "#374151",
-            marginBottom: isMobile ? "8px" : "10px"
-          }}>
-            Odaberi artikal
-          </label>
-          <select
-            value={selectedArtikl}
-            onChange={(e) => setSelectedArtikl(e.target.value)}
-            style={{
-              width: "100%",
-              padding: isMobile ? "10px 12px" : "12px 16px",
-              borderRadius: "8px",
-              border: "1px solid #d1d5db",
-              fontSize: isMobile ? "14px" : "15px",
-              backgroundColor: "#fff",
-              color: "#1f2937",
-              cursor: "pointer",
-              outline: "none",
-              transition: "all 0.2s ease",
-              boxSizing: "border-box",
-              appearance: "none",
-              backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")",
-              backgroundPosition: "right 8px center",
-              backgroundRepeat: "no-repeat",
-              backgroundSize: "16px",
-              paddingRight: isMobile ? "36px" : "40px"
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "#3b82f6";
-              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "#d1d5db";
-              e.currentTarget.style.boxShadow = "none";
-            }}
-          >
-            <option value="">Odaberi artikal...</option>
-            {allArtikli.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Filter sekcija */}
-        <div>
-          <label style={{
-            display: "block",
-            fontWeight: 600,
-            fontSize: isMobile ? "14px" : "15px",
-            color: "#374151",
-            marginBottom: isMobile ? "12px" : "14px"
-          }}>
-            Vremenski period
-          </label>
-          <FilterSection
-            filter={artiklFilter}
-            setFilter={setArtiklFilter}
-            customPeriod={customPeriod}
-            setCustomPeriod={setCustomPeriod}
-            selectedMonth={selectedMonth}
-            setSelectedMonth={setSelectedMonth}
-            selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
-            monthDropdownOpen={monthDropdownOpen}
-            setMonthDropdownOpen={setMonthDropdownOpen}
-            yearDropdownOpen={yearDropdownOpen}
-            setYearDropdownOpen={setYearDropdownOpen}
-            label=""
-            isMobile={isMobile}
-          />
-        </div>
-      </div>
-
-      {/* ---- Grafikon profita odabranog artikla ---- */}
-      <div
-        style={{
-        width: "100%",
-        maxWidth: "100%",
-        height: isMobile ? 310 : 400,
-        minHeight: isMobile ? 310 : 400,
-        backgroundColor: "#fff",
-        borderRadius: 12,
-        padding: isMobile ? 0 : 20,
-        boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-        marginBottom: isMobile ? 16 : 30,
-        boxSizing: "border-box",
-        overflow: isMobile ? "visible" : "hidden",
-        position: "relative"
-      }}
-      >
-        <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
-          <ResponsiveContainer key={`artikl-profit-${isMobile}-${selectedArtiklData.length}-${chartKey}-${typeof window !== 'undefined' ? window.innerWidth : 0}`} width="100%" height={isMobile ? 300 : 400}>
-            <LineChart data={selectedArtiklData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="datum" 
-                tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
-                angle={0}
-                textAnchor="middle"
-                height={isMobile ? 30 : 40}
-                tickMargin={isMobile ? 6 : 8}
-              />
-              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} width={50} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
-              <Line type="monotone" dataKey="bruto" name="Bruto artikal" stroke="#3b82f6" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
-              <Line type="monotone" dataKey="neto" name="Neto artikal" stroke="#10b981" strokeWidth={2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Kartice sa ukupnim bruto i neto vrednostima za odabrani artikal */}
-      {selectedArtikl && (
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: isMobile ? 16 : 30, width: "100%", boxSizing: "border-box" }}>
+      {/* Kartice sa sumarnim vrednostima */}
+      {chartMode === "ukupni" ? (
+        <div style={{ display: "flex", gap: isMobile ? 10 : 20, flexWrap: "wrap", marginBottom: isMobile ? 12 : 30, width: "100%", boxSizing: "border-box" }}>
           {[
             {
-              label: `Bruto (${selectedArtikl})`,
-              value: totalArtiklSummary.bruto,
-              icon: <FaArrowUp color="#3b82f6" size={20} />,
+              label: "Bruto",
+              value: ukupnoPeriod.bruto,
+              icon: <FaArrowUp color="#3b82f6" size={isMobile ? 18 : 20} />,
             },
             {
-              label: `Neto (${selectedArtikl})`,
-              value: totalArtiklSummary.neto,
-              icon: <FaDollarSign color="#10b981" size={20} />,
+              label: "Rashod",
+              value: ukupnoPeriod.rashod,
+              icon: <FaArrowDown color="#ef4444" size={isMobile ? 18 : 20} />,
+            },
+            {
+              label: "Neto",
+              value: ukupnoPeriod.neto,
+              icon: <FaDollarSign color="#10b981" size={isMobile ? 18 : 20} />,
             },
           ].map((item) => (
             <div
               key={item.label}
               style={{
                 flex: 1,
-                minWidth: isMobile ? "calc(50% - 10px)" : 160,
+                minWidth: isMobile ? "calc(50% - 5px)" : 160,
                 backgroundColor: "#fff",
                 borderRadius: 12,
-                padding: isMobile ? 16 : 20,
+                padding: isMobile ? 12 : 20,
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
+                gap: isMobile ? 10 : 12,
                 boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                 transition: "transform 0.2s, box-shadow 0.2s",
                 cursor: "default",
@@ -2763,14 +2220,55 @@ export default function ProfitPage() {
               className="dashboard-card"
             >
               <div>{item.icon}</div>
-              <div>
-                <div style={{ fontSize: isMobile ? 12 : 14, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
-                <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
+                <div style={{ textAlign: isMobile ? "center" : "left", flex: 1 }}>
+                <div style={{ fontSize: isMobile ? 11 : 14, color: "#6b7280", marginBottom: isMobile ? 2 : 4 }}>{item.label}</div>
+                <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
               </div>
             </div>
           ))}
         </div>
-      )}
+        ) : (
+          selectedArtikl && (
+            <div style={{ display: "flex", gap: isMobile ? 10 : 20, flexWrap: "wrap", marginBottom: isMobile ? 12 : 30, width: "100%", boxSizing: "border-box" }}>
+              {[
+                {
+                  label: `Bruto (${selectedArtikl})`,
+                  value: totalArtiklSummary.bruto,
+                  icon: <FaArrowUp color="#3b82f6" size={isMobile ? 18 : 20} />,
+                },
+                {
+                  label: `Neto (${selectedArtikl})`,
+                  value: totalArtiklSummary.neto,
+                  icon: <FaDollarSign color="#10b981" size={isMobile ? 18 : 20} />,
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    flex: 1,
+                    minWidth: isMobile ? "calc(50% - 5px)" : 160,
+                    backgroundColor: "#fff",
+                    borderRadius: 12,
+                    padding: isMobile ? 12 : 20,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: isMobile ? 10 : 12,
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                    transition: "transform 0.2s, box-shadow 0.2s",
+                    cursor: "default",
+                  }}
+                  className="dashboard-card"
+                >
+                  <div>{item.icon}</div>
+                  <div>
+                    <div style={{ fontSize: isMobile ? 11 : 14, color: "#6b7280", marginBottom: isMobile ? 2 : 4 }}>{item.label}</div>
+                    <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
 
       {/* ---- Poruka ako nema podataka ---- */}
       {filteredObracuni.length === 0 && (
