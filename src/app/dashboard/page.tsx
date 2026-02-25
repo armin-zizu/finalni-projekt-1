@@ -11,7 +11,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { FaArrowUp, FaArrowDown, FaDollarSign } from "react-icons/fa";
+import { FaArrowUp, FaArrowDown, FaDollarSign, FaCrown, FaClock } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRole } from "../context/RoleContext";
@@ -2145,6 +2145,33 @@ export default function DashboardPage() {
   const totalNeto = chartData.reduce((sum, o) => sum + Number(o.neto || 0), 0);
   const totalArtikl = selectedData.reduce((sum, o) => sum + Number(o.utroseno || 0), 0);
 
+  const sumSeries = (rows: Obracun[], key: "artikli" | "rashod" | "neto") =>
+    rows.reduce((sum, row) => sum + Number(row[key] || 0), 0);
+
+  const periodSize = Math.max(1, Math.floor(chartData.length / 2));
+  const currentPeriodRows = chartData.slice(-periodSize);
+  const previousPeriodRows = chartData.slice(-(periodSize * 2), -periodSize);
+
+  const trendBySeries = (key: "artikli" | "rashod" | "neto") => {
+    const currentValue = sumSeries(currentPeriodRows, key);
+    const previousValue = sumSeries(previousPeriodRows, key);
+    if (previousValue === 0) return 0;
+    return ((currentValue - previousValue) / previousValue) * 100;
+  };
+
+  const brutoTrend = trendBySeries("artikli");
+  const rashodTrend = trendBySeries("rashod");
+  const netoTrend = trendBySeries("neto");
+
+  const todayLabel = new Date().toLocaleDateString("bs-BA", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const userDisplayName = user?.email ? user.email.split("@")[0] : "Vaš tim";
+
   // Debug logiranje za chart podatke - NAKON izračuna varijabli
   useEffect(() => {
     if (enableDashboardDebug && typeof window !== 'undefined' && !loading) {
@@ -2336,6 +2363,47 @@ export default function DashboardPage() {
           }
         }
       `}</style>
+
+      <div
+        style={{
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 45%, #334155 100%)",
+          borderRadius: 14,
+          padding: isMobile ? "14px" : "18px 22px",
+          marginBottom: isMobile ? 12 : 16,
+          boxShadow: "0 10px 28px rgba(15, 23, 42, 0.22)",
+          border: "1px solid rgba(148, 163, 184, 0.25)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: isMobile ? 11 : 12, color: "#cbd5e1", marginBottom: 4, fontWeight: 600 }}>
+              Dashboard premium pregled
+            </div>
+            <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: "#f8fafc", lineHeight: 1.2 }}>
+              Dobrodošli, {userDisplayName}
+            </div>
+            <div style={{ marginTop: 6, fontSize: isMobile ? 12 : 13, color: "#e2e8f0", display: "flex", alignItems: "center", gap: 6 }}>
+              <FaClock size={12} /> {todayLabel}
+            </div>
+          </div>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "7px 12px",
+              borderRadius: 999,
+              background: "rgba(59, 130, 246, 0.22)",
+              border: "1px solid rgba(147, 197, 253, 0.45)",
+              color: "#dbeafe",
+              fontWeight: 700,
+              fontSize: 12,
+            }}
+          >
+            <FaCrown size={12} /> PRO
+          </div>
+        </div>
+      </div>
 
       {/* Range za prvi grafikon - Box samo na mobilnom */}
       {isMobile ? (
@@ -2825,17 +2893,32 @@ export default function DashboardPage() {
               {
                 label: "Bruto",
                 value: totalBruto,
-                icon: <FaArrowUp color="#16a34a" size={isMobile ? 18 : 20} />,
+                trend: brutoTrend,
+                icon: <FaArrowUp color="#065f46" size={isMobile ? 18 : 20} />,
+                cardBg: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
+                borderColor: "#86efac",
+                badgeBg: "#dcfce7",
+                badgeColor: "#166534",
               },
               {
                 label: "Rashod",
                 value: totalRashod,
-                icon: <FaArrowDown color="#dc2626" size={isMobile ? 18 : 20} />,
+                trend: rashodTrend,
+                icon: <FaArrowDown color="#991b1b" size={isMobile ? 18 : 20} />,
+                cardBg: "linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)",
+                borderColor: "#fda4af",
+                badgeBg: "#ffe4e6",
+                badgeColor: "#9f1239",
               },
               {
                 label: "Neto",
                 value: totalNeto,
-                icon: <FaDollarSign color="#3b82f6" size={isMobile ? 18 : 20} />,
+                trend: netoTrend,
+                icon: <FaDollarSign color="#1e3a8a" size={isMobile ? 18 : 20} />,
+                cardBg: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+                borderColor: "#93c5fd",
+                badgeBg: "#dbeafe",
+                badgeColor: "#1d4ed8",
               },
             ].map((item) => (
               <div
@@ -2843,13 +2926,14 @@ export default function DashboardPage() {
                 style={{
                   flex: isMobile ? "1 1 calc(50% - 6px)" : 1,
                   minWidth: isMobile ? "calc(50% - 5px)" : 160,
-                  backgroundColor: "#fff",
+                  background: item.cardBg,
+                  border: `1px solid ${item.borderColor}`,
                   borderRadius: 12,
                   padding: isMobile ? 12 : 20,
                   display: "flex",
                   alignItems: "center",
                   gap: isMobile ? 10 : 12,
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                  boxShadow: "0 10px 22px rgba(15, 23, 42, 0.12)",
                   transition: "transform 0.2s, box-shadow 0.2s",
                   cursor: "default",
                   visibility: "visible",
@@ -2863,6 +2947,21 @@ export default function DashboardPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: isMobile ? 11 : 14, color: "#6b7280", marginBottom: isMobile ? 2 : 4 }}>{item.label}</div>
                   <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, color: "#111827" }}>{item.value.toFixed(2)} KM</div>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "3px 8px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: item.badgeBg,
+                      color: item.badgeColor,
+                    }}
+                  >
+                    {item.trend >= 0 ? "▲" : "▼"} {Math.abs(item.trend).toFixed(1)}%
+                  </div>
                 </div>
               </div>
             ))}
