@@ -239,6 +239,9 @@ const rashodInputStyle: React.CSSProperties = {
 
 // ---- Glavna komponenta ----
 export default function ObracunPage() {
+  const ULAZ_UNLOCK_PIN_STORAGE_KEY = "obracunUlazUnlockPin";
+  const DEFAULT_ULAZ_UNLOCK_PIN = "1234";
+
   const { cjenovnik, setCjenovnik } = useCjenovnik();
   const { subscription } = useSubscription();
   const { role, permissions, user } = useRole();
@@ -735,19 +738,40 @@ export default function ObracunPage() {
               try {
                 const acceptedInvoicesRaw = localStorage.getItem('acceptedInvoices');
                 const acceptedInvoices = acceptedInvoicesRaw ? JSON.parse(acceptedInvoicesRaw) : {};
-                const acceptedForDate = acceptedInvoices?.[datumString] || acceptedInvoices?.[normalizedDatum];
-                if (acceptedForDate?.items && Array.isArray(acceptedForDate.items)) {
-                  acceptedForDate.items.forEach((item: any) => {
+
+                const toInvoiceList = (value: any): Array<{ invoiceId?: string; items?: Array<{ name?: string; quantity?: number }> }> => {
+                  if (Array.isArray(value)) return value;
+                  if (value && typeof value === 'object' && Array.isArray(value.items)) return [value];
+                  return [];
+                };
+
+                const invoiceMap = new Map<string, { invoiceId?: string; items?: Array<{ name?: string; quantity?: number }> }>();
+                [datumString, normalizedDatum].forEach((key) => {
+                  const list = toInvoiceList(acceptedInvoices?.[key]);
+                  list.forEach((invoice, index) => {
+                    const invoiceId = invoice?.invoiceId || `legacy-${key}-${index}`;
+                    if (!invoiceMap.has(invoiceId)) {
+                      invoiceMap.set(invoiceId, invoice);
+                    }
+                  });
+                });
+
+                Array.from(invoiceMap.values()).forEach((invoice) => {
+                  const invoiceItems = Array.isArray(invoice?.items) ? invoice.items : [];
+                  invoiceItems.forEach((item: any) => {
                     const naziv = item?.name;
                     const ulaz = Number(item?.quantity) || 0;
                     if (!naziv || ulaz === 0) return;
+
+                    const existingUlaz = Number(fallbackUlazCache[naziv]?.ulaz) || 0;
+                    const nextUlaz = existingUlaz + ulaz;
                     fallbackUlazCache[naziv] = {
-                      ulaz,
-                      staroPocetnoStanje: 0,
-                      sačuvanUlaz: ulaz,
+                      ulaz: nextUlaz,
+                      staroPocetnoStanje: Number(fallbackUlazCache[naziv]?.staroPocetnoStanje) || 0,
+                      sačuvanUlaz: nextUlaz,
                     };
                   });
-                }
+                });
               } catch (e) {
                 console.warn('⚠️ Ne mogu parsirati acceptedInvoices fallback:', e);
               }
@@ -1462,6 +1486,32 @@ export default function ObracunPage() {
   // Provjeri da li obračun ima ulaz (trenutni ulaz, sačuvan ulaz, ili u cache-u)
   const hasUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
 
+  const handleUnlockUlazEditing = () => {
+    if (!canEdit) return;
+
+    const configuredPin =
+      typeof window !== "undefined"
+        ? localStorage.getItem(ULAZ_UNLOCK_PIN_STORAGE_KEY) || DEFAULT_ULAZ_UNLOCK_PIN
+        : DEFAULT_ULAZ_UNLOCK_PIN;
+
+    const enteredPin = prompt("Unesite 4-znakovnu šifru za otključavanje ulaza:") || "";
+
+    if (!enteredPin) return;
+
+    if (enteredPin.length !== 4) {
+      alert("Šifra mora imati tačno 4 znaka.");
+      return;
+    }
+
+    if (enteredPin !== configuredPin) {
+      alert("Pogrešna šifra.");
+      return;
+    }
+
+    setIsUlazLocked(false);
+    alert("Ulaz je otključan.");
+  };
+
   // Funkcija za upload slika faktura - MIGRIRANO NA API
   const uploadInvoiceImages = async (datumString: string): Promise<string[]> => {
     // Ako nema slika, odmah vrati prazan array
@@ -1706,6 +1756,23 @@ export default function ObracunPage() {
       await saveObracun(userId, saveData);
       
       console.log("✅ Obračun uspješno sačuvan preko API-ja:", datumString, "sa", allInvoiceImageUrls.length, "slika faktura");
+
+      // Očisti fakture/cache za ovaj datum TEK kada je finalni obračun uspješno sačuvan
+      if (typeof window !== 'undefined') {
+        try {
+          const normalizedDatum = normalizeDatumString(datumString);
+          const cacheKeys = [`ulazCache_${datumString}`, `ulazCache_${normalizedDatum}`];
+          cacheKeys.forEach((key) => localStorage.removeItem(key));
+
+          const acceptedInvoicesRaw = localStorage.getItem('acceptedInvoices');
+          const acceptedInvoices = acceptedInvoicesRaw ? JSON.parse(acceptedInvoicesRaw) : {};
+          delete acceptedInvoices[datumString];
+          delete acceptedInvoices[normalizedDatum];
+          localStorage.setItem('acceptedInvoices', JSON.stringify(acceptedInvoices));
+        } catch (e) {
+          console.warn('⚠️ Ne mogu očistiti localStorage fakture nakon završetka obračuna:', e);
+        }
+      }
       
       // Resetuj slike faktura nakon uspješnog spremanja
       setInvoiceImages([]);
@@ -2326,7 +2393,7 @@ export default function ObracunPage() {
                 cursor: canEdit ? "pointer" : "not-allowed",
                 margin: 0
               }}
-              onClick={() => setIsUlazLocked(false)}
+              onClick={handleUnlockUlazEditing}
               disabled={!canEdit}
             >
               Uredi ulaz

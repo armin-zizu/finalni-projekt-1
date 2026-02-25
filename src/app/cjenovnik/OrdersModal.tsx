@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaPlus, FaTimes, FaEdit, FaClipboardList } from "react-icons/fa";
+import { uploadFile } from "../../lib/api";
 
 interface Supplier {
   id: string;
@@ -14,6 +15,11 @@ interface Order {
   id: string;
   supplierId: string;
   date: string;
+  orderedAt?: string;
+  receivedAt?: string;
+  wasEdited?: boolean;
+  editedAt?: string;
+  invoiceProofImages?: Array<{ name: string; url: string; dataUrl?: string } | string>;
   status: "pending" | "in-transit" | "received" | "completed";
   items: Array<{ name: string; quantity: number }>;
   totalItems: number;
@@ -23,7 +29,12 @@ interface OrdersModalProps {
   open: boolean;
   onClose: () => void;
   items: Array<{ naziv: string; pocetnoStanje?: number }>;
-  onInvoiceAccepted?: (date: string, items: Array<{ name: string; quantity: number }>) => void;
+  onRefreshItems?: () => Promise<void> | void;
+  onInvoiceAccepted?: (
+    date: string,
+    items: Array<{ name: string; quantity: number }>,
+    meta?: { invoiceId?: string; supplierId?: string }
+  ) => void;
 }
 
 const overlayStyle: React.CSSProperties = {
@@ -222,7 +233,15 @@ const dangerButton: React.CSSProperties = {
   gap: "8px",
 };
 
-export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }: OrdersModalProps) {
+export default function OrdersModal({ open, onClose, items, onRefreshItems, onInvoiceAccepted }: OrdersModalProps) {
+  const LAST_REFRESH_STORAGE_KEY = 'ordersLastItemsRefreshAt';
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('suppliers');
@@ -283,6 +302,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
     };
   });
   const [orderQuantities, setOrderQuantities] = useState<Record<string, Record<string, string>>>({});
+  const supplierItemsRef = useRef<Record<string, string[]>>({});
   const [orders, setOrders] = useState<Order[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('orders');
@@ -298,6 +318,23 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
   });
 
   const [isMobile, setIsMobile] = useState(false);
+  const [isRefreshingItems, setIsRefreshingItems] = useState(false);
+  const [lastItemsRefreshAt, setLastItemsRefreshAt] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
+  });
+  const [uploadingProofOrderId, setUploadingProofOrderId] = useState<string | null>(null);
+  const [isEditingOrderDetails, setIsEditingOrderDetails] = useState(false);
+  const [orderEditDraft, setOrderEditDraft] = useState<Array<{ name: string; quantity: string }>>([]);
+
+  const formatDateTimeLabel = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}.${month}.${year}. ${hours}:${minutes}`;
+  };
 
   useEffect(() => {
     // Detektuj mobilnu verziju
@@ -309,6 +346,24 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    if (!viewOrderId) {
+      setIsEditingOrderDetails(false);
+      setOrderEditDraft([]);
+      return;
+    }
+
+    const order = orders.find((o) => o.id === viewOrderId);
+    if (!order) {
+      setIsEditingOrderDetails(false);
+      setOrderEditDraft([]);
+      return;
+    }
+
+    setIsEditingOrderDetails(false);
+    setOrderEditDraft(order.items.map((item) => ({ name: item.name, quantity: String(item.quantity) })));
+  }, [viewOrderId, orders]);
 
   const selectedSupplier = useMemo(
     () => suppliers.find((s) => s.id === selectedSupplierId) || null,
@@ -344,6 +399,11 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
   useEffect(() => {
     if (open && typeof window !== 'undefined') {
       console.log("🔄 Osvežavanje OrdersModal podataka iz localStorage-a");
+
+      const savedLastRefresh = localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
+      if (savedLastRefresh) {
+        setLastItemsRefreshAt(savedLastRefresh);
+      }
       
       // Refresh suppliers
       const savedSuppliers = localStorage.getItem('suppliers');
@@ -392,10 +452,33 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
 
   // Save supplierItems to localStorage
   useEffect(() => {
+    supplierItemsRef.current = supplierItems;
     if (typeof window !== 'undefined') {
       localStorage.setItem('supplierItems', JSON.stringify(supplierItems));
     }
   }, [supplierItems]);
+
+  const updateSupplierItemsForSupplier = (
+    supplierId: string | null,
+    updater: (currentItems: string[]) => string[]
+  ) => {
+    if (!supplierId) return;
+    setSupplierItems((prev) => {
+      const currentItems = prev[supplierId] || [];
+      const nextItems = Array.from(new Set(updater(currentItems)));
+      const nextState = {
+        ...prev,
+        [supplierId]: nextItems,
+      };
+
+      supplierItemsRef.current = nextState;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('supplierItems', JSON.stringify(nextState));
+      }
+
+      return nextState;
+    });
+  };
 
   // Save orders to localStorage
   useEffect(() => {
@@ -473,12 +556,9 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
   };
 
   const toggleItem = (naziv: string) => {
-    if (!selectedSupplierId) return;
-    setSupplierItems((prev) => {
-      const current = prev[selectedSupplierId] || [];
+    updateSupplierItemsForSupplier(selectedSupplierId, (current) => {
       const exists = current.includes(naziv);
-      const next = exists ? current.filter((n) => n !== naziv) : [...current, naziv];
-      return { ...prev, [selectedSupplierId]: next };
+      return exists ? current.filter((n) => n !== naziv) : [...current, naziv];
     });
   };
 
@@ -517,6 +597,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
       id: `ord-${Date.now()}`,
       supplierId: supplier.id,
       date: formattedDate,
+      orderedAt: getCurrentTimeString(),
       status: "pending",
       items: orderItems,
       totalItems: orderItems.length,
@@ -528,14 +609,147 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
     setPrepareOrderSupplierId(null);
   };
 
-  const handleAcceptOrder = (orderId: string) => {
+  const handleAddInvoiceProof = async (orderId: string, fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    if (uploadingProofOrderId === orderId) return;
+
+    const files = Array.from(fileList).slice(0, 5);
+    try {
+      setUploadingProofOrderId(orderId);
+      const uploadedFiles = await Promise.all(
+        files.map(async (file, index) => {
+          const uploaded = await uploadFile(file, 'invoice-proof');
+          return {
+            name: file.name || `faktura-${Date.now()}-${index + 1}.jpg`,
+            url: uploaded?.url,
+          };
+        })
+      );
+
+      const nextFiles = uploadedFiles.filter((item) => !!item.url);
+      setOrders((prev) =>
+        prev.map((order) => {
+          if (order.id !== orderId) return order;
+          const existing = order.invoiceProofImages || [];
+          const next = [...existing, ...nextFiles].slice(0, 10);
+          return { ...order, invoiceProofImages: next };
+        })
+      );
+      alert(`Dodano ${nextFiles.length} slika fakture kao dokaz.`);
+    } catch (e) {
+      console.error("Greška pri dodavanju slike fakture:", e);
+      alert("Greška pri dodavanju slike fakture.");
+    } finally {
+      setUploadingProofOrderId(null);
+    }
+  };
+
+  const getInvoiceProofFiles = (order: Order): Array<{ name: string; url: string }> => {
+    const raw = order.invoiceProofImages || [];
+    return raw
+      .map((entry, idx) => {
+        if (typeof entry === 'string') {
+          return {
+            name: `faktura-${idx + 1}.jpg`,
+            url: entry,
+          };
+        }
+
+        return {
+          name: entry?.name || `faktura-${idx + 1}.jpg`,
+          url: entry?.url || entry?.dataUrl || '',
+        };
+      })
+      .filter((entry) => !!entry.url);
+  };
+
+  const handleRefreshItems = async () => {
+    if (!onRefreshItems || isRefreshingItems) return;
+    try {
+      setIsRefreshingItems(true);
+      await onRefreshItems();
+      const refreshLabel = formatDateTimeLabel(new Date());
+      setLastItemsRefreshAt(refreshLabel);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(LAST_REFRESH_STORAGE_KEY, refreshLabel);
+      }
+      alert("Stanje artikala je osvježeno.");
+    } catch (e: any) {
+      console.error("Greška pri osvježavanju stanja artikala:", e);
+      alert(`Greška pri osvježavanju stanja artikala: ${e?.message || "Nepoznata greška"}`);
+    } finally {
+      setIsRefreshingItems(false);
+    }
+  };
+
+  const handleRemoveInvoiceProof = (orderId: string, imageIndex: number) => {
     setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId ? { ...order, status: "received" as const } : order
-      )
+      prev.map((order) => {
+        if (order.id !== orderId) return order;
+        const currentImages = order.invoiceProofImages || [];
+        return {
+          ...order,
+          invoiceProofImages: currentImages.filter((_, idx) => idx !== imageIndex),
+        };
+      })
     );
-    alert("Narudžba je prihvaćena!");
-    setViewOrderId(null);
+  };
+
+  const handleStartEditOrder = (order: Order) => {
+    if (order.status === "completed") return;
+    setOrderEditDraft(order.items.map((item) => ({ name: item.name, quantity: String(item.quantity) })));
+    setIsEditingOrderDetails(true);
+  };
+
+  const handleDraftQuantityChange = (index: number, value: string) => {
+    setOrderEditDraft((prev) => prev.map((entry, idx) => (idx === index ? { ...entry, quantity: value } : entry)));
+  };
+
+  const handleRemoveDraftItem = (index: number) => {
+    setOrderEditDraft((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleSaveOrderEdit = (orderId: string) => {
+    const sanitized = orderEditDraft
+      .map((entry) => ({
+        name: entry.name,
+        quantity: Number(entry.quantity || 0),
+      }))
+      .filter((entry) => entry.quantity > 0);
+
+    if (sanitized.length === 0) {
+      alert("Narudžba mora imati barem jedan artikal sa količinom većom od 0.");
+      return;
+    }
+
+    const currentOrder = orders.find((order) => order.id === orderId);
+    if (!currentOrder) return;
+
+    const isChanged =
+      sanitized.length !== currentOrder.items.length ||
+      sanitized.some((entry, idx) => {
+        const currentItem = currentOrder.items[idx];
+        return !currentItem || currentItem.name !== entry.name || currentItem.quantity !== entry.quantity;
+      });
+
+    setOrders((prev) =>
+      prev.map((order) => {
+        if (order.id !== orderId) return order;
+        if (!isChanged) return order;
+        return {
+          ...order,
+          items: sanitized,
+          totalItems: sanitized.length,
+          wasEdited: true,
+          editedAt: getCurrentTimeString(),
+        };
+      })
+    );
+
+    setIsEditingOrderDetails(false);
+    if (isChanged) {
+      alert("Narudžba je uređena i sačuvana.");
+    }
   };
 
   const handleInvoiceOrder = (orderId: string) => {
@@ -556,12 +770,15 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
       
       // Callback to parent with order date and items
       if (onInvoiceAccepted) {
-        onInvoiceAccepted(formattedDate, order.items);
+        onInvoiceAccepted(formattedDate, order.items, {
+          invoiceId: order.id,
+          supplierId: order.supplierId,
+        });
       }
       
       setOrders((prev) =>
         prev.map((o) =>
-          o.id === orderId ? { ...o, status: "completed" as const } : o
+          o.id === orderId ? { ...o, status: "completed" as const, receivedAt: getCurrentTimeString() } : o
         )
       );
       alert("Faktura prihvaćena! Artikli su prebačeni na obračun.");
@@ -569,10 +786,146 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
     }
   };
 
+  const renderSupplierEditor = (supplier: Supplier, inlineMobile: boolean) => (
+    <div
+      style={
+        inlineMobile
+          ? {
+              marginTop: "12px",
+              padding: "12px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "10px",
+              background: "#f9fafb",
+              boxShadow: "inset 0 1px 0 #fff",
+              display: "grid",
+              gap: "10px",
+            }
+          : editPanelStyle
+      }
+    >
+      <div style={{ borderBottom: "2px solid #e5e7eb", paddingBottom: "8px", marginBottom: "10px" }}>
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: 600, color: "#6b7280", letterSpacing: "0.5px", marginBottom: "4px" }}>Uređivanje dobavljača</div>
+          <h3 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "#111827" }}>{supplier.name}</h3>
+        </div>
+
+        <div style={{ background: "linear-gradient(to right, #f9fafb, #ffffff)", padding: "16px", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#111827", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ width: "3px", height: "16px", background: "#3b82f6", borderRadius: "2px" }}></span>
+              Informacije dobavljača
+            </h4>
+            <button
+              onClick={() => {
+                if (editInfoMode) {
+                  handleSaveSupplier();
+                } else {
+                  setEditInfoMode(true);
+                }
+              }}
+              style={{
+                padding: "8px 16px",
+                background: editInfoMode ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                color: "#fff",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontSize: "13px",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                transition: "all 0.2s",
+              }}
+            >
+              <FaEdit /> {editInfoMode ? "Sačuvaj" : "Uredi"}
+            </button>
+          </div>
+
+          {editInfoMode ? (
+            <div style={{ display: "grid", gap: "14px", gridTemplateColumns: inlineMobile ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <div>
+                <div style={{ ...labelStyle, fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Naziv</div>
+                <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{ ...inputStyle, fontSize: "14px", padding: "10px 12px" }} />
+              </div>
+              <div>
+                <div style={{ ...labelStyle, fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Kontakt (email)</div>
+                <input value={editContact} onChange={(e) => setEditContact(e.target.value)} style={{ ...inputStyle, fontSize: "14px", padding: "10px 12px" }} />
+              </div>
+              <div>
+                <div style={{ ...labelStyle, fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Telefon</div>
+                <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} style={{ ...inputStyle, fontSize: "14px", padding: "10px 12px" }} />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: inlineMobile ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+              <div style={{ background: "#ffffff", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Naziv</div>
+                <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{supplier.name}</div>
+              </div>
+              <div style={{ background: "#ffffff", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Kontakt</div>
+                <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{supplier.contact}</div>
+              </div>
+              {supplier.phone && (
+                <div style={{ background: "#ffffff", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                  <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Telefon</div>
+                  <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{supplier.phone}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap", marginTop: "4px", paddingTop: "6px", borderTop: "1px solid #e5e7eb" }}>
+        <button
+          style={{ ...dangerButton, fontSize: "13px", padding: "10px 16px" }}
+          onClick={handleDeleteSupplier}
+        >
+          <FaTimes /> Obriši
+        </button>
+        <button
+          style={{
+            padding: "10px 20px",
+            background: "#f3f4f6",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: 600,
+            color: "#374151",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            transition: "all 0.2s",
+          }}
+          onClick={() => setSelectedSupplierId(null)}
+          onMouseEnter={(e) => e.currentTarget.style.background = "#e5e7eb"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "#f3f4f6"}
+        >
+          <FaTimes /> Zatvori
+        </button>
+      </div>
+    </div>
+  );
+
   if (!open) return null;
 
   return (
     <div style={overlayStyle}>
+      <style>{`
+        .orders-number-input {
+          -moz-appearance: textfield;
+          appearance: textfield;
+        }
+        .orders-number-input::-webkit-outer-spin-button,
+        .orders-number-input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+      `}</style>
       <div style={modalStyle}>
         <button aria-label="Zatvori" style={closeButtonStyle} onClick={onClose}>
           <FaTimes />
@@ -583,10 +936,29 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
             <h2 style={titleStyle}>Narudžbe / Dobavljači</h2>
             <p style={subtitleStyle}>Upravljaj dobavljačima i kreiraj narudžbe. Trenutno: {supplierCount} dobavljača.</p>
           </div>
-          <div style={actionsRowStyle}>
-            <button style={secondaryButton} onClick={handleAddSupplier}>
-              <FaPlus /> Dodaj dobavljača
-            </button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px", transform: "translateX(-12px)" }}>
+            <div style={actionsRowStyle}>
+              <button
+                style={{
+                  ...secondaryButton,
+                  background: isRefreshingItems ? "#a78bfa" : "#8b5cf6",
+                  border: "1px solid #7c3aed",
+                  color: "#ffffff",
+                  cursor: isRefreshingItems ? "not-allowed" : "pointer",
+                  opacity: isRefreshingItems ? 0.85 : 1,
+                }}
+                onClick={handleRefreshItems}
+                disabled={isRefreshingItems || !onRefreshItems}
+              >
+                {isRefreshingItems ? "Osvježavam..." : "Osvježi stanje"}
+              </button>
+              <button style={secondaryButton} onClick={handleAddSupplier}>
+                <FaPlus /> Dodaj dobavljača
+              </button>
+            </div>
+            <div style={{ fontSize: "12px", color: "#6b7280", fontWeight: 500 }}>
+              Zadnje osvježeno: {lastItemsRefreshAt || "nije osvježeno"}
+            </div>
           </div>
         </div>
 
@@ -611,6 +983,8 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                   { (supplierItems[supplier.id] || []).length } artikala
                 </span>
               </div>
+
+              {isMobile && selectedSupplierId === supplier.id && renderSupplierEditor(supplier, true)}
             </div>
           ))}
         </div>
@@ -674,6 +1048,10 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                           #{order.id.split("-")[1]}
                         </span>
                         <span style={{ fontSize: isMobile ? "13px" : "12px", color: "#6b7280" }}>{order.date}</span>
+                        <span style={{ fontSize: isMobile ? "12px" : "11px", color: "#6b7280" }}>Naručeno: {order.orderedAt || "-"}</span>
+                        {order.receivedAt && (
+                          <span style={{ fontSize: isMobile ? "12px" : "11px", color: "#059669", fontWeight: 600 }}>Primljeno: {order.receivedAt}</span>
+                        )}
                       </div>
                       <span style={{ 
                         fontSize: isMobile ? "12px" : "11px", 
@@ -702,6 +1080,9 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                       <div style={{ fontSize: isMobile ? "13px" : "12px", color: "#6b7280" }}>
                         {order.totalItems} artikal{order.totalItems !== 1 ? "a" : ""}
                       </div>
+                      <div style={{ fontSize: isMobile ? "12px" : "11px", color: "#6b7280", marginTop: "4px" }}>
+                        Dokaz: {(order.invoiceProofImages || []).length} slika
+                      </div>
                     </div>
                     
                     {/* Akcijski dugmadi */}
@@ -722,7 +1103,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                       >
                         Pregledaj
                       </button>
-                      {order.status === "received" && (
+                      {order.status !== "completed" && (
                         <button
                           style={{ 
                             padding: isMobile ? "10px 12px" : "8px 10px", 
@@ -764,114 +1145,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
           )}
         </div>
 
-        {selectedSupplier && (
-          <div style={editPanelStyle}>
-            <div style={{ borderBottom: "2px solid #e5e7eb", paddingBottom: "16px", marginBottom: "24px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap", marginBottom: "16px" }}>
-                <div>
-                  <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: 600, color: "#6b7280", letterSpacing: "0.5px", marginBottom: "4px" }}>Uređivanje dobavljača</div>
-                  <h3 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "#111827" }}>{selectedSupplier.name}</h3>
-                </div>
-                <button style={{ ...dangerButton, fontSize: "13px", padding: "8px 16px" }} onClick={handleDeleteSupplier}>
-                  <FaTimes /> Obriši
-                </button>
-              </div>
-
-              <div style={{ background: "linear-gradient(to right, #f9fafb, #ffffff)", padding: "16px", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                  <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#111827", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <span style={{ width: "3px", height: "16px", background: "#3b82f6", borderRadius: "2px" }}></span>
-                    Informacije dobavljača
-                  </h4>
-                  <button
-                    onClick={() => {
-                      if (editInfoMode) {
-                        handleSaveSupplier();
-                      } else {
-                        setEditInfoMode(true);
-                      }
-                    }}
-                    style={{
-                      padding: "8px 16px",
-                      background: editInfoMode ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                      transition: "all 0.2s",
-                    }}
-                  >
-                    <FaEdit /> {editInfoMode ? "Sačuvaj" : "Uredi"}
-                  </button>
-                </div>
-
-                {editInfoMode ? (
-                  <div style={{ display: "grid", gap: "14px", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-                    <div>
-                      <div style={{ ...labelStyle, fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Naziv</div>
-                      <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{ ...inputStyle, fontSize: "14px", padding: "10px 12px" }} />
-                    </div>
-                    <div>
-                      <div style={{ ...labelStyle, fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Kontakt (email)</div>
-                      <input value={editContact} onChange={(e) => setEditContact(e.target.value)} style={{ ...inputStyle, fontSize: "14px", padding: "10px 12px" }} />
-                    </div>
-                    <div>
-                      <div style={{ ...labelStyle, fontSize: "12px", fontWeight: 600, marginBottom: "6px" }}>Telefon</div>
-                      <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} style={{ ...inputStyle, fontSize: "14px", padding: "10px 12px" }} />
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
-                    <div style={{ background: "#ffffff", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                      <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Naziv</div>
-                      <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{selectedSupplier?.name}</div>
-                    </div>
-                    <div style={{ background: "#ffffff", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                      <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Kontakt</div>
-                      <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{selectedSupplier?.contact}</div>
-                    </div>
-                    {selectedSupplier?.phone && (
-                      <div style={{ background: "#ffffff", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
-                        <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Telefon</div>
-                        <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{selectedSupplier.phone}</div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap", marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
-              <button 
-                style={{ 
-                  padding: "10px 20px", 
-                  background: "#f3f4f6", 
-                  border: "1px solid #d1d5db", 
-                  borderRadius: "8px", 
-                  cursor: "pointer", 
-                  fontSize: "14px", 
-                  fontWeight: 600, 
-                  color: "#374151",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  transition: "all 0.2s",
-                }}
-                onClick={() => setSelectedSupplierId(null)}
-                onMouseEnter={(e) => e.currentTarget.style.background = "#e5e7eb"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "#f3f4f6"}
-              >
-                <FaTimes /> Zatvori
-              </button>
-            </div>
-          </div>
-        )}
+        {selectedSupplier && !isMobile && renderSupplierEditor(selectedSupplier, false)}
       </div>
 
       {/* Prepare Order Modal */}
@@ -965,9 +1239,13 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                     {showArticleList && (
                       <button
                         onClick={() => {
+                          const latestState = supplierItemsRef.current;
                           if (typeof window !== 'undefined') {
-                            localStorage.setItem('supplierItems', JSON.stringify(supplierItems));
-                            alert(`Lista artikala za ${supplier.name} je sačuvana!`);
+                            localStorage.setItem('supplierItems', JSON.stringify(latestState));
+                          }
+                          const savedCount = (prepareOrderSupplierId ? latestState[prepareOrderSupplierId] : [])?.length || 0;
+                          if (typeof window !== 'undefined') {
+                            alert(`Lista artikala za ${supplier.name} je sačuvana (${savedCount} artikala).`);
                           }
                           setShowArticleList(false);
                         }}
@@ -1004,11 +1282,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                               type="checkbox"
                               checked={false}
                               onChange={() => {
-                                const current = supplierItems[prepareOrderSupplierId] || [];
-                                setSupplierItems((prev) => ({
-                                  ...prev,
-                                  [prepareOrderSupplierId]: [...current, item.naziv],
-                                }));
+                                updateSupplierItemsForSupplier(prepareOrderSupplierId, (current) => [...current, item.naziv]);
                               }}
                               style={{ width: "18px", height: "18px", cursor: "pointer" }}
                             />
@@ -1077,11 +1351,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                 </div>
                                 <button
                                   onClick={() => {
-                                    const current = supplierItems[prepareOrderSupplierId] || [];
-                                    setSupplierItems((prev) => ({
-                                      ...prev,
-                                      [prepareOrderSupplierId]: current.filter((n) => n !== naziv),
-                                    }));
+                                    updateSupplierItemsForSupplier(prepareOrderSupplierId, (current) => current.filter((n) => n !== naziv));
                                   }}
                                   style={{
                                     width: "28px",
@@ -1169,6 +1439,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                   </div>
                                   <input
                                     type="number"
+                                    className="orders-number-input"
                                     step="1"
                                     value={orderQty}
                                     onChange={(e) => {
@@ -1229,6 +1500,7 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                   <td style={{ padding: "16px 20px", textAlign: "right" }}>
                                     <input
                                       type="number"
+                                        className="orders-number-input"
                                       step="1"
                                       value={orderQty}
                                       onChange={(e) => {
@@ -1251,28 +1523,15 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                                         fontWeight: 600,
                                         color: "#111827",
                                         transition: "border-color 0.2s",
-                                      MozAppearance: "textfield" as any,
-                                      WebkitAppearance: "none" as any,
                                     }}
                                     onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
                                     onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
                                   />
-                                  <style>{`
-                                    input[type=number]::-webkit-inner-spin-button,
-                                    input[type=number]::-webkit-outer-spin-button {
-                                      -webkit-appearance: none;
-                                      margin: 0;
-                                    }
-                                  `}</style>
                                 </td>
                                 <td style={{ padding: "16px 20px", textAlign: "center" }}>
                                   <button
                                     onClick={() => {
-                                      const current = supplierItems[prepareOrderSupplierId] || [];
-                                      setSupplierItems((prev) => ({
-                                        ...prev,
-                                        [prepareOrderSupplierId]: current.filter((n) => n !== naziv),
-                                      }));
+                                      updateSupplierItemsForSupplier(prepareOrderSupplierId, (current) => current.filter((n) => n !== naziv));
                                     }}
                                     style={{
                                       background: "#fee2e2",
@@ -1405,10 +1664,11 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                   {completedOrdersList.map((order) => {
                     const supplier = suppliers.find((s) => s.id === order.supplierId);
+                    const isEditedCompleted = order.wasEdited === true;
                     return (
                       <div key={order.id} style={{
-                        background: "#ffffff",
-                        border: "1px solid #e5e7eb",
+                        background: isEditedCompleted ? "#fef9c3" : "#ffffff",
+                        border: `1px solid ${isEditedCompleted ? "#fde047" : "#e5e7eb"}`,
                         borderRadius: "12px",
                         padding: "16px",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
@@ -1422,35 +1682,55 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                             <div style={{ fontSize: "14px", fontWeight: 700, color: "#111827", marginBottom: "2px" }}>
                               #{order.id.split("-")[1]}
                             </div>
-                            <div style={{ fontSize: "12px", color: "#6b7280" }}>
-                              {order.date}
-                            </div>
                           </div>
                           <span style={{
                             fontSize: "11px",
                             fontWeight: 700,
-                            color: "#059669",
-                            background: "#d1fae5",
+                            color: isEditedCompleted ? "#854d0e" : "#059669",
+                            background: isEditedCompleted ? "#fef3c7" : "#d1fae5",
                             padding: "4px 8px",
                             borderRadius: "6px",
                             whiteSpace: "nowrap"
                           }}>
-                            Završeno
+                            {isEditedCompleted ? "Uređeno + završeno" : "Završeno"}
                           </span>
+                        </div>
+
+                        <div style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                          gap: "8px",
+                        }}>
+                          <div style={{ background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase", fontWeight: 700, marginBottom: "2px" }}>Datum</div>
+                            <div style={{ fontSize: "12px", color: "#111827", fontWeight: 600 }}>{order.date}</div>
+                          </div>
+                          <div style={{ background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase", fontWeight: 700, marginBottom: "2px" }}>Naručeno</div>
+                            <div style={{ fontSize: "12px", color: "#111827", fontWeight: 600 }}>{order.orderedAt || "-"}</div>
+                          </div>
+                          <div style={{ background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase", fontWeight: 700, marginBottom: "2px" }}>Primljeno</div>
+                            <div style={{ fontSize: "12px", color: "#059669", fontWeight: 700 }}>{order.receivedAt || "-"}</div>
+                          </div>
+                          <div style={{ background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase", fontWeight: 700, marginBottom: "2px" }}>Stavki</div>
+                            <div style={{ fontSize: "12px", color: "#111827", fontWeight: 600 }}>{order.totalItems}</div>
+                          </div>
                         </div>
 
                         {/* Dobavljač i stavke */}
                         <div style={{
-                          background: "#f9fafb",
+                          background: isEditedCompleted ? "#fefce8" : "#f9fafb",
                           padding: "12px",
                           borderRadius: "8px",
-                          borderLeft: "4px solid #10b981"
+                          borderLeft: `4px solid ${isEditedCompleted ? "#facc15" : "#10b981"}`
                         }}>
                           <div style={{ fontSize: "14px", fontWeight: 700, color: "#1f2937", marginBottom: "4px" }}>
                             {supplier?.name || "Nepoznat dobavljač"}
                           </div>
-                          <div style={{ fontSize: "13px", color: "#6b7280" }}>
-                            {order.totalItems} artikal{order.totalItems !== 1 ? "a" : ""}
+                          <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                            Dokaz: {getInvoiceProofFiles(order).length} slika
                           </div>
                         </div>
 
@@ -1471,17 +1751,6 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                           >
                             Detalji
                           </button>
-                          <button
-                            style={{
-                              ...smallButton,
-                              padding: "10px 12px",
-                              fontSize: "13px",
-                              flex: "1 1 calc(50% - 4px)"
-                            }}
-                            onClick={() => alert(`Ponovi narudžbu ${order.id}`)}
-                          >
-                            Ponovi
-                          </button>
                         </div>
                       </div>
                     );
@@ -1496,37 +1765,52 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>ID</th>
                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>Dobavljač</th>
                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>Datum</th>
+                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>Naručeno</th>
+                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>Primljeno</th>
+                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>Dokaz</th>
                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>Stavki</th>
+                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>Status</th>
                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", fontWeight: 700, color: "#6b7280" }}>Akcije</th>
                       </tr>
                     </thead>
                     <tbody>
                       {completedOrdersList.map((order) => {
                         const supplier = suppliers.find((s) => s.id === order.supplierId);
+                        const isEditedCompleted = order.wasEdited === true;
                         return (
-                          <tr key={order.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                          <tr key={order.id} style={{ borderBottom: "1px solid #f3f4f6", background: isEditedCompleted ? "#fefce8" : "transparent" }}>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#111827", fontWeight: 700 }}>#{order.id.split("-")[1]}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#374151" }}>{supplier?.name || "Nepoznat"}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{order.date}</td>
+                            <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{order.orderedAt || "-"}</td>
+                            <td style={{ padding: "10px", fontSize: "13px", color: "#059669", fontWeight: 600 }}>{order.receivedAt || "-"}</td>
+                            <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{getInvoiceProofFiles(order).length}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{order.totalItems}</td>
+                            <td style={{ padding: "10px", fontSize: "13px" }}>
+                              {isEditedCompleted ? (
+                                <span style={{
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  color: "#854d0e",
+                                  background: "#fef3c7",
+                                  border: "1px solid #fde047",
+                                  borderRadius: "999px",
+                                  padding: "4px 10px",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                }}>
+                                  Uređeno
+                                </span>
+                              ) : (
+                                <span style={{ color: "#9ca3af", fontSize: "12px" }}>-</span>
+                              )}
+                            </td>
                             <td style={{ padding: "10px", display: "flex", gap: "8px" }}>
                               <button
                                 style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
                                 onClick={() => setViewOrderId(order.id)}
                               >
                                 Detalji
-                              </button>
-                              <button
-                                style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
-                                onClick={() => alert(`Ponovi narudžbu ${order.id}`)}
-                              >
-                                Ponovi
-                              </button>
-                              <button
-                                style={{ ...smallButton, padding: "8px 10px", fontSize: "12px" }}
-                                onClick={() => alert(`Ponovi narudžbu ${order.id}`)}
-                              >
-                                Ponovi
                               </button>
                             </td>
                           </tr>
@@ -1610,10 +1894,25 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
               </div>
 
               <div style={{ padding: "24px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", marginBottom: "24px" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(150px, 1fr))",
+                    gap: "12px",
+                    marginBottom: "24px",
+                  }}
+                >
                   <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                     <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Datum</div>
                     <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{order.date}</div>
+                  </div>
+                  <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                    <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Naručeno u</div>
+                    <div style={{ fontSize: "14px", color: "#111827", fontWeight: 600 }}>{order.orderedAt || "-"}</div>
+                  </div>
+                  <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                    <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Primljeno u</div>
+                    <div style={{ fontSize: "14px", color: "#059669", fontWeight: 700 }}>{order.receivedAt || "-"}</div>
                   </div>
                   <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                     <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Status</div>
@@ -1635,12 +1934,100 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                   </div>
                 </div>
 
+                <div style={{ marginBottom: "24px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap", marginBottom: "10px" }}>
+                    <h4 style={{ fontSize: "13px", fontWeight: 700, color: "#111827", margin: 0, textTransform: "uppercase", letterSpacing: "0.5px" }}>Dokaz fakture</h4>
+                    <label style={{
+                      padding: "8px 12px",
+                      background: uploadingProofOrderId === order.id ? "#93c5fd" : "#3b82f6",
+                      color: "#fff",
+                      borderRadius: "8px",
+                      cursor: uploadingProofOrderId === order.id ? "not-allowed" : "pointer",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}>
+                      {uploadingProofOrderId === order.id ? "⏳ Uploadam..." : "📸 Dodaj sliku fakture"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        disabled={uploadingProofOrderId === order.id}
+                        onChange={(e) => {
+                          handleAddInvoiceProof(order.id, e.target.files);
+                          e.currentTarget.value = "";
+                        }}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                  </div>
+                  {getInvoiceProofFiles(order).length === 0 ? (
+                    <div style={{ fontSize: "12px", color: "#6b7280" }}>Nema dodanih slika fakture.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {getInvoiceProofFiles(order).map((file, idx) => (
+                        <div
+                          key={`${order.id}-proof-${idx}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "10px",
+                            padding: "10px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            background: "#ffffff",
+                          }}
+                        >
+                          <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+                            <span style={{ fontSize: "13px", fontWeight: 600, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              📄 {file.name}
+                            </span>
+                            <span style={{ fontSize: "11px", color: "#6b7280" }}>Slika dokaza fakture</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                ...smallButton,
+                                textDecoration: "none",
+                                padding: "6px 10px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              Otvori
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveInvoiceProof(order.id, idx)}
+                              style={{
+                                ...smallButton,
+                                padding: "6px 10px",
+                                fontSize: "12px",
+                                color: "#dc2626",
+                                borderColor: "#fecaca",
+                                background: "#fef2f2",
+                              }}
+                            >
+                              Obriši
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ marginBottom: "24px" }}>
                   <h4 style={{ fontSize: "14px", fontWeight: 700, color: "#111827", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Naručeni artikli</h4>
                   {isMobile ? (
                     // Mobile verzija - Card layout
                     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {order.items.map((item, idx) => (
+                      {(isEditingOrderDetails ? orderEditDraft : order.items.map((item) => ({ name: item.name, quantity: String(item.quantity) }))).map((item, idx) => (
                         <div key={idx} style={{
                           background: "#ffffff",
                           border: "1px solid #e5e7eb",
@@ -1660,17 +2047,53 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                           }}>
                             {item.name}
                           </div>
-                          <div style={{
-                            fontSize: "13px",
-                            fontWeight: 700,
-                            color: "#fff",
-                            background: "#3b82f6",
-                            padding: "6px 12px",
-                            borderRadius: "8px",
-                            whiteSpace: "nowrap"
-                          }}>
-                            {item.quantity}
-                          </div>
+                          {isEditingOrderDetails ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <input
+                                type="number"
+                                className="orders-number-input"
+                                step="1"
+                                min="0"
+                                value={item.quantity}
+                                onChange={(e) => handleDraftQuantityChange(idx, e.target.value)}
+                                style={{
+                                  width: "86px",
+                                  padding: "6px 8px",
+                                  border: "1px solid #d1d5db",
+                                  borderRadius: "8px",
+                                  fontSize: "13px",
+                                  fontWeight: 700,
+                                  textAlign: "right",
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDraftItem(idx)}
+                                style={{
+                                  ...smallButton,
+                                  padding: "6px 8px",
+                                  fontSize: "11px",
+                                  color: "#dc2626",
+                                  borderColor: "#fecaca",
+                                  background: "#fef2f2",
+                                }}
+                              >
+                                Obriši
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{
+                              fontSize: "13px",
+                              fontWeight: 700,
+                              color: "#fff",
+                              background: "#3b82f6",
+                              padding: "6px 12px",
+                              borderRadius: "8px",
+                              whiteSpace: "nowrap"
+                            }}>
+                              {item.quantity}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1685,14 +2108,41 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                           </tr>
                         </thead>
                         <tbody>
-                          {order.items.map((item, idx) => (
+                          {(isEditingOrderDetails ? orderEditDraft : order.items.map((item) => ({ name: item.name, quantity: String(item.quantity) }))).map((item, idx) => (
                             <tr key={idx} style={{ borderBottom: idx < order.items.length - 1 ? "1px solid #f3f4f6" : "none" }}>
                               <td style={{ padding: "14px 16px", fontSize: "14px", color: "#111827", fontWeight: 600 }}>{item.name}</td>
-                              <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280", fontWeight: 600, textAlign: "right" }}>{item.quantity}</td>
+                              <td style={{ padding: "14px 16px", fontSize: "14px", color: "#6b7280", fontWeight: 600, textAlign: "right" }}>
+                                {isEditingOrderDetails ? (
+                                  <input
+                                    type="number"
+                                    className="orders-number-input"
+                                    step="1"
+                                    min="0"
+                                    value={item.quantity}
+                                    onChange={(e) => handleDraftQuantityChange(idx, e.target.value)}
+                                    style={{
+                                      width: "110px",
+                                      padding: "8px 10px",
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: "8px",
+                                      fontSize: "14px",
+                                      fontWeight: 700,
+                                      textAlign: "right",
+                                    }}
+                                  />
+                                ) : (
+                                  item.quantity
+                                )}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+                  {isEditingOrderDetails && (
+                    <div style={{ marginTop: "10px", fontSize: "12px", color: "#6b7280" }}>
+                      Savjet: Ako stavku postavite na 0 ili je obrišete, neće biti sačuvana u narudžbi.
                     </div>
                   )}
                 </div>
@@ -1716,42 +2166,83 @@ export default function OrdersModal({ open, onClose, items, onInvoiceAccepted }:
                   >
                     Zatvori
                   </button>
-                  {order.status === "pending" || order.status === "in-transit" ? (
-                    <button
-                      onClick={() => handleAcceptOrder(order.id)}
-                      style={{
-                        padding: "12px 24px",
-                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        color: "#fff",
-                        boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      Prihvati narudžbu
-                    </button>
-                  ) : order.status === "received" ? (
-                    <button
-                      onClick={() => handleInvoiceOrder(order.id)}
-                      style={{
-                        padding: "12px 24px",
-                        background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        color: "#fff",
-                        boxShadow: "0 4px 12px rgba(139, 92, 246, 0.3)",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      Prihvati fakturu
-                    </button>
+                  {order.status !== "completed" ? (
+                    <>
+                      {isEditingOrderDetails ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              setIsEditingOrderDetails(false);
+                              setOrderEditDraft(order.items.map((item) => ({ name: item.name, quantity: String(item.quantity) })));
+                            }}
+                            style={{
+                              padding: "12px 20px",
+                              background: "#f3f4f6",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              fontWeight: 600,
+                              color: "#374151",
+                            }}
+                          >
+                            Otkaži izmjene
+                          </button>
+                          <button
+                            onClick={() => handleSaveOrderEdit(order.id)}
+                            style={{
+                              padding: "12px 24px",
+                              background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                              border: "none",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              fontWeight: 600,
+                              color: "#fff",
+                              boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
+                            }}
+                          >
+                            Sačuvaj izmjene
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleStartEditOrder(order)}
+                            style={{
+                              padding: "12px 20px",
+                              background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                              border: "none",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              fontWeight: 600,
+                              color: "#fff",
+                              boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
+                            }}
+                          >
+                            Uredi narudžbu
+                          </button>
+                          <button
+                            onClick={() => handleInvoiceOrder(order.id)}
+                            style={{
+                              padding: "12px 24px",
+                              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                              border: "none",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              fontSize: "14px",
+                              fontWeight: 600,
+                              color: "#fff",
+                              boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                              transition: "all 0.2s",
+                            }}
+                          >
+                            Prihvati fakturu
+                          </button>
+                        </>
+                      )}
+                    </>
                   ) : null}
                 </div>
               </div>

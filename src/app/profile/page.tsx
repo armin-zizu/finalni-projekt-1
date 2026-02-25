@@ -92,6 +92,9 @@ const inputStyle: React.CSSProperties = {
   width: "200px",
 };
 
+const ULAZ_UNLOCK_PIN_STORAGE_KEY = "obracunUlazUnlockPin";
+const DEFAULT_ULAZ_UNLOCK_PIN = "1234";
+
 export default function Profile() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -171,6 +174,11 @@ export default function Profile() {
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<any | null>(null);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  const [ulazPinCurrent, setUlazPinCurrent] = useState("");
+  const [ulazPinNew, setUlazPinNew] = useState("");
+  const [ulazPinConfirm, setUlazPinConfirm] = useState("");
+  const [ulazPinMessage, setUlazPinMessage] = useState("");
+  const [hasCustomUlazPin, setHasCustomUlazPin] = useState(false);
   
   // Detektuj mobilnu verziju
   useEffect(() => {
@@ -181,6 +189,13 @@ export default function Profile() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedPin = localStorage.getItem(ULAZ_UNLOCK_PIN_STORAGE_KEY);
+    setHasCustomUlazPin(!!storedPin && storedPin.length === 4);
+  }, []);
+
   const editingBoxRef = useRef<HTMLTableCellElement | null>(null);
   const [arhivaCount, setArhivaCount] = useState<number>(0);
   const [loadingArhivaCount, setLoadingArhivaCount] = useState<boolean>(false);
@@ -258,6 +273,72 @@ export default function Profile() {
     // TODO: Implement password reset via API
     setMessage("Promjena lozinke trenutno nije dostupna. Kontaktirajte administratora.");
       setTimeout(() => setMessage(""), 5000);
+  };
+
+  const showUlazPinFeedback = (text: string) => {
+    setUlazPinMessage(text);
+    setTimeout(() => setUlazPinMessage(""), 5000);
+  };
+
+  const handleSetUlazPin = () => {
+    const newPin = ulazPinNew.trim();
+    const confirmPin = ulazPinConfirm.trim();
+
+    if (newPin.length !== 4) {
+      showUlazPinFeedback("Nova šifra mora imati tačno 4 znaka.");
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      showUlazPinFeedback("Potvrda šifre se ne poklapa.");
+      return;
+    }
+
+    localStorage.setItem(ULAZ_UNLOCK_PIN_STORAGE_KEY, newPin);
+    setHasCustomUlazPin(true);
+    setUlazPinCurrent("");
+    setUlazPinNew("");
+    setUlazPinConfirm("");
+    showUlazPinFeedback("Šifra za Uredi ulaz je uspješno postavljena.");
+  };
+
+  const handleChangeUlazPin = () => {
+    const currentPin = ulazPinCurrent.trim();
+    const newPin = ulazPinNew.trim();
+    const confirmPin = ulazPinConfirm.trim();
+    const savedPin = localStorage.getItem(ULAZ_UNLOCK_PIN_STORAGE_KEY) || DEFAULT_ULAZ_UNLOCK_PIN;
+
+    if (currentPin.length !== 4) {
+      showUlazPinFeedback("Trenutna šifra mora imati tačno 4 znaka.");
+      return;
+    }
+
+    if (currentPin !== savedPin) {
+      showUlazPinFeedback("Trenutna šifra nije tačna.");
+      return;
+    }
+
+    if (newPin.length !== 4) {
+      showUlazPinFeedback("Nova šifra mora imati tačno 4 znaka.");
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      showUlazPinFeedback("Potvrda šifre se ne poklapa.");
+      return;
+    }
+
+    if (newPin === currentPin) {
+      showUlazPinFeedback("Nova šifra mora biti drugačija od trenutne.");
+      return;
+    }
+
+    localStorage.setItem(ULAZ_UNLOCK_PIN_STORAGE_KEY, newPin);
+    setHasCustomUlazPin(true);
+    setUlazPinCurrent("");
+    setUlazPinNew("");
+    setUlazPinConfirm("");
+    showUlazPinFeedback("Šifra za Uredi ulaz je uspješno promijenjena.");
   };
 
   const handleSaveAppName = async () => {
@@ -1032,6 +1113,31 @@ export default function Profile() {
             flex: 1 1 100% !important;
             box-sizing: border-box !important;
           }
+
+          .ulaz-pin-section {
+            width: 100% !important;
+            max-width: 560px !important;
+            margin: 0 auto !important;
+            box-sizing: border-box !important;
+          }
+
+          .ulaz-pin-fields,
+          .ulaz-pin-actions {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+            gap: 8px !important;
+          }
+
+          .ulaz-pin-fields input,
+          .ulaz-pin-actions button {
+            width: 100% !important;
+            max-width: 320px !important;
+            margin: 0 auto !important;
+            box-sizing: border-box !important;
+          }
         }
       `}</style>
 
@@ -1578,8 +1684,8 @@ export default function Profile() {
         <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "16px" }}>
           Statistika korištenja
         </h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-          <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))", gap: isMobile ? "10px" : "16px" }}>
+          <div style={{ padding: isMobile ? "12px" : "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Ukupno obračuna</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
               {loadingArhivaCount ? (
@@ -1589,13 +1695,13 @@ export default function Profile() {
               )}
             </p>
           </div>
-          <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+          <div style={{ padding: isMobile ? "12px" : "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Artikala u cjenovniku</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
               {cjenovnik.length}
             </p>
           </div>
-          <div style={{ padding: "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+          <div style={{ padding: isMobile ? "12px" : "16px", background: "#fff", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
             <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>Aktivnih sesija</p>
             <p style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937" }}>
               {devices.filter(d => (d.role === "vlasnik" || d.role === "konobar") && d.status === "approved" && !d.isBlocked).length}
@@ -2745,6 +2851,83 @@ export default function Profile() {
               Link za promjenu lozinke će biti poslan na vaš e-mail ({email || "N/A"})
             </p>
         </div>
+
+            <div
+              className="ulaz-pin-section"
+              style={{
+              width: "100%",
+              maxWidth: "560px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "10px",
+              padding: "16px",
+              background: "#f8fafc"
+            }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1f2937", marginBottom: "10px", textAlign: "center" }}>
+                🔐 Šifra za Uredi ulaz
+              </h3>
+
+              <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "12px", textAlign: "center" }}>
+                Status: {hasCustomUlazPin ? "Postavljena prilagođena šifra" : `Koristi se zadana šifra (${DEFAULT_ULAZ_UNLOCK_PIN})`}
+              </p>
+
+              <div className="ulaz-pin-fields" style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", marginBottom: "10px" }}>
+                <input
+                  type="password"
+                  value={ulazPinCurrent}
+                  onChange={(e) => setUlazPinCurrent(e.target.value)}
+                  placeholder="Trenutna šifra (4 znaka)"
+                  maxLength={4}
+                  style={{ ...inputStyle, marginRight: 0, width: "180px" }}
+                />
+                <input
+                  type="password"
+                  value={ulazPinNew}
+                  onChange={(e) => setUlazPinNew(e.target.value)}
+                  placeholder="Nova šifra (4 znaka)"
+                  maxLength={4}
+                  style={{ ...inputStyle, marginRight: 0, width: "180px" }}
+                />
+                <input
+                  type="password"
+                  value={ulazPinConfirm}
+                  onChange={(e) => setUlazPinConfirm(e.target.value)}
+                  placeholder="Potvrdi novu šifru"
+                  maxLength={4}
+                  style={{ ...inputStyle, marginRight: 0, width: "180px" }}
+                />
+              </div>
+
+              <div className="ulaz-pin-actions" style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
+                <button
+                  style={{ ...buttonStyle, marginRight: 0 }}
+                  onClick={handleSetUlazPin}
+                >
+                  Postavi šifru
+                </button>
+                <button
+                  style={{ ...buttonStyle, marginRight: 0, background: "#7c3aed" }}
+                  onClick={handleChangeUlazPin}
+                >
+                  Promijeni šifru
+                </button>
+              </div>
+
+              {ulazPinMessage && (
+                <p style={{
+                  color: ulazPinMessage.includes("uspješno") ? "#15803d" : "#dc2626",
+                  marginTop: "10px",
+                  fontSize: "13px",
+                  textAlign: "center",
+                  padding: "8px 12px",
+                  background: ulazPinMessage.includes("uspješno") ? "#dcfce7" : "#fee2e2",
+                  borderRadius: "6px",
+                  border: `1px solid ${ulazPinMessage.includes("uspješno") ? "#86efac" : "#fca5a5"}`,
+                }}>
+                  {ulazPinMessage.includes("uspješno") ? "✓ " : "⚠️ "}
+                  {ulazPinMessage}
+                </p>
+              )}
+            </div>
 
             {/* Odvajanje */}
         <div style={{ 

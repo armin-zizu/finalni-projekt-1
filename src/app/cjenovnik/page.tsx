@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRole } from "../context/RoleContext";
 import { usePathname } from "next/navigation";
-import { saveCjenovnik, deleteCjenovnikArtikal } from "../../lib/api";
+import { saveCjenovnik, deleteCjenovnikArtikal, getObracuni } from "../../lib/api";
 import { FaTrash, FaPlus, FaArrowUp, FaArrowDown, FaGripVertical, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
 import OrdersButton from "./OrdersButton";
 import OrdersModal from "./OrdersModal";
@@ -964,7 +964,7 @@ export default function CjenovnikPage() {
         <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", margin: 0, paddingRight: "160px" }}>
           Cjenovnik
         </h1>
-        <div style={{ position: "absolute", top: 0, right: 0 }}>
+        <div style={{ position: "absolute", top: "8px", right: "10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <button
               type="button"
@@ -982,6 +982,12 @@ export default function CjenovnikPage() {
               disabled={isRefreshingCjenovnik}
               style={{
                 ...buttonStyle,
+                height: "32px",
+                minHeight: "32px",
+                padding: "0 16px",
+                justifyContent: "center",
+                alignItems: "center",
+                lineHeight: 1,
                 background: isRefreshingCjenovnik ? "#9ca3af" : "#3b82f6",
                 cursor: isRefreshingCjenovnik ? "not-allowed" : "pointer",
               }}
@@ -998,11 +1004,90 @@ export default function CjenovnikPage() {
           open={showOrdersModal}
           onClose={() => setShowOrdersModal(false)}
           items={cjenovnik}
-          onInvoiceAccepted={(date, items) => {
-            // Save order items to localStorage for the specific date
-            // Format: ulazCache_DD.MM.YYYY.
-            const ulazData: Record<string, { ulaz: number; staroPocetnoStanje: number }> = {};
+          onRefreshItems={async () => {
+            if (isRefreshingCjenovnik) return;
+            setIsRefreshingCjenovnik(true);
+            try {
+              await refreshCjenovnik();
+
+              const userId = user?.email || user?.id;
+              if (!userId) return;
+
+              const normalizeDatum = (value: string) => (value || '').replace(/\.$/, '').trim();
+              const datumToNumber = (value: string) => {
+                const normalized = normalizeDatum(value);
+                const parts = normalized.split('.');
+                if (parts.length !== 3) return -1;
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                if (!/^\d{2}$/.test(day) || !/^\d{2}$/.test(month) || !/^\d{4}$/.test(year)) return -1;
+                return Number(`${year}${month}${day}`);
+              };
+
+              const extractCurrentStock = (artikal: any) => {
+                const krajnjeStanje = Number(artikal?.krajnjeStanje);
+                if (artikal?.isKrajnjeSet === true && Number.isFinite(krajnjeStanje)) {
+                  return krajnjeStanje;
+                }
+
+                const ukupno = Number(artikal?.ukupno);
+                if (Number.isFinite(ukupno)) {
+                  return ukupno;
+                }
+
+                const pocetno = Number(artikal?.pocetnoStanje);
+                if (Number.isFinite(pocetno)) {
+                  return pocetno;
+                }
+
+                return null;
+              };
+
+              const obracuni = await getObracuni(userId);
+              const withArtikli = (obracuni || [])
+                .filter((ob: any) => Array.isArray(ob?.artikli) && ob.artikli.length > 0)
+                .map((ob: any) => ({ ...ob, __datumOrder: datumToNumber(ob?.datum || '') }));
+
+              const draftSorted = withArtikli
+                .filter((ob: any) => ob?.isAzuriran === true)
+                .sort((a: any, b: any) => (b.__datumOrder || -1) - (a.__datumOrder || -1));
+
+              const finalSorted = withArtikli
+                .filter((ob: any) => ob?.isAzuriran !== true)
+                .sort((a: any, b: any) => (b.__datumOrder || -1) - (a.__datumOrder || -1));
+
+              const sourceObracun = draftSorted[0] || finalSorted[0] || null;
+              if (!sourceObracun) return;
+
+              const stockByNaziv = new Map<string, number>();
+              sourceObracun.artikli.forEach((artikal: any) => {
+                const naziv = artikal?.naziv;
+                const stock = extractCurrentStock(artikal);
+                if (!naziv || stock === null) return;
+                stockByNaziv.set(naziv, stock);
+              });
+
+              if (stockByNaziv.size === 0) return;
+
+              setCjenovnik((prevItems) =>
+                prevItems.map((item) => {
+                  if (!stockByNaziv.has(item.naziv)) return item;
+                  return {
+                    ...item,
+                    pocetnoStanje: stockByNaziv.get(item.naziv) as number,
+                  };
+                })
+              );
+            } finally {
+              setIsRefreshingCjenovnik(false);
+            }
+          }}
+          onInvoiceAccepted={(date, items, meta) => {
+            const ulazData: Record<string, { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number }> = {};
             const normalizedDate = (date || '').replace(/\.$/, '').trim();
+            const nowIso = new Date().toISOString();
+            const invoiceId = meta?.invoiceId || `inv-${Date.now()}`;
             
             items.forEach(item => {
               // Pronađi artikal u cjenovniku da dobiješ pocetnoStanje
@@ -1013,25 +1098,70 @@ export default function CjenovnikPage() {
               };
             });
             
-            // Spremi u localStorage - ključ mora biti u formatu ulazCache_DD.MM.YYYY.
+            // Spremi u localStorage kao MERGE (ne overwrite) - ključ mora biti ulazCache_DD.MM.YYYY.
             const cacheKeys = [`ulazCache_${date}`, `ulazCache_${normalizedDate}`];
             cacheKeys.forEach((cacheKey) => {
-              localStorage.setItem(cacheKey, JSON.stringify(ulazData));
+              let existing: Record<string, { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number }> = {};
+              try {
+                const raw = localStorage.getItem(cacheKey);
+                existing = raw ? JSON.parse(raw) : {};
+              } catch {
+                existing = {};
+              }
+
+              const merged: Record<string, { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number }> = { ...existing };
+              Object.entries(ulazData).forEach(([naziv, entry]) => {
+                const previous = merged[naziv];
+                const previousUlaz = Number(previous?.ulaz) || 0;
+                const nextUlaz = previousUlaz + (Number(entry?.ulaz) || 0);
+                merged[naziv] = {
+                  ulaz: nextUlaz,
+                  staroPocetnoStanje: Number(previous?.staroPocetnoStanje) || entry.staroPocetnoStanje || 0,
+                  sačuvanUlaz: nextUlaz,
+                };
+              });
+
+              localStorage.setItem(cacheKey, JSON.stringify(merged));
             });
             console.log(`💾 Faktura spaljena u cache sa ključevima:`, cacheKeys);
-            console.log(`💾 Sadržaj cache-a:`, ulazData);
+            console.log(`💾 Sadržaj cache-a (merge ulaza):`, ulazData);
             console.log(`💾 Sve stavke u localStorage:`, Object.keys(localStorage).filter(k => k.includes('ulazCache')));
             
-            // Također spremi globalnu listu prihvaćenih faktura za trigger-ovanje obračuna
-            const acceptedInvoices = JSON.parse(localStorage.getItem('acceptedInvoices') || '{}');
-            acceptedInvoices[date] = {
-              items: items,
-              timestamp: new Date().toISOString()
+            // Spremi globalnu listu prihvaćenih faktura kao LISTU po datumu (append + dedupe po invoiceId)
+            const acceptedInvoicesRaw = localStorage.getItem('acceptedInvoices');
+            let acceptedInvoices: Record<string, any> = {};
+            try {
+              acceptedInvoices = acceptedInvoicesRaw ? JSON.parse(acceptedInvoicesRaw) : {};
+            } catch {
+              acceptedInvoices = {};
+            }
+
+            const normalizeInvoiceList = (value: any) => {
+              if (Array.isArray(value)) return value;
+              if (value && typeof value === 'object' && Array.isArray(value.items)) {
+                return [{
+                  invoiceId: `legacy-${value.timestamp || nowIso}`,
+                  supplierId: value.supplierId,
+                  items: value.items,
+                  timestamp: value.timestamp || nowIso,
+                }];
+              }
+              return [] as Array<{ invoiceId: string; supplierId?: string; items: Array<{ name: string; quantity: number }>; timestamp: string }>;
             };
-            acceptedInvoices[normalizedDate] = {
-              items: items,
-              timestamp: new Date().toISOString()
+
+            const nextEntry = {
+              invoiceId,
+              supplierId: meta?.supplierId,
+              items,
+              timestamp: nowIso,
             };
+
+            [date, normalizedDate].forEach((key) => {
+              const list = normalizeInvoiceList(acceptedInvoices[key]);
+              const exists = list.some((entry) => entry?.invoiceId === invoiceId);
+              acceptedInvoices[key] = exists ? list : [...list, nextEntry];
+            });
+
             localStorage.setItem('acceptedInvoices', JSON.stringify(acceptedInvoices));
             console.log(`📋 Globalna lista faktura ažurirana`, acceptedInvoices);
             
