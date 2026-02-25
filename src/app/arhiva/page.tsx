@@ -2210,15 +2210,35 @@ export default function ArhivaPage() {
                     </span>
                   )}
                 </h2>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(3, 148px)",
+                    gap: "6px",
+                    alignItems: "stretch",
+                    justifyContent: isMobile ? "stretch" : "start",
+                  }}
+                >
                   {item.invoiceImages && item.invoiceImages.length > 0 ? (
                     <button
                       style={{
                         ...buttonStyle,
                         background: "#8b5cf6",
-                        padding: "8px 16px",
-                        fontSize: "14px",
-                        maxWidth: "160px",
+                        padding: "6px 10px",
+                        fontSize: "13px",
+                        width: "100%",
+                        minWidth: isMobile ? undefined : "148px",
+                        maxWidth: isMobile ? undefined : "148px",
+                        height: "34px",
+                        minHeight: "34px",
+                        margin: 0,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxSizing: "border-box",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                       onClick={() => openSingleObracunFaktureModal(item.datum)}
                       onMouseEnter={(e) => {
@@ -2235,11 +2255,22 @@ export default function ArhivaPage() {
                       style={{
                         ...buttonStyle,
                         background: "#3b82f6",
-                        padding: "8px 16px",
-                        fontSize: "14px",
-                        maxWidth: "160px",
+                        padding: "6px 10px",
+                        fontSize: "13px",
+                        width: "100%",
+                        minWidth: isMobile ? undefined : "148px",
+                        maxWidth: isMobile ? undefined : "148px",
+                        height: "34px",
+                        minHeight: "34px",
                         cursor: "pointer",
-                        margin: 0
+                        margin: 0,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxSizing: "border-box",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = "#2563eb";
@@ -2261,18 +2292,66 @@ export default function ArhivaPage() {
                         }}
                         style={{ display: "none" }}
                       />
-                      📸 Dodaj slike fakture
+                      📸 Dodaj fakturu
                     </label>
-                  ) : null}
+                  ) : (
+                    !isMobile ? (
+                      <div
+                        aria-hidden="true"
+                        style={{
+                          width: "100%",
+                          minWidth: "148px",
+                          maxWidth: "148px",
+                          height: "34px",
+                          minHeight: "34px",
+                        }}
+                      />
+                    ) : null
+                  )}
                   <button
-                    style={{ ...buttonStyle, background: "#10b981", maxWidth: "160px" }}
+                    style={{
+                      ...buttonStyle,
+                      background: "#10b981",
+                      width: "100%",
+                      minWidth: isMobile ? undefined : "148px",
+                      maxWidth: isMobile ? undefined : "148px",
+                      height: "34px",
+                      minHeight: "34px",
+                      padding: "6px 10px",
+                      fontSize: "13px",
+                      margin: 0,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxSizing: "border-box",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
                     className="edit-button"
                     onClick={() => startEditingObracun(item.datum, item.rashodi, item.prihodi)}
                   >
                     Uredi obračun
                   </button>
                   <button
-                    style={deleteButtonStyle}
+                    style={{
+                      ...deleteButtonStyle,
+                      width: "100%",
+                      minWidth: isMobile ? undefined : "148px",
+                      maxWidth: isMobile ? undefined : "148px",
+                      height: "34px",
+                      minHeight: "34px",
+                      padding: "6px 10px",
+                      fontSize: "13px",
+                      margin: 0,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxSizing: "border-box",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
                     className="delete-button"
                     onClick={() => handleDeleteObracun(item.datum)}
                   >
