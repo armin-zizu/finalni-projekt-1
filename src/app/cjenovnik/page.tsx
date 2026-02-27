@@ -33,7 +33,7 @@ import {
   verticalListSortingStrategy
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ToastProvider } from "./ToastContext";
+import { ToastProvider, useToast } from "./ToastContext";
 
 // ---- Tip artikla ----
 type Artikl = {
@@ -1178,27 +1178,11 @@ function CjenovnikPage() {
             const artikliBroj = items.length;
             const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
             // Prikaz popup poruke (toast) zelene boje, automatski nestaje
-            if (typeof window !== 'undefined' && window.toast && typeof window.toast.showToast === 'function') {
-              window.toast.showToast(
-                `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na obračun od ${date}: ${artikliList}`,
-                "success",
-                { duration: 2500 }
-              );
-            } else {
-              // Ako postoji ToastContext, koristi ga
-              try {
-                const toastContext = require('../../context/ToastContext');
-                if (toastContext?.showToast) {
-                  toastContext.showToast(
-                    `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na obračun od ${date}: ${artikliList}`,
-                    "success",
-                    { duration: 2500 }
-                  );
-                }
-              } catch (e) {
-                // fallback: ništa
-              }
-            }
+            const { showToast } = useToast();
+            showToast(
+              `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na obračun od ${date}: ${artikliList}`,
+              "success"
+            );
           }}
         />
       )}
