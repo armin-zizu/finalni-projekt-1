@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "./ToastContext";
 import { FaPlus, FaTimes, FaEdit, FaClipboardList } from "react-icons/fa";
 import { uploadFile } from "../../lib/api";
+// ...existing code...
 
 interface Supplier {
   id: string;
@@ -234,6 +236,7 @@ const dangerButton: React.CSSProperties = {
 };
 
 export default function OrdersModal({ open, onClose, items, onRefreshItems, onInvoiceAccepted }: OrdersModalProps) {
+  const toast = useToast();
   const LAST_REFRESH_STORAGE_KEY = 'ordersLastItemsRefreshAt';
   const getCurrentTimeString = () => {
     const now = new Date();
@@ -397,7 +400,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
 
   // Refresh localStorage data when modal opens (important for mobile)
   useEffect(() => {
-    if (open && typeof window !== 'undefined') {
+    if (open && typeof window !== "undefined") {
       console.log("🔄 Osvežavanje OrdersModal podataka iz localStorage-a");
 
       const savedLastRefresh = localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
@@ -523,36 +526,23 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
 
   const handleDeleteSupplier = () => {
     if (!selectedSupplierId) return;
-    
     const supplier = suppliers.find(s => s.id === selectedSupplierId);
     if (!supplier) return;
-    
-    if (!confirm(`Da li ste sigurni da želite trajno obrisati dobavljača "${supplier.name}"? Ova radnja se ne može poništiti.`)) {
-      return;
-    }
-    
-    // Ukloni dobavljača iz liste
+    // Nema više confirm, samo briši i pokaži toast
     setSuppliers((prev) => prev.filter((s) => s.id !== selectedSupplierId));
-    
-    // Ukloni sve artikle povezane sa dobavljačem
     setSupplierItems((prev) => {
       const copy = { ...prev };
       delete copy[selectedSupplierId];
       return copy;
     });
-    
-    // Ukloni sve količine za narudžbe ovog dobavljača
     setOrderQuantities((prev) => {
       const copy = { ...prev };
       delete copy[selectedSupplierId];
       return copy;
     });
-    
-    // Ukloni sve narudžbe ovog dobavljača
     setOrders((prev) => prev.filter((o) => o.supplierId !== selectedSupplierId));
-    
     setSelectedSupplierId(null);
-    alert(`Dobavljač "${supplier.name}" je trajno obrisan.`);
+    toast.showToast(`Dobavljač "${supplier.name}" je trajno obrisan.`, "success");
   };
 
   const toggleItem = (naziv: string) => {
@@ -582,7 +572,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
       .filter((item) => item.quantity > 0);
 
     if (orderItems.length === 0) {
-      alert("Unesite količinu za barem jedan artikal.");
+      toast.showToast("Unesite količinu za barem jedan artikal.", "error");
       return;
     }
 
@@ -605,7 +595,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
 
     setOrders((prev) => [newOrder, ...prev]);
     setOrderQuantities((prev) => ({ ...prev, [supplier.id]: {} }));
-    alert(`Narudžba poslana za ${supplier.name}`);
+    toast.showToast(`Narudžba poslana za ${supplier.name}`, "success");
     setPrepareOrderSupplierId(null);
   };
 
@@ -614,6 +604,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
     if (uploadingProofOrderId === orderId) return;
 
     const files = Array.from(fileList).slice(0, 5);
+    const toast = useToast();
     try {
       setUploadingProofOrderId(orderId);
       const uploadedFiles = await Promise.all(
@@ -625,7 +616,6 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
           };
         })
       );
-
       const nextFiles = uploadedFiles.filter((item) => !!item.url);
       setOrders((prev) =>
         prev.map((order) => {
@@ -635,10 +625,10 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
           return { ...order, invoiceProofImages: next };
         })
       );
-      alert(`Dodano ${nextFiles.length} slika fakture kao dokaz.`);
+      toast.showToast(`Dodano ${nextFiles.length} slika fakture kao dokaz.`, "success");
     } catch (e) {
       console.error("Greška pri dodavanju slike fakture:", e);
-      alert("Greška pri dodavanju slike fakture.");
+      toast.showToast("Greška pri dodavanju slike fakture.", "error");
     } finally {
       setUploadingProofOrderId(null);
     }
@@ -673,10 +663,10 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
       if (typeof window !== 'undefined') {
         localStorage.setItem(LAST_REFRESH_STORAGE_KEY, refreshLabel);
       }
-      alert("Stanje artikala je osvježeno.");
+      toast.showToast("Stanje artikala je osvježeno.", "success");
     } catch (e: any) {
       console.error("Greška pri osvježavanju stanja artikala:", e);
-      alert(`Greška pri osvježavanju stanja artikala: ${e?.message || "Nepoznata greška"}`);
+      toast.showToast(`Greška pri osvježavanju stanja artikala: ${e?.message || "Nepoznata greška"}`, "error");
     } finally {
       setIsRefreshingItems(false);
     }
@@ -718,7 +708,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
       .filter((entry) => entry.quantity > 0);
 
     if (sanitized.length === 0) {
-      alert("Narudžba mora imati barem jedan artikal sa količinom većom od 0.");
+      toast.showToast("Narudžba mora imati barem jedan artikal sa količinom većom od 0.", "error");
       return;
     }
 
@@ -748,42 +738,37 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
 
     setIsEditingOrderDetails(false);
     if (isChanged) {
-      alert("Narudžba je uređena i sačuvana.");
+      toast.showToast("Narudžba je uređena i sačuvana.", "success");
     }
   };
 
   const handleInvoiceOrder = (orderId: string) => {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
-    
-    if (confirm(`Da li želite prihvatiti fakturu i prebaciti artikle na obračun od ${order.date}?`)) {
-      // Format date consistently: DD.MM.YYYY.
-      const dateParts = order.date.split('.');
-      let formattedDate = order.date;
-      if (dateParts.length >= 3) {
-        // Ensure format is DD.MM.YYYY.
-        const day = dateParts[0].padStart(2, '0');
-        const month = dateParts[1].padStart(2, '0');
-        const year = dateParts[2];
-        formattedDate = `${day}.${month}.${year}.`;
-      }
-      
-      // Callback to parent with order date and items
-      if (onInvoiceAccepted) {
-        onInvoiceAccepted(formattedDate, order.items, {
-          invoiceId: order.id,
-          supplierId: order.supplierId,
-        });
-      }
-      
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId ? { ...o, status: "completed" as const, receivedAt: getCurrentTimeString() } : o
-        )
-      );
-      alert("Faktura prihvaćena! Artikli su prebačeni na obračun.");
-      setViewOrderId(null);
+    // Odmah prihvati fakturu, bez potvrde
+    const dateParts = order.date.split('.');
+    let formattedDate = order.date;
+    if (dateParts.length >= 3) {
+      const day = dateParts[0].padStart(2, '0');
+      const month = dateParts[1].padStart(2, '0');
+      const year = dateParts[2];
+      formattedDate = `${day}.${month}.${year}.`;
     }
+    if (onInvoiceAccepted) {
+      onInvoiceAccepted(formattedDate, order.items, {
+        invoiceId: order.id,
+        supplierId: order.supplierId,
+      });
+    }
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId ? { ...o, status: "completed" as const, receivedAt: getCurrentTimeString() } : o
+      )
+    );
+    toast.showToast("Faktura je uspješno prihvaćena! Artikli su prebačeni na obračun.", "success");
+    setViewOrderId(null);
+    setPrepareOrderSupplierId(null);
+    setShowArticleList(false);
   };
 
   const renderSupplierEditor = (supplier: Supplier, inlineMobile: boolean) => (
@@ -910,9 +895,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
       </div>
     </div>
   );
-
   if (!open) return null;
-
   return (
     <div style={overlayStyle}>
       <style>{`
@@ -1244,9 +1227,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
                             localStorage.setItem('supplierItems', JSON.stringify(latestState));
                           }
                           const savedCount = (prepareOrderSupplierId ? latestState[prepareOrderSupplierId] : [])?.length || 0;
-                          if (typeof window !== 'undefined') {
-                            alert(`Lista artikala za ${supplier.name} je sačuvana (${savedCount} artikala).`);
-                          }
+                          toast.showToast(`Lista artikala za ${supplier.name} je sačuvana (${savedCount} artikala).`, "success");
                           setShowArticleList(false);
                         }}
                         style={{
@@ -1667,8 +1648,8 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
                     const isEditedCompleted = order.wasEdited === true;
                     return (
                       <div key={order.id} style={{
-                        background: isEditedCompleted ? "#fef9c3" : "#ffffff",
-                        border: `1px solid ${isEditedCompleted ? "#fde047" : "#e5e7eb"}`,
+                        background: isEditedCompleted ? "#fefce8" : "#ffffff",
+                        border: `1px solid ${isEditedCompleted ? "#facc15" : "#e5e7eb"}`,
                         borderRadius: "12px",
                         padding: "16px",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.04)",

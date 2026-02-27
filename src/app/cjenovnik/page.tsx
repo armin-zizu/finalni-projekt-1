@@ -1,3 +1,11 @@
+// Dodaj deklaraciju za window.toast (ako ostaje)
+declare global {
+  interface Window {
+    toast?: {
+      showToast: (message: string, type?: string, options?: { duration?: number }) => void;
+    };
+  }
+}
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -25,9 +33,10 @@ import {
   verticalListSortingStrategy
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { ToastProvider } from "./ToastContext";
 
 // ---- Tip artikla ----
-type ArtiklCijena = {
+type Artikl = {
   naziv: string;
   cijena: number;
   jeZestoko: boolean;
@@ -390,7 +399,7 @@ function SortableRow({
 }
 
 // ---- Glavna komponenta ----
-export default function CjenovnikPage() {
+function CjenovnikPage() {
   const { cjenovnik, pendingCjenovnik, setCjenovnik, addArtikal, updateCjenovnik, refreshCjenovnik, refreshPrethodniCjenovnik } = useCjenovnik();
   const { user } = useRole();
   const [showOrdersModal, setShowOrdersModal] = useState(false);
@@ -1168,7 +1177,28 @@ export default function CjenovnikPage() {
             // Kreiraj detaljnu poruku sa brojem artikala
             const artikliBroj = items.length;
             const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
-            alert(`✅ Faktura prihvaćena!\n\n${artikliBroj} artikl(a) dodan(o) na obračun od ${date}:\n${artikliList}\n\nOtvori "Obračun" za detaljni pregled.`);
+            // Prikaz popup poruke (toast) zelene boje, automatski nestaje
+            if (typeof window !== 'undefined' && window.toast && typeof window.toast.showToast === 'function') {
+              window.toast.showToast(
+                `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na obračun od ${date}: ${artikliList}`,
+                "success",
+                { duration: 2500 }
+              );
+            } else {
+              // Ako postoji ToastContext, koristi ga
+              try {
+                const toastContext = require('../../context/ToastContext');
+                if (toastContext?.showToast) {
+                  toastContext.showToast(
+                    `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na obračun od ${date}: ${artikliList}`,
+                    "success",
+                    { duration: 2500 }
+                  );
+                }
+              } catch (e) {
+                // fallback: ništa
+              }
+            }
           }}
         />
       )}
@@ -2375,5 +2405,14 @@ export default function CjenovnikPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+// Zamotaj glavni export u ToastProvider
+export default function CjenovnikPageWithToast() {
+  return (
+    <ToastProvider>
+      <CjenovnikPage />
+    </ToastProvider>
   );
 }

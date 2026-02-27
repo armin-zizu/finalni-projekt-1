@@ -374,7 +374,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             } : undefined,
           });
         } catch (saveError) {
-          console.error("RoleContext - saveDevice nije uspio, nastavljam sa lokalnim statusom:", saveError);
+          // Samo logiraj grešku, ne prikazuj korisniku
+          if (process.env.NODE_ENV === "development") {
+            console.error("RoleContext - saveDevice nije uspio, nastavljam sa lokalnim statusom:", saveError);
+          }
         }
         
         // Ako je status "verifikacija", blokiraj pristup
