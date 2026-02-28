@@ -9,7 +9,10 @@ Ovaj vodič sadrži sve potrebne SQL komande za upravljanje korisnicima i uređa
 ### Preko komandne linije (psql):
 
 ```bash
-psql -h localhost -U office_user -d office_app
+psql -U office_user -d office_app
+
+npm run build
+dotenv -e .env.local -- npx next start -p 3001
 ```
 
 (Unesite lozinku kada se zatraži)
