@@ -1,3 +1,23 @@
+/**
+ * Dohvati sve narudžbe za korisnika
+ */
+export async function getOrders(userId: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/orders`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to fetch orders'));
+  }
+
+  const data = await response.json();
+  return data.orders || [];
+}
 // Helper funkcije za API pozive
 
 let hasLoggedMissingToken = false;

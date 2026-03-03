@@ -31,7 +31,7 @@ interface OrdersModalProps {
   open: boolean;
   onClose: () => void;
   items: Array<{ naziv: string; pocetnoStanje?: number }>;
-  onRefreshItems?: () => Promise<void> | void;
+  onRefreshItems?: (setOrdersCb?: (orders: any[]) => void) => Promise<void> | void;
   onInvoiceAccepted?: (
     date: string,
     items: Array<{ name: string; quantity: number }>,
@@ -657,16 +657,20 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
     if (!onRefreshItems || isRefreshingItems) return;
     try {
       setIsRefreshingItems(true);
-      await onRefreshItems();
+      await onRefreshItems((ordersFromApi: any[]) => {
+        if (Array.isArray(ordersFromApi)) {
+          setOrders(ordersFromApi);
+        }
+      });
       const refreshLabel = formatDateTimeLabel(new Date());
       setLastItemsRefreshAt(refreshLabel);
       if (typeof window !== 'undefined') {
         localStorage.setItem(LAST_REFRESH_STORAGE_KEY, refreshLabel);
       }
-      toast.showToast("Stanje artikala je osvježeno.", "success");
+      toast.showToast("Stanje artikala i narudžbi je osvježeno.", "success");
     } catch (e: any) {
-      console.error("Greška pri osvježavanju stanja artikala:", e);
-      toast.showToast(`Greška pri osvježavanju stanja artikala: ${e?.message || "Nepoznata greška"}`, "error");
+      console.error("Greška pri osvježavanju stanja artikala/narudžbi:", e);
+      toast.showToast(`Greška pri osvježavanju: ${e?.message || "Nepoznata greška"}`, "error");
     } finally {
       setIsRefreshingItems(false);
     }
