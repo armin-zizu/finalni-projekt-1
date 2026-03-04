@@ -35,25 +35,25 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
       <div style={{
         position: "fixed",
         top: 20,
-        right: 20,
+        left: 20,
         zIndex: 9999,
         display: "flex",
         flexDirection: "column",
-        gap: 10,
+        gap: 8,
         pointerEvents: "none"
       }}>
         {toasts.map((toast) => (
           <div
             key={toast.id}
             style={{
-              minWidth: 200,
+              maxWidth: 280,
               background: toast.type === "success" ? "#22c55e" : toast.type === "error" ? "#ef4444" : "#2563eb",
               color: "white",
-              padding: "12px 20px",
-              borderRadius: 8,
+              padding: "8px 12px",
+              borderRadius: 6,
               boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
               fontWeight: 500,
-              fontSize: 16,
+              fontSize: 13,
               opacity: 0.97,
               pointerEvents: "auto",
               transition: "all 0.2s"
