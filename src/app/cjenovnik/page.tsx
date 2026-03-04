@@ -1117,13 +1117,85 @@ function CjenovnikPage() {
                     // 1. Učitaj sve obračune za ovog korisnika
                     const obracuni = await getObracuni(userId);
                     console.log("📋 Obracuni loaded:", obracuni?.length, "obračuna");
+                    console.log("📅 All datum values:", obracuni?.map((ob: any) => ob?.datum));
                     
-                    // 2. Pronađi obračun za dati datum
-                    const targetObracun = (obracuni || []).find((ob: any) => ob?.datum === date);
+                    // 2. Pronađi obračun za dati datum (pokušaj sa točkom i bez točke)
+                    let targetObracun = (obracuni || []).find((ob: any) => ob?.datum === date);
+                    
+                    // Ako nije pronađen, pokušaj sa točkom dodanom ili uklonjenom
+                    if (!targetObracun && date && !date.endsWith('.')) {
+                      const dateWithDot = date + '.';
+                      targetObracun = (obracuni || []).find((ob: any) => ob?.datum === dateWithDot);
+                      console.log("🔍 Trying with dot suffix:", dateWithDot, "Found:", targetObracun ? "YES" : "NO");
+                    } else if (!targetObracun && date && date.endsWith('.')) {
+                      const dateWithoutDot = date.slice(0, -1);
+                      targetObracun = (obracuni || []).find((ob: any) => ob?.datum === dateWithoutDot);
+                      console.log("🔍 Trying without dot suffix:", dateWithoutDot, "Found:", targetObracun ? "YES" : "NO");
+                    }
+                    
                     console.log("🔍 Looking for obracun with datum:", date, "Found:", targetObracun ? "YES" : "NO");
                     
                     if (!targetObracun) {
-                      showToast(`Obračun za ${date} nije pronađen.`, "error");
+                      // Ako obračun ne postoji, kreiraj ga sa artiklima iz cjenovnika
+                      console.log("⚠️ Obračun ne postoji - kreiram novi sa artiklima iz cjenovnika");
+                      
+                      const newArtikli = cjenovnik.map((item: any) => {
+                        const invoiceQuantity = items.find((i: any) => i.name === item.naziv)?.quantity || 0;
+                        
+                        if (invoiceQuantity > 0) {
+                          return {
+                            naziv: item.naziv,
+                            cijena: item.cijena,
+                            pocetnoStanje: item.pocetnoStanje || 0,
+                            ulaz: invoiceQuantity,
+                            ukupno: (item.pocetnoStanje || 0) + invoiceQuantity,
+                            utroseno: 0,
+                            krajnjeStanje: 0,
+                            vrijednostKM: 0,
+                            zestokoKolicina: item.zestokoKolicina,
+                            proizvodnaCijena: item.proizvodnaCijena,
+                            isKrajnjeSet: false,
+                          };
+                        }
+                        
+                        return {
+                          naziv: item.naziv,
+                          cijena: item.cijena,
+                          pocetnoStanje: item.pocetnoStanje || 0,
+                          ulaz: 0,
+                          ukupno: item.pocetnoStanje || 0,
+                          utroseno: 0,
+                          krajnjeStanje: 0,
+                          vrijednostKM: 0,
+                          zestokoKolicina: item.zestokoKolicina,
+                          proizvodnaCijena: item.proizvodnaCijena,
+                          isKrajnjeSet: false,
+                        };
+                      });
+
+                      await saveObracun(userId, {
+                        datum: date,
+                        artikli: newArtikli,
+                        rashodi: [],
+                        prihodi: [],
+                        ukupnoArtikli: 0,
+                        ukupnoRashod: 0,
+                        ukupnoPrihod: 0,
+                        neto: 0,
+                        isAzuriran: true,
+                        imaUlaz: true,
+                        invoiceImages: [],
+                        isDraft: false,
+                      });
+
+                      console.log("✔️ Novi obracun kreiran i sačuvan");
+                      
+                      const artikliBroj = items.length;
+                      const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
+                      showToast(
+                        `Faktura prihvaćena! Novi obračun kreiran sa ${artikliBroj} artikl(a) na ulazu od ${date}: ${artikliList}`,
+                        "success"
+                      );
                       return;
                     }
 
