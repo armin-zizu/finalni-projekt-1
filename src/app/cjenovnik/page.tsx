@@ -1111,26 +1111,32 @@ function CjenovnikPage() {
                     return;
                   }
 
-                  // Pripremi artikle za obracun
+                  // Pripremi artikle za obracun - ulaz ide direktno u ulaz polje, ne u pocetnoStanje
                   const artikli = items.map(item => ({
                     naziv: item.name,
-                    pocetnoStanje: item.quantity,
-                    // Dodaj još polja ako treba
+                    cijena: 0, // Default cijena iz fakture
+                    pocetnoStanje: 0, // Početno stanje ostaje 0
+                    ulaz: item.quantity, // Faktura ide direktno u ulaz!
+                    ukupno: 0,
+                    utroseno: 0,
+                    krajnjeStanje: 0,
+                    vrijednostKM: 0,
+                    isKrajnjeSet: false,
                   }));
 
-                  // Sačuvaj fakturu kao obracun za dati datum
+                  // Sačuvaj fakturu kao obracun za dati datum sa zaključanim ulazom
                   try {
                     await saveObracun(userId, {
                       datum: date,
                       artikli,
                       rashodi: [],
                       prihodi: [],
-                      ukupnoArtikli: artikli.reduce((sum, a) => sum + (a.pocetnoStanje || 0), 0),
+                      ukupnoArtikli: 0,
                       ukupnoRashod: 0,
                       ukupnoPrihod: 0,
-                      neto: artikli.reduce((sum, a) => sum + (a.pocetnoStanje || 0), 0),
+                      neto: 0,
                       isAzuriran: true,
-                      imaUlaz: true,
+                      imaUlaz: true, // Ulaz je ZAKLJUČAN nakon primanja fakture
                       invoiceImages: [],
                       isDraft: false,
                     });
@@ -1139,7 +1145,7 @@ function CjenovnikPage() {
                     const artikliBroj = items.length;
                     const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
                     showToast(
-                      `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na obračun od ${date}: ${artikliList}`,
+                      `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na ulaz od ${date} (ulaz zaključan): ${artikliList}`,
                       "success"
                     );
                   } catch (err: any) {
