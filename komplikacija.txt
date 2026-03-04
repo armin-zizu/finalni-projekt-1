@@ -1,2 +1,4 @@
 local storage office_app
 office-app pw
+
+pw admin novasifra123

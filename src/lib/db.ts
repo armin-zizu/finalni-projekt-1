@@ -1,3 +1,12 @@
+// Helper za email→UUID
+export async function resolveUserIdToUUID(userIdOrEmail: string): Promise<string> {
+  // Ako je već UUID, vrati ga
+  if (/^[0-9a-fA-F-]{36}$/.test(userIdOrEmail)) return userIdOrEmail;
+  // Inače traži u bazi
+  const result = await query('SELECT id FROM users WHERE email = $1', [userIdOrEmail]);
+  if (result.rowCount === 1) return result.rows[0].id;
+  throw new Error('Korisnik nije pronađen (email→UUID)');
+}
 import { Pool, PoolClient } from 'pg';
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';

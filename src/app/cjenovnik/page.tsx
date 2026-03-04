@@ -12,7 +12,7 @@ import React, { useState, useEffect } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useRole } from "../context/RoleContext";
 import { usePathname } from "next/navigation";
-import { saveCjenovnik, deleteCjenovnikArtikal, getObracuni } from "../../lib/api";
+import { saveCjenovnik, deleteCjenovnikArtikal, getObracuni, saveObracun } from "../../lib/api";
 import { FaTrash, FaPlus, FaArrowUp, FaArrowDown, FaGripVertical, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
 import OrdersButton from "./OrdersButton";
 import OrdersModal from "./OrdersModal";
@@ -425,7 +425,9 @@ function CjenovnikPage() {
   const [editingArtikl, setEditingArtikl] = useState<string | null>(null); // Koji artikal je u edit mode (naziv artikla)
   const [editProdajnaCijena, setEditProdajnaCijena] = useState<string>(""); // Temp vrijednost prodajne cijene
   const [editNabavnaCijena, setEditNabavnaCijena] = useState<string>(""); // Temp vrijednost nabavne cijene
+  // ...existing code...
   const pathname = usePathname();
+  const { showToast } = useToast();
 
   // Detekcija mobilnog uređaja
   useEffect(() => {
@@ -1101,96 +1103,49 @@ function CjenovnikPage() {
               }
             }}
           onInvoiceAccepted={(date, items, meta) => {
-            const ulazData: Record<string, { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number }> = {};
-            const normalizedDate = (date || '').replace(/\.$/, '').trim();
-            const nowIso = new Date().toISOString();
-            const invoiceId = meta?.invoiceId || `inv-${Date.now()}`;
-            
-            items.forEach(item => {
-              // Pronađi artikal u cjenovniku da dobiješ pocetnoStanje
-              const artiklData = cjenovnik.find(a => a.naziv === item.name);
-              ulazData[item.name] = { 
-                ulaz: item.quantity,
-                staroPocetnoStanje: artiklData?.pocetnoStanje || 0
-              };
-            });
-            
-            // Spremi u localStorage kao MERGE (ne overwrite) - ključ mora biti ulazCache_DD.MM.YYYY.
-            const cacheKeys = [`ulazCache_${date}`, `ulazCache_${normalizedDate}`];
-            cacheKeys.forEach((cacheKey) => {
-              let existing: Record<string, { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number }> = {};
-              try {
-                const raw = localStorage.getItem(cacheKey);
-                existing = raw ? JSON.parse(raw) : {};
-              } catch {
-                existing = {};
-              }
+            // Backend sync: Save faktura to server (obracun)
+                (async () => {
+                  const userId = user?.id || user?.email;
+                  if (!userId) {
+                    showToast("Greška: korisnik nije prijavljen.", "error");
+                    return;
+                  }
 
-              const merged: Record<string, { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number }> = { ...existing };
-              Object.entries(ulazData).forEach(([naziv, entry]) => {
-                const previous = merged[naziv];
-                const previousUlaz = Number(previous?.ulaz) || 0;
-                const nextUlaz = previousUlaz + (Number(entry?.ulaz) || 0);
-                merged[naziv] = {
-                  ulaz: nextUlaz,
-                  staroPocetnoStanje: Number(previous?.staroPocetnoStanje) || entry.staroPocetnoStanje || 0,
-                  sačuvanUlaz: nextUlaz,
-                };
-              });
+                  // Pripremi artikle za obracun
+                  const artikli = items.map(item => ({
+                    naziv: item.name,
+                    pocetnoStanje: item.quantity,
+                    // Dodaj još polja ako treba
+                  }));
 
-              localStorage.setItem(cacheKey, JSON.stringify(merged));
-            });
-            console.log(`💾 Faktura spaljena u cache sa ključevima:`, cacheKeys);
-            console.log(`💾 Sadržaj cache-a (merge ulaza):`, ulazData);
-            console.log(`💾 Sve stavke u localStorage:`, Object.keys(localStorage).filter(k => k.includes('ulazCache')));
-            
-            // Spremi globalnu listu prihvaćenih faktura kao LISTU po datumu (append + dedupe po invoiceId)
-            const acceptedInvoicesRaw = localStorage.getItem('acceptedInvoices');
-            let acceptedInvoices: Record<string, any> = {};
-            try {
-              acceptedInvoices = acceptedInvoicesRaw ? JSON.parse(acceptedInvoicesRaw) : {};
-            } catch {
-              acceptedInvoices = {};
-            }
+                  // Sačuvaj fakturu kao obracun za dati datum
+                  try {
+                    await saveObracun(userId, {
+                      datum: date,
+                      artikli,
+                      rashodi: [],
+                      prihodi: [],
+                      ukupnoArtikli: artikli.reduce((sum, a) => sum + (a.pocetnoStanje || 0), 0),
+                      ukupnoRashod: 0,
+                      ukupnoPrihod: 0,
+                      neto: artikli.reduce((sum, a) => sum + (a.pocetnoStanje || 0), 0),
+                      isAzuriran: true,
+                      imaUlaz: true,
+                      invoiceImages: [],
+                      isDraft: false,
+                    });
 
-            const normalizeInvoiceList = (value: any) => {
-              if (Array.isArray(value)) return value;
-              if (value && typeof value === 'object' && Array.isArray(value.items)) {
-                return [{
-                  invoiceId: `legacy-${value.timestamp || nowIso}`,
-                  supplierId: value.supplierId,
-                  items: value.items,
-                  timestamp: value.timestamp || nowIso,
-                }];
-              }
-              return [] as Array<{ invoiceId: string; supplierId?: string; items: Array<{ name: string; quantity: number }>; timestamp: string }>;
-            };
-
-            const nextEntry = {
-              invoiceId,
-              supplierId: meta?.supplierId,
-              items,
-              timestamp: nowIso,
-            };
-
-            [date, normalizedDate].forEach((key) => {
-              const list = normalizeInvoiceList(acceptedInvoices[key]);
-              const exists = list.some((entry) => entry?.invoiceId === invoiceId);
-              acceptedInvoices[key] = exists ? list : [...list, nextEntry];
-            });
-
-            localStorage.setItem('acceptedInvoices', JSON.stringify(acceptedInvoices));
-            console.log(`📋 Globalna lista faktura ažurirana`, acceptedInvoices);
-            
-            // Kreiraj detaljnu poruku sa brojem artikala
-            const artikliBroj = items.length;
-            const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
-            // Prikaz popup poruke (toast) zelene boje, automatski nestaje
-            const { showToast } = useToast();
-            showToast(
-              `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na obračun od ${date}: ${artikliList}`,
-              "success"
-            );
+                    // Prikazi uspješan toast
+                    const artikliBroj = items.length;
+                    const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
+                    showToast(
+                      `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na obračun od ${date}: ${artikliList}`,
+                      "success"
+                    );
+                  } catch (err: any) {
+                    showToast(`Greška pri spremanju fakture: ${err?.message || err}`, "error");
+                  }
+                })();
           }}
         />
       )}
@@ -1255,10 +1210,9 @@ function CjenovnikPage() {
                     borderRadius: "6px",
                     fontSize: "14px",
                     outline: "none",
-                    boxSizing: "border-box",
-                    ...(newArtiklJeZestoko ? { background: "#f3f4f6", cursor: "not-allowed" } : {})
+                    boxSizing: "border-box"
                   }}
-                  disabled={newArtiklJeZestoko}
+                  disabled={false}
                   className="no-spin"
                 />
               </div>
@@ -1280,10 +1234,9 @@ function CjenovnikPage() {
                     borderRadius: "6px",
                     fontSize: "14px",
                     outline: "none",
-                    boxSizing: "border-box",
-                    ...(newArtiklJeZestoko ? { background: "#f3f4f6", cursor: "not-allowed" } : {})
+                    boxSizing: "border-box"
                   }}
-                  disabled={newArtiklJeZestoko}
+                  disabled={false}
                   className="no-spin"
                 />
               </div>
@@ -1523,8 +1476,8 @@ function CjenovnikPage() {
               placeholder="Prodajna cijena"
               value={newArtiklCijena}
               onChange={(e) => setNewArtiklCijena(e.target.value)}
-              style={newArtiklJeZestoko ? disabledInputStyle : formInputStyle}
-              disabled={newArtiklJeZestoko}
+              style={formInputStyle}
+              disabled={false}
               className="no-spin"
             />
             <input

@@ -132,11 +132,11 @@ async function postHandler(req: AuthRequest, { params }: { params: { userId: str
   }
 }
 
-export const GET = (req: NextRequest, context: { params: { userId: string } }) => {
+export const GET = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => getHandler(authReq, context))(req);
 };
 
-export const POST = (req: NextRequest, context: { params: { userId: string } }) => {
+export const POST = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
 };
 

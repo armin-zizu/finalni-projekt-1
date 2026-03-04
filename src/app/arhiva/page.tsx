@@ -329,7 +329,7 @@ export default function ArhivaPage() {
           let invoiceImages = Array.isArray(obracun.invoiceImages) ? obracun.invoiceImages : [];
           // Normalizuj URL-ove slika prije spremanja u state
           if (invoiceImages.length > 0) {
-            invoiceImages = invoiceImages.map(url => normalizeImageUrl(url));
+            invoiceImages = invoiceImages.map((url: string) => normalizeImageUrl(url));
             console.log(`Obračun ${obracun.id} ima ${invoiceImages.length} slika faktura`);
           }
           

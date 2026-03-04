@@ -1,7 +1,7 @@
-import jwt from 'jsonwebtoken';
+import jwt, { Secret } from 'jsonwebtoken';
 
 // In production, JWT_SECRET must be set in environment variables
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET as Secret;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 // Log warning if JWT_SECRET is not set (only log once at module load)
@@ -25,7 +25,7 @@ export function generateToken(payload: JWTPayload): string {
   }
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
-  });
+  } as any);
 }
 
 export function verifyToken(token: string): JWTPayload {
@@ -33,7 +33,7 @@ export function verifyToken(token: string): JWTPayload {
     throw new Error('JWT_SECRET is not configured. Please set JWT_SECRET in environment variables.');
   }
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const decoded = jwt.verify(token, JWT_SECRET as string) as JWTPayload;
     return decoded;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {

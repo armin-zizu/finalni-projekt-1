@@ -138,7 +138,10 @@ async function getHandler(req: AuthRequest): Promise<NextResponse> {
     }
 
     // Vrati fajl kao response sa odgovarajućim headers
-    return new NextResponse(fileBuffer, {
+    // Convert Buffer to Uint8Array and then to Blob for NextResponse compatibility
+    const uint8Array = new Uint8Array(fileBuffer);
+    const blob = new Blob([uint8Array], { type: mimeType });
+    return new NextResponse(blob, {
       status: 200,
       headers: {
         'Content-Type': mimeType,

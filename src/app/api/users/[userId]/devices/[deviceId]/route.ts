@@ -409,11 +409,11 @@ async function deleteHandler(req: AuthRequest, { params }: { params: { userId: s
   }
 }
 
-export const PUT = (req: NextRequest, context: { params: Promise<{ userId: string; deviceId: string }> | { userId: string; deviceId: string } }) => {
+export const PUT = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => putHandler(authReq, context))(req);
 };
 
-export const DELETE = (req: NextRequest, context: { params: { userId: string; deviceId: string } }) => {
+export const DELETE = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => deleteHandler(authReq, context))(req);
 };
 

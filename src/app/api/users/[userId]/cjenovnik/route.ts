@@ -527,15 +527,15 @@ async function deleteHandler(req: AuthRequest, { params }: { params: Promise<{ u
   }
 }
 
-export const GET = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
+export const GET = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => getHandler(authReq, context))(req);
 };
 
-export const POST = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
+export const POST = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
 };
 
-export const DELETE = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
+export const DELETE = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => deleteHandler(authReq, context))(req);
 };
 

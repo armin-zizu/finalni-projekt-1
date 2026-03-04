@@ -435,7 +435,20 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         }
       }
 
-      const device = result.rows[0];
+      if (!result) {
+        return NextResponse.json(
+          { error: 'Failed to save device - no result returned' },
+          { status: 500 }
+        );
+      }
+
+      const device = result.rows?.[0];
+      if (!device) {
+        return NextResponse.json(
+          { error: 'Failed to retrieve saved device' },
+          { status: 500 }
+        );
+      }
       return NextResponse.json({
         success: true,
         device: {
@@ -468,11 +481,11 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
   }
 }
 
-export const GET = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
+export const GET = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => getHandler(authReq, context))(req);
 };
 
-export const POST = (req: NextRequest, context: { params: Promise<{ userId: string }> | { userId: string } }) => {
+export const POST = (req: NextRequest, context: any) => {
   return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
 };
 

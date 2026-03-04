@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
-import { withAuth } from "@/lib/auth-middleware";
+import { getPool, resolveUserIdToUUID } from "@/lib/db";
+import { withAuth, AuthRequest } from "@/lib/auth-middleware";
 
 // GET /api/orders - vraca sve narudzbe za trenutnog korisnika
-export const GET = withAuth(async (req: NextRequest) => {
-  const userId = req.user?.userId;
+export const GET = withAuth(async (req: AuthRequest) => {
+  let userId = req.user?.userId;
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  // Pretvori email u UUID ako treba
+  try {
+    userId = await resolveUserIdToUUID(userId);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || "Korisnik nije pronađen" }, { status: 400 });
   }
 
   const pool = getPool();

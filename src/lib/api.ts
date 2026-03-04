@@ -162,7 +162,13 @@ export async function apiCall<T>(
   };
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    // HeadersInit can be Headers | string[][] | Record<string,string>
+    // Normalize to a Headers instance when possible, otherwise assign safely.
+    if (headers instanceof Headers) {
+      headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    }
   }
 
   const response = await fetch(endpoint, {

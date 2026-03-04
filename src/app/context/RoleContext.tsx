@@ -13,6 +13,7 @@ export type PagePermission = {
   cjenovnik?: boolean;
   profit?: boolean;
   profile?: boolean;
+  admin?: boolean;
 };
 
 export interface DeviceInfo {
