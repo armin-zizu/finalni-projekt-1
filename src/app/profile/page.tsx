@@ -2551,7 +2551,7 @@ export default function Profile() {
                         return;
                       }
 
-                      const userIdForApi = user.email || user.id;
+                      const userIdForApi = user.id || user.email; // Prefer UUID radi konzistentnosti sa admin panelom
                       const response = await fetch(`/api/users/${userIdForApi}/subscription`, {
                         method: 'PUT',
                         headers: {
