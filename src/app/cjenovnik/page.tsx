@@ -1114,6 +1114,11 @@ function CjenovnikPage() {
                   const obracuni = await getObracuni(userId);
                   console.log("📋 onRefreshItems: Obračuni učitani:", obracuni?.length, "obračuna");
                   
+                  if (!obracuni || obracuni.length === 0) {
+                    console.log("⏭️ onRefreshItems: Nema obračuna - preskačem osvežavanje stanja artikala");
+                    return;
+                  }
+                  
                   const withArtikli = (obracuni || [])
                     .filter((ob: any) => Array.isArray(ob?.artikli) && ob.artikli.length > 0)
                     .map((ob: any) => ({ ...ob, __datumOrder: datumToNumber(ob?.datum || '') }));
