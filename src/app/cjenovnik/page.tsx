@@ -1112,16 +1112,22 @@ function CjenovnikPage() {
                   }
 
                   try {
+                    console.log("📦 Invoice accepted - Loading obracuni for date:", date, "Items:", items);
+                    
                     // 1. Učitaj sve obračune za ovog korisnika
                     const obracuni = await getObracuni(userId);
+                    console.log("📋 Obracuni loaded:", obracuni?.length, "obračuna");
                     
                     // 2. Pronađi obračun za dati datum
                     const targetObracun = (obracuni || []).find((ob: any) => ob?.datum === date);
+                    console.log("🔍 Looking for obracun with datum:", date, "Found:", targetObracun ? "YES" : "NO");
                     
                     if (!targetObracun) {
                       showToast(`Obračun za ${date} nije pronađen.`, "error");
                       return;
                     }
+
+                    console.log("📊 Existing articles in obracun:", targetObracun.artikli?.length || 0);
 
                     // 3. Kreiraj mapu narudženih stavki po nazivu za brže pronalaženje
                     const invoiceMap = new Map<string, number>();
@@ -1138,6 +1144,8 @@ function CjenovnikPage() {
                         const newUlaz = (artikal.ulaz || 0) + invoiceQuantity;
                         const newUkupno = (artikal.pocetnoStanje || 0) + newUlaz;
                         
+                        console.log(`✅ Updating article: ${artikal.naziv} - dodaj ${invoiceQuantity} na ulaz (početno stanje: ${artikal.pocetnoStanje}, novi ulaz: ${newUlaz}, novo ukupno: ${newUkupno})`);
+                        
                         return {
                           ...artikal,
                           ulaz: newUlaz,
@@ -1147,6 +1155,8 @@ function CjenovnikPage() {
                       
                       return artikal;
                     });
+
+                    console.log("💾 Saving updated obracun with", updatedArtikli.length, "articles");
 
                     // 5. Sačuvaj ažurirani obračun
                     await saveObracun(userId, {
@@ -1164,6 +1174,8 @@ function CjenovnikPage() {
                       isDraft: targetObracun.isDraft || false,
                     });
 
+                    console.log("✔️ Obracun saved successfully");
+
                     // 6. Prikazi uspješan toast
                     const artikliBroj = items.length;
                     const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
@@ -1172,7 +1184,7 @@ function CjenovnikPage() {
                       "success"
                     );
                   } catch (err: any) {
-                    console.error("Greška pri prihvatanju fakture:", err);
+                    console.error("❌ Greška pri prihvatanju fakture:", err);
                     showToast(`Greška pri spremanju fakture: ${err?.message || err}`, "error");
                   }
                 })();
