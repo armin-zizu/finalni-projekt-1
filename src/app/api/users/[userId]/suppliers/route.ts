@@ -98,7 +98,7 @@ async function getHandler(
     }
 
     const result = await query(
-      `SELECT id, name, items, created_at, updated_at
+      `SELECT id, name, contact, phone, items, created_at, updated_at
        FROM suppliers
        WHERE user_id::text = $1 AND deleted_at IS NULL
        ORDER BY created_at DESC`,
@@ -108,6 +108,8 @@ async function getHandler(
     const suppliers = result.rows.map((row: any) => ({
       id: row.id,
       name: row.name,
+      contact: row.contact || '',
+      phone: row.phone || '',
       items: row.items && Array.isArray(row.items) ? row.items : [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -136,7 +138,7 @@ async function postHandler(
 
     const resolvedParams = await params;
     let userId = resolvedParams.userId;
-    const { id, name, items } = await req.json();
+    const { id, name, items, contact, phone } = await req.json();
 
     // Validate input
     if (!name || !Array.isArray(items)) {
@@ -226,6 +228,20 @@ async function postHandler(
       }
     }
 
+    // Ensure suppliers table exists and has new columns
+    try {
+      await query(`
+        ALTER TABLE suppliers 
+        ADD COLUMN IF NOT EXISTS contact TEXT DEFAULT '',
+        ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';
+      `);
+    } catch (error: any) {
+      // Columns might already exist, ignore
+      if (!error.message?.includes('already exists')) {
+        console.warn('⚠️ Error adding columns to suppliers:', error.message);
+      }
+    }
+
     // Upsert supplier
     let result;
     if (id) {
@@ -233,21 +249,21 @@ async function postHandler(
       console.log('🔄 Updating supplier:', id);
       result = await query(
         `UPDATE suppliers 
-         SET name = $1, items = $2, updated_at = NOW()
-         WHERE id::text = $3 AND user_id::text = $4
-         RETURNING id, name, items, created_at, updated_at`,
-        [name, JSON.stringify(items), id, userId]
+         SET name = $1, items = $2, contact = $3, phone = $4, updated_at = NOW()
+         WHERE id::text = $5 AND user_id::text = $6
+         RETURNING id, name, contact, phone, items, created_at, updated_at`,
+        [name, JSON.stringify(items), contact || '', phone || '', id, userId]
       );
     } else {
       // Create new supplier
       console.log('✨ Creating new supplier:', name);
       result = await query(
-        `INSERT INTO suppliers (user_id, name, items)
-         VALUES ($1, $2, $3)
+        `INSERT INTO suppliers (user_id, name, items, contact, phone)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (user_id, name) DO UPDATE
-         SET items = $4, updated_at = NOW()
-         RETURNING id, name, items, created_at, updated_at`,
-        [userId, name, JSON.stringify(items), JSON.stringify(items)]
+         SET items = $3, contact = $4, phone = $5, updated_at = NOW()
+         RETURNING id, name, contact, phone, items, created_at, updated_at`,
+        [userId, name, JSON.stringify(items), contact || '', phone || '']
       );
     }
 
@@ -263,6 +279,8 @@ async function postHandler(
       supplier: {
         id: supplier.id,
         name: supplier.name,
+        contact: supplier.contact || '',
+        phone: supplier.phone || '',
         items: supplier.items && Array.isArray(supplier.items) ? supplier.items : [],
         createdAt: supplier.created_at,
         updatedAt: supplier.updated_at,

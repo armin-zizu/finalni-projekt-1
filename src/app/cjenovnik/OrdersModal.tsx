@@ -623,31 +623,30 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     const phone = prompt("Telefon dobavljača") || "";
     
     try {
-      const newSupplier: Supplier = {
-        id: `${Date.now()}`,
-        name: name.trim(),
-        contact: contact.trim(),
-        phone: phone.trim(),
-      };
-      
       // Save to server
       if (userId) {
         const { saveSupplier } = await import("../../lib/api");
         const serverSupplier = await saveSupplier(userId, {
-          name: newSupplier.name,
+          name: name.trim(),
           items: [], // Empty items array initially
+          contact: contact.trim(),
+          phone: phone.trim(),
         });
         
-        // Update local state with server ID
-        const supplierToAdd = {
-          ...newSupplier,
-          id: serverSupplier.id, // Use server-provided ID
+        // Add supplier with server ID
+        const supplierToAdd: Supplier = {
+          id: serverSupplier.id,
+          name: serverSupplier.name,
+          contact: serverSupplier.contact || '',
+          phone: serverSupplier.phone || '',
         };
         
         setSuppliers((prev) => [...prev, supplierToAdd]);
         setSupplierItems((prev) => ({ ...prev, [supplierToAdd.id]: [] }));
         setSelectedSupplierId(supplierToAdd.id);
         toast.showToast("Dobavljač je kreiran.", "success");
+      } else {
+        toast.showToast("Greška: Korisnik nije pronađen.", "error");
       }
     } catch (error: any) {
       console.error("Greška pri kreiranju dobavljača:", error);

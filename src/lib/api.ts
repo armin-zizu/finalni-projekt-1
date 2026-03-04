@@ -1360,7 +1360,7 @@ export async function getSuppliers(userId: string): Promise<any[]> {
  */
 export async function saveSupplier(
   userId: string,
-  supplier: { id?: string; name: string; items: any[] }
+  supplier: { id?: string; name: string; items: any[]; contact?: string; phone?: string }
 ): Promise<any> {
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
