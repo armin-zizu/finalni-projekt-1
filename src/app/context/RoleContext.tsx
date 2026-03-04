@@ -377,7 +377,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         } catch (saveError) {
           // Samo logiraj grešku, ne prikazuj korisniku
           if (process.env.NODE_ENV === "development") {
-            console.error("RoleContext - saveDevice nije uspio, nastavljam sa lokalnim statusom:", saveError);
+            const msg = (saveError as any)?.message?.toLowerCase?.() || "";
+            const isTransientDeviceError = msg.includes("concurrent update") || msg.includes("temporarily busy") || msg.includes("lock timeout");
+            const logFn = isTransientDeviceError ? console.warn : console.error;
+            logFn("RoleContext - saveDevice nije uspio, nastavljam sa lokalnim statusom:", saveError);
           }
         }
         

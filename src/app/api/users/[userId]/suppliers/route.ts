@@ -73,6 +73,13 @@ async function getHandler(
 
     console.log('📖 Getting suppliers for user:', userId);
 
+    // Ensure pgcrypto extension exists for gen_random_uuid()
+    try {
+      await query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
+    } catch (error: any) {
+      console.warn('⚠️ Could not ensure pgcrypto extension:', error.message);
+    }
+
     // Ensure suppliers table exists first
     try {
       await query(`
@@ -222,6 +229,13 @@ async function postHandler(
     }
 
     console.log('💾 Saving supplier:', name, 'for user:', userId);
+
+    // Ensure pgcrypto extension exists for gen_random_uuid()
+    try {
+      await query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
+    } catch (error: any) {
+      console.warn('⚠️ Could not ensure pgcrypto extension:', error.message);
+    }
 
     // Ensure suppliers table exists
     try {

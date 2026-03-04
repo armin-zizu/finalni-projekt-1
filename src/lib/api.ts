@@ -254,7 +254,9 @@ export async function saveDevice(
       message.includes('lock timeout') ||
       message.includes('canceling statement due to lock timeout') ||
       message.includes('temporarily busy') ||
-      message.includes('status 409')
+      message.includes('status 409') ||
+      message.includes('concurrent update') ||
+      message.includes('device not found after concurrent update')
     );
   };
 
