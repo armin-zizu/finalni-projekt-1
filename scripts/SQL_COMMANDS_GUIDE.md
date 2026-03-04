@@ -11,7 +11,7 @@ Ovaj vodič sadrži sve potrebne SQL komande za upravljanje korisnicima i uređa
 ```bash
 psql -U office_user -d office_app
 
-npm run build
+npm run build 
 dotenv -e .env.local -- npx next start -p 3001
 ```
 

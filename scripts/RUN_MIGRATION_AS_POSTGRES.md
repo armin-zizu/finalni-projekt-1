@@ -11,6 +11,9 @@ sudo -u postgres psql -d office_app
 
 # Ili direktno:
 psql -h localhost -U postgres -d office_app
+
+pm2 restart office-app --update-env
+dotenv -e .env.local -- npx next start -p 3001
 ```
 
 Zatim pokreni migraciju:
