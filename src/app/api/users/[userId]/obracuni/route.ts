@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthRequest } from '@/lib/auth-middleware';
 import { query } from '@/lib/db';
-import { randomUUID } from 'crypto';
 
 // Helper funkcija za čišćenje datuma - uklanja tačku sa kraja ako postoji
 // Datum se čuva kao text u formatu DD.MM.YYYY (bez tačke na kraju)
@@ -190,7 +189,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
     let sql: string;
     const queryParams: any[] = [userIdForDb]; // Use resolved UUID userIdForDb
     
-    sql = `SELECT id, datum, artikli, saved_at
+    sql = `SELECT user_id, datum, artikli
            FROM obracuni
           WHERE user_id::text = $1`;
     
@@ -212,7 +211,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
     let result;
     try {
       result = await query(sql, queryParams);
-      console.log('Get obracuni - result rows:', result.rows.length, 'first row sample:', result.rows[0] ? { id: result.rows[0].id, datum: result.rows[0].datum } : null);
+      console.log('Get obracuni - result rows:', result.rows.length, 'first row sample:', result.rows[0] ? { user_id: result.rows[0].user_id, datum: result.rows[0].datum } : null);
       
       // AUTOMATSKO BRIŠANJE STARIH DRAFT OBRACUNA (stariji od 12 sati nakon završetka datuma)
       // Draft obračun se briše 12 sati nakon završetka datuma (npr. za datum 19.12.2025, briše se 20.12.2025 u 12:00)
@@ -319,11 +318,11 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
         formattedDatum = row.datum_raw || '';
       }
       
-      console.log('Get obracuni - Parsed artikliData for row:', row.id, 'has artikli:', Array.isArray(artikliData.artikli), 'artikli count:', artikliData.artikli?.length || 0, 'isAzuriran:', artikliData.isAzuriran, 'datum:', formattedDatum);
+      console.log('Get obracuni - Parsed artikliData for row:', row.user_id, 'has artikli:', Array.isArray(artikliData.artikli), 'artikli count:', artikliData.artikli?.length || 0, 'isAzuriran:', artikliData.isAzuriran, 'datum:', formattedDatum);
       
       // Flatten strukturu - vraćamo artikli, rashodi, prihodi direktno na root level
       return {
-        id: row.id,
+        id: `${row.user_id}_${formattedDatum}`, // Use composite key as id
         datum: formattedDatum, // Formatiran datum u DD.MM.YYYY. formatu
         isAzuriran: artikliData.isAzuriran || false,
         artikli: artikliData.artikli || [],
@@ -336,8 +335,8 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
         imaUlaz: artikliData.imaUlaz || false,
         invoiceImages: artikliData.invoiceImages || [],
         isDraft: false, // All obracuni in database are final (no is_draft column)
-        createdAt: row.saved_at,
-        updatedAt: row.saved_at,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
     });
 
@@ -624,12 +623,13 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
             [userIdForDb, datumForPostgres]
           );
 
-          const newObracunId = randomUUID();
           result = await query(
-            `INSERT INTO obracuni (id, user_id, datum, artikli, saved_at)
-             VALUES ($1, $2, $3, $4::jsonb, NOW())
-             RETURNING id, datum, saved_at`,
-            [newObracunId, userIdForDb, datumForPostgres, obracunDataJson]
+            `INSERT INTO obracuni (user_id, datum, artikli)
+             VALUES ($1, $2, $3::jsonb)
+             ON CONFLICT (user_id, datum) DO UPDATE
+             SET artikli = EXCLUDED.artikli
+             RETURNING user_id, datum, artikli`,
+            [userIdForDb, datumForPostgres, obracunDataJson]
           );
 
           break;
@@ -686,14 +686,26 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       );
     }
 
+    // Format datum from YYYY-MM-DD to DD.MM.YYYY format
+    let formattedDatum = '';
+    if (result.rows[0].datum) {
+      const parts = result.rows[0].datum.split('-');
+      if (parts.length === 3) {
+        const [godina, mjesec, dan] = parts;
+        formattedDatum = `${dan}.${mjesec}.${godina}.`;
+      } else {
+        formattedDatum = result.rows[0].datum;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       obracun: {
-        id: result.rows[0].id,
-        datum: result.rows[0].datum,
+        id: `${result.rows[0].user_id}_${formattedDatum}`,
+        datum: formattedDatum,
         isDraft: false, // is_draft column doesn't exist, all obracuni are final
-        createdAt: result.rows[0].saved_at,
-        updatedAt: result.rows[0].saved_at,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     });
   } catch (error: any) {
