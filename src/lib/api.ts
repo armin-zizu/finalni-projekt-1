@@ -1334,3 +1334,70 @@ export async function getUnreadCount(): Promise<number> {
   }
 }
 
+/**
+ * Dohvati sve dobavljače za korisnika
+ */
+export async function getSuppliers(userId: string): Promise<any[]> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/suppliers`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to fetch suppliers'));
+  }
+
+  const data = await response.json();
+  return data.suppliers || [];
+}
+
+/**
+ * Sačuva dobavljača (kreiraj ili ažuriraj)
+ */
+export async function saveSupplier(
+  userId: string,
+  supplier: { id?: string; name: string; items: any[] }
+): Promise<any> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/suppliers`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(supplier),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to save supplier'));
+  }
+
+  const data = await response.json();
+  return data.supplier;
+}
+
+/**
+ * Obriši dobavljača
+ */
+export async function deleteSupplier(userId: string, supplierId: string): Promise<void> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/users/${userId}/suppliers/${supplierId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to delete supplier'));
+  }
+}
+

@@ -440,6 +440,44 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     }
   };
 
+  // Helper function to refresh suppliers from server
+  const refreshSuppliersFromServer = async () => {
+    if (!userId) return;
+    try {
+      const { getSuppliers } = await import("../../lib/api");
+      console.log("🔄 Osvežavam dobavljače sa servera...");
+      const serverSuppliers = await getSuppliers(userId);
+      if (Array.isArray(serverSuppliers) && serverSuppliers.length > 0) {
+        console.log("✅ Osveženi dobavljači sa servera:", serverSuppliers.length, "dobavljača");
+        setSuppliers(serverSuppliers);
+        localStorage.setItem('suppliers', JSON.stringify(serverSuppliers));
+      } else {
+        // Ako nema na serveru, učitaj iz localStorage-a
+        const savedSuppliers = localStorage.getItem('suppliers');
+        if (savedSuppliers) {
+          try {
+            const parsed = JSON.parse(savedSuppliers);
+            setSuppliers(parsed);
+          } catch (e) {
+            console.error('❌ Greška pri parsiranju suppliers:', e);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('❌ Greška pri osvežavanju dobavljača sa servera:', e);
+      // Fallback na localStorage
+      const savedSuppliers = localStorage.getItem('suppliers');
+      if (savedSuppliers) {
+        try {
+          const parsed = JSON.parse(savedSuppliers);
+          setSuppliers(parsed);
+        } catch (e) {
+          console.error('❌ Greška pri parsiranju suppliers:', e);
+        }
+      }
+    }
+  };
+
   // Refresh localStorage data when modal opens (important for mobile)
   useEffect(() => {
     if (open && typeof window !== "undefined") {
@@ -450,17 +488,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         setLastItemsRefreshAt(savedLastRefresh);
       }
       
-      // Refresh suppliers
-      const savedSuppliers = localStorage.getItem('suppliers');
-      if (savedSuppliers) {
-        try {
-          const parsed = JSON.parse(savedSuppliers);
-          console.log("📥 Učitani suppliers:", parsed.length, "stavki");
-          setSuppliers(parsed);
-        } catch (e) {
-          console.error('❌ Greška pri parsiranju suppliers:', e);
-        }
-      }
+      // Refresh suppliers from server (or fallback to localStorage)
+      refreshSuppliersFromServer();
       
       // Refresh supplierItems
       const savedSupplierItems = localStorage.getItem('supplierItems');
@@ -484,14 +513,16 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     if (!open || typeof window === "undefined") return;
 
     const handleFocus = () => {
-      console.log("👁️ Korisnik se vratio na tab - osvežavam narudžbe");
+      console.log("👁️ Korisnik se vratio na tab - osvežavam narudžbe i dobavljače");
       refreshOrdersFromServer();
+      refreshSuppliersFromServer();
     };
 
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log("👁️ Tab je sada vidljiv - osvežavam narudžbe");
+        console.log("👁️ Tab je sada vidljiv - osvežavam narudžbe i dobavljače");
         refreshOrdersFromServer();
+        refreshSuppliersFromServer();
       }
     };
 
@@ -523,6 +554,14 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           setOrders(newOrders);
         } catch (err) {
           console.error("❌ Greška pri parsiranju narudžbi sa drugog uređaja:", err);
+        }
+      } else if (e.key === 'suppliers' && e.newValue) {
+        console.log("🔄 Primljen update sa drugog uređaja - osvežavam dobavljače");
+        try {
+          const newSuppliers = JSON.parse(e.newValue);
+          setSuppliers(newSuppliers);
+        } catch (err) {
+          console.error("❌ Greška pri parsiranju dobavljača sa drugog uređaja:", err);
         }
       }
     };
@@ -577,20 +616,43 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     }
   }, [orders]);
 
-  const handleAddSupplier = () => {
+  const handleAddSupplier = async () => {
     const name = prompt("Naziv dobavljača");
     if (!name || !name.trim()) return;
     const contact = prompt("Email ili kontakt dobavljača") || "";
     const phone = prompt("Telefon dobavljača") || "";
-    const newSupplier: Supplier = {
-      id: `${Date.now()}`,
-      name: name.trim(),
-      contact: contact.trim(),
-      phone: phone.trim(),
-    };
-    setSuppliers((prev) => [...prev, newSupplier]);
-    setSupplierItems((prev) => ({ ...prev, [newSupplier.id]: [] }));
-    setSelectedSupplierId(newSupplier.id);
+    
+    try {
+      const newSupplier: Supplier = {
+        id: `${Date.now()}`,
+        name: name.trim(),
+        contact: contact.trim(),
+        phone: phone.trim(),
+      };
+      
+      // Save to server
+      if (userId) {
+        const { saveSupplier } = await import("../../lib/api");
+        const serverSupplier = await saveSupplier(userId, {
+          name: newSupplier.name,
+          items: [], // Empty items array initially
+        });
+        
+        // Update local state with server ID
+        const supplierToAdd = {
+          ...newSupplier,
+          id: serverSupplier.id, // Use server-provided ID
+        };
+        
+        setSuppliers((prev) => [...prev, supplierToAdd]);
+        setSupplierItems((prev) => ({ ...prev, [supplierToAdd.id]: [] }));
+        setSelectedSupplierId(supplierToAdd.id);
+        toast.showToast("Dobavljač je kreiran.", "success");
+      }
+    } catch (error: any) {
+      console.error("Greška pri kreiranju dobavljača:", error);
+      toast.showToast(`Greška: ${error?.message || "Nepoznata greška"}`, "error");
+    }
   };
 
   const handleSelectSupplier = (id: string) => {
@@ -601,10 +663,24 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
 
   const handleSaveSupplier = async () => {
     if (!selectedSupplierId) return;
+    const supplier = suppliers.find(s => s.id === selectedSupplierId);
+    if (!supplier) return;
+    
     try {
       setSavingSupplier(true);
-      // Simulate API call if needed
-      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Get items for this supplier from supplierItems
+      const supplierItemsList = supplierItems[selectedSupplierId] || [];
+      
+      // Save to server
+      if (userId) {
+        const { saveSupplier } = await import("../../lib/api");
+        await saveSupplier(userId, {
+          id: selectedSupplierId,
+          name: editName.trim(),
+          items: supplierItemsList, // Include items
+        });
+      }
       
       setSuppliers((prev) =>
         prev.map((s) =>
@@ -630,8 +706,12 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     
     try {
       setDeletingSupplier(true);
-      // Simulate API call if needed
-      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Delete from server
+      if (userId) {
+        const { deleteSupplier } = await import("../../lib/api");
+        await deleteSupplier(userId, selectedSupplierId);
+      }
       
       setSuppliers((prev) => prev.filter((s) => s.id !== selectedSupplierId));
       setSupplierItems((prev) => {
