@@ -1401,3 +1401,39 @@ export async function deleteSupplier(userId: string, supplierId: string): Promis
   }
 }
 
+/**
+ * Obriši sve dobavljače iz localStorage
+ */
+export function clearAllSuppliersFromLocalStorage(): void {
+  if (typeof window === 'undefined') return;
+  
+  localStorage.removeItem('suppliers');
+  localStorage.removeItem('supplierItems');
+  localStorage.removeItem('orderQuantities');
+  localStorage.removeItem('orders');
+  
+  console.log('✅ Cleared all suppliers data from localStorage');
+}
+
+/**
+ * Obriši sve dobavljače sa servera (admin only)
+ */
+export async function cleanupAllSuppliers(): Promise<any> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/admin/cleanup/suppliers', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to cleanup suppliers'));
+  }
+
+  const data = await response.json();
+  return data;
+}
+
