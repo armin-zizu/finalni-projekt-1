@@ -30,6 +30,7 @@ interface Order {
 interface OrdersModalProps {
   open: boolean;
   onClose: () => void;
+  userId?: string;
   items: Array<{ naziv: string; pocetnoStanje?: number }>;
   onRefreshItems?: (setOrdersCb?: (orders: any[]) => void) => Promise<void> | void;
   onInvoiceAccepted?: (
@@ -235,7 +236,7 @@ const dangerButton: React.CSSProperties = {
   gap: "8px",
 };
 
-export default function OrdersModal({ open, onClose, items, onRefreshItems, onInvoiceAccepted }: OrdersModalProps) {
+export default function OrdersModal({ open, onClose, userId, items, onRefreshItems, onInvoiceAccepted }: OrdersModalProps) {
   const toast = useToast();
   const LAST_REFRESH_STORAGE_KEY = 'ordersLastItemsRefreshAt';
   const getCurrentTimeString = () => {
@@ -404,7 +405,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
   // Refresh localStorage data when modal opens (important for mobile)
   useEffect(() => {
     if (open && typeof window !== "undefined") {
-      console.log("🔄 Osvežavanje OrdersModal podataka iz localStorage-a");
+      console.log("🔄 Osvežavanje OrdersModal podataka");
 
       const savedLastRefresh = localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
       if (savedLastRefresh) {
@@ -435,19 +436,60 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
         }
       }
       
-      // Refresh orders
-      const savedOrders = localStorage.getItem('orders');
-      if (savedOrders) {
-        try {
-          const parsed = JSON.parse(savedOrders);
-          console.log("📥 Učitane orders:", parsed.length, "narudžbi");
-          setOrders(parsed);
-        } catch (e) {
-          console.error('❌ Greška pri parsiranju orders:', e);
+      // Refresh orders - prvo sa servera ako je userId dostupan
+      if (userId) {
+        (async () => {
+          try {
+            const { getOrders } = await import("../../lib/api");
+            console.log("📥 Učitavam narudžbe sa servera za userId:", userId);
+            const serverOrders = await getOrders(userId);
+            if (Array.isArray(serverOrders) && serverOrders.length > 0) {
+              console.log("✅ Učitane narudžbe sa servera:", serverOrders.length, "narudžbi");
+              setOrders(serverOrders);
+              localStorage.setItem('orders', JSON.stringify(serverOrders));
+            } else {
+              // Ako nema na serveru, učitaj iz localStorage-a
+              const savedOrders = localStorage.getItem('orders');
+              if (savedOrders) {
+                try {
+                  const parsed = JSON.parse(savedOrders);
+                  console.log("📥 Učitane orders iz localStorage:", parsed.length, "narudžbi");
+                  setOrders(parsed);
+                } catch (e) {
+                  console.error('❌ Greška pri parsiranju orders:', e);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('❌ Greška pri učitavanju narudžbi sa servera:', e);
+            // Fallback na localStorage
+            const savedOrders = localStorage.getItem('orders');
+            if (savedOrders) {
+              try {
+                const parsed = JSON.parse(savedOrders);
+                console.log("📥 Učitane orders iz localStorage (fallback):", parsed.length, "narudžbi");
+                setOrders(parsed);
+              } catch (e) {
+                console.error('❌ Greška pri parsiranju orders:', e);
+              }
+            }
+          }
+        })();
+      } else {
+        // Ako nema userId, učitaj samo iz localStorage-a
+        const savedOrders = localStorage.getItem('orders');
+        if (savedOrders) {
+          try {
+            const parsed = JSON.parse(savedOrders);
+            console.log("📥 Učitane orders iz localStorage:", parsed.length, "narudžbi");
+            setOrders(parsed);
+          } catch (e) {
+            console.error('❌ Greška pri parsiranju orders:', e);
+          }
         }
       }
     }
-  }, [open]);
+  }, [open, userId]);
 
   // Save suppliers to localStorage
   useEffect(() => {

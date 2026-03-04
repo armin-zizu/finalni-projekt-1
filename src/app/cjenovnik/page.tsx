@@ -1015,6 +1015,7 @@ function CjenovnikPage() {
         <OrdersModal
           open={showOrdersModal}
           onClose={() => setShowOrdersModal(false)}
+          userId={user?.id || user?.email}
           items={cjenovnik}
             onRefreshItems={async (setOrdersCb?: (orders: any[]) => void) => {
               if (isRefreshingCjenovnik) return;
