@@ -405,6 +405,7 @@ function CjenovnikPage() {
   const { user } = useRole();
   const [showOrdersModal, setShowOrdersModal] = useState(false);
   const [isRefreshingCjenovnik, setIsRefreshingCjenovnik] = useState(false);
+  const pathname = usePathname();
 
   const [newArtiklNaziv, setNewArtiklNaziv] = useState<string>("");
   const [newArtiklCijena, setNewArtiklCijena] = useState<string>("");
@@ -425,8 +426,6 @@ function CjenovnikPage() {
   const [editingArtikl, setEditingArtikl] = useState<string | null>(null); // Koji artikal je u edit mode (naziv artikla)
   const [editProdajnaCijena, setEditProdajnaCijena] = useState<string>(""); // Temp vrijednost prodajne cijene
   const [editNabavnaCijena, setEditNabavnaCijena] = useState<string>(""); // Temp vrijednost nabavne cijene
-  // ...existing code...
-  const pathname = usePathname();
   const { showToast } = useToast();
 
   // Detekcija mobilnog uređaja
@@ -601,6 +600,39 @@ function CjenovnikPage() {
     newArtiklZapreminaFlase,
     newArtiklZestokoKolicina,
   ]);
+
+  // Auto-refresh obračuna kada korisnik vrati fokus na stranicu
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleFocus = async () => {
+      console.log("👁️ Korisnik se vratio na cjenovnik stranicu - osvežavam obračun");
+      try {
+        await refreshCjenovnik();
+      } catch (error) {
+        console.error("❌ Greška pri auto-osvežavanju obračuna:", error);
+      }
+    };
+
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        console.log("👁️ Tab je sada vidljiv - osvežavam obračun");
+        try {
+          await refreshCjenovnik();
+        } catch (error) {
+          console.error("❌ Greška pri auto-osvežavanju obračuna:", error);
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [pathname, user?.id, user?.email]);
 
   // ---- Dodavanje artikla ----
   const addArtikl = () => {

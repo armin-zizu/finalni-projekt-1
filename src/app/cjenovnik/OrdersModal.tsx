@@ -402,10 +402,48 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     }
   }, [selectedSupplier]);
 
+  // Helper function to refresh orders
+  const refreshOrdersFromServer = async () => {
+    if (!userId) return;
+    try {
+      const { getOrders } = await import("../../lib/api");
+      console.log("🔄 Osvežavam narudžbe sa servera...");
+      const serverOrders = await getOrders(userId);
+      if (Array.isArray(serverOrders) && serverOrders.length > 0) {
+        console.log("✅ Osvežene narudžbe sa servera:", serverOrders.length, "narudžbi");
+        setOrders(serverOrders);
+        localStorage.setItem('orders', JSON.stringify(serverOrders));
+      } else {
+        // Ako nema na serveru, učitaj iz localStorage-a
+        const savedOrders = localStorage.getItem('orders');
+        if (savedOrders) {
+          try {
+            const parsed = JSON.parse(savedOrders);
+            setOrders(parsed);
+          } catch (e) {
+            console.error('❌ Greška pri parsiranju orders:', e);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('❌ Greška pri osvežavanju narudžbi sa servera:', e);
+      // Fallback na localStorage
+      const savedOrders = localStorage.getItem('orders');
+      if (savedOrders) {
+        try {
+          const parsed = JSON.parse(savedOrders);
+          setOrders(parsed);
+        } catch (e) {
+          console.error('❌ Greška pri parsiranju orders:', e);
+        }
+      }
+    }
+  };
+
   // Refresh localStorage data when modal opens (important for mobile)
   useEffect(() => {
     if (open && typeof window !== "undefined") {
-      console.log("🔄 Osvežavanje OrdersModal podataka");
+      console.log("🔄 Osvežavanje OrdersModal podataka pri otvaranju");
 
       const savedLastRefresh = localStorage.getItem(LAST_REFRESH_STORAGE_KEY);
       if (savedLastRefresh) {
@@ -436,59 +474,34 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         }
       }
       
-      // Refresh orders - prvo sa servera ako je userId dostupan
-      if (userId) {
-        (async () => {
-          try {
-            const { getOrders } = await import("../../lib/api");
-            console.log("📥 Učitavam narudžbe sa servera za userId:", userId);
-            const serverOrders = await getOrders(userId);
-            if (Array.isArray(serverOrders) && serverOrders.length > 0) {
-              console.log("✅ Učitane narudžbe sa servera:", serverOrders.length, "narudžbi");
-              setOrders(serverOrders);
-              localStorage.setItem('orders', JSON.stringify(serverOrders));
-            } else {
-              // Ako nema na serveru, učitaj iz localStorage-a
-              const savedOrders = localStorage.getItem('orders');
-              if (savedOrders) {
-                try {
-                  const parsed = JSON.parse(savedOrders);
-                  console.log("📥 Učitane orders iz localStorage:", parsed.length, "narudžbi");
-                  setOrders(parsed);
-                } catch (e) {
-                  console.error('❌ Greška pri parsiranju orders:', e);
-                }
-              }
-            }
-          } catch (e) {
-            console.error('❌ Greška pri učitavanju narudžbi sa servera:', e);
-            // Fallback na localStorage
-            const savedOrders = localStorage.getItem('orders');
-            if (savedOrders) {
-              try {
-                const parsed = JSON.parse(savedOrders);
-                console.log("📥 Učitane orders iz localStorage (fallback):", parsed.length, "narudžbi");
-                setOrders(parsed);
-              } catch (e) {
-                console.error('❌ Greška pri parsiranju orders:', e);
-              }
-            }
-          }
-        })();
-      } else {
-        // Ako nema userId, učitaj samo iz localStorage-a
-        const savedOrders = localStorage.getItem('orders');
-        if (savedOrders) {
-          try {
-            const parsed = JSON.parse(savedOrders);
-            console.log("📥 Učitane orders iz localStorage:", parsed.length, "narudžbi");
-            setOrders(parsed);
-          } catch (e) {
-            console.error('❌ Greška pri parsiranju orders:', e);
-          }
-        }
-      }
+      // Refresh orders
+      refreshOrdersFromServer();
     }
+  }, [open, userId]);
+
+  // Refresh orders when user returns focus to the window/tab
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+
+    const handleFocus = () => {
+      console.log("👁️ Korisnik se vratio na tab - osvežavam narudžbe");
+      refreshOrdersFromServer();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("👁️ Tab je sada vidljiv - osvežavam narudžbe");
+        refreshOrdersFromServer();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [open, userId]);
 
   // Save suppliers to localStorage
