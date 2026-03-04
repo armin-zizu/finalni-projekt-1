@@ -1103,7 +1103,7 @@ function CjenovnikPage() {
               }
             }}
           onInvoiceAccepted={(date, items, meta) => {
-            // Backend sync: Save faktura to server (obracun)
+            // Backend sync: Add ulaz to existing articles in obracun
                 (async () => {
                   const userId = user?.id || user?.email;
                   if (!userId) {
@@ -1111,44 +1111,68 @@ function CjenovnikPage() {
                     return;
                   }
 
-                  // Pripremi artikle za obracun - ulaz ide direktno u ulaz polje, ne u pocetnoStanje
-                  const artikli = items.map(item => ({
-                    naziv: item.name,
-                    cijena: 0, // Default cijena iz fakture
-                    pocetnoStanje: 0, // Početno stanje ostaje 0
-                    ulaz: item.quantity, // Faktura ide direktno u ulaz!
-                    ukupno: 0,
-                    utroseno: 0,
-                    krajnjeStanje: 0,
-                    vrijednostKM: 0,
-                    isKrajnjeSet: false,
-                  }));
-
-                  // Sačuvaj fakturu kao obracun za dati datum sa zaključanim ulazom
                   try {
-                    await saveObracun(userId, {
-                      datum: date,
-                      artikli,
-                      rashodi: [],
-                      prihodi: [],
-                      ukupnoArtikli: 0,
-                      ukupnoRashod: 0,
-                      ukupnoPrihod: 0,
-                      neto: 0,
-                      isAzuriran: true,
-                      imaUlaz: true, // Ulaz je ZAKLJUČAN nakon primanja fakture
-                      invoiceImages: [],
-                      isDraft: false,
+                    // 1. Učitaj sve obračune za ovog korisnika
+                    const obracuni = await getObracuni(userId);
+                    
+                    // 2. Pronađi obračun za dati datum
+                    const targetObracun = (obracuni || []).find((ob: any) => ob?.datum === date);
+                    
+                    if (!targetObracun) {
+                      showToast(`Obračun za ${date} nije pronađen.`, "error");
+                      return;
+                    }
+
+                    // 3. Kreiraj mapu narudženih stavki po nazivu za brže pronalaženje
+                    const invoiceMap = new Map<string, number>();
+                    items.forEach(item => {
+                      invoiceMap.set(item.name, item.quantity);
                     });
 
-                    // Prikazi uspješan toast
+                    // 4. Ažuriraj postojeće artikle - dodaj ulaz
+                    const updatedArtikli = (targetObracun.artikli || []).map((artikal: any) => {
+                      const invoiceQuantity = invoiceMap.get(artikal.naziv);
+                      
+                      if (invoiceQuantity && invoiceQuantity > 0) {
+                        // Dodaj ulaz na postojećem artiklu
+                        const newUlaz = (artikal.ulaz || 0) + invoiceQuantity;
+                        const newUkupno = (artikal.pocetnoStanje || 0) + newUlaz;
+                        
+                        return {
+                          ...artikal,
+                          ulaz: newUlaz,
+                          ukupno: newUkupno,
+                        };
+                      }
+                      
+                      return artikal;
+                    });
+
+                    // 5. Sačuvaj ažurirani obračun
+                    await saveObracun(userId, {
+                      datum: date,
+                      artikli: updatedArtikli,
+                      rashodi: targetObracun.rashodi || [],
+                      prihodi: targetObracun.prihodi || [],
+                      ukupnoArtikli: targetObracun.ukupnoArtikli || 0,
+                      ukupnoRashod: targetObracun.ukupnoRashod || 0,
+                      ukupnoPrihod: targetObracun.ukupnoPrihod || 0,
+                      neto: targetObracun.neto || 0,
+                      isAzuriran: targetObracun.isAzuriran,
+                      imaUlaz: true, // Ulaz je sada zakljucан
+                      invoiceImages: targetObracun.invoiceImages || [],
+                      isDraft: targetObracun.isDraft || false,
+                    });
+
+                    // 6. Prikazi uspješan toast
                     const artikliBroj = items.length;
                     const artikliList = items.map(i => `${i.name} (${i.quantity} kom.)`).join(", ");
                     showToast(
-                      `Faktura prihvaćena! ${artikliBroj} artikl(a) dodan(o) na ulaz od ${date} (ulaz zaključan): ${artikliList}`,
+                      `Faktura prihvaćena! ${artikliBroj} artikl(a) dodano na ulaz od ${date}: ${artikliList}`,
                       "success"
                     );
                   } catch (err: any) {
+                    console.error("Greška pri prihvatanju fakture:", err);
                     showToast(`Greška pri spremanju fakture: ${err?.message || err}`, "error");
                   }
                 })();
