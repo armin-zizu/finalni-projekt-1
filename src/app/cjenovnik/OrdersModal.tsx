@@ -767,8 +767,10 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     if (!onRefreshItems || isRefreshingItems) return;
     try {
       setIsRefreshingItems(true);
+      console.log("🔄 Počinje osvežavanje stanja artikala i narudžbi...");
       await onRefreshItems((ordersFromApi: any[]) => {
         if (Array.isArray(ordersFromApi)) {
+          console.log("✅ Primljene narudžbe sa servera:", ordersFromApi.length);
           setOrders(ordersFromApi);
         }
       });
@@ -777,10 +779,15 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       if (typeof window !== 'undefined') {
         localStorage.setItem(LAST_REFRESH_STORAGE_KEY, refreshLabel);
       }
-      toast.showToast("Stanje artikala i narudžbi je osvježeno.", "success");
+      console.log("✅ Osvežavanje završeno!");
+      toast.showToast("✅ Stanje artikala i narudžbi je osvježeno.", "success");
     } catch (e: any) {
-      console.error("Greška pri osvježavanju stanja artikala/narudžbi:", e);
-      toast.showToast(`Greška pri osvježavanju: ${e?.message || "Nepoznata greška"}`, "error");
+      console.error("❌ Greška pri osvježavanju:", {
+        message: e?.message,
+        stack: e?.stack,
+        error: e
+      });
+      toast.showToast(`❌ Greška: ${e?.message || "Nepoznata greška"}`, "error");
     } finally {
       setIsRefreshingItems(false);
     }

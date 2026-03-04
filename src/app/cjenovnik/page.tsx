@@ -1053,84 +1053,120 @@ function CjenovnikPage() {
               if (isRefreshingCjenovnik) return;
               setIsRefreshingCjenovnik(true);
               try {
+                console.log("🔄 onRefreshItems: Počinje osvežavanje...");
                 await refreshCjenovnik();
+                console.log("✅ onRefreshItems: Cjenovnik osvežen");
 
                 const userId = user?.email || user?.id;
-                if (!userId) return;
+                if (!userId) {
+                  console.error("❌ onRefreshItems: userId nije dostupan");
+                  return;
+                }
 
                 // Povuci narudžbe sa servera
-                const orders = await getOrders(userId);
-                if (typeof setOrdersCb === 'function') {
-                  setOrdersCb(orders);
+                try {
+                  console.log("📥 onRefreshItems: Učitavam narudžbe sa servera...");
+                  const orders = await getOrders(userId);
+                  console.log("✅ onRefreshItems: Narudžbe učitane:", orders?.length, "narudžbi");
+                  if (typeof setOrdersCb === 'function') {
+                    setOrdersCb(orders);
+                  }
+                } catch (orderError) {
+                  console.error("❌ onRefreshItems: Greška pri učitavanju narudžbi:", orderError);
+                  showToast("Greška pri učitavanju narudžbi", "error");
+                  return;
                 }
 
                 // Osvježi stanje artikala iz obracuna kao ranije
-                const normalizeDatum = (value: string) => (value || '').replace(/\.$/, '').trim();
-                const datumToNumber = (value: string) => {
-                  const normalized = normalizeDatum(value);
-                  const parts = normalized.split('.');
-                  if (parts.length !== 3) return -1;
-                  const day = parts[0].padStart(2, '0');
-                  const month = parts[1].padStart(2, '0');
-                  const year = parts[2];
-                  if (!/^\d{2}$/.test(day) || !/^\d{2}$/.test(month) || !/^\d{4}$/.test(year)) return -1;
-                  return Number(`${year}${month}${day}`);
-                };
+                try {
+                  console.log("📦 onRefreshItems: Osvežavam stanje artikala iz obračuna...");
+                  const normalizeDatum = (value: string) => (value || '').replace(/\.$/, '').trim();
+                  const datumToNumber = (value: string) => {
+                    const normalized = normalizeDatum(value);
+                    const parts = normalized.split('.');
+                    if (parts.length !== 3) return -1;
+                    const day = parts[0].padStart(2, '0');
+                    const month = parts[1].padStart(2, '0');
+                    const year = parts[2];
+                    if (!/^\d{2}$/.test(day) || !/^\d{2}$/.test(month) || !/^\d{4}$/.test(year)) return -1;
+                    return Number(`${year}${month}${day}`);
+                  };
 
-                const extractCurrentStock = (artikal: any) => {
-                  const krajnjeStanje = Number(artikal?.krajnjeStanje);
-                  if (artikal?.isKrajnjeSet === true && Number.isFinite(krajnjeStanje)) {
-                    return krajnjeStanje;
+                  const extractCurrentStock = (artikal: any) => {
+                    const krajnjeStanje = Number(artikal?.krajnjeStanje);
+                    if (artikal?.isKrajnjeSet === true && Number.isFinite(krajnjeStanje)) {
+                      return krajnjeStanje;
+                    }
+
+                    const ukupno = Number(artikal?.ukupno);
+                    if (Number.isFinite(ukupno)) {
+                      return ukupno;
+                    }
+
+                    const pocetno = Number(artikal?.pocetnoStanje);
+                    if (Number.isFinite(pocetno)) {
+                      return pocetno;
+                    }
+
+                    return null;
+                  };
+
+                  const obracuni = await getObracuni(userId);
+                  console.log("📋 onRefreshItems: Obračuni učitani:", obracuni?.length, "obračuna");
+                  
+                  const withArtikli = (obracuni || [])
+                    .filter((ob: any) => Array.isArray(ob?.artikli) && ob.artikli.length > 0)
+                    .map((ob: any) => ({ ...ob, __datumOrder: datumToNumber(ob?.datum || '') }));
+
+                  const draftSorted = withArtikli
+                    .filter((ob: any) => ob?.isAzuriran === true)
+                    .sort((a: any, b: any) => (b.__datumOrder || -1) - (a.__datumOrder || -1));
+
+                  const finalSorted = withArtikli
+                    .filter((ob: any) => ob?.isAzuriran !== true)
+                    .sort((a: any, b: any) => (b.__datumOrder || -1) - (a.__datumOrder || -1));
+
+                  const sourceObracun = draftSorted[0] || finalSorted[0] || null;
+                  if (!sourceObracun) {
+                    console.log("⚠️ onRefreshItems: Nema obračuna sa artiklima");
+                    return;
                   }
 
-                  const ukupno = Number(artikal?.ukupno);
-                  if (Number.isFinite(ukupno)) {
-                    return ukupno;
+                  const stockByNaziv = new Map<string, number>();
+                  sourceObracun.artikli.forEach((artikal: any) => {
+                    const naziv = artikal?.naziv;
+                    const stock = extractCurrentStock(artikal);
+                    if (!naziv || stock === null) return;
+                    stockByNaziv.set(naziv, stock);
+                  });
+
+                  console.log("📊 onRefreshItems: Stock mapiran za", stockByNaziv.size, "artikala");
+                  
+                  if (stockByNaziv.size === 0) {
+                    console.log("⚠️ onRefreshItems: Stock mapa je prazna");
+                    return;
                   }
 
-                  const pocetno = Number(artikal?.pocetnoStanje);
-                  if (Number.isFinite(pocetno)) {
-                    return pocetno;
-                  }
-
-                  return null;
-                };
-
-                const obracuni = await getObracuni(userId);
-                const withArtikli = (obracuni || [])
-                  .filter((ob: any) => Array.isArray(ob?.artikli) && ob.artikli.length > 0)
-                  .map((ob: any) => ({ ...ob, __datumOrder: datumToNumber(ob?.datum || '') }));
-
-                const draftSorted = withArtikli
-                  .filter((ob: any) => ob?.isAzuriran === true)
-                  .sort((a: any, b: any) => (b.__datumOrder || -1) - (a.__datumOrder || -1));
-
-                const finalSorted = withArtikli
-                  .filter((ob: any) => ob?.isAzuriran !== true)
-                  .sort((a: any, b: any) => (b.__datumOrder || -1) - (a.__datumOrder || -1));
-
-                const sourceObracun = draftSorted[0] || finalSorted[0] || null;
-                if (!sourceObracun) return;
-
-                const stockByNaziv = new Map<string, number>();
-                sourceObracun.artikli.forEach((artikal: any) => {
-                  const naziv = artikal?.naziv;
-                  const stock = extractCurrentStock(artikal);
-                  if (!naziv || stock === null) return;
-                  stockByNaziv.set(naziv, stock);
-                });
-
-                if (stockByNaziv.size === 0) return;
-
-                setCjenovnik((prevItems) =>
-                  prevItems.map((item) => {
-                    if (!stockByNaziv.has(item.naziv)) return item;
-                    return {
-                      ...item,
-                      pocetnoStanje: stockByNaziv.get(item.naziv) as number,
-                    };
-                  })
-                );
+                  setCjenovnik((prevItems) =>
+                    prevItems.map((item) => {
+                      if (!stockByNaziv.has(item.naziv)) return item;
+                      return {
+                        ...item,
+                        pocetnoStanje: stockByNaziv.get(item.naziv) as number,
+                      };
+                    })
+                  );
+                  console.log("✅ onRefreshItems: Stock osvežen");
+                } catch (stockError) {
+                  console.error("❌ onRefreshItems: Greška pri osvežavanju stanja artikala:", stockError);
+                  // Ne prikazuj grešku u toast, samo log
+                  return;
+                }
+                
+                console.log("✅ onRefreshItems: Sve je završeno");
+              } catch (error) {
+                console.error("❌ onRefreshItems: Neočekivana greška:", error);
+                showToast("Greška pri osvežavanju", "error");
               } finally {
                 setIsRefreshingCjenovnik(false);
               }
