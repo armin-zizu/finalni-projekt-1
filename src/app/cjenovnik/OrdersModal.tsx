@@ -11,6 +11,7 @@ interface Supplier {
   name: string;
   contact: string;
   phone?: string;
+  items?: string[];
 }
 
 interface Order {
@@ -257,26 +258,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         }
       }
     }
-    return [
-      {
-        id: "1",
-        name: "Kafa Plus",
-        contact: "kontakt@kafaplus.ba",
-        phone: "+387 61 222 333"
-      },
-      {
-        id: "2",
-        name: "Fresh Fruit",
-        contact: "info@freshfruit.ba",
-        phone: "+387 62 555 111"
-      },
-      {
-        id: "3",
-        name: "Pivara Craft",
-        contact: "sales@pivaracraft.ba",
-        phone: "+387 63 777 888"
-      }
-    ];
+    return [];
   });
 
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
@@ -299,11 +281,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         }
       }
     }
-    return {
-      "1": [],
-      "2": [],
-      "3": [],
-    };
+    return {};
   });
   const [orderQuantities, setOrderQuantities] = useState<Record<string, Record<string, string>>>({});
   const supplierItemsRef = useRef<Record<string, string[]>>({});
@@ -443,23 +421,59 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
   // Helper function to refresh suppliers from server
   const refreshSuppliersFromServer = async () => {
     if (!userId) return;
+
+    const syncLocalToServer = async (localSuppliers: Supplier[]) => {
+      try {
+        const { saveSupplier } = await import("../../lib/api");
+        for (const sup of localSuppliers) {
+          await saveSupplier(userId, {
+            id: sup.id,
+            name: sup.name,
+            items: supplierItemsRef.current[sup.id] || sup.items || [],
+            contact: sup.contact,
+            phone: sup.phone,
+          });
+        }
+      } catch (err) {
+        console.error("❌ Greška pri sinhronizaciji lokalnih dobavljača na server:", err);
+      }
+    };
+
     try {
       const { getSuppliers } = await import("../../lib/api");
       console.log("🔄 Osvežavam dobavljače sa servera...");
       const serverSuppliers = await getSuppliers(userId);
-      if (Array.isArray(serverSuppliers) && serverSuppliers.length > 0) {
+
+      if (Array.isArray(serverSuppliers)) {
         console.log("✅ Osveženi dobavljači sa servera:", serverSuppliers.length, "dobavljača");
         setSuppliers(serverSuppliers);
+
+        const nextItemsMap: Record<string, string[]> = {};
+        serverSuppliers.forEach((sup: any) => {
+          if (Array.isArray(sup.items)) {
+            nextItemsMap[sup.id] = sup.items as string[];
+          }
+        });
+        setSupplierItems((prev) => ({ ...prev, ...nextItemsMap }));
+
         localStorage.setItem('suppliers', JSON.stringify(serverSuppliers));
-      } else {
-        // Ako nema na serveru, učitaj iz localStorage-a
-        const savedSuppliers = localStorage.getItem('suppliers');
-        if (savedSuppliers) {
-          try {
-            const parsed = JSON.parse(savedSuppliers);
-            setSuppliers(parsed);
-          } catch (e) {
-            console.error('❌ Greška pri parsiranju suppliers:', e);
+        localStorage.setItem('supplierItems', JSON.stringify({ ...supplierItemsRef.current, ...nextItemsMap }));
+
+        // Ako je server prazan a lokalno imamo podatke, guramo ih na server
+        if (serverSuppliers.length === 0) {
+          const savedSuppliers = localStorage.getItem('suppliers');
+          if (savedSuppliers) {
+            try {
+              const parsed: Supplier[] = JSON.parse(savedSuppliers);
+              if (parsed.length > 0) {
+                console.log("⬆️ Server nema dobavljače, šaljem lokalne na server...");
+                await syncLocalToServer(parsed);
+                const refreshed = await getSuppliers(userId);
+                setSuppliers(refreshed);
+              }
+            } catch (err) {
+              console.error('❌ Greška pri parsiranju lokalnih suppliers za sync:', err);
+            }
           }
         }
       }
@@ -471,8 +485,13 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         try {
           const parsed = JSON.parse(savedSuppliers);
           setSuppliers(parsed);
-        } catch (e) {
-          console.error('❌ Greška pri parsiranju suppliers:', e);
+          const savedItems = localStorage.getItem('supplierItems');
+          if (savedItems) {
+            const parsedItems = JSON.parse(savedItems);
+            setSupplierItems(parsedItems);
+          }
+        } catch (err) {
+          console.error('❌ Greška pri parsiranju suppliers:', err);
         }
       }
     }
@@ -500,6 +519,16 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           setSupplierItems(parsed);
         } catch (e) {
           console.error('❌ Greška pri parsiranju supplierItems:', e);
+        }
+      }
+
+      const savedOrderQuantities = localStorage.getItem('orderQuantities');
+      if (savedOrderQuantities) {
+        try {
+          const parsed = JSON.parse(savedOrderQuantities);
+          setOrderQuantities(parsed);
+        } catch (e) {
+          console.error('❌ Greška pri parsiranju orderQuantities:', e);
         }
       }
       
@@ -563,6 +592,21 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         } catch (err) {
           console.error("❌ Greška pri parsiranju dobavljača sa drugog uređaja:", err);
         }
+      } else if (e.key === 'supplierItems' && e.newValue) {
+        console.log("🔄 Primljen update sa drugog uređaja - osvežavam artikle po dobavljaču");
+        try {
+          const newMap = JSON.parse(e.newValue);
+          setSupplierItems(newMap);
+        } catch (err) {
+          console.error("❌ Greška pri parsiranju supplierItems sa drugog uređaja:", err);
+        }
+      } else if (e.key === 'orderQuantities' && e.newValue) {
+        try {
+          const newQuantities = JSON.parse(e.newValue);
+          setOrderQuantities(newQuantities);
+        } catch (err) {
+          console.error("❌ Greška pri parsiranju orderQuantities sa drugog uređaja:", err);
+        }
       }
     };
 
@@ -586,6 +630,12 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       localStorage.setItem('supplierItems', JSON.stringify(supplierItems));
     }
   }, [supplierItems]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('orderQuantities', JSON.stringify(orderQuantities));
+    }
+  }, [orderQuantities]);
 
   const updateSupplierItemsForSupplier = (
     supplierId: string | null,
@@ -628,7 +678,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         const { saveSupplier } = await import("../../lib/api");
         const serverSupplier = await saveSupplier(userId, {
           name: name.trim(),
-          items: [], // Empty items array initially
+          items: [],
           contact: contact.trim(),
           phone: phone.trim(),
         });
@@ -642,7 +692,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         };
         
         setSuppliers((prev) => [...prev, supplierToAdd]);
-        setSupplierItems((prev) => ({ ...prev, [supplierToAdd.id]: [] }));
+        setSupplierItems((prev) => ({ ...prev, [supplierToAdd.id]: serverSupplier.items || [] }));
         setSelectedSupplierId(supplierToAdd.id);
         toast.showToast("Dobavljač je kreiran.", "success");
       } else {
@@ -668,17 +718,20 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     try {
       setSavingSupplier(true);
       
-      // Get items for this supplier from supplierItems
       const supplierItemsList = supplierItems[selectedSupplierId] || [];
       
       // Save to server
       if (userId) {
         const { saveSupplier } = await import("../../lib/api");
-        await saveSupplier(userId, {
+        const saved = await saveSupplier(userId, {
           id: selectedSupplierId,
           name: editName.trim(),
-          items: supplierItemsList, // Include items
+          items: supplierItemsList,
+          contact: editContact.trim(),
+          phone: editPhone.trim(),
         });
+
+        setSupplierItems((prev) => ({ ...prev, [selectedSupplierId]: saved.items || supplierItemsList }));
       }
       
       setSuppliers((prev) =>
