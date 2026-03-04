@@ -329,6 +329,9 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
   const [uploadingProofOrderId, setUploadingProofOrderId] = useState<string | null>(null);
   const [isEditingOrderDetails, setIsEditingOrderDetails] = useState(false);
   const [orderEditDraft, setOrderEditDraft] = useState<Array<{ name: string; quantity: string }>>([]);
+  const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
+  const [savingSupplier, setSavingSupplier] = useState(false);
+  const [deletingSupplier, setDeletingSupplier] = useState(false);
 
   const formatDateTimeLabel = (date: Date) => {
     const day = String(date.getDate()).padStart(2, '0');
@@ -512,37 +515,60 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
     setEditInfoMode(false);
   };
 
-  const handleSaveSupplier = () => {
+  const handleSaveSupplier = async () => {
     if (!selectedSupplierId) return;
-    setSuppliers((prev) =>
-      prev.map((s) =>
-        s.id === selectedSupplierId
-          ? { ...s, name: editName.trim(), contact: editContact.trim(), phone: editPhone.trim() }
-          : s
-      )
-    );
-    setEditInfoMode(false);
+    try {
+      setSavingSupplier(true);
+      // Simulate API call if needed
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setSuppliers((prev) =>
+        prev.map((s) =>
+          s.id === selectedSupplierId
+            ? { ...s, name: editName.trim(), contact: editContact.trim(), phone: editPhone.trim() }
+            : s
+        )
+      );
+      toast.showToast("Dobavljač je sačuvan.", "success");
+      setEditInfoMode(false);
+    } catch (error: any) {
+      console.error("Greška pri čuvanju dobavljača:", error);
+      toast.showToast(`Greška: ${error?.message || "Nepoznata greška"}`, "error");
+    } finally {
+      setSavingSupplier(false);
+    }
   };
 
-  const handleDeleteSupplier = () => {
+  const handleDeleteSupplier = async () => {
     if (!selectedSupplierId) return;
     const supplier = suppliers.find(s => s.id === selectedSupplierId);
     if (!supplier) return;
-    // Nema više confirm, samo briši i pokaži toast
-    setSuppliers((prev) => prev.filter((s) => s.id !== selectedSupplierId));
-    setSupplierItems((prev) => {
-      const copy = { ...prev };
-      delete copy[selectedSupplierId];
-      return copy;
-    });
-    setOrderQuantities((prev) => {
-      const copy = { ...prev };
-      delete copy[selectedSupplierId];
-      return copy;
-    });
-    setOrders((prev) => prev.filter((o) => o.supplierId !== selectedSupplierId));
-    setSelectedSupplierId(null);
-    toast.showToast(`Dobavljač "${supplier.name}" je trajno obrisan.`, "success");
+    
+    try {
+      setDeletingSupplier(true);
+      // Simulate API call if needed
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setSuppliers((prev) => prev.filter((s) => s.id !== selectedSupplierId));
+      setSupplierItems((prev) => {
+        const copy = { ...prev };
+        delete copy[selectedSupplierId];
+        return copy;
+      });
+      setOrderQuantities((prev) => {
+        const copy = { ...prev };
+        delete copy[selectedSupplierId];
+        return copy;
+      });
+      setOrders((prev) => prev.filter((o) => o.supplierId !== selectedSupplierId));
+      setSelectedSupplierId(null);
+      toast.showToast(`Dobavljač "${supplier.name}" je trajno obrisan.`, "success");
+    } catch (error: any) {
+      console.error("Greška pri brisanju dobavljača:", error);
+      toast.showToast(`Greška: ${error?.message || "Nepoznata greška"}`, "error");
+    } finally {
+      setDeletingSupplier(false);
+    }
   };
 
   const toggleItem = (naziv: string) => {
@@ -703,76 +729,99 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
     setOrderEditDraft((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleSaveOrderEdit = (orderId: string) => {
-    const sanitized = orderEditDraft
-      .map((entry) => ({
-        name: entry.name,
-        quantity: Number(entry.quantity || 0),
-      }))
-      .filter((entry) => entry.quantity > 0);
+  const handleSaveOrderEdit = async (orderId: string) => {
+    try {
+      setLoadingOrderId(orderId);
+      // Simulate API call if needed
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const sanitized = orderEditDraft
+        .map((entry) => ({
+          name: entry.name,
+          quantity: Number(entry.quantity || 0),
+        }))
+        .filter((entry) => entry.quantity > 0);
 
-    if (sanitized.length === 0) {
-      toast.showToast("Narudžba mora imati barem jedan artikal sa količinom većom od 0.", "error");
-      return;
-    }
+      if (sanitized.length === 0) {
+        toast.showToast("Narudžba mora imati barem jedan artikal sa količinom većom od 0.", "error");
+        return;
+      }
 
-    const currentOrder = orders.find((order) => order.id === orderId);
-    if (!currentOrder) return;
+      const currentOrder = orders.find((order) => order.id === orderId);
+      if (!currentOrder) return;
 
-    const isChanged =
-      sanitized.length !== currentOrder.items.length ||
-      sanitized.some((entry, idx) => {
-        const currentItem = currentOrder.items[idx];
-        return !currentItem || currentItem.name !== entry.name || currentItem.quantity !== entry.quantity;
-      });
+      const isChanged =
+        sanitized.length !== currentOrder.items.length ||
+        sanitized.some((entry, idx) => {
+          const currentItem = currentOrder.items[idx];
+          return !currentItem || currentItem.name !== entry.name || currentItem.quantity !== entry.quantity;
+        });
 
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id !== orderId) return order;
-        if (!isChanged) return order;
-        return {
-          ...order,
-          items: sanitized,
-          totalItems: sanitized.length,
-          wasEdited: true,
-          editedAt: getCurrentTimeString(),
-        };
-      })
-    );
+      setOrders((prev) =>
+        prev.map((order) => {
+          if (order.id !== orderId) return order;
+          if (!isChanged) return order;
+          return {
+            ...order,
+            items: sanitized,
+            totalItems: sanitized.length,
+            wasEdited: true,
+            editedAt: getCurrentTimeString(),
+          };
+        })
+      );
 
-    setIsEditingOrderDetails(false);
-    if (isChanged) {
-      toast.showToast("Narudžba je uređena i sačuvana.", "success");
+      setIsEditingOrderDetails(false);
+      if (isChanged) {
+        toast.showToast("Narudžba je uređena i sačuvana.", "success");
+      }
+    } catch (error: any) {
+      console.error("Greška pri čuvanju narudžbe:", error);
+      toast.showToast(`Greška: ${error?.message || "Nepoznata greška"}`, "error");
+    } finally {
+      setLoadingOrderId(null);
     }
   };
 
-  const handleInvoiceOrder = (orderId: string) => {
+  const handleInvoiceOrder = async (orderId: string) => {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
-    // Odmah prihvati fakturu, bez potvrde
-    const dateParts = order.date.split('.');
-    let formattedDate = order.date;
-    if (dateParts.length >= 3) {
-      const day = dateParts[0].padStart(2, '0');
-      const month = dateParts[1].padStart(2, '0');
-      const year = dateParts[2];
-      formattedDate = `${day}.${month}.${year}.`;
+    
+    try {
+      setLoadingOrderId(orderId);
+      // Simulate API call if needed
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Odmah prihvati fakturu, bez potvrde
+      const dateParts = order.date.split('.');
+      let formattedDate = order.date;
+      if (dateParts.length >= 3) {
+        const day = dateParts[0].padStart(2, '0');
+        const month = dateParts[1].padStart(2, '0');
+        const year = dateParts[2];
+        formattedDate = `${day}.${month}.${year}.`;
+      }
+      if (onInvoiceAccepted) {
+        onInvoiceAccepted(formattedDate, order.items, {
+          invoiceId: order.id,
+          supplierId: order.supplierId,
+        });
+      }
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId ? { ...o, status: "completed" as const, receivedAt: getCurrentTimeString() } : o
+        )
+      );
+      toast.showToast("Faktura je uspješno prihvaćena! Artikli su prebačeni na obračun.", "success");
+      setViewOrderId(null);
+      setPrepareOrderSupplierId(null);
+      setShowArticleList(false);
+    } catch (error: any) {
+      console.error("Greška pri prihvatanju fakture:", error);
+      toast.showToast(`Greška: ${error?.message || "Nepoznata greška"}`, "error");
+    } finally {
+      setLoadingOrderId(null);
     }
-    if (onInvoiceAccepted) {
-      onInvoiceAccepted(formattedDate, order.items, {
-        invoiceId: order.id,
-        supplierId: order.supplierId,
-      });
-    }
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId ? { ...o, status: "completed" as const, receivedAt: getCurrentTimeString() } : o
-      )
-    );
-    toast.showToast("Faktura je uspješno prihvaćena! Artikli su prebačeni na obračun.", "success");
-    setViewOrderId(null);
-    setPrepareOrderSupplierId(null);
-    setShowArticleList(false);
   };
 
   const renderSupplierEditor = (supplier: Supplier, inlineMobile: boolean) => (
@@ -805,6 +854,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
               Informacije dobavljača
             </h4>
             <button
+              disabled={savingSupplier}
               onClick={() => {
                 if (editInfoMode) {
                   handleSaveSupplier();
@@ -818,7 +868,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
                 color: "#fff",
                 border: "none",
                 borderRadius: "8px",
-                cursor: "pointer",
+                cursor: savingSupplier ? "not-allowed" : "pointer",
                 fontSize: "13px",
                 fontWeight: 600,
                 display: "flex",
@@ -826,9 +876,10 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
                 gap: "6px",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                 transition: "all 0.2s",
+                opacity: savingSupplier ? 0.6 : 1,
               }}
             >
-              <FaEdit /> {editInfoMode ? "Sačuvaj" : "Uredi"}
+              <FaEdit /> {savingSupplier ? "Čuva se..." : editInfoMode ? "Sačuvaj" : "Uredi"}
             </button>
           </div>
 
@@ -870,10 +921,11 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
 
       <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap", marginTop: "4px", paddingTop: "6px", borderTop: "1px solid #e5e7eb" }}>
         <button
-          style={{ ...dangerButton, fontSize: "13px", padding: "10px 16px" }}
+          disabled={deletingSupplier}
+          style={{ ...dangerButton, fontSize: "13px", padding: "10px 16px", cursor: deletingSupplier ? "not-allowed" : "pointer", opacity: deletingSupplier ? 0.6 : 1 }}
           onClick={handleDeleteSupplier}
         >
-          <FaTimes /> Obriši
+          <FaTimes /> {deletingSupplier ? "Briše se..." : "Obriši"}
         </button>
         <button
           style={{
@@ -1092,6 +1144,7 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
                       </button>
                       {order.status !== "completed" && (
                         <button
+                          disabled={loadingOrderId === order.id}
                           style={{ 
                             padding: isMobile ? "10px 12px" : "8px 10px", 
                             fontSize: isMobile ? "13px" : "12px",
@@ -1099,14 +1152,16 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
                             color: "#fff",
                             border: "none",
                             borderRadius: "8px",
-                            cursor: "pointer",
+                            cursor: loadingOrderId === order.id ? "not-allowed" : "pointer",
                             fontWeight: 600,
                             boxShadow: "0 2px 6px rgba(16, 185, 129, 0.2)",
-                            flex: isMobile ? "1 1 calc(50% - 4px)" : "auto"
+                            flex: isMobile ? "1 1 calc(50% - 4px)" : "auto",
+                            opacity: loadingOrderId === order.id ? 0.6 : 1,
+                            transition: "all 0.2s",
                           }}
                           onClick={() => handleInvoiceOrder(order.id)}
                         >
-                          Prihvati fakturu
+                          {loadingOrderId === order.id ? "Čuva se..." : "Prihvati fakturu"}
                         </button>
                       )}
                       <button
@@ -2174,20 +2229,23 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
                             Otkaži izmjene
                           </button>
                           <button
+                            disabled={loadingOrderId === order.id}
                             onClick={() => handleSaveOrderEdit(order.id)}
                             style={{
                               padding: "12px 24px",
                               background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
                               border: "none",
                               borderRadius: "8px",
-                              cursor: "pointer",
+                              cursor: loadingOrderId === order.id ? "not-allowed" : "pointer",
                               fontSize: "14px",
                               fontWeight: 600,
                               color: "#fff",
                               boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
+                              opacity: loadingOrderId === order.id ? 0.6 : 1,
+                              transition: "all 0.2s",
                             }}
                           >
-                            Sačuvaj izmjene
+                            {loadingOrderId === order.id ? "Čuva se..." : "Sačuvaj izmjene"}
                           </button>
                         </>
                       ) : (
@@ -2209,21 +2267,23 @@ export default function OrdersModal({ open, onClose, items, onRefreshItems, onIn
                             Uredi narudžbu
                           </button>
                           <button
+                            disabled={loadingOrderId === order.id}
                             onClick={() => handleInvoiceOrder(order.id)}
                             style={{
                               padding: "12px 24px",
                               background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                               border: "none",
                               borderRadius: "8px",
-                              cursor: "pointer",
+                              cursor: loadingOrderId === order.id ? "not-allowed" : "pointer",
                               fontSize: "14px",
                               fontWeight: 600,
                               color: "#fff",
                               boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
                               transition: "all 0.2s",
+                              opacity: loadingOrderId === order.id ? 0.6 : 1,
                             }}
                           >
-                            Prihvati fakturu
+                            {loadingOrderId === order.id ? "Čuva se..." : "Prihvati fakturu"}
                           </button>
                         </>
                       )}
