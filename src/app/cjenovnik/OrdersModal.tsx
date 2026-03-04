@@ -511,6 +511,28 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     handleRefreshItems();
   }, [open]);
 
+  // Listen for localStorage changes from other tabs/devices
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'orders' && e.newValue) {
+        console.log("🔄 Primljen update sa drugog uređaja - osvežavam narudžbe");
+        try {
+          const newOrders = JSON.parse(e.newValue);
+          setOrders(newOrders);
+        } catch (err) {
+          console.error("❌ Greška pri parsiranju narudžbi sa drugog uređaja:", err);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Save suppliers to localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1045,66 +1067,6 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
             </div>
           </div>
         </div>
-
-        {/* AKTIVNE FAKTURE / COMPLETED ORDERS */}
-        {orders.length > 0 && (
-          <div style={{ marginTop: "20px", padding: "16px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #86efac" }}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: 600, color: "#15803d" }}>✅ Aktivne fakture</h3>
-            {orders.filter((order) => order.status === "completed" && (order.invoiceProofImages || []).length > 0).length === 0 ? (
-              <p style={{ margin: 0, fontSize: "14px", color: "#6b7280" }}>Nema završenih narudžbi sa fakturama.</p>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "12px" }}>
-                {orders
-                  .filter((order) => order.status === "completed" && (order.invoiceProofImages || []).length > 0)
-                  .map((order) => {
-                    const supplier = suppliers.find((s) => s.id === order.supplierId);
-                    return (
-                      <div key={order.id} style={{ padding: "12px", background: "white", borderRadius: "6px", border: "1px solid #d1fae5" }}>
-                        <p style={{ margin: "0 0 4px 0", fontSize: "13px", fontWeight: 600, color: "#111827" }}>{supplier?.name || "Nepoznat dobavljač"}</p>
-                        <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#6b7280" }}>📅 {order.date || order.orderedAt}</p>
-                        <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#6b7280" }}>📦 {order.items?.length || 0} artikala</p>
-                        <p style={{ margin: "0", fontSize: "12px", color: "#059669", fontWeight: 500 }}>💾 {(order.invoiceProofImages || []).length} faktura</p>
-                      </div>
-                    );
-                  })}</div>
-            )}
-          </div>
-        )}
-
-        {/* ISTORIJA NARUDŽBI */}
-        {orders.length > 0 && (
-          <div style={{ marginTop: "20px", padding: "16px", background: "#f3f4f6", borderRadius: "8px", border: "1px solid #d1d5db" }}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: 600, color: "#374151" }}>📋 Istorija narudžbi ({orders.length})</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "12px", maxHeight: "400px", overflowY: "auto", paddingRight: "8px" }}>
-              {orders
-                .sort((a, b) => new Date(b.date || b.orderedAt || 0).getTime() - new Date(a.date || a.orderedAt || 0).getTime())
-                .map((order) => {
-                  const supplier = suppliers.find((s) => s.id === order.supplierId);
-                  const statusColors: Record<string, { bg: string; border: string }> = {
-                    pending: { bg: "#fffbeb", border: "#fbbf24" },
-                    "in-transit": { bg: "#eff6ff", border: "#60a5fa" },
-                    received: { bg: "#f0fdf4", border: "#86efac" },
-                    completed: { bg: "#f5f3ff", border: "#c4b5fd" },
-                  };
-                  const statusLabels: Record<string, string> = {
-                    pending: "⏳ Čeka",
-                    "in-transit": "🚚 U transportu",
-                    received: "📦 Primljena",
-                    completed: "✅ Fakturirana",
-                  };
-                  const colors = statusColors[order.status] || { bg: "#f9fafb", border: "#e5e7eb" };
-                  return (
-                    <div key={order.id} style={{ padding: "12px", background: colors.bg, borderRadius: "6px", border: `2px solid ${colors.border}` }}>
-                      <p style={{ margin: "0 0 4px 0", fontSize: "13px", fontWeight: 600, color: "#111827" }}>{supplier?.name || "Nepoznat dobavljač"}</p>
-                      <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#6b7280" }}>📅 {order.date || order.orderedAt}</p>
-                      <p style={{ margin: "0 0 4px 0", fontSize: "12px", color: "#6b7280" }}>📦 {order.items?.length || 0} artikala</p>
-                      <p style={{ margin: "0", fontSize: "12px", fontWeight: 600, color: "#374151" }}>{statusLabels[order.status]}</p>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        )}
 
         {/* DOBAVLJAČI ZA UPRAVLJANJE */}
         <div style={{ marginTop: "20px", marginBottom: "20px" }}>
