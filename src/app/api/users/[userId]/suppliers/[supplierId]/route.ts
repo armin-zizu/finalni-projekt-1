@@ -98,4 +98,6 @@ async function deleteHandler(
   }
 }
 
-export const DELETE = withAuth(deleteHandler);
+export const DELETE = (req: NextRequest, context: any) => {
+  return withAuth((authReq: AuthRequest) => deleteHandler(authReq, context))(req);
+};

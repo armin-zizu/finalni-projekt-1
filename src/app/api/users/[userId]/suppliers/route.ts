@@ -278,5 +278,10 @@ async function postHandler(
 }
 
 // Export all methods wrapped with withAuth
-export const GET = withAuth(getHandler);
-export const POST = withAuth(postHandler);
+export const GET = (req: NextRequest, context: any) => {
+  return withAuth((authReq: AuthRequest) => getHandler(authReq, context))(req);
+};
+
+export const POST = (req: NextRequest, context: any) => {
+  return withAuth((authReq: AuthRequest) => postHandler(authReq, context))(req);
+};
