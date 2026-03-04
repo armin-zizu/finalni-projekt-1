@@ -97,13 +97,31 @@ async function getHandler(
       }
     }
 
-    const result = await query(
-      `SELECT id, name, contact, phone, items, created_at, updated_at
-       FROM suppliers
-       WHERE user_id::text = $1 AND deleted_at IS NULL
-       ORDER BY created_at DESC`,
-      [userId]
-    );
+    // Try to select with contact/phone columns, fallback if they don't exist yet
+    let result;
+    try {
+      result = await query(
+        `SELECT id, name, contact, phone, items, created_at, updated_at
+         FROM suppliers
+         WHERE user_id::text = $1 AND deleted_at IS NULL
+         ORDER BY created_at DESC`,
+        [userId]
+      );
+    } catch (error: any) {
+      // Fallback for old schema without contact/phone columns
+      if (error.message?.includes('does not exist') && error.message?.includes('contact')) {
+        console.warn('🔄 Columns contact/phone do not exist yet, selecting without them');
+        result = await query(
+          `SELECT id, name, items, created_at, updated_at
+           FROM suppliers
+           WHERE user_id::text = $1 AND deleted_at IS NULL
+           ORDER BY created_at DESC`,
+          [userId]
+        );
+      } else {
+        throw error;
+      }
+    }
 
     const suppliers = result.rows.map((row: any) => ({
       id: row.id,
@@ -244,27 +262,54 @@ async function postHandler(
 
     // Upsert supplier
     let result;
-    if (id) {
-      // Update existing supplier
-      console.log('🔄 Updating supplier:', id);
-      result = await query(
-        `UPDATE suppliers 
-         SET name = $1, items = $2, contact = $3, phone = $4, updated_at = NOW()
-         WHERE id::text = $5 AND user_id::text = $6
-         RETURNING id, name, contact, phone, items, created_at, updated_at`,
-        [name, JSON.stringify(items), contact || '', phone || '', id, userId]
-      );
-    } else {
-      // Create new supplier
-      console.log('✨ Creating new supplier:', name);
-      result = await query(
-        `INSERT INTO suppliers (user_id, name, items, contact, phone)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (user_id, name) DO UPDATE
-         SET items = $3, contact = $4, phone = $5, updated_at = NOW()
-         RETURNING id, name, contact, phone, items, created_at, updated_at`,
-        [userId, name, JSON.stringify(items), contact || '', phone || '']
-      );
+    try {
+      if (id) {
+        // Update existing supplier
+        console.log('🔄 Updating supplier:', id);
+        result = await query(
+          `UPDATE suppliers 
+           SET name = $1, items = $2, contact = $3, phone = $4, updated_at = NOW()
+           WHERE id::text = $5 AND user_id::text = $6
+           RETURNING id, name, contact, phone, items, created_at, updated_at`,
+          [name, JSON.stringify(items), contact || '', phone || '', id, userId]
+        );
+      } else {
+        // Create new supplier
+        console.log('✨ Creating new supplier:', name);
+        result = await query(
+          `INSERT INTO suppliers (user_id, name, items, contact, phone)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (user_id, name) DO UPDATE
+           SET items = $3, contact = $4, phone = $5, updated_at = NOW()
+           RETURNING id, name, contact, phone, items, created_at, updated_at`,
+          [userId, name, JSON.stringify(items), contact || '', phone || '']
+        );
+      }
+    } catch (error: any) {
+      // Fallback if contact/phone columns don't exist yet
+      if (error.message?.includes('does not exist') && error.message?.includes('contact')) {
+        console.warn('🔄 Columns contact/phone do not exist, using fallback without them');
+        if (id) {
+          result = await query(
+            `UPDATE suppliers 
+             SET name = $1, items = $2, updated_at = NOW()
+             WHERE id::text = $3 AND user_id::text = $4
+             RETURNING id, name, items, created_at, updated_at`,
+            [name, JSON.stringify(items), id, userId]
+          );
+        } else {
+          result = await query(
+            `INSERT INTO suppliers (user_id, name, items)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (user_id, name) DO UPDATE
+             SET items = $3, updated_at = NOW()
+             RETURNING id, name, items, created_at, updated_at`,
+            [userId, name, JSON.stringify(items)]
+          );
+        }
+      } else {
+        throw error;
+      }
     }
 
     if (result.rows.length === 0) {
