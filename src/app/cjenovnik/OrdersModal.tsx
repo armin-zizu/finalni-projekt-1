@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "./ToastContext";
 import { FaPlus, FaTimes, FaEdit, FaClipboardList } from "react-icons/fa";
-import { uploadFile, saveOrder as apiSaveOrder, updateOrder as apiUpdateOrder, deleteOrder as apiDeleteOrder } from "../../lib/api";
+import { uploadFile } from "../../lib/api";
 // ...existing code...
 
 interface Supplier {
@@ -286,43 +286,6 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
   const [orderQuantities, setOrderQuantities] = useState<Record<string, Record<string, string>>>({});
   const supplierItemsRef = useRef<Record<string, string[]>>({});
   const supplierSyncTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const isUuid = (value: string | null | undefined) => !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-  const shortOrderId = (value: string) => {
-    if (!value) return "—";
-    const parts = value.split("-");
-    const last = parts[parts.length - 1] || value;
-    return last.slice(0, 8);
-  };
-
-  const saveOrderToServer = async (order: Order, { silent = false } = {}): Promise<Order | null> => {
-    if (!userId) return null;
-    const payload = {
-      id: isUuid(order.id) ? order.id : undefined,
-      supplierId: order.supplierId,
-      date: order.date,
-      orderedAt: order.orderedAt,
-      receivedAt: order.receivedAt,
-      status: order.status,
-      items: order.items,
-      totalItems: order.totalItems,
-      invoiceProofImages: order.invoiceProofImages,
-      wasEdited: order.wasEdited,
-      editedAt: order.editedAt,
-    };
-
-    try {
-      const saved = isUuid(order.id)
-        ? await apiUpdateOrder(order.id, payload)
-        : await apiSaveOrder(payload);
-      return saved as Order;
-    } catch (err: any) {
-      console.error("❌ Greška pri čuvanju narudžbe na server:", err);
-      if (!silent) {
-        toast.showToast(`Greška pri čuvanju narudžbe: ${err?.message || "pokušajte ponovo"}`, "error");
-      }
-      return null;
-    }
-  };
   const [orders, setOrders] = useState<Order[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('orders');
@@ -940,16 +903,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       totalItems: orderItems.length,
     };
 
-    // Optimistic add
     setOrders((prev) => [newOrder, ...prev]);
-
-    // Persist to server and replace temp ID with server ID
-    saveOrderToServer(newOrder).then((saved) => {
-      if (!saved) return;
-      setOrders((prev) =>
-        prev.map((o) => (o.id === newOrder.id ? { ...saved, status: saved.status as Order["status"] } : o))
-      );
-    });
     setOrderQuantities((prev) => ({ ...prev, [supplier.id]: {} }));
     toast.showToast(`Narudžba poslana za ${supplier.name}`, "success");
     setPrepareOrderSupplierId(null);
@@ -973,19 +927,14 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         })
       );
       const nextFiles = uploadedFiles.filter((item) => !!item.url);
-      let updatedOrder: Order | null = null;
       setOrders((prev) =>
         prev.map((order) => {
           if (order.id !== orderId) return order;
           const existing = order.invoiceProofImages || [];
           const next = [...existing, ...nextFiles].slice(0, 10);
-          updatedOrder = { ...order, invoiceProofImages: next };
-          return updatedOrder;
+          return { ...order, invoiceProofImages: next };
         })
       );
-      if (updatedOrder) {
-        saveOrderToServer(updatedOrder, { silent: true });
-      }
       toast.showToast(`Dodano ${nextFiles.length} slika fakture kao dokaz.`, "success");
     } catch (e) {
       console.error("Greška pri dodavanju slike fakture:", e);
@@ -1045,19 +994,16 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
   };
 
   const handleRemoveInvoiceProof = (orderId: string, imageIndex: number) => {
-    let nextOrder: Order | null = null;
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id !== orderId) return order;
         const currentImages = order.invoiceProofImages || [];
-        const nextImages = currentImages.filter((_, idx) => idx !== imageIndex);
-        nextOrder = { ...order, invoiceProofImages: nextImages };
-        return nextOrder;
+        return {
+          ...order,
+          invoiceProofImages: currentImages.filter((_, idx) => idx !== imageIndex),
+        };
       })
     );
-    if (nextOrder) {
-      saveOrderToServer(nextOrder, { silent: true });
-    }
   };
 
   const handleStartEditOrder = (order: Order) => {
@@ -1102,25 +1048,19 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           return !currentItem || currentItem.name !== entry.name || currentItem.quantity !== entry.quantity;
         });
 
-      let updatedOrder: Order | null = null;
       setOrders((prev) =>
         prev.map((order) => {
           if (order.id !== orderId) return order;
           if (!isChanged) return order;
-          updatedOrder = {
+          return {
             ...order,
             items: sanitized,
             totalItems: sanitized.length,
             wasEdited: true,
             editedAt: getCurrentTimeString(),
           };
-          return updatedOrder;
         })
       );
-
-      if (isChanged && updatedOrder) {
-        saveOrderToServer(updatedOrder);
-      }
 
       setIsEditingOrderDetails(false);
       if (isChanged) {
@@ -1158,13 +1098,11 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           supplierId: order.supplierId,
         });
       }
-      const receivedAt = getCurrentTimeString();
       setOrders((prev) =>
         prev.map((o) =>
-          o.id === orderId ? { ...o, status: "completed" as const, receivedAt } : o
+          o.id === orderId ? { ...o, status: "completed" as const, receivedAt: getCurrentTimeString() } : o
         )
       );
-      saveOrderToServer({ ...order, status: "completed", receivedAt });
       toast.showToast("Faktura je uspješno prihvaćena! Artikli su prebačeni na obračun.", "success");
       setViewOrderId(null);
       setPrepareOrderSupplierId(null);
@@ -1438,7 +1376,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "6px" : "8px", flexWrap: "wrap" }}>
                         <span style={{ fontSize: isMobile ? "13px" : "12px", fontWeight: 700, color: "#111827", background: "#f3f4f6", padding: "4px 8px", borderRadius: "6px" }}>
-                          #{shortOrderId(order.id)}
+                          #{order.id.split("-")[1]}
                         </span>
                         <span style={{ fontSize: isMobile ? "13px" : "12px", color: "#6b7280" }}>{order.date}</span>
                         <span style={{ fontSize: isMobile ? "12px" : "11px", color: "#6b7280" }}>Naručeno: {order.orderedAt || "-"}</span>
@@ -1526,13 +1464,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                           flex: isMobile ? "1 1 calc(50% - 4px)" : "auto"
                         }}
                         onClick={() => {
-                          if (confirm(`Da li ste sigurni da želite otkazati narudžbu #${shortOrderId(order.id)}?`)) {
+                          if (confirm(`Da li ste sigurni da želite otkazati narudžbu #${order.id.split("-")[1]}?`)) {
                             setOrders((prev) => prev.filter((o) => o.id !== order.id));
-                            if (isUuid(order.id)) {
-                              apiDeleteOrder(order.id).catch((err) =>
-                                console.warn("⚠️ Brisanje narudžbe nije uspjelo:", err)
-                              );
-                            }
                           }
                         }}
                       >
@@ -2079,7 +2012,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
                           <div>
                             <div style={{ fontSize: "14px", fontWeight: 700, color: "#111827", marginBottom: "2px" }}>
-                              #{shortOrderId(order.id)}
+                              #{order.id.split("-")[1]}
                             </div>
                           </div>
                           <span style={{
@@ -2178,7 +2111,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                         const isEditedCompleted = order.wasEdited === true;
                         return (
                           <tr key={order.id} style={{ borderBottom: "1px solid #f3f4f6", background: isEditedCompleted ? "#fefce8" : "transparent" }}>
-                            <td style={{ padding: "10px", fontSize: "13px", color: "#111827", fontWeight: 700 }}>#{shortOrderId(order.id)}</td>
+                            <td style={{ padding: "10px", fontSize: "13px", color: "#111827", fontWeight: 700 }}>#{order.id.split("-")[1]}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#374151" }}>{supplier?.name || "Nepoznat"}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{order.date}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{order.orderedAt || "-"}</td>
@@ -2266,7 +2199,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: 600, color: "rgba(255,255,255,0.8)", letterSpacing: "0.5px", marginBottom: "4px" }}>Detalji narudžbe</div>
-                    <h3 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#ffffff" }}>#{shortOrderId(order.id)}</h3>
+                    <h3 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#ffffff" }}>#{order.id.split("-")[1]}</h3>
                     <p style={{ margin: "4px 0 0", fontSize: "13px", color: "rgba(255,255,255,0.9)" }}>{supplier?.name || "Nepoznat dobavljač"}</p>
                   </div>
                   <button
