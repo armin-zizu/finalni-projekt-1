@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  LineChart,
+  ComposedChart,
   Area,
   Line,
   XAxis,
@@ -2827,7 +2827,7 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
+                <ComposedChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
                   <defs>
                     <linearGradient id="fillBruto" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#16a34a" stopOpacity={0.38} />
@@ -2886,7 +2886,7 @@ export default function DashboardPage() {
                       <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                     </>
                   )}
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             ) : (
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#6b7280", fontSize: "14px" }}>
@@ -3735,7 +3735,7 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <LineChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
+                <ComposedChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
                   <defs>
                     <linearGradient id="fillUtroseno" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.38} />
@@ -3756,7 +3756,7 @@ export default function DashboardPage() {
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
                   <Area type="monotone" dataKey="utroseno" stroke="none" fill="url(#fillUtroseno)" fillOpacity={1} isAnimationActive={false} legendType="none" />
                   <Line type="monotone" dataKey="utroseno" name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             ) : (
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#6b7280", fontSize: "14px" }}>
