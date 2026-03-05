@@ -23,7 +23,7 @@ interface Order {
   wasEdited?: boolean;
   editedAt?: string;
   invoiceProofImages?: Array<{ name: string; url: string; dataUrl?: string } | string>;
-  status: "pending" | "in-transit" | "received" | "completed";
+  status: "pending" | "in-transit" | "received" | "completed" | "cancelled";
   items: Array<{ name: string; quantity: number }>;
   totalItems: number;
 }
@@ -1138,35 +1138,115 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     
     try {
       setLoadingOrderId(orderId);
-      // Simulate API call if needed
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Odmah prihvati fakturu, bez potvrde
-      const dateParts = order.date.split('.');
-      let formattedDate = order.date;
+
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+
+      const safeDate = order.date || `${day}.${month}.${year}.`;
+      const dateParts = safeDate.split('.');
+      let formattedDate = safeDate;
       if (dateParts.length >= 3) {
-        const day = dateParts[0].padStart(2, '0');
-        const month = dateParts[1].padStart(2, '0');
-        const year = dateParts[2];
-        formattedDate = `${day}.${month}.${year}.`;
+        const d = dateParts[0].padStart(2, '0');
+        const m = dateParts[1].padStart(2, '0');
+        const y = dateParts[2];
+        formattedDate = `${d}.${m}.${y}.`;
       }
+
+      const receivedAt = getCurrentTimeString();
+
       if (onInvoiceAccepted) {
         onInvoiceAccepted(formattedDate, order.items, {
           invoiceId: order.id,
           supplierId: order.supplierId,
         });
       }
+
+      // Optimistički označi kao završeno
       setOrders((prev) =>
         prev.map((o) =>
-          o.id === orderId ? { ...o, status: "completed" as const, receivedAt: getCurrentTimeString() } : o
+          o.id === orderId ? { ...o, status: "completed" as const, receivedAt } : o
         )
       );
+
+      try {
+        const { saveOrder } = await import("../../lib/api");
+        const updated = await saveOrder({
+          id: order.id,
+          supplierId: order.supplierId,
+          date: formattedDate,
+          orderedAt: order.orderedAt,
+          receivedAt,
+          status: "completed",
+          items: order.items,
+          totalItems: order.totalItems ?? order.items?.length ?? 0,
+          wasEdited: true,
+          editedAt: receivedAt,
+        });
+
+        if (updated) {
+          setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+        }
+      } catch (err: any) {
+        console.error("❌ Greška pri sinhronizaciji fakture:", err);
+        toast.showToast(err?.message || "Greška pri sinhronizaciji fakture", "error");
+      }
+
       toast.showToast("Faktura je uspješno prihvaćena! Artikli su prebačeni na obračun.", "success");
       setViewOrderId(null);
       setPrepareOrderSupplierId(null);
       setShowArticleList(false);
     } catch (error: any) {
       console.error("Greška pri prihvatanju fakture:", error);
+      toast.showToast(`Greška: ${error?.message || "Nepoznata greška"}`, "error");
+    } finally {
+      setLoadingOrderId(null);
+    }
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+
+    const shortId = order.id.includes("-") ? order.id.split("-").pop() : order.id;
+    if (!confirm(`Da li ste sigurni da želite otkazati narudžbu #${shortId}?`)) return;
+
+    try {
+      setLoadingOrderId(orderId);
+
+      // Optimistički postavi status na otkazano
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: "cancelled" as const } : o))
+      );
+
+      try {
+        const { saveOrder } = await import("../../lib/api");
+        const updated = await saveOrder({
+          id: order.id,
+          supplierId: order.supplierId,
+          date: order.date,
+          orderedAt: order.orderedAt,
+          receivedAt: order.receivedAt,
+          status: "cancelled",
+          items: order.items,
+          totalItems: order.totalItems ?? order.items?.length ?? 0,
+          wasEdited: true,
+          editedAt: getCurrentTimeString(),
+        });
+
+        if (updated) {
+          setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+        }
+      } catch (err: any) {
+        console.error("❌ Greška pri otkazivanju narudžbe (server):", err);
+        toast.showToast(err?.message || "Greška pri otkazivanju narudžbe", "error");
+      }
+
+      toast.showToast("Narudžba je otkazana.", "success");
+      setViewOrderId(null);
+    } catch (error: any) {
+      console.error("Greška pri otkazivanju narudžbe:", error);
       toast.showToast(`Greška: ${error?.message || "Nepoznata greška"}`, "error");
     } finally {
       setLoadingOrderId(null);
@@ -1391,13 +1471,14 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
             }}>
               {activeOrdersList.map((order) => {
                 const supplier = suppliers.find((s) => s.id === order.supplierId);
-                const statusConfig = {
-                  pending: { label: "Na čekanju", color: "#f59e0b", bg: "#fef3c7" },
-                  "in-transit": { label: "U dostavi", color: "#3b82f6", bg: "#dbeafe" },
-                  received: { label: "Primljeno", color: "#10b981", bg: "#d1fae5" },
-                  completed: { label: "Završeno", color: "#6b7280", bg: "#f3f4f6" },
-                } as const;
-                const status = statusConfig[order.status];
+                            const statusConfig = {
+                              pending: { label: "Na čekanju", color: "#f59e0b", bg: "#fef3c7" },
+                              "in-transit": { label: "U dostavi", color: "#3b82f6", bg: "#dbeafe" },
+                              received: { label: "Primljeno", color: "#10b981", bg: "#d1fae5" },
+                              completed: { label: "Završeno", color: "#6b7280", bg: "#f3f4f6" },
+                              cancelled: { label: "Otkazano", color: "#ef4444", bg: "#fee2e2" },
+                            } as const;
+                            const status = statusConfig[order.status] || statusConfig.pending;
 
                 return (
                   <div key={order.id} style={{ 
@@ -1507,11 +1588,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                           fontSize: isMobile ? "13px" : "12px",
                           flex: isMobile ? "1 1 calc(50% - 4px)" : "auto"
                         }}
-                        onClick={() => {
-                          if (confirm(`Da li ste sigurni da želite otkazati narudžbu #${order.id.split("-")[1]}?`)) {
-                            setOrders((prev) => prev.filter((o) => o.id !== order.id));
-                          }
-                        }}
+                        onClick={() => handleCancelOrder(order.id)}
                       >
                         Otkaži
                       </button>
@@ -2211,8 +2288,9 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           "in-transit": { label: "U dostavi", color: "#3b82f6", bg: "#dbeafe" },
           received: { label: "Primljeno", color: "#10b981", bg: "#d1fae5" },
           completed: { label: "Završeno", color: "#6b7280", bg: "#f3f4f6" },
+          cancelled: { label: "Otkazano", color: "#ef4444", bg: "#fee2e2" },
         } as const;
-        const status = statusConfig[order.status];
+        const status = statusConfig[order.status] || statusConfig.pending;
 
         return (
           <div
