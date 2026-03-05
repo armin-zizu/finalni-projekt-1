@@ -2217,18 +2217,23 @@ export default function DashboardPage() {
     if (active && payload && payload.length) {
       const dataSource = payload[0].dataKey === "utroseno" ? selectedData : chartData;
       const unit = dataSource === chartData ? " KM" : "";
+      const allowedMainKeys = new Set(["artikli", "prihod", "rashod", "neto"]);
+
+      const filteredPayload = dataSource === chartData
+        ? payload.filter((p: any) => allowedMainKeys.has(p.dataKey))
+        : payload;
+
+      if (!filteredPayload.length) return null;
 
       return (
         <div style={{ backgroundColor: "#1f2937", color: "#fff", padding: 12, borderRadius: 8 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
-          {payload.map((p: any) => {
-            return (
-              <div key={p.dataKey} style={{ marginBottom: 4 }}>
-                <span style={{ color: p.color, fontWeight: 500 }}>{p.name}: </span>
-                {p.value.toFixed(2)}{unit}
-              </div>
-            );
-          })}
+          {filteredPayload.map((p: any) => (
+            <div key={p.dataKey} style={{ marginBottom: 4 }}>
+              <span style={{ color: p.color, fontWeight: 500 }}>{p.name}: </span>
+              {p.value.toFixed(2)}{unit}
+            </div>
+          ))}
         </div>
       );
     }
@@ -2856,7 +2861,7 @@ export default function DashboardPage() {
                     tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} trigger="click" />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
 
                   {(chartSeriesView === "all" || chartSeriesView === "artikli") && (
@@ -3752,7 +3757,7 @@ export default function DashboardPage() {
                     tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip />} trigger="click" />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
                   <Area type="monotone" dataKey="utroseno" stroke="none" fill="url(#fillUtroseno)" fillOpacity={1} isAnimationActive={false} legendType="none" />
                   <Line type="monotone" dataKey="utroseno" name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
