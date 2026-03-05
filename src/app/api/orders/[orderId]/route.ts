@@ -171,33 +171,28 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
 		 RETURNING *;
 	`;
 
-	const query = baseQuery(fields);
-
-	try {
-		const result = await pool.query(query, values);
-		if (result.rows.length === 0) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-		return NextResponse.json({ order: mapRowToOrder(result.rows[0]) });
-	} catch (err: any) {
-		const msg = err?.message || "";
-		const hasDateField = dateCol && fields.some((f) => f.startsWith(`${dateCol} =`));
-		const canFlip = hasDateText && hasDate;
-		if ((msg.includes('column "date_text"') || msg.includes('column "date"')) && hasDateField && canFlip) {
-			const altDateCol = dateCol === "date_text" ? "date" : "date_text";
-			const altFields = fields.map((f) => (dateCol && f.startsWith(`${dateCol} =`) ? f.replace(dateCol, altDateCol) : f));
-			const altQuery = baseQuery(altFields);
-			try {
-				const retry = await pool.query(altQuery, values);
-				if (retry.rows.length === 0) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-				return NextResponse.json({ order: mapRowToOrder(retry.rows[0]) });
-			} catch (inner: any) {
-				console.error("❌ orders PATCH retry error:", inner);
-				return NextResponse.json({ error: inner.message || "DB error" }, { status: 500 });
-			}
-		}
-
-		console.error("❌ orders PATCH error:", err);
-		return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
+	const queries: string[] = [baseQuery(fields)];
+	if (dateCol && hasDateText && hasDate) {
+		const altDateCol = dateCol === "date_text" ? "date" : "date_text";
+		const altFields = fields.map((f) => (dateCol && f.startsWith(`${dateCol} =`) ? f.replace(dateCol, altDateCol) : f));
+		queries.push(baseQuery(altFields));
 	}
+
+	let lastError: any = null;
+	for (const q of queries) {
+		try {
+			const result = await pool.query(q, values);
+			if (result.rows.length === 0) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+			return NextResponse.json({ order: mapRowToOrder(result.rows[0]) });
+		} catch (err: any) {
+			lastError = err;
+			const msg = err?.message || "";
+			if (!(msg.includes('column "date_text"') || msg.includes('column "date"'))) break;
+		}
+	}
+
+	console.error("❌ orders PATCH error:", lastError);
+	return NextResponse.json({ error: lastError?.message || "DB error" }, { status: 500 });
 }
 
 export const PATCH = (req: Request, context: { params: { orderId: string } }) =>

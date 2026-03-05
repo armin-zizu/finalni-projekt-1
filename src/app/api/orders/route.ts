@@ -152,12 +152,17 @@ export const GET = withAuth(async (req: AuthRequest) => {
   try {
     const { hasSupplierId, hasDateText, hasDate } = await ensureOrdersTable();
 
-    const runSelect = async (useDateText: boolean | null) => {
-      const dateColumn = useDateText === null ? null : useDateText ? 'date_text' : 'date';
+    const modes: Array<'date_text' | 'date' | 'none'> = [];
+    if (hasDateText) modes.push('date_text');
+    if (hasDate) modes.push('date');
+    if (modes.length === 0) modes.push('none');
+
+    let lastError: any = null;
+    for (const mode of modes) {
       const selectCols = [
         'id',
         ...(hasSupplierId ? ['supplier_id'] : []),
-        ...(dateColumn ? [dateColumn] : []),
+        ...(mode === 'none' ? [] : [mode]),
         'ordered_at',
         'received_at',
         'status',
@@ -169,26 +174,22 @@ export const GET = withAuth(async (req: AuthRequest) => {
         'created_at',
         'updated_at',
       ].join(', ');
-      return pool.query(`SELECT ${selectCols} FROM orders WHERE user_id = $1 ORDER BY created_at DESC`, [userId]);
-    };
 
-    // prefer date_text if present; else date; else no date column
-    const preferred: boolean | null = hasDateText ? true : hasDate ? false : null;
-    const alternate: boolean | null = hasDateText && hasDate ? false : hasDate ? false : hasDateText ? true : null;
-
-    let result;
-    try {
-      result = await runSelect(preferred);
-    } catch (err: any) {
-      const msg = err?.message || '';
-      if ((msg.includes('column "date_text"') || msg.includes('column "date"')) && alternate !== preferred) {
-        result = await runSelect(alternate);
-      } else {
-        throw err;
+      try {
+        const result = await pool.query(
+          `SELECT ${selectCols} FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
+          [userId]
+        );
+        return NextResponse.json({ orders: result.rows.map(mapRowToOrder) });
+      } catch (err: any) {
+        lastError = err;
+        const msg = err?.message || '';
+        if (mode === 'none') break;
+        if (!(msg.includes('column "date_text"') || msg.includes('column "date"'))) break;
       }
     }
 
-    return NextResponse.json({ orders: result.rows.map(mapRowToOrder) });
+    throw lastError;
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
   }
@@ -213,8 +214,13 @@ export const POST = withAuth(async (req: AuthRequest) => {
   try {
     const { hasSupplierId, hasDateText, hasDate } = await ensureOrdersTable();
 
-    const runSave = async (useDateText: boolean | null) => {
-      const dateCol = useDateText === null ? null : useDateText ? 'date_text' : 'date';
+    const modes: Array<'date_text' | 'date' | 'none'> = [];
+    if (hasDateText) modes.push('date_text');
+    if (hasDate) modes.push('date');
+    if (modes.length === 0) modes.push('none');
+
+    const runSave = async (mode: 'date_text' | 'date' | 'none') => {
+      const dateCol = mode === 'none' ? null : mode;
 
       const payload = {
         supplierId: body.supplierId || null,
@@ -438,25 +444,23 @@ export const POST = withAuth(async (req: AuthRequest) => {
       );
     };
 
-    let result;
-    try {
-      result = await runSave(hasDateText ? true : hasDate ? false : null);
-    } catch (err: any) {
-      const msg = err?.message || '';
-      const canFlip = hasDateText && hasDate;
-      if ((msg.includes('column "date_text"') || msg.includes('column "date"')) && canFlip) {
-        result = await runSave(!hasDateText);
-      } else {
-        throw err;
+    let lastError: any = null;
+    for (const mode of modes) {
+      try {
+        const result = await runSave(mode);
+        const saved = result.rows[0];
+        if (!saved) {
+          return NextResponse.json({ error: "Order not saved" }, { status: 500 });
+        }
+        return NextResponse.json({ order: mapRowToOrder(saved) });
+      } catch (err: any) {
+        lastError = err;
+        const msg = err?.message || '';
+        if (mode === 'none') break;
+        if (!(msg.includes('column "date_text"') || msg.includes('column "date"'))) break;
       }
     }
-
-    const saved = result.rows[0];
-    if (!saved) {
-      return NextResponse.json({ error: "Order not saved" }, { status: 500 });
-    }
-
-    return NextResponse.json({ order: mapRowToOrder(saved) });
+    throw lastError;
   } catch (err: any) {
     console.error("❌ orders POST error:", err);
     return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
