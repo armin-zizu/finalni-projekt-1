@@ -64,7 +64,6 @@ async function ensureOrdersTable(): Promise<OrdersTableCapabilities> {
     }
 
     try {
-      // Best-effort column backfill; ignore if lacking ownership
       await pool.query(`
         ALTER TABLE orders
           ADD COLUMN IF NOT EXISTS supplier_id UUID NULL,
@@ -132,7 +131,6 @@ export const GET = withAuth(async (req: AuthRequest) => {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  // Pretvori email u UUID ako treba
   try {
     userId = await resolveUserIdToUUID(userId);
   } catch (err: any) {
@@ -198,6 +196,7 @@ export const POST = withAuth(async (req: AuthRequest) => {
 
   try {
     const { hasSupplierId, hasDateText } = await ensureOrdersTable();
+
     const runSave = async (useDateText: boolean) => {
       const dateCol = useDateText ? 'date_text' : 'date';
 
