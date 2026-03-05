@@ -5,3 +5,16 @@
 * {
 	-webkit-tap-highlight-color: transparent;
 }
+
+/* Spriječi iOS/Android auto-zoom na inputu (font >=16px) i uključi bolje tap ponašanje */
+@media (max-width: 768px) {
+	html, body {
+		touch-action: manipulation;
+	}
+	input,
+	textarea,
+	select,
+	button {
+		font-size: 16px !important;
+	}
+}
