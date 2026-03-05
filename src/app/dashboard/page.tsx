@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   LineChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -2827,6 +2828,24 @@ export default function DashboardPage() {
                 height={isMobile ? 300 : 400}
               >
                 <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
+                  <defs>
+                    <linearGradient id="fillBruto" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0.04} />
+                    </linearGradient>
+                    <linearGradient id="fillPrihod" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#9333ea" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#9333ea" stopOpacity={0.04} />
+                    </linearGradient>
+                    <linearGradient id="fillRashod" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.04} />
+                    </linearGradient>
+                    <linearGradient id="fillNeto" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.04} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
@@ -2839,17 +2858,33 @@ export default function DashboardPage() {
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
+
                   {(chartSeriesView === "all" || chartSeriesView === "artikli") && (
-                    <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                    <>
+                      <Area type="monotone" dataKey="artikli" stroke="none" fill="url(#fillBruto)" fillOpacity={1} isAnimationActive={false} legendType="none" />
+                      <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                    </>
                   )}
+
                   {(chartSeriesView === "all" || chartSeriesView === "prihod") && (
-                    <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                    <>
+                      <Area type="monotone" dataKey="prihod" stroke="none" fill="url(#fillPrihod)" fillOpacity={1} isAnimationActive={false} legendType="none" />
+                      <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                    </>
                   )}
+
                   {(chartSeriesView === "all" || chartSeriesView === "rashod") && (
-                    <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                    <>
+                      <Area type="monotone" dataKey="rashod" stroke="none" fill="url(#fillRashod)" fillOpacity={1} isAnimationActive={false} legendType="none" />
+                      <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                    </>
                   )}
+
                   {(chartSeriesView === "all" || chartSeriesView === "neto") && (
-                    <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                    <>
+                      <Area type="monotone" dataKey="neto" stroke="none" fill="url(#fillNeto)" fillOpacity={1} isAnimationActive={false} legendType="none" />
+                      <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
+                    </>
                   )}
                 </LineChart>
               </ResponsiveContainer>
