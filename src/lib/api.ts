@@ -1,3 +1,24 @@
+const formatServerDateTimeLabel = (value: any): string | null => {
+  if (!value) return null;
+
+  if (typeof value === "string") {
+    const looksFormatted = /\d{2}\.\d{2}\.\d{4}\.?\s+\d{2}:\d{2}/.test(value);
+    if (looksFormatted) return value.trim();
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return typeof value === "string" ? value : null;
+  }
+
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const year = parsed.getFullYear();
+  const hours = String(parsed.getHours()).padStart(2, "0");
+  const minutes = String(parsed.getMinutes()).padStart(2, "0");
+  return `${day}.${month}.${year}. ${hours}:${minutes}`;
+};
+
 /**
  * Dohvati sve narudžbe za korisnika
  */
@@ -19,19 +40,23 @@ export async function getOrders(userId: string) {
   const orders = Array.isArray(data.orders) ? data.orders : [];
 
   // Normalizuj snake_case -> camelCase i fallback za stara polja
-  return orders.map((o: any) => ({
-    id: o.id,
-    supplierId: o.supplierId ?? o.supplier_id ?? null,
-    date: o.date ?? o.date_text ?? null,
-    orderedAt: o.orderedAt ?? o.ordered_at ?? null,
-    receivedAt: o.receivedAt ?? o.received_at ?? null,
-    status: o.status ?? "pending",
-    items: Array.isArray(o.items) ? o.items : [],
-    totalItems: typeof o.totalItems === 'number' ? o.totalItems : (typeof o.total_items === 'number' ? o.total_items : (Array.isArray(o.items) ? o.items.length : 0)),
-    invoiceProofImages: o.invoiceProofImages ?? o.invoice_proof_images ?? [],
-    wasEdited: Boolean(o.wasEdited ?? o.was_edited),
-    editedAt: o.editedAt ?? o.edited_at ?? null,
-  }));
+  return orders.map((o: any) => {
+    const rawOrderedAt = o.orderedAt ?? o.ordered_at ?? null;
+
+    return {
+      id: o.id,
+      supplierId: o.supplierId ?? o.supplier_id ?? null,
+      date: o.date ?? o.date_text ?? null,
+      orderedAt: rawOrderedAt || formatServerDateTimeLabel(o.created_at),
+      receivedAt: o.receivedAt ?? o.received_at ?? null,
+      status: o.status ?? "pending",
+      items: Array.isArray(o.items) ? o.items : [],
+      totalItems: typeof o.totalItems === 'number' ? o.totalItems : (typeof o.total_items === 'number' ? o.total_items : (Array.isArray(o.items) ? o.items.length : 0)),
+      invoiceProofImages: o.invoiceProofImages ?? o.invoice_proof_images ?? [],
+      wasEdited: Boolean(o.wasEdited ?? o.was_edited),
+      editedAt: o.editedAt ?? o.edited_at ?? null,
+    };
+  });
 }
 
 /**

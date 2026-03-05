@@ -893,11 +893,13 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     const year = today.getFullYear();
     const formattedDate = `${day}.${month}.${year}.`;
 
+    const orderedAtLabel = formatDateTimeLabel(new Date());
+
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
       supplierId: supplier.id,
       date: formattedDate,
-      orderedAt: getCurrentTimeString(),
+      orderedAt: orderedAtLabel,
       status: "pending",
       items: orderItems,
       totalItems: orderItems.length,
@@ -915,7 +917,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       const saved = await saveOrder({
         supplierId: supplier.id,
         date: formattedDate,
-        orderedAt: newOrder.orderedAt,
+        orderedAt: orderedAtLabel,
         status: "pending",
         items: orderItems,
         totalItems: orderItems.length,
@@ -1531,7 +1533,10 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                       borderLeft: "4px solid #3b82f6"
                     }}>
                       <div style={{ fontSize: isMobile ? "14px" : "13px", fontWeight: 700, color: "#1f2937", marginBottom: "4px" }}>
-                        {supplier?.name || "Nepoznat dobavljač"}
+                        {supplier?.name || order.supplierId || "Nepoznat dobavljač"}
+                      </div>
+                      <div style={{ fontSize: isMobile ? "12px" : "11px", color: "#4b5563", marginBottom: "4px" }}>
+                        Datum i vrijeme narudžbe: {order.date || "-"}{order.date && (order.orderedAt ? " · " : " ")}{order.orderedAt || "-"}
                       </div>
                       <div style={{ fontSize: isMobile ? "13px" : "12px", color: "#6b7280" }}>
                         {order.totalItems} artikal{order.totalItems !== 1 ? "a" : ""}

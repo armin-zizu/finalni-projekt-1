@@ -86,12 +86,14 @@ export const POST = withAuth(async (req: AuthRequest) => {
   const invoiceProofImages = Array.isArray(body?.invoiceProofImages) ? body.invoiceProofImages : [];
   const totalItems = typeof body?.totalItems === "number" ? body.totalItems : items.length;
   const dateValue = body?.date || body?.date_text || null;
+  const serverNowIso = new Date().toISOString();
+  const orderedAtValue = body?.orderedAt || body?.ordered_at || body?.createdAt || body?.created_at || null;
 
   const payload = {
     id: body?.id || randomUUID(),
     supplierId: body?.supplierId || body?.supplier_id || null,
     date: dateValue,
-    orderedAt: body?.orderedAt || body?.ordered_at || null,
+    orderedAt: orderedAtValue || serverNowIso,
     receivedAt: body?.receivedAt || body?.received_at || null,
     status: body?.status || "pending",
     items,
