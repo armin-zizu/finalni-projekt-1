@@ -1330,20 +1330,6 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                 <FaPlus /> Dodaj dobavljača
               </button>
             </div>
-            <button 
-              style={{...secondaryButton, color: '#dc2626', fontSize: '12px', padding: '4px 8px'}}
-              onClick={async () => {
-                if (confirm('Sigurno želiš obrisati sve dobavljače iz lokalne memorije?')) {
-                  const { clearAllSuppliersFromLocalStorage } = await import("../../lib/api");
-                  clearAllSuppliersFromLocalStorage();
-                  setSuppliers([]);
-                  setSupplierItems({});
-                  toast.showToast('Svi dobavljači obrisani iz lokalne memorije', 'success');
-                }
-              }}
-            >
-              🗑️ Obriši sve lokalno
-            </button>
           </div>
         </div>
 
