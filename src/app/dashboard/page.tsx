@@ -2830,20 +2830,20 @@ export default function DashboardPage() {
                 <ComposedChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
                   <defs>
                     <linearGradient id="fillBruto" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.38} />
-                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0.12} />
+                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.24} />
+                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0.08} />
                     </linearGradient>
                     <linearGradient id="fillPrihod" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#9333ea" stopOpacity={0.34} />
-                      <stop offset="100%" stopColor="#9333ea" stopOpacity={0.1} />
+                      <stop offset="0%" stopColor="#9333ea" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#9333ea" stopOpacity={0.07} />
                     </linearGradient>
                     <linearGradient id="fillRashod" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.1} />
+                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.18} />
+                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.06} />
                     </linearGradient>
                     <linearGradient id="fillNeto" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.36} />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.12} />
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.08} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -3738,8 +3738,8 @@ export default function DashboardPage() {
                 <ComposedChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
                   <defs>
                     <linearGradient id="fillUtroseno" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.38} />
-                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.1} />
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.24} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.08} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
