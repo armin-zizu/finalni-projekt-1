@@ -19,12 +19,14 @@ type OrderPayload = {
 type OrdersTableCapabilities = {
   hasSupplierId: boolean;
   hasDateText: boolean;
+  hasDate: boolean;
 };
 
 async function ensureOrdersTable(): Promise<OrdersTableCapabilities> {
   const pool = getPool();
   let hasSupplierId = false;
   let hasDateText = false;
+  let hasDate = false;
 
   try {
     try {
@@ -102,11 +104,20 @@ async function ensureOrdersTable(): Promise<OrdersTableCapabilities> {
     } catch (err: any) {
       console.warn('⚠️ column probe failed:', err?.message);
     }
+
+    try {
+      const col = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'date'`
+      );
+      hasDate = col.rowCount > 0;
+    } catch (err: any) {
+      console.warn('⚠️ column probe failed:', err?.message);
+    }
   } catch (err: any) {
     console.warn('⚠️ ensureOrdersTable skipped due to permissions:', err?.message);
   }
 
-  return { hasSupplierId, hasDateText };
+  return { hasSupplierId, hasDateText, hasDate };
 }
 
 const mapRowToOrder = (row: any) => ({
@@ -139,13 +150,14 @@ export const GET = withAuth(async (req: AuthRequest) => {
 
   const pool = getPool();
   try {
-    const { hasSupplierId, hasDateText } = await ensureOrdersTable();
+    const { hasSupplierId, hasDateText, hasDate } = await ensureOrdersTable();
 
-    const runSelect = async (useDateText: boolean) => {
+    const runSelect = async (useDateText: boolean | null) => {
+      const dateColumn = useDateText === null ? null : useDateText ? 'date_text' : 'date';
       const selectCols = [
         'id',
         ...(hasSupplierId ? ['supplier_id'] : []),
-        useDateText ? 'date_text' : 'date',
+        ...(dateColumn ? [dateColumn] : []),
         'ordered_at',
         'received_at',
         'status',
@@ -160,13 +172,17 @@ export const GET = withAuth(async (req: AuthRequest) => {
       return pool.query(`SELECT ${selectCols} FROM orders WHERE user_id = $1 ORDER BY created_at DESC`, [userId]);
     };
 
+    // prefer date_text if present; else date; else no date column
+    const preferred: boolean | null = hasDateText ? true : hasDate ? false : null;
+    const alternate: boolean | null = hasDateText && hasDate ? false : hasDate ? false : hasDateText ? true : null;
+
     let result;
     try {
-      result = await runSelect(hasDateText);
+      result = await runSelect(preferred);
     } catch (err: any) {
       const msg = err?.message || '';
-      if (msg.includes('column "date_text"') || msg.includes('column "date"')) {
-        result = await runSelect(!hasDateText);
+      if ((msg.includes('column "date_text"') || msg.includes('column "date"')) && alternate !== preferred) {
+        result = await runSelect(alternate);
       } else {
         throw err;
       }
@@ -195,10 +211,10 @@ export const POST = withAuth(async (req: AuthRequest) => {
   const pool = getPool();
 
   try {
-    const { hasSupplierId, hasDateText } = await ensureOrdersTable();
+    const { hasSupplierId, hasDateText, hasDate } = await ensureOrdersTable();
 
-    const runSave = async (useDateText: boolean) => {
-      const dateCol = useDateText ? 'date_text' : 'date';
+    const runSave = async (useDateText: boolean | null) => {
+      const dateCol = useDateText === null ? null : useDateText ? 'date_text' : 'date';
 
       const payload = {
         supplierId: body.supplierId || null,
@@ -213,25 +229,88 @@ export const POST = withAuth(async (req: AuthRequest) => {
         editedAt: body.editedAt || null,
       };
 
+      // UPDATE
       if (body.id) {
         if (hasSupplierId) {
+          if (dateCol) {
+            return pool.query(
+              `UPDATE orders
+                 SET supplier_id = $1,
+                     ${dateCol} = $2,
+                     ordered_at = $3,
+                     received_at = $4,
+                     status = $5,
+                     items = $6,
+                     total_items = $7,
+                     invoice_proof_images = $8,
+                     was_edited = $9,
+                     edited_at = $10,
+                     updated_at = NOW()
+               WHERE id = $11 AND user_id = $12
+               RETURNING *`,
+              [
+                payload.supplierId,
+                payload.date,
+                payload.orderedAt,
+                payload.receivedAt,
+                payload.status,
+                JSON.stringify(payload.items),
+                payload.totalItems,
+                JSON.stringify(payload.invoiceProofImages),
+                payload.wasEdited,
+                payload.editedAt,
+                body.id,
+                userId,
+              ]
+            );
+          }
+
           return pool.query(
             `UPDATE orders
                SET supplier_id = $1,
-                   ${dateCol} = $2,
-                   ordered_at = $3,
-                   received_at = $4,
-                   status = $5,
-                   items = $6,
-                   total_items = $7,
-                   invoice_proof_images = $8,
-                   was_edited = $9,
-                   edited_at = $10,
+                   ordered_at = $2,
+                   received_at = $3,
+                   status = $4,
+                   items = $5,
+                   total_items = $6,
+                   invoice_proof_images = $7,
+                   was_edited = $8,
+                   edited_at = $9,
                    updated_at = NOW()
-             WHERE id = $11 AND user_id = $12
+             WHERE id = $10 AND user_id = $11
              RETURNING *`,
             [
               payload.supplierId,
+              payload.orderedAt,
+              payload.receivedAt,
+              payload.status,
+              JSON.stringify(payload.items),
+              payload.totalItems,
+              JSON.stringify(payload.invoiceProofImages),
+              payload.wasEdited,
+              payload.editedAt,
+              body.id,
+              userId,
+            ]
+          );
+        }
+
+        if (dateCol) {
+          return pool.query(
+            `UPDATE orders
+               SET ${dateCol} = $1,
+                   ordered_at = $2,
+                   received_at = $3,
+                   status = $4,
+                   items = $5,
+                   total_items = $6,
+                   invoice_proof_images = $7,
+                   was_edited = $8,
+                   edited_at = $9,
+                   updated_at = NOW()
+             WHERE id = $10 AND user_id = $11
+             RETURNING *`,
+            [
               payload.date,
               payload.orderedAt,
               payload.receivedAt,
@@ -249,20 +328,18 @@ export const POST = withAuth(async (req: AuthRequest) => {
 
         return pool.query(
           `UPDATE orders
-             SET ${dateCol} = $1,
-                 ordered_at = $2,
-                 received_at = $3,
-                 status = $4,
-                 items = $5,
-                 total_items = $6,
-                 invoice_proof_images = $7,
-                 was_edited = $8,
-                 edited_at = $9,
+             SET ordered_at = $1,
+                 received_at = $2,
+                 status = $3,
+                 items = $4,
+                 total_items = $5,
+                 invoice_proof_images = $6,
+                 was_edited = $7,
+                 edited_at = $8,
                  updated_at = NOW()
-           WHERE id = $10 AND user_id = $11
+           WHERE id = $9 AND user_id = $10
            RETURNING *`,
           [
-            payload.date,
             payload.orderedAt,
             payload.receivedAt,
             payload.status,
@@ -277,15 +354,58 @@ export const POST = withAuth(async (req: AuthRequest) => {
         );
       }
 
+      // INSERT
       if (hasSupplierId) {
+        if (dateCol) {
+          return pool.query(
+            `INSERT INTO orders
+               (user_id, supplier_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+             RETURNING *`,
+            [
+              userId,
+              payload.supplierId,
+              payload.date,
+              payload.orderedAt,
+              payload.receivedAt,
+              payload.status,
+              JSON.stringify(payload.items),
+              payload.totalItems,
+              JSON.stringify(payload.invoiceProofImages),
+              payload.wasEdited,
+              payload.editedAt,
+            ]
+          );
+        }
+
         return pool.query(
           `INSERT INTO orders
-             (user_id, supplier_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+             (user_id, supplier_id, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            RETURNING *`,
           [
             userId,
             payload.supplierId,
+            payload.orderedAt,
+            payload.receivedAt,
+            payload.status,
+            JSON.stringify(payload.items),
+            payload.totalItems,
+            JSON.stringify(payload.invoiceProofImages),
+            payload.wasEdited,
+            payload.editedAt,
+          ]
+        );
+      }
+
+      if (dateCol) {
+        return pool.query(
+          `INSERT INTO orders
+             (user_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           RETURNING *`,
+          [
+            userId,
             payload.date,
             payload.orderedAt,
             payload.receivedAt,
@@ -301,12 +421,11 @@ export const POST = withAuth(async (req: AuthRequest) => {
 
       return pool.query(
         `INSERT INTO orders
-           (user_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           (user_id, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
          RETURNING *`,
         [
           userId,
-          payload.date,
           payload.orderedAt,
           payload.receivedAt,
           payload.status,
@@ -321,10 +440,11 @@ export const POST = withAuth(async (req: AuthRequest) => {
 
     let result;
     try {
-      result = await runSave(hasDateText);
+      result = await runSave(hasDateText ? true : hasDate ? false : null);
     } catch (err: any) {
       const msg = err?.message || '';
-      if (msg.includes('column "date_text"') || msg.includes('column "date"')) {
+      const canFlip = hasDateText && hasDate;
+      if ((msg.includes('column "date_text"') || msg.includes('column "date"')) && canFlip) {
         result = await runSave(!hasDateText);
       } else {
         throw err;

@@ -19,9 +19,10 @@ const mapRowToOrder = (row: any) => ({
 	updatedAt: row.updated_at,
 });
 
-async function ensureOrdersTable(pool: Pool): Promise<{ hasSupplierId: boolean; hasDateText: boolean }> {
+async function ensureOrdersTable(pool: Pool): Promise<{ hasSupplierId: boolean; hasDateText: boolean; hasDate: boolean }> {
 	let hasSupplierId = false;
 	let hasDateText = false;
+	let hasDate = false;
 
 	try {
 		try {
@@ -99,11 +100,20 @@ async function ensureOrdersTable(pool: Pool): Promise<{ hasSupplierId: boolean; 
 		} catch (err: any) {
 			console.warn('⚠️ column probe failed:', err?.message);
 		}
+
+		try {
+			const col = await pool.query(
+				`SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'date'`
+			);
+			hasDate = col.rowCount > 0;
+		} catch (err: any) {
+			console.warn('⚠️ column probe failed:', err?.message);
+		}
 	} catch (err: any) {
 		console.warn('⚠️ ensureOrdersTable skipped due to permissions:', err?.message);
 	}
 
-	return { hasSupplierId, hasDateText };
+	return { hasSupplierId, hasDateText, hasDate };
 }
 
 // PATCH /api/orders/[orderId] - partial update
@@ -118,7 +128,7 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
 	}
 
 	const pool = getPool();
-	const { hasSupplierId, hasDateText } = await ensureOrdersTable(pool);
+	const { hasSupplierId, hasDateText, hasDate } = await ensureOrdersTable(pool);
 
 	const body = await req.json();
 	const fields: string[] = [];
@@ -131,10 +141,10 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
 		idx += 1;
 	};
 
-	const dateCol = hasDateText ? "date_text" : "date";
+	const dateCol = hasDateText ? "date_text" : hasDate ? "date" : null;
 
 	if (hasSupplierId && body.supplierId !== undefined) push("supplier_id", body.supplierId || null);
-	if (body.date !== undefined) push(dateCol, body.date || null);
+	if (dateCol && body.date !== undefined) push(dateCol, body.date || null);
 	if (body.orderedAt !== undefined) push("ordered_at", body.orderedAt || null);
 	if (body.receivedAt !== undefined) push("received_at", body.receivedAt || null);
 	if (body.status !== undefined) push("status", body.status || null);
@@ -154,12 +164,14 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
 
 	values.push(params.orderId, userId);
 
-	const query = `
+	const baseQuery = (cols: string[]) => `
 		UPDATE orders
-			 SET ${fields.join(", ")}
+			 SET ${cols.join(", ")}
 		 WHERE id = $${idx - 1} AND user_id = $${idx}
 		 RETURNING *;
 	`;
+
+	const query = baseQuery(fields);
 
 	try {
 		const result = await pool.query(query, values);
@@ -167,16 +179,12 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
 		return NextResponse.json({ order: mapRowToOrder(result.rows[0]) });
 	} catch (err: any) {
 		const msg = err?.message || "";
-		const hasDateField = fields.some((f) => f.startsWith(`${dateCol} =`));
-		if ((msg.includes('column "date_text"') || msg.includes('column "date"')) && hasDateField) {
+		const hasDateField = dateCol && fields.some((f) => f.startsWith(`${dateCol} =`));
+		const canFlip = hasDateText && hasDate;
+		if ((msg.includes('column "date_text"') || msg.includes('column "date"')) && hasDateField && canFlip) {
 			const altDateCol = dateCol === "date_text" ? "date" : "date_text";
-			const altFields = fields.map((f) => (f.startsWith(`${dateCol} =`) ? f.replace(dateCol, altDateCol) : f));
-			const altQuery = `
-				UPDATE orders
-					 SET ${altFields.join(", ")}
-				 WHERE id = $${idx - 1} AND user_id = $${idx}
-				 RETURNING *;
-			`;
+			const altFields = fields.map((f) => (dateCol && f.startsWith(`${dateCol} =`) ? f.replace(dateCol, altDateCol) : f));
+			const altQuery = baseQuery(altFields);
 			try {
 				const retry = await pool.query(altQuery, values);
 				if (retry.rows.length === 0) return NextResponse.json({ error: "Order not found" }, { status: 404 });
