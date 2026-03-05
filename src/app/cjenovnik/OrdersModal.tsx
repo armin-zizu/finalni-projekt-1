@@ -1894,6 +1894,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                                   </div>
                                   <input
                                     type="number"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     className="orders-number-input"
                                     step="1"
                                     value={orderQty}
@@ -1955,7 +1957,9 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                                   <td style={{ padding: "16px 20px", textAlign: "right" }}>
                                     <input
                                       type="number"
-                                        className="orders-number-input"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      className="orders-number-input"
                                       step="1"
                                       value={orderQty}
                                       onChange={(e) => {
@@ -2507,6 +2511,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <input
                                 type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 className="orders-number-input"
                                 step="1"
                                 min="0"
@@ -2571,6 +2577,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                                 {isEditingOrderDetails ? (
                                   <input
                                     type="number"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     className="orders-number-input"
                                     step="1"
                                     min="0"
