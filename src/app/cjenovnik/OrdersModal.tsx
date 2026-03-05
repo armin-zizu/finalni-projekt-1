@@ -662,6 +662,27 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         localStorage.setItem('supplierItems', JSON.stringify(nextState));
       }
 
+      // Auto-sync na server čim se lista promijeni
+      if (userId) {
+        const sup = suppliers.find((s) => s.id === supplierId);
+        if (sup) {
+          (async () => {
+            try {
+              const { saveSupplier } = await import("../../lib/api");
+              await saveSupplier(userId, {
+                id: supplierId,
+                name: sup.name,
+                items: nextItems,
+                contact: sup.contact,
+                phone: sup.phone,
+              });
+            } catch (err) {
+              console.warn("⚠️ Auto-sync dobavljača nije uspio:", err);
+            }
+          })();
+        }
+      }
+
       return nextState;
     });
   };
