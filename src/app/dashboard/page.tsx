@@ -2830,20 +2830,20 @@ export default function DashboardPage() {
                 <LineChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
                   <defs>
                     <linearGradient id="fillBruto" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0.04} />
+                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.38} />
+                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0.12} />
                     </linearGradient>
                     <linearGradient id="fillPrihod" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#9333ea" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="#9333ea" stopOpacity={0.04} />
+                      <stop offset="0%" stopColor="#9333ea" stopOpacity={0.34} />
+                      <stop offset="100%" stopColor="#9333ea" stopOpacity={0.1} />
                     </linearGradient>
                     <linearGradient id="fillRashod" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.04} />
+                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.1} />
                     </linearGradient>
                     <linearGradient id="fillNeto" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.04} />
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.36} />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.12} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
