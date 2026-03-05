@@ -20,48 +20,65 @@ const mapRowToOrder = (row: any) => ({
 });
 
 async function ensureOrdersTable(pool: Pool) {
-  await pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      supplier_id UUID NULL,
-      date_text TEXT,
-      ordered_at TEXT,
-      received_at TEXT,
-      status TEXT DEFAULT 'pending',
-      items JSONB DEFAULT '[]',
-      total_items INT DEFAULT 0,
-      invoice_proof_images JSONB DEFAULT '[]',
-      was_edited BOOLEAN DEFAULT FALSE,
-      edited_at TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
-    );
+  try {
+    await pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
+  } catch (err: any) {
+    console.warn('⚠️ pgcrypto create skipped:', err?.message);
+  }
 
-    CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
-    CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-  `);
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        supplier_id UUID NULL,
+        date_text TEXT,
+        ordered_at TEXT,
+        received_at TEXT,
+        status TEXT DEFAULT 'pending',
+        items JSONB DEFAULT '[]',
+        total_items INT DEFAULT 0,
+        invoice_proof_images JSONB DEFAULT '[]',
+        was_edited BOOLEAN DEFAULT FALSE,
+        edited_at TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
 
-  await pool.query(`
-    ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS supplier_id UUID NULL,
-      ADD COLUMN IF NOT EXISTS date_text TEXT,
-      ADD COLUMN IF NOT EXISTS ordered_at TEXT,
-      ADD COLUMN IF NOT EXISTS received_at TEXT,
-      ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending',
-      ADD COLUMN IF NOT EXISTS items JSONB DEFAULT '[]',
-      ADD COLUMN IF NOT EXISTS total_items INT DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS invoice_proof_images JSONB DEFAULT '[]',
-      ADD COLUMN IF NOT EXISTS was_edited BOOLEAN DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS edited_at TEXT,
-      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW(),
-      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
-  `);
+      CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+    `);
+  } catch (err: any) {
+    if (!err?.message?.includes('permission denied') && !err?.message?.includes('must be owner')) {
+      console.warn('⚠️ orders table ensure skipped:', err?.message);
+    }
+  }
+
+  try {
+    await pool.query(`
+      ALTER TABLE orders
+        ADD COLUMN IF NOT EXISTS supplier_id UUID NULL,
+        ADD COLUMN IF NOT EXISTS date_text TEXT,
+        ADD COLUMN IF NOT EXISTS ordered_at TEXT,
+        ADD COLUMN IF NOT EXISTS received_at TEXT,
+        ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending',
+        ADD COLUMN IF NOT EXISTS items JSONB DEFAULT '[]',
+        ADD COLUMN IF NOT EXISTS total_items INT DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS invoice_proof_images JSONB DEFAULT '[]',
+        ADD COLUMN IF NOT EXISTS was_edited BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS edited_at TEXT,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW(),
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+    `);
+  } catch (err: any) {
+    if (!err?.message?.includes('permission denied') && !err?.message?.includes('must be owner')) {
+      console.warn('⚠️ orders alter skipped:', err?.message);
+    }
+  }
 }
 
 // PATCH /api/orders/[orderId] - partial update
-export const PATCH = withAuth(async (req: AuthRequest, { params }: { params: { orderId: string } }) => {
+async function patchHandler(req: AuthRequest, { params }: { params: { orderId: string } }) {
   let userId = req.user?.userId;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -121,10 +138,13 @@ export const PATCH = withAuth(async (req: AuthRequest, { params }: { params: { o
     console.error("❌ orders PATCH error:", err);
     return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
   }
-});
+}
+
+export const PATCH = (req: Request, context: { params: { orderId: string } }) =>
+  withAuth((authReq: AuthRequest) => patchHandler(authReq, context))(req as any);
 
 // DELETE /api/orders/[orderId]
-export const DELETE = withAuth(async (req: AuthRequest, { params }: { params: { orderId: string } }) => {
+async function deleteHandler(req: AuthRequest, { params }: { params: { orderId: string } }) {
   let userId = req.user?.userId;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -148,4 +168,7 @@ export const DELETE = withAuth(async (req: AuthRequest, { params }: { params: { 
     console.error("❌ orders DELETE error:", err);
     return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
   }
-});
+}
+
+export const DELETE = (req: Request, context: { params: { orderId: string } }) =>
+  withAuth((authReq: AuthRequest) => deleteHandler(authReq, context))(req as any);
