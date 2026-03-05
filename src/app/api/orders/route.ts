@@ -16,8 +16,14 @@ type OrderPayload = {
   editedAt?: string | null;
 };
 
-async function ensureOrdersTable() {
+type OrdersTableCapabilities = {
+  hasSupplierId: boolean;
+};
+
+async function ensureOrdersTable(): Promise<OrdersTableCapabilities> {
   const pool = getPool();
+  let hasSupplierId = false;
+
   try {
     try {
       await pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
@@ -77,9 +83,20 @@ async function ensureOrdersTable() {
         console.warn('⚠️ orders alter skipped:', err?.message);
       }
     }
+
+    try {
+      const col = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'supplier_id'`
+      );
+      hasSupplierId = col.rowCount > 0;
+    } catch (err: any) {
+      console.warn('⚠️ column probe failed:', err?.message);
+    }
   } catch (err: any) {
     console.warn('⚠️ ensureOrdersTable skipped due to permissions:', err?.message);
   }
+
+  return { hasSupplierId };
 }
 
 const mapRowToOrder = (row: any) => ({
@@ -113,9 +130,12 @@ export const GET = withAuth(async (req: AuthRequest) => {
 
   const pool = getPool();
   try {
-    await ensureOrdersTable();
+    const { hasSupplierId } = await ensureOrdersTable();
+    const selectCols = hasSupplierId
+      ? `id, supplier_id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at, created_at, updated_at`
+      : `id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at, created_at, updated_at`;
     const result = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT ${selectCols} FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
       [userId]
     );
     return NextResponse.json({ orders: result.rows.map(mapRowToOrder) });
@@ -141,7 +161,7 @@ export const POST = withAuth(async (req: AuthRequest) => {
   const pool = getPool();
 
   try {
-    await ensureOrdersTable();
+    const { hasSupplierId } = await ensureOrdersTable();
 
     const payload = {
       supplierId: body.supplierId || null,
@@ -158,56 +178,108 @@ export const POST = withAuth(async (req: AuthRequest) => {
 
     let result;
     if (body.id) {
-      result = await pool.query(
-        `UPDATE orders
-           SET supplier_id = $1,
-               date_text = $2,
-               ordered_at = $3,
-               received_at = $4,
-               status = $5,
-               items = $6,
-               total_items = $7,
-               invoice_proof_images = $8,
-               was_edited = $9,
-               edited_at = $10,
-               updated_at = NOW()
-         WHERE id = $11 AND user_id = $12
-         RETURNING *`,
-        [
-          payload.supplierId,
-          payload.date,
-          payload.orderedAt,
-          payload.receivedAt,
-          payload.status,
-          JSON.stringify(payload.items),
-          payload.totalItems,
-          JSON.stringify(payload.invoiceProofImages),
-          payload.wasEdited,
-          payload.editedAt,
-          body.id,
-          userId,
-        ]
-      );
+      if (hasSupplierId) {
+        result = await pool.query(
+          `UPDATE orders
+             SET supplier_id = $1,
+                 date_text = $2,
+                 ordered_at = $3,
+                 received_at = $4,
+                 status = $5,
+                 items = $6,
+                 total_items = $7,
+                 invoice_proof_images = $8,
+                 was_edited = $9,
+                 edited_at = $10,
+                 updated_at = NOW()
+           WHERE id = $11 AND user_id = $12
+           RETURNING *`,
+          [
+            payload.supplierId,
+            payload.date,
+            payload.orderedAt,
+            payload.receivedAt,
+            payload.status,
+            JSON.stringify(payload.items),
+            payload.totalItems,
+            JSON.stringify(payload.invoiceProofImages),
+            payload.wasEdited,
+            payload.editedAt,
+            body.id,
+            userId,
+          ]
+        );
+      } else {
+        result = await pool.query(
+          `UPDATE orders
+             SET date_text = $1,
+                 ordered_at = $2,
+                 received_at = $3,
+                 status = $4,
+                 items = $5,
+                 total_items = $6,
+                 invoice_proof_images = $7,
+                 was_edited = $8,
+                 edited_at = $9,
+                 updated_at = NOW()
+           WHERE id = $10 AND user_id = $11
+           RETURNING *`,
+          [
+            payload.date,
+            payload.orderedAt,
+            payload.receivedAt,
+            payload.status,
+            JSON.stringify(payload.items),
+            payload.totalItems,
+            JSON.stringify(payload.invoiceProofImages),
+            payload.wasEdited,
+            payload.editedAt,
+            body.id,
+            userId,
+          ]
+        );
+      }
     } else {
-      result = await pool.query(
-        `INSERT INTO orders
-           (user_id, supplier_id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-         RETURNING *`,
-        [
-          userId,
-          payload.supplierId,
-          payload.date,
-          payload.orderedAt,
-          payload.receivedAt,
-          payload.status,
-          JSON.stringify(payload.items),
-          payload.totalItems,
-          JSON.stringify(payload.invoiceProofImages),
-          payload.wasEdited,
-          payload.editedAt,
-        ]
-      );
+      if (hasSupplierId) {
+        result = await pool.query(
+          `INSERT INTO orders
+             (user_id, supplier_id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+           RETURNING *`,
+          [
+            userId,
+            payload.supplierId,
+            payload.date,
+            payload.orderedAt,
+            payload.receivedAt,
+            payload.status,
+            JSON.stringify(payload.items),
+            payload.totalItems,
+            JSON.stringify(payload.invoiceProofImages),
+            payload.wasEdited,
+            payload.editedAt,
+          ]
+        );
+      } else {
+        result = await pool.query(
+          `INSERT INTO orders
+             (user_id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           RETURNING *`,
+          [
+            userId,
+            payload.date,
+            payload.orderedAt,
+            payload.receivedAt,
+            payload.status,
+            JSON.stringify(payload.items),
+            payload.totalItems,
+            JSON.stringify(payload.invoiceProofImages),
+            payload.wasEdited,
+            payload.editedAt,
+          ]
+        );
+      }
     }
 
     const saved = result.rows[0];

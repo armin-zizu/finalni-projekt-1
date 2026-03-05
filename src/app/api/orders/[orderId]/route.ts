@@ -19,7 +19,9 @@ const mapRowToOrder = (row: any) => ({
   updatedAt: row.updated_at,
 });
 
-async function ensureOrdersTable(pool: Pool) {
+async function ensureOrdersTable(pool: Pool): Promise<{ hasSupplierId: boolean }> {
+  let hasSupplierId = false;
+
   try {
     try {
       await pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
@@ -78,9 +80,20 @@ async function ensureOrdersTable(pool: Pool) {
         console.warn('⚠️ orders alter skipped:', err?.message);
       }
     }
+
+    try {
+      const col = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'supplier_id'`
+      );
+      hasSupplierId = col.rowCount > 0;
+    } catch (err: any) {
+      console.warn('⚠️ column probe failed:', err?.message);
+    }
   } catch (err: any) {
     console.warn('⚠️ ensureOrdersTable skipped due to permissions:', err?.message);
   }
+
+  return { hasSupplierId };
 }
 
 // PATCH /api/orders/[orderId] - partial update
@@ -95,7 +108,7 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
   }
 
   const pool = getPool();
-  await ensureOrdersTable(pool);
+  const { hasSupplierId } = await ensureOrdersTable(pool);
 
   const body = await req.json();
   const fields: string[] = [];
@@ -108,7 +121,7 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
     idx += 1;
   };
 
-  if (body.supplierId !== undefined) push("supplier_id", body.supplierId || null);
+  if (hasSupplierId && body.supplierId !== undefined) push("supplier_id", body.supplierId || null);
   if (body.date !== undefined) push("date_text", body.date || null);
   if (body.orderedAt !== undefined) push("ordered_at", body.orderedAt || null);
   if (body.receivedAt !== undefined) push("received_at", body.receivedAt || null);
