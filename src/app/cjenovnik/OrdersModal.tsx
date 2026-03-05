@@ -873,7 +873,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     }));
   };
 
-  const handleCreateOrder = (supplier: Supplier) => {
+  const handleCreateOrder = async (supplier: Supplier) => {
     const assigned = supplierItems[supplier.id] || [];
     const quantities = orderQuantities[supplier.id] || {};
 
@@ -903,10 +903,36 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       totalItems: orderItems.length,
     };
 
+    // Optimistički lokalni upis
     setOrders((prev) => [newOrder, ...prev]);
     setOrderQuantities((prev) => ({ ...prev, [supplier.id]: {} }));
     toast.showToast(`Narudžba poslana za ${supplier.name}`, "success");
     setPrepareOrderSupplierId(null);
+
+    // Sinhronizuj sa serverom da druge uređaje vide pending narudžbu
+    try {
+      const { saveOrder } = await import("../../lib/api");
+      const saved = await saveOrder({
+        supplierId: supplier.id,
+        date: formattedDate,
+        orderedAt: newOrder.orderedAt,
+        status: "pending",
+        items: orderItems,
+        totalItems: orderItems.length,
+      });
+
+      if (saved) {
+        setOrders((prev) => {
+          const filtered = prev.filter((o) => o.id !== newOrder.id);
+          const nextOrders = [saved, ...filtered];
+          localStorage.setItem('orders', JSON.stringify(nextOrders));
+          return nextOrders;
+        });
+      }
+    } catch (err: any) {
+      console.error("❌ Greška pri slanju narudžbe na server:", err);
+      toast.showToast(err?.message || "Greška pri slanju narudžbe", "error");
+    }
   };
 
   const handleAddInvoiceProof = async (orderId: string, fileList: FileList | null) => {
@@ -1048,6 +1074,9 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           return !currentItem || currentItem.name !== entry.name || currentItem.quantity !== entry.quantity;
         });
 
+      const editedAt = getCurrentTimeString();
+
+      // Optimistički lokalni update
       setOrders((prev) =>
         prev.map((order) => {
           if (order.id !== orderId) return order;
@@ -1057,15 +1086,44 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
             items: sanitized,
             totalItems: sanitized.length,
             wasEdited: true,
-            editedAt: getCurrentTimeString(),
+            editedAt,
           };
         })
       );
 
-      setIsEditingOrderDetails(false);
       if (isChanged) {
-        toast.showToast("Narudžba je uređena i sačuvana.", "success");
+        try {
+          const { saveOrder } = await import("../../lib/api");
+          const updated = await saveOrder({
+            id: orderId,
+            supplierId: currentOrder.supplierId,
+            date: currentOrder.date,
+            orderedAt: currentOrder.orderedAt,
+            receivedAt: currentOrder.receivedAt,
+            status: currentOrder.status,
+            items: sanitized,
+            totalItems: sanitized.length,
+            wasEdited: true,
+            editedAt,
+          });
+
+          if (updated) {
+            setOrders((prev) => {
+              const next = prev.map((o) => (o.id === orderId ? updated : o));
+              localStorage.setItem('orders', JSON.stringify(next));
+              return next;
+            });
+            toast.showToast("Narudžba je uređena i sinhronizovana.", "success");
+          }
+        } catch (error: any) {
+          console.error("❌ Greška pri sinhronizaciji narudžbe:", error);
+          toast.showToast(error?.message || "Greška pri sinhronizaciji narudžbe", "error");
+        }
+      } else {
+        toast.showToast("Narudžba je sačuvana.", "success");
       }
+
+      setIsEditingOrderDetails(false);
     } catch (error: any) {
       console.error("Greška pri čuvanju narudžbe:", error);
       toast.showToast(`Greška: ${error?.message || "Nepoznata greška"}`, "error");

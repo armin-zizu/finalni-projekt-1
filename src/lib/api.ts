@@ -18,6 +18,42 @@ export async function getOrders(userId: string) {
   const data = await response.json();
   return data.orders || [];
 }
+
+/**
+ * Sačuvaj ili ažuriraj narudžbu
+ */
+export async function saveOrder(payload: {
+  id?: string;
+  supplierId?: string | null;
+  date?: string | null;
+  orderedAt?: string | null;
+  receivedAt?: string | null;
+  status?: string | null;
+  items?: Array<{ name: string; quantity: number }>;
+  totalItems?: number | null;
+  invoiceProofImages?: any[];
+  wasEdited?: boolean;
+  editedAt?: string | null;
+}) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to save order'));
+  }
+
+  const data = await response.json();
+  return data.order;
+}
 // Helper funkcije za API pozive
 
 let hasLoggedMissingToken = false;
