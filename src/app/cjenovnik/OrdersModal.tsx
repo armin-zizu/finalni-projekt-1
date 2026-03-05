@@ -450,8 +450,15 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
 
         const nextItemsMap: Record<string, string[]> = {};
         serverSuppliers.forEach((sup: any) => {
-          if (Array.isArray(sup.items)) {
-            nextItemsMap[sup.id] = sup.items as string[];
+          const serverItems = Array.isArray(sup.items) ? (sup.items as string[]) : [];
+          const localItems = supplierItemsRef.current[sup.id] || [];
+          // Ne pregazi lokalnu listu ako server nema ništa – čuvaj dok se stvarno ne promijeni
+          if (serverItems.length > 0) {
+            nextItemsMap[sup.id] = serverItems;
+          } else if (localItems.length > 0) {
+            nextItemsMap[sup.id] = localItems;
+          } else {
+            nextItemsMap[sup.id] = serverItems;
           }
         });
         setSupplierItems((prev) => ({ ...prev, ...nextItemsMap }));
@@ -692,7 +699,14 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         };
         
         setSuppliers((prev) => [...prev, supplierToAdd]);
-        setSupplierItems((prev) => ({ ...prev, [supplierToAdd.id]: serverSupplier.items || [] }));
+        setSupplierItems((prev) => {
+          const next = { ...prev, [supplierToAdd.id]: serverSupplier.items || [] };
+          supplierItemsRef.current = next;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('supplierItems', JSON.stringify(next));
+          }
+          return next;
+        });
         setSelectedSupplierId(supplierToAdd.id);
         toast.showToast("Dobavljač je kreiran.", "success");
       } else {
@@ -731,7 +745,14 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           phone: editPhone.trim(),
         });
 
-        setSupplierItems((prev) => ({ ...prev, [selectedSupplierId]: saved.items || supplierItemsList }));
+        setSupplierItems((prev) => {
+          const next = { ...prev, [selectedSupplierId]: saved.items || supplierItemsList };
+          supplierItemsRef.current = next;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('supplierItems', JSON.stringify(next));
+          }
+          return next;
+        });
       }
       
       setSuppliers((prev) =>
