@@ -119,7 +119,6 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
 
   const pool = getPool();
   const { hasSupplierId, hasDateText } = await ensureOrdersTable(pool);
-  const dateCol = hasDateText ? "date_text" : "date";
 
   const body = await req.json();
   const fields: string[] = [];
@@ -133,6 +132,7 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
   };
 
   if (hasSupplierId && body.supplierId !== undefined) push("supplier_id", body.supplierId || null);
+  const dateCol = hasDateText ? "date_text" : "date";
   if (body.date !== undefined) push(dateCol, body.date || null);
   if (body.orderedAt !== undefined) push("ordered_at", body.orderedAt || null);
   if (body.receivedAt !== undefined) push("received_at", body.receivedAt || null);
@@ -165,6 +165,28 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
     if (result.rows.length === 0) return NextResponse.json({ error: "Order not found" }, { status: 404 });
     return NextResponse.json({ order: mapRowToOrder(result.rows[0]) });
   } catch (err: any) {
+    const msg = err?.message || "";
+    const hasDateField = fields.some((f) => f.startsWith(`${dateCol} =`));
+    if ((msg.includes('column "date_text"') || msg.includes('column "date"')) && hasDateField) {
+      // Retry with flipped date column if the first attempt failed due to missing column
+      const altDateCol = dateCol === "date_text" ? "date" : "date_text";
+      const altFields = fields.map((f) => (f.startsWith(`${dateCol} =`) ? f.replace(dateCol, altDateCol) : f));
+      const altQuery = `
+        UPDATE orders
+           SET ${altFields.join(", ")}
+         WHERE id = $${idx - 1} AND user_id = $${idx}
+         RETURNING *;
+      `;
+      try {
+        const retry = await pool.query(altQuery, values);
+        if (retry.rows.length === 0) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+        return NextResponse.json({ order: mapRowToOrder(retry.rows[0]) });
+      } catch (inner: any) {
+        console.error("❌ orders PATCH retry error:", inner);
+        return NextResponse.json({ error: inner.message || "DB error" }, { status: 500 });
+      }
+    }
+
     console.error("❌ orders PATCH error:", err);
     return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
   }

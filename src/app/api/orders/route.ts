@@ -142,25 +142,38 @@ export const GET = withAuth(async (req: AuthRequest) => {
   const pool = getPool();
   try {
     const { hasSupplierId, hasDateText } = await ensureOrdersTable();
-    const selectCols = [
-      'id',
-      ...(hasSupplierId ? ['supplier_id'] : []),
-      hasDateText ? 'date_text' : 'date',
-      'ordered_at',
-      'received_at',
-      'status',
-      'items',
-      'total_items',
-      'invoice_proof_images',
-      'was_edited',
-      'edited_at',
-      'created_at',
-      'updated_at',
-    ].join(', ');
-    const result = await pool.query(
-      `SELECT ${selectCols} FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
-      [userId]
-    );
+
+    const runSelect = async (useDateText: boolean) => {
+      const selectCols = [
+        'id',
+        ...(hasSupplierId ? ['supplier_id'] : []),
+        useDateText ? 'date_text' : 'date',
+        'ordered_at',
+        'received_at',
+        'status',
+        'items',
+        'total_items',
+        'invoice_proof_images',
+        'was_edited',
+        'edited_at',
+        'created_at',
+        'updated_at',
+      ].join(', ');
+      return pool.query(`SELECT ${selectCols} FROM orders WHERE user_id = $1 ORDER BY created_at DESC`, [userId]);
+    };
+
+    let result;
+    try {
+      result = await runSelect(hasDateText);
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('column "date_text"') || msg.includes('column "date"')) {
+        result = await runSelect(!hasDateText);
+      } else {
+        throw err;
+      }
+    }
+
     return NextResponse.json({ orders: result.rows.map(mapRowToOrder) });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
@@ -185,56 +198,57 @@ export const POST = withAuth(async (req: AuthRequest) => {
 
   try {
     const { hasSupplierId, hasDateText } = await ensureOrdersTable();
-    const dateCol = hasDateText ? 'date_text' : 'date';
+    const runSave = async (useDateText: boolean) => {
+      const dateCol = useDateText ? 'date_text' : 'date';
 
-    const payload = {
-      supplierId: body.supplierId || null,
-      date: body.date || null,
-      orderedAt: body.orderedAt || null,
-      receivedAt: body.receivedAt || null,
-      status: body.status || "pending",
-      items: Array.isArray(body.items) ? body.items : [],
-      totalItems: body.totalItems ?? (Array.isArray(body.items) ? body.items.length : 0),
-      invoiceProofImages: body.invoiceProofImages || [],
-      wasEdited: !!body.wasEdited,
-      editedAt: body.editedAt || null,
-    };
+      const payload = {
+        supplierId: body.supplierId || null,
+        date: body.date || null,
+        orderedAt: body.orderedAt || null,
+        receivedAt: body.receivedAt || null,
+        status: body.status || "pending",
+        items: Array.isArray(body.items) ? body.items : [],
+        totalItems: body.totalItems ?? (Array.isArray(body.items) ? body.items.length : 0),
+        invoiceProofImages: body.invoiceProofImages || [],
+        wasEdited: !!body.wasEdited,
+        editedAt: body.editedAt || null,
+      };
 
-    let result;
-    if (body.id) {
-      if (hasSupplierId) {
-        result = await pool.query(
-          `UPDATE orders
-             SET supplier_id = $1,
-                 ${dateCol} = $2,
-                 ordered_at = $3,
-                 received_at = $4,
-                 status = $5,
-                 items = $6,
-                 total_items = $7,
-                 invoice_proof_images = $8,
-                 was_edited = $9,
-                 edited_at = $10,
-                 updated_at = NOW()
-           WHERE id = $11 AND user_id = $12
-           RETURNING *`,
-          [
-            payload.supplierId,
-            payload.date,
-            payload.orderedAt,
-            payload.receivedAt,
-            payload.status,
-            JSON.stringify(payload.items),
-            payload.totalItems,
-            JSON.stringify(payload.invoiceProofImages),
-            payload.wasEdited,
-            payload.editedAt,
-            body.id,
-            userId,
-          ]
-        );
-      } else {
-        result = await pool.query(
+      if (body.id) {
+        if (hasSupplierId) {
+          return pool.query(
+            `UPDATE orders
+               SET supplier_id = $1,
+                   ${dateCol} = $2,
+                   ordered_at = $3,
+                   received_at = $4,
+                   status = $5,
+                   items = $6,
+                   total_items = $7,
+                   invoice_proof_images = $8,
+                   was_edited = $9,
+                   edited_at = $10,
+                   updated_at = NOW()
+             WHERE id = $11 AND user_id = $12
+             RETURNING *`,
+            [
+              payload.supplierId,
+              payload.date,
+              payload.orderedAt,
+              payload.receivedAt,
+              payload.status,
+              JSON.stringify(payload.items),
+              payload.totalItems,
+              JSON.stringify(payload.invoiceProofImages),
+              payload.wasEdited,
+              payload.editedAt,
+              body.id,
+              userId,
+            ]
+          );
+        }
+
+        return pool.query(
           `UPDATE orders
              SET ${dateCol} = $1,
                  ordered_at = $2,
@@ -263,9 +277,9 @@ export const POST = withAuth(async (req: AuthRequest) => {
           ]
         );
       }
-    } else {
+
       if (hasSupplierId) {
-        result = await pool.query(
+        return pool.query(
           `INSERT INTO orders
              (user_id, supplier_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -284,25 +298,37 @@ export const POST = withAuth(async (req: AuthRequest) => {
             payload.editedAt,
           ]
         );
+      }
+
+      return pool.query(
+        `INSERT INTO orders
+           (user_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING *`,
+        [
+          userId,
+          payload.date,
+          payload.orderedAt,
+          payload.receivedAt,
+          payload.status,
+          JSON.stringify(payload.items),
+          payload.totalItems,
+          JSON.stringify(payload.invoiceProofImages),
+          payload.wasEdited,
+          payload.editedAt,
+        ]
+      );
+    };
+
+    let result;
+    try {
+      result = await runSave(hasDateText);
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('column "date_text"') || msg.includes('column "date"')) {
+        result = await runSave(!hasDateText);
       } else {
-        result = await pool.query(
-          `INSERT INTO orders
-             (user_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-           RETURNING *`,
-          [
-            userId,
-            payload.date,
-            payload.orderedAt,
-            payload.receivedAt,
-            payload.status,
-            JSON.stringify(payload.items),
-            payload.totalItems,
-            JSON.stringify(payload.invoiceProofImages),
-            payload.wasEdited,
-            payload.editedAt,
-          ]
-        );
+        throw err;
       }
     }
 
