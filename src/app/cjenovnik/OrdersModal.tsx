@@ -285,6 +285,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
   });
   const [orderQuantities, setOrderQuantities] = useState<Record<string, Record<string, string>>>({});
   const supplierItemsRef = useRef<Record<string, string[]>>({});
+  const supplierSyncTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [orders, setOrders] = useState<Order[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('orders');
@@ -644,14 +645,58 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     }
   }, [orderQuantities]);
 
+  useEffect(() => {
+    return () => {
+      Object.values(supplierSyncTimers.current).forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
+
+  const enqueueSupplierSync = (supplierId: string, nextItems: string[]) => {
+    if (!userId) return;
+    const sup = suppliers.find((s) => s.id === supplierId);
+    if (!sup) return;
+
+    if (supplierSyncTimers.current[supplierId]) {
+      clearTimeout(supplierSyncTimers.current[supplierId]);
+    }
+
+    supplierSyncTimers.current[supplierId] = setTimeout(async () => {
+      try {
+        const { saveSupplier } = await import("../../lib/api");
+        const saved = await saveSupplier(userId, {
+          id: supplierId,
+          name: sup.name,
+          items: nextItems,
+          contact: sup.contact,
+          phone: sup.phone,
+        });
+
+        setSupplierItems((prev) => {
+          const next = { ...prev, [supplierId]: saved.items || nextItems };
+          supplierItemsRef.current = next;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('supplierItems', JSON.stringify(next));
+          }
+          return next;
+        });
+      } catch (err) {
+        console.warn("⚠️ Auto-sync dobavljača nije uspio:", err);
+        toast.showToast("Auto-sync dobavljača nije uspio, pokušajte ručno sačuvati.", "error");
+      }
+    }, 400);
+  };
+
   const updateSupplierItemsForSupplier = (
     supplierId: string | null,
     updater: (currentItems: string[]) => string[]
   ) => {
     if (!supplierId) return;
+    let nextItemsComputed: string[] = [];
+
     setSupplierItems((prev) => {
       const currentItems = prev[supplierId] || [];
       const nextItems = Array.from(new Set(updater(currentItems)));
+      nextItemsComputed = nextItems;
       const nextState = {
         ...prev,
         [supplierId]: nextItems,
@@ -662,29 +707,10 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         localStorage.setItem('supplierItems', JSON.stringify(nextState));
       }
 
-      // Auto-sync na server čim se lista promijeni
-      if (userId) {
-        const sup = suppliers.find((s) => s.id === supplierId);
-        if (sup) {
-          (async () => {
-            try {
-              const { saveSupplier } = await import("../../lib/api");
-              await saveSupplier(userId, {
-                id: supplierId,
-                name: sup.name,
-                items: nextItems,
-                contact: sup.contact,
-                phone: sup.phone,
-              });
-            } catch (err) {
-              console.warn("⚠️ Auto-sync dobavljača nije uspio:", err);
-            }
-          })();
-        }
-      }
-
       return nextState;
     });
+
+    enqueueSupplierSync(supplierId, nextItemsComputed);
   };
 
   // Save orders to localStorage
