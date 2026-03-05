@@ -1559,7 +1559,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                       >
                         Pregledaj
                       </button>
-                      {order.status !== "completed" && (
+                      {order.status !== "completed" && order.status !== "cancelled" && (
                         <button
                           disabled={loadingOrderId === order.id}
                           style={{ 
@@ -1581,17 +1581,19 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                           {loadingOrderId === order.id ? "Čuva se..." : "Prihvati fakturu"}
                         </button>
                       )}
-                      <button
-                        style={{ 
-                          ...smallButton, 
-                          padding: isMobile ? "10px 12px" : "8px 10px", 
-                          fontSize: isMobile ? "13px" : "12px",
-                          flex: isMobile ? "1 1 calc(50% - 4px)" : "auto"
-                        }}
-                        onClick={() => handleCancelOrder(order.id)}
-                      >
-                        Otkaži
-                      </button>
+                      {order.status !== "completed" && order.status !== "cancelled" && (
+                        <button
+                          style={{ 
+                            ...smallButton, 
+                            padding: isMobile ? "10px 12px" : "8px 10px", 
+                            fontSize: isMobile ? "13px" : "12px",
+                            flex: isMobile ? "1 1 calc(50% - 4px)" : "auto"
+                          }}
+                          onClick={() => handleCancelOrder(order.id)}
+                        >
+                          Otkaži
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -2620,7 +2622,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                   >
                     Zatvori
                   </button>
-                  {order.status !== "completed" ? (
+                  {order.status !== "completed" && order.status !== "cancelled" ? (
                     <>
                       {isEditingOrderDetails ? (
                         <>
@@ -2698,6 +2700,25 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                             }}
                           >
                             {loadingOrderId === order.id ? "Čuva se..." : "Prihvati fakturu"}
+                          </button>
+                          <button
+                            disabled={loadingOrderId === order.id}
+                            onClick={() => handleCancelOrder(order.id)}
+                            style={{
+                              padding: "12px 20px",
+                              background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                              border: "none",
+                              borderRadius: "8px",
+                              cursor: loadingOrderId === order.id ? "not-allowed" : "pointer",
+                              fontSize: "14px",
+                              fontWeight: 600,
+                              color: "#fff",
+                              boxShadow: "0 4px 12px rgba(239, 68, 68, 0.25)",
+                              transition: "all 0.2s",
+                              opacity: loadingOrderId === order.id ? 0.6 : 1,
+                            }}
+                          >
+                            {loadingOrderId === order.id ? "Čuva se..." : "Otkaži narudžbu"}
                           </button>
                         </>
                       )}
