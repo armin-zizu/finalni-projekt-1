@@ -339,9 +339,10 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     return "-";
   };
 
-  const formatReceivedLabel = (receivedAt?: string | null, date?: string | null) => {
-    const time = extractTimePart(receivedAt);
-    const dateInValue = receivedAt?.match(/\d{2}\.\d{2}\.\d{4}\.?/)?.[0] || null;
+  const formatReceivedLabel = (receivedAt?: string | null, date?: string | null, fallback?: string | null) => {
+    const source = receivedAt || fallback || null;
+    const time = extractTimePart(source);
+    const dateInValue = source?.match(/\d{2}\.\d{2}\.\d{4}\.?/)?.[0] || null;
     const datePart = dateInValue || date || null;
 
     if (datePart && time) return `${datePart} u ${time}`;
@@ -1536,7 +1537,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                         </span>
                         {order.receivedAt && (
                           <span style={{ fontSize: isMobile ? "12px" : "11px", color: "#059669", fontWeight: 600 }}>
-                            Primljeno: {formatReceivedLabel(order.receivedAt, order.date)}
+                            Primljeno: {formatReceivedLabel(order.receivedAt, order.date, order.editedAt)}
                           </span>
                         )}
                       </div>
@@ -1568,7 +1569,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                         Narudžba: {formatOrderLabel(order.date, order.orderedAt)}
                       </div>
                       <div style={{ fontSize: isMobile ? "12px" : "11px", color: "#059669", marginBottom: "4px", fontWeight: 600 }}>
-                        Primljeno: {formatReceivedLabel(order.receivedAt, order.date)}
+                        Primljeno: {formatReceivedLabel(order.receivedAt, order.date, order.editedAt)}
                       </div>
                       <div style={{ fontSize: isMobile ? "13px" : "12px", color: "#6b7280" }}>
                         {order.totalItems} artikal{order.totalItems !== 1 ? "a" : ""}
@@ -2203,7 +2204,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                           </div>
                           <div style={{ background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px" }}>
                             <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase", fontWeight: 700, marginBottom: "2px" }}>Primljeno</div>
-                            <div style={{ fontSize: "12px", color: "#059669", fontWeight: 700 }}>{formatReceivedLabel(order.receivedAt, order.date)}</div>
+                            <div style={{ fontSize: "12px", color: "#059669", fontWeight: 700 }}>{formatReceivedLabel(order.receivedAt, order.date, order.editedAt)}</div>
                           </div>
                           <div style={{ background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px" }}>
                             <div style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase", fontWeight: 700, marginBottom: "2px" }}>Stavki</div>
@@ -2273,7 +2274,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                             <td style={{ padding: "10px", fontSize: "13px", color: "#111827", fontWeight: 700 }}>#{order.id.split("-")[1]}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#374151" }}>{supplier?.name || "Nepoznat"}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{formatOrderLabel(order.date, order.orderedAt)}</td>
-                            <td style={{ padding: "10px", fontSize: "13px", color: "#059669", fontWeight: 600 }}>{formatReceivedLabel(order.receivedAt, order.date)}</td>
+                            <td style={{ padding: "10px", fontSize: "13px", color: "#059669", fontWeight: 600 }}>{formatReceivedLabel(order.receivedAt, order.date, order.editedAt)}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{getInvoiceProofFiles(order).length}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{order.totalItems}</td>
                             <td style={{ padding: "10px", fontSize: "13px" }}>
@@ -2399,7 +2400,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                   </div>
                   <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                     <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Primljeno</div>
-                    <div style={{ fontSize: "14px", color: "#059669", fontWeight: 700 }}>{formatReceivedLabel(order.receivedAt, order.date)}</div>
+                    <div style={{ fontSize: "14px", color: "#059669", fontWeight: 700 }}>{formatReceivedLabel(order.receivedAt, order.date, order.editedAt)}</div>
                   </div>
                   <div style={{ background: "#f9fafb", padding: "12px", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
                     <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Status</div>

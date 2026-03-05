@@ -42,13 +42,14 @@ export async function getOrders(userId: string) {
   // Normalizuj snake_case -> camelCase i fallback za stara polja
   return orders.map((o: any) => {
     const rawOrderedAt = o.orderedAt ?? o.ordered_at ?? null;
+    const rawReceivedAt = o.receivedAt ?? o.received_at ?? o.editedAt ?? o.edited_at ?? null;
 
     return {
       id: o.id,
       supplierId: o.supplierId ?? o.supplier_id ?? null,
       date: o.date ?? o.date_text ?? null,
       orderedAt: rawOrderedAt || formatServerDateTimeLabel(o.created_at),
-      receivedAt: o.receivedAt ?? o.received_at ?? null,
+      receivedAt: rawReceivedAt,
       status: o.status ?? "pending",
       items: Array.isArray(o.items) ? o.items : [],
       totalItems: typeof o.totalItems === 'number' ? o.totalItems : (typeof o.total_items === 'number' ? o.total_items : (Array.isArray(o.items) ? o.items.length : 0)),
