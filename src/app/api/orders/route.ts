@@ -103,6 +103,14 @@ export const POST = withAuth(async (req: AuthRequest) => {
     editedAt: body?.editedAt || body?.edited_at || null,
   };
 
+  const isCompleted = payload.status === "completed";
+  if (isCompleted && !payload.receivedAt) {
+    payload.receivedAt = serverNowIso;
+  }
+  if (isCompleted && !payload.editedAt) {
+    payload.editedAt = payload.receivedAt || serverNowIso;
+  }
+
   const pool = getPool();
 
   let columnNames: string[] = [];
