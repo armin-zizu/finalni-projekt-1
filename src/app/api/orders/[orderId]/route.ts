@@ -19,8 +19,9 @@ const mapRowToOrder = (row: any) => ({
   updatedAt: row.updated_at,
 });
 
-async function ensureOrdersTable(pool: Pool): Promise<{ hasSupplierId: boolean }> {
+async function ensureOrdersTable(pool: Pool): Promise<{ hasSupplierId: boolean; hasDateText: boolean }> {
   let hasSupplierId = false;
+  let hasDateText = false;
 
   try {
     try {
@@ -89,11 +90,20 @@ async function ensureOrdersTable(pool: Pool): Promise<{ hasSupplierId: boolean }
     } catch (err: any) {
       console.warn('⚠️ column probe failed:', err?.message);
     }
+
+    try {
+      const col = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'date_text'`
+      );
+      hasDateText = col.rowCount > 0;
+    } catch (err: any) {
+      console.warn('⚠️ column probe failed:', err?.message);
+    }
   } catch (err: any) {
     console.warn('⚠️ ensureOrdersTable skipped due to permissions:', err?.message);
   }
 
-  return { hasSupplierId };
+  return { hasSupplierId, hasDateText };
 }
 
 // PATCH /api/orders/[orderId] - partial update
@@ -108,7 +118,8 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
   }
 
   const pool = getPool();
-  const { hasSupplierId } = await ensureOrdersTable(pool);
+  const { hasSupplierId, hasDateText } = await ensureOrdersTable(pool);
+  const dateCol = hasDateText ? "date_text" : "date";
 
   const body = await req.json();
   const fields: string[] = [];
@@ -122,7 +133,7 @@ async function patchHandler(req: AuthRequest, { params }: { params: { orderId: s
   };
 
   if (hasSupplierId && body.supplierId !== undefined) push("supplier_id", body.supplierId || null);
-  if (body.date !== undefined) push("date_text", body.date || null);
+  if (body.date !== undefined) push(dateCol, body.date || null);
   if (body.orderedAt !== undefined) push("ordered_at", body.orderedAt || null);
   if (body.receivedAt !== undefined) push("received_at", body.receivedAt || null);
   if (body.status !== undefined) push("status", body.status || null);

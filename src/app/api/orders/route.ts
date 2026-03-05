@@ -18,11 +18,13 @@ type OrderPayload = {
 
 type OrdersTableCapabilities = {
   hasSupplierId: boolean;
+  hasDateText: boolean;
 };
 
 async function ensureOrdersTable(): Promise<OrdersTableCapabilities> {
   const pool = getPool();
   let hasSupplierId = false;
+  let hasDateText = false;
 
   try {
     try {
@@ -92,11 +94,20 @@ async function ensureOrdersTable(): Promise<OrdersTableCapabilities> {
     } catch (err: any) {
       console.warn('⚠️ column probe failed:', err?.message);
     }
+
+    try {
+      const col = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'date_text'`
+      );
+      hasDateText = col.rowCount > 0;
+    } catch (err: any) {
+      console.warn('⚠️ column probe failed:', err?.message);
+    }
   } catch (err: any) {
     console.warn('⚠️ ensureOrdersTable skipped due to permissions:', err?.message);
   }
 
-  return { hasSupplierId };
+  return { hasSupplierId, hasDateText };
 }
 
 const mapRowToOrder = (row: any) => ({
@@ -130,10 +141,22 @@ export const GET = withAuth(async (req: AuthRequest) => {
 
   const pool = getPool();
   try {
-    const { hasSupplierId } = await ensureOrdersTable();
-    const selectCols = hasSupplierId
-      ? `id, supplier_id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at, created_at, updated_at`
-      : `id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at, created_at, updated_at`;
+    const { hasSupplierId, hasDateText } = await ensureOrdersTable();
+    const selectCols = [
+      'id',
+      ...(hasSupplierId ? ['supplier_id'] : []),
+      hasDateText ? 'date_text' : 'date',
+      'ordered_at',
+      'received_at',
+      'status',
+      'items',
+      'total_items',
+      'invoice_proof_images',
+      'was_edited',
+      'edited_at',
+      'created_at',
+      'updated_at',
+    ].join(', ');
     const result = await pool.query(
       `SELECT ${selectCols} FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
       [userId]
@@ -161,7 +184,8 @@ export const POST = withAuth(async (req: AuthRequest) => {
   const pool = getPool();
 
   try {
-    const { hasSupplierId } = await ensureOrdersTable();
+    const { hasSupplierId, hasDateText } = await ensureOrdersTable();
+    const dateCol = hasDateText ? 'date_text' : 'date';
 
     const payload = {
       supplierId: body.supplierId || null,
@@ -182,7 +206,7 @@ export const POST = withAuth(async (req: AuthRequest) => {
         result = await pool.query(
           `UPDATE orders
              SET supplier_id = $1,
-                 date_text = $2,
+                 ${dateCol} = $2,
                  ordered_at = $3,
                  received_at = $4,
                  status = $5,
@@ -212,7 +236,7 @@ export const POST = withAuth(async (req: AuthRequest) => {
       } else {
         result = await pool.query(
           `UPDATE orders
-             SET date_text = $1,
+             SET ${dateCol} = $1,
                  ordered_at = $2,
                  received_at = $3,
                  status = $4,
@@ -243,7 +267,7 @@ export const POST = withAuth(async (req: AuthRequest) => {
       if (hasSupplierId) {
         result = await pool.query(
           `INSERT INTO orders
-             (user_id, supplier_id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+             (user_id, supplier_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
            RETURNING *`,
           [
@@ -263,7 +287,7 @@ export const POST = withAuth(async (req: AuthRequest) => {
       } else {
         result = await pool.query(
           `INSERT INTO orders
-             (user_id, date_text, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
+             (user_id, ${dateCol}, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            RETURNING *`,
           [
