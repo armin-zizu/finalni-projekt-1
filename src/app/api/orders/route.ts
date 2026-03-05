@@ -5,39 +5,29 @@ import { withAuth, AuthRequest } from "@/lib/auth-middleware";
 
 async function ensureOrdersTable() {
   const pool = getPool();
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      supplier_id TEXT,
-      date_text TEXT,
-      date TEXT,
-      ordered_at TEXT,
-      received_at TEXT,
-      status TEXT,
-      items JSONB DEFAULT '[]'::jsonb,
-      total_items INTEGER DEFAULT 0,
-      invoice_proof_images JSONB DEFAULT '[]'::jsonb,
-      was_edited BOOLEAN DEFAULT FALSE,
-      edited_at TEXT,
-      created_at TIMESTAMPTZ DEFAULT now(),
-      updated_at TIMESTAMPTZ DEFAULT now()
-    );
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS supplier_id TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS date_text TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS date TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS ordered_at TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS received_at TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB DEFAULT '[]'::jsonb;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_items INTEGER DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_proof_images JSONB DEFAULT '[]'::jsonb;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS was_edited BOOLEAN DEFAULT FALSE;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS edited_at TEXT;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-  `);
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        supplier_id TEXT,
+        date_text TEXT,
+        date TEXT,
+        ordered_at TEXT,
+        received_at TEXT,
+        status TEXT,
+        items JSONB DEFAULT '[]'::jsonb,
+        total_items INTEGER DEFAULT 0,
+        invoice_proof_images JSONB DEFAULT '[]'::jsonb,
+        was_edited BOOLEAN DEFAULT FALSE,
+        edited_at TEXT,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+      );
+    `);
+  } catch (err: any) {
+    console.warn("⚠️ ensureOrdersTable: nije moguće kreirati/alter tabelu (nastavljam)", err?.message || err);
+  }
 }
 
 // GET /api/orders - vraca sve narudzbe za trenutnog korisnika
@@ -56,12 +46,18 @@ export const GET = withAuth(async (req: AuthRequest) => {
   const pool = getPool();
   try {
     await ensureOrdersTable();
+  } catch (err) {
+    // already logged; continue
+  }
+
+  try {
     const result = await pool.query(
       `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
       [userId]
     );
     return NextResponse.json({ orders: result.rows });
   } catch (err: any) {
+    console.error("❌ Greška pri čitanju narudžbi:", err);
     return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
   }
 });
@@ -107,40 +103,59 @@ export const POST = withAuth(async (req: AuthRequest) => {
 
   const pool = getPool();
 
+  let columnNames: string[] = [];
+  try {
+    const cols = await pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders'`
+    );
+    columnNames = cols.rows.map((r: any) => String(r.column_name).toLowerCase());
+  } catch (err: any) {
+    console.warn("⚠️ orders column introspection nije uspio:", err?.message || err);
+  }
+
   try {
     await ensureOrdersTable();
+  } catch (err) {
+    // already logged; continue
+  }
+
+  try {
+    const has = (col: string) => columnNames.includes(col.toLowerCase());
+
+    const columns: string[] = ["id", "user_id"]; // pretpostavka: postoje u staroj i novoj šemi
+    const placeholders: string[] = ["$1", "$2"];
+    const values: any[] = [payload.id, userId];
+    const updates: string[] = [];
+    let idx = 3;
+
+    const addField = (col: string, value: any) => {
+      columns.push(col);
+      placeholders.push(`$${idx}`);
+      values.push(value);
+      updates.push(`${col} = EXCLUDED.${col}`);
+      idx += 1;
+    };
+
+    if (has("supplier_id")) addField("supplier_id", payload.supplierId);
+    if (has("date_text")) addField("date_text", payload.date);
+    else if (has("date")) addField("date", payload.date);
+    if (has("ordered_at")) addField("ordered_at", payload.orderedAt);
+    if (has("received_at")) addField("received_at", payload.receivedAt);
+    if (has("status")) addField("status", payload.status);
+    if (has("items")) addField("items", JSON.stringify(payload.items || []));
+    if (has("total_items")) addField("total_items", payload.totalItems);
+    if (has("invoice_proof_images")) addField("invoice_proof_images", JSON.stringify(payload.invoiceProofImages || []));
+    if (has("was_edited")) addField("was_edited", payload.wasEdited);
+    if (has("edited_at")) addField("edited_at", payload.editedAt);
+    if (has("updated_at")) addField("updated_at", new Date().toISOString());
+
+    const updateClause = updates.length ? updates.join(", ") : "id = EXCLUDED.id";
+
     const result = await pool.query(
-      `INSERT INTO orders (id, user_id, supplier_id, date_text, date, ordered_at, received_at, status, items, total_items, invoice_proof_images, was_edited, edited_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, '[]'::jsonb), COALESCE($10, 0), COALESCE($11, '[]'::jsonb), $12, $13)
-       ON CONFLICT (id) DO UPDATE SET
-         supplier_id = EXCLUDED.supplier_id,
-         date_text = EXCLUDED.date_text,
-         date = EXCLUDED.date,
-         ordered_at = EXCLUDED.ordered_at,
-         received_at = EXCLUDED.received_at,
-         status = EXCLUDED.status,
-         items = EXCLUDED.items,
-         total_items = EXCLUDED.total_items,
-         invoice_proof_images = EXCLUDED.invoice_proof_images,
-         was_edited = EXCLUDED.was_edited,
-         edited_at = EXCLUDED.edited_at,
-         updated_at = now()
+      `INSERT INTO orders (${columns.join(", ")}) VALUES (${placeholders.join(", ")})
+       ON CONFLICT (id) DO UPDATE SET ${updateClause}
        RETURNING *;`,
-      [
-        payload.id,
-        userId,
-        payload.supplierId,
-        payload.date,
-        payload.date,
-        payload.orderedAt,
-        payload.receivedAt,
-        payload.status,
-        JSON.stringify(payload.items || []),
-        payload.totalItems,
-        JSON.stringify(payload.invoiceProofImages || []),
-        payload.wasEdited,
-        payload.editedAt,
-      ]
+      values
     );
 
     return NextResponse.json({ order: result.rows[0] });
