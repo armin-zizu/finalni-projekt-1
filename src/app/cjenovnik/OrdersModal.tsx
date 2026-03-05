@@ -341,9 +341,14 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
 
   const formatReceivedLabel = (receivedAt?: string | null, date?: string | null, fallback?: string | null) => {
     const source = receivedAt || fallback || null;
-    const time = extractTimePart(source);
+    if (!source && !date) return "-";
+
+    const isoParsed = source ? new Date(source) : null;
+    const isIsoValid = isoParsed && !Number.isNaN(isoParsed.getTime());
+
+    const time = extractTimePart(source) || (isIsoValid ? `${String(isoParsed.getHours()).padStart(2, "0")}:${String(isoParsed.getMinutes()).padStart(2, "0")}` : null);
     const dateInValue = source?.match(/\d{2}\.\d{2}\.\d{4}\.?/)?.[0] || null;
-    const datePart = dateInValue || date || null;
+    const datePart = dateInValue || date || (isIsoValid ? `${String(isoParsed.getDate()).padStart(2, "0")}.${String(isoParsed.getMonth() + 1).padStart(2, "0")}.${isoParsed.getFullYear()}.` : null);
 
     if (datePart && time) return `${datePart} u ${time}`;
     if (datePart) return datePart;

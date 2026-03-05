@@ -104,11 +104,17 @@ export const POST = withAuth(async (req: AuthRequest) => {
   };
 
   const isCompleted = payload.status === "completed";
-  if (isCompleted && !payload.receivedAt) {
-    payload.receivedAt = serverNowIso;
-  }
-  if (isCompleted && !payload.editedAt) {
-    payload.editedAt = payload.receivedAt || serverNowIso;
+  if (isCompleted && (!payload.receivedAt || !payload.editedAt)) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const formattedNow = `${day}.${month}.${year}. u ${hours}:${minutes}`;
+
+    if (!payload.receivedAt) payload.receivedAt = formattedNow;
+    if (!payload.editedAt) payload.editedAt = payload.receivedAt || formattedNow;
   }
 
   const pool = getPool();
