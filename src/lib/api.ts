@@ -18,6 +18,78 @@ export async function getOrders(userId: string) {
   const data = await response.json();
   return data.orders || [];
 }
+
+export async function saveOrder(order: {
+  id?: string;
+  supplierId?: string;
+  date?: string;
+  orderedAt?: string;
+  receivedAt?: string;
+  status?: string;
+  items?: Array<{ name: string; quantity: number }>;
+  totalItems?: number;
+  invoiceProofImages?: any[];
+  wasEdited?: boolean;
+  editedAt?: string;
+}) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(order),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to save order'));
+  }
+
+  const data = await response.json();
+  return data.order;
+}
+
+export async function updateOrder(orderId: string, payload: any) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/orders/${orderId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to update order'));
+  }
+
+  const data = await response.json();
+  return data.order;
+}
+
+export async function deleteOrder(orderId: string) {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const response = await fetch(`/api/orders/${orderId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Failed to delete order'));
+  }
+
+  return true;
+}
 // Helper funkcije za API pozive
 
 let hasLoggedMissingToken = false;
