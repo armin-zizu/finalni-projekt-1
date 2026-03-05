@@ -162,6 +162,10 @@ export default function DashboardPage() {
     return false;
   });
   const [chartKey, setChartKey] = useState(0);
+  const mainChartRef = useRef<HTMLDivElement | null>(null);
+  const artiklChartRef = useRef<HTMLDivElement | null>(null);
+  const [showMainTooltip, setShowMainTooltip] = useState(false);
+  const [showArtiklTooltip, setShowArtiklTooltip] = useState(false);
   const wheelMomentumLockUntilRef = useRef<{ day: number; month: number; year: number }>({ day: 0, month: 0, year: 0 });
   const WHEEL_STEP_LOCK_MS = 85;
   const router = useRouter();
@@ -213,6 +217,25 @@ export default function DashboardPage() {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
+  }, []);
+
+  // Sakrij tooltipe na klik izvan grafova
+  useEffect(() => {
+    const handleDocClick = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      const clickedMain = mainChartRef.current?.contains(target) ?? false;
+      const clickedArtikl = artiklChartRef.current?.contains(target) ?? false;
+
+      if (!clickedMain) {
+        setShowMainTooltip(false);
+      }
+      if (!clickedArtikl) {
+        setShowArtiklTooltip(false);
+      }
+    };
+
+    document.addEventListener('click', handleDocClick);
+    return () => document.removeEventListener('click', handleDocClick);
   }, []);
 
   // Učitaj arhivu iz API-ja
@@ -2817,6 +2840,7 @@ export default function DashboardPage() {
       {/* Grafikon ukupne zarade */}
       <div
         className="chart-container"
+        ref={mainChartRef}
         style={{
           width: "100%",
           maxWidth: "100%",
@@ -2831,6 +2855,7 @@ export default function DashboardPage() {
           boxSizing: "border-box",
           position: "relative"
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           {(() => {
@@ -2857,7 +2882,16 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <ComposedChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
+                <ComposedChart
+                  data={chartData || []}
+                  margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}
+                  onClick={(state) => {
+                    if (state?.activeTooltipIndex !== undefined && state.activeTooltipIndex !== null) {
+                      setShowMainTooltip(true);
+                    }
+                  }}
+                  onMouseLeave={() => setShowMainTooltip(false)}
+                >
                   <defs>
                     <linearGradient id="fillBruto" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#16a34a" stopOpacity={0.24} />
@@ -2886,7 +2920,11 @@ export default function DashboardPage() {
                     tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                  <Tooltip content={<MainChartTooltip />} trigger="click" />
+                  <Tooltip
+                    content={<MainChartTooltip />}
+                    trigger="click"
+                    wrapperStyle={{ display: showMainTooltip ? "block" : "none" }}
+                  />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
 
                   {(chartSeriesView === "all" || chartSeriesView === "artikli") && (
@@ -2899,7 +2937,7 @@ export default function DashboardPage() {
                         stroke="#16a34a"
                         strokeWidth={isMobile ? 2 : 2.6}
                         strokeLinecap="round"
-                        dot={false}
+                        dot={{ r: isMobile ? 3 : 3.6, stroke: "#fff", strokeWidth: 1.2 }}
                         activeDot={{ r: isMobile ? 5 : 6, stroke: "#fff", strokeWidth: 2 }}
                         connectNulls={true}
                       />
@@ -2916,7 +2954,7 @@ export default function DashboardPage() {
                         stroke="#9333ea"
                         strokeWidth={isMobile ? 2 : 2.6}
                         strokeLinecap="round"
-                        dot={false}
+                        dot={{ r: isMobile ? 3 : 3.6, stroke: "#fff", strokeWidth: 1.2 }}
                         activeDot={{ r: isMobile ? 5 : 6, stroke: "#fff", strokeWidth: 2 }}
                         connectNulls={true}
                       />
@@ -2933,7 +2971,7 @@ export default function DashboardPage() {
                         stroke="#dc2626"
                         strokeWidth={isMobile ? 2 : 2.6}
                         strokeLinecap="round"
-                        dot={false}
+                        dot={{ r: isMobile ? 3 : 3.6, stroke: "#fff", strokeWidth: 1.2 }}
                         activeDot={{ r: isMobile ? 5 : 6, stroke: "#fff", strokeWidth: 2 }}
                         connectNulls={true}
                       />
@@ -2950,7 +2988,7 @@ export default function DashboardPage() {
                         stroke="#3b82f6"
                         strokeWidth={isMobile ? 2 : 2.6}
                         strokeLinecap="round"
-                        dot={false}
+                        dot={{ r: isMobile ? 3 : 3.6, stroke: "#fff", strokeWidth: 1.2 }}
                         activeDot={{ r: isMobile ? 5 : 6, stroke: "#fff", strokeWidth: 2 }}
                         connectNulls={true}
                       />
@@ -3768,6 +3806,7 @@ export default function DashboardPage() {
       {/* Grafikon utroška po artiklu - uvijek prikazuj, kao prvi chart */}
       <div
         className="chart-container"
+        ref={artiklChartRef}
         style={{
           width: "100%",
           maxWidth: "100%",
@@ -3782,6 +3821,7 @@ export default function DashboardPage() {
           boxSizing: "border-box",
           position: "relative"
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div style={{ width: "100%", height: isMobile ? 300 : 400, minHeight: isMobile ? 300 : 400, position: "relative", padding: isMobile ? "10px" : 0 }}>
           {(() => {
@@ -3805,7 +3845,16 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <ComposedChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
+                <ComposedChart
+                  data={selectedData || []}
+                  margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}
+                  onClick={(state) => {
+                    if (state?.activeTooltipIndex !== undefined && state.activeTooltipIndex !== null) {
+                      setShowArtiklTooltip(true);
+                    }
+                  }}
+                  onMouseLeave={() => setShowArtiklTooltip(false)}
+                >
                   <defs>
                     <linearGradient id="fillUtroseno" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.24} />
@@ -3822,7 +3871,11 @@ export default function DashboardPage() {
                     tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                  <Tooltip content={<ArtiklChartTooltip />} trigger="click" />
+                  <Tooltip
+                    content={<ArtiklChartTooltip />}
+                    trigger="click"
+                    wrapperStyle={{ display: showArtiklTooltip ? "block" : "none" }}
+                  />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
                   <Area type="monotone" dataKey="utroseno" stroke="none" fill="url(#fillUtroseno)" fillOpacity={1} isAnimationActive={false} legendType="none" />
                   <Line
@@ -3832,7 +3885,7 @@ export default function DashboardPage() {
                     stroke="#8b5cf6"
                     strokeWidth={isMobile ? 2 : 2.6}
                     strokeLinecap="round"
-                    dot={false}
+                    dot={{ r: isMobile ? 3 : 3.6, stroke: "#fff", strokeWidth: 1.2 }}
                     activeDot={{ r: isMobile ? 5 : 6, stroke: "#fff", strokeWidth: 2 }}
                     connectNulls={true}
                   />
