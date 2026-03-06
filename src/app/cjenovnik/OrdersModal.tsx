@@ -1158,7 +1158,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           const { saveOrder } = await import("../../lib/api");
           const updated = await saveOrder({
             id: orderId,
-            supplierId: currentOrder.supplierId,
+            supplierId: currentOrder.supplierId ?? undefined,
             supplierName: currentOrder.supplierName,
             date: currentOrder.date,
             orderedAt: currentOrder.orderedAt,
@@ -1223,7 +1223,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       if (onInvoiceAccepted) {
         onInvoiceAccepted(formattedDate, order.items, {
           invoiceId: order.id,
-          supplierId: order.supplierId,
+          supplierId: order.supplierId ?? undefined,
         });
       }
 
@@ -1238,7 +1238,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         const { saveOrder } = await import("../../lib/api");
         const updated = await saveOrder({
           id: order.id,
-          supplierId: order.supplierId,
+          supplierId: order.supplierId ?? undefined,
           supplierName: order.supplierName,
           date: formattedDate,
           orderedAt: order.orderedAt,
@@ -1290,7 +1290,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         const { saveOrder } = await import("../../lib/api");
         const updated = await saveOrder({
           id: order.id,
-          supplierId: order.supplierId,
+          supplierId: order.supplierId ?? undefined,
           supplierName: order.supplierName,
           date: order.date,
           orderedAt: order.orderedAt,
