@@ -46,6 +46,7 @@ export async function getOrders(userId: string) {
     return {
       id: o.id,
       supplierId: o.supplierId ?? o.supplier_id ?? null,
+      supplierName: o.supplierName ?? o.supplier_name ?? null,
       date: o.date ?? o.date_text ?? null,
       orderedAt: rawOrderedAt || formatServerDateTimeLabel(o.created_at),
       receivedAt: o.receivedAt ?? o.received_at ?? null,
@@ -65,6 +66,7 @@ export async function getOrders(userId: string) {
 export async function saveOrder(payload: {
   id?: string;
   supplierId?: string | null;
+  supplierName?: string | null;
   date?: string | null;
   orderedAt?: string | null;
   receivedAt?: string | null;

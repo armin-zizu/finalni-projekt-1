@@ -16,7 +16,8 @@ interface Supplier {
 
 interface Order {
   id: string;
-  supplierId: string;
+  supplierId: string | null;
+  supplierName?: string | null;
   date: string;
   orderedAt?: string;
   receivedAt?: string;
@@ -247,6 +248,28 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     return `${hours}:${minutes}`;
   };
 
+  const normalizeOrder = (input: any): Order => ({
+    id: input?.id,
+    supplierId: input?.supplierId ?? input?.supplier_id ?? null,
+    supplierName: input?.supplierName ?? input?.supplier_name ?? null,
+    date: input?.date ?? input?.date_text ?? "",
+    orderedAt: input?.orderedAt ?? input?.ordered_at ?? input?.created_at ?? null,
+    receivedAt: input?.receivedAt ?? input?.received_at ?? null,
+    wasEdited: Boolean(input?.wasEdited ?? input?.was_edited),
+    editedAt: input?.editedAt ?? input?.edited_at ?? null,
+    invoiceProofImages: input?.invoiceProofImages ?? input?.invoice_proof_images ?? [],
+    status: (input?.status as Order["status"]) ?? "pending",
+    items: Array.isArray(input?.items) ? input.items : [],
+    totalItems:
+      typeof input?.totalItems === "number"
+        ? input.totalItems
+        : typeof input?.total_items === "number"
+          ? input.total_items
+          : Array.isArray(input?.items)
+            ? input.items.length
+            : 0,
+  });
+
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('suppliers');
@@ -291,7 +314,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       const saved = localStorage.getItem('orders');
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          return Array.isArray(parsed) ? parsed.map((o: any) => normalizeOrder(o)) : [];
         } catch (e) {
           console.error('Failed to parse orders from localStorage:', e);
         }
@@ -424,15 +448,16 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       const serverOrders = await getOrders(userId);
       if (Array.isArray(serverOrders) && serverOrders.length > 0) {
         console.log("✅ Osvežene narudžbe sa servera:", serverOrders.length, "narudžbi");
-        setOrders(serverOrders);
-        localStorage.setItem('orders', JSON.stringify(serverOrders));
+        const normalized = serverOrders.map((o: any) => normalizeOrder(o));
+        setOrders(normalized);
+        localStorage.setItem('orders', JSON.stringify(normalized));
       } else {
         // Ako nema na serveru, učitaj iz localStorage-a
         const savedOrders = localStorage.getItem('orders');
         if (savedOrders) {
           try {
             const parsed = JSON.parse(savedOrders);
-            setOrders(parsed);
+            setOrders(Array.isArray(parsed) ? parsed.map((o: any) => normalizeOrder(o)) : []);
           } catch (e) {
             console.error('❌ Greška pri parsiranju orders:', e);
           }
@@ -445,7 +470,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       if (savedOrders) {
         try {
           const parsed = JSON.parse(savedOrders);
-          setOrders(parsed);
+          setOrders(Array.isArray(parsed) ? parsed.map((o: any) => normalizeOrder(o)) : []);
         } catch (e) {
           console.error('❌ Greška pri parsiranju orders:', e);
         }
@@ -706,8 +731,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         });
 
         setSupplierItems((prev) => {
-          const savedItems = Array.isArray(saved?.items) && saved.items.length > 0 ? saved.items : nextItems;
-          const next = { ...prev, [supplierId]: savedItems };
+          const next = { ...prev, [supplierId]: saved.items || nextItems };
           supplierItemsRef.current = next;
           if (typeof window !== 'undefined') {
             localStorage.setItem('supplierItems', JSON.stringify(next));
@@ -931,6 +955,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
       supplierId: supplier.id,
+      supplierName: supplier.name,
       date: formattedDate,
       orderedAt: getCurrentTimeString(),
       status: "pending",
@@ -949,6 +974,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       const { saveOrder } = await import("../../lib/api");
       const saved = await saveOrder({
         supplierId: supplier.id,
+        supplierName: supplier.name,
         date: formattedDate,
         orderedAt: newOrder.orderedAt,
         status: "pending",
@@ -957,9 +983,10 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
       });
 
       if (saved) {
+        const normalized = normalizeOrder(saved);
         setOrders((prev) => {
-          const filtered = prev.filter((o) => o.id !== newOrder.id);
-          const nextOrders = [saved, ...filtered];
+          const filtered = prev.filter((o) => o.id !== newOrder.id && o.id !== normalized.id);
+          const nextOrders = [normalized, ...filtered];
           localStorage.setItem('orders', JSON.stringify(nextOrders));
           return nextOrders;
         });
@@ -1132,6 +1159,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           const updated = await saveOrder({
             id: orderId,
             supplierId: currentOrder.supplierId,
+            supplierName: currentOrder.supplierName,
             date: currentOrder.date,
             orderedAt: currentOrder.orderedAt,
             receivedAt: currentOrder.receivedAt,
@@ -1143,8 +1171,9 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
           });
 
           if (updated) {
+            const normalized = normalizeOrder(updated);
             setOrders((prev) => {
-              const next = prev.map((o) => (o.id === orderId ? updated : o));
+              const next = prev.map((o) => (o.id === orderId ? normalized : o));
               localStorage.setItem('orders', JSON.stringify(next));
               return next;
             });
@@ -1210,6 +1239,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         const updated = await saveOrder({
           id: order.id,
           supplierId: order.supplierId,
+          supplierName: order.supplierName,
           date: formattedDate,
           orderedAt: order.orderedAt,
           receivedAt,
@@ -1221,7 +1251,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         });
 
         if (updated) {
-          setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+          const normalized = normalizeOrder(updated);
+          setOrders((prev) => prev.map((o) => (o.id === orderId ? normalized : o)));
         }
       } catch (err: any) {
         console.error("❌ Greška pri sinhronizaciji fakture:", err);
@@ -1260,6 +1291,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         const updated = await saveOrder({
           id: order.id,
           supplierId: order.supplierId,
+          supplierName: order.supplierName,
           date: order.date,
           orderedAt: order.orderedAt,
           receivedAt: order.receivedAt,
@@ -1271,7 +1303,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         });
 
         if (updated) {
-          setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+          const normalized = normalizeOrder(updated);
+          setOrders((prev) => prev.map((o) => (o.id === orderId ? normalized : o)));
         }
       } catch (err: any) {
         console.error("❌ Greška pri otkazivanju narudžbe (server):", err);
@@ -1569,7 +1602,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                       borderLeft: "4px solid #3b82f6"
                     }}>
                       <div style={{ fontSize: isMobile ? "14px" : "13px", fontWeight: 700, color: "#1f2937", marginBottom: "4px" }}>
-                        {supplier?.name || order.supplierId || "Nepoznat dobavljač"}
+                        {supplier?.name || order.supplierName || order.supplierId || "Nepoznat dobavljač"}
                       </div>
                       <div style={{ fontSize: isMobile ? "12px" : "11px", color: "#4b5563", marginBottom: "4px" }}>
                         Narudžba: {formatOrderLabel(order.date, order.orderedAt)}
@@ -1938,8 +1971,6 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                                   </div>
                                   <input
                                     type="number"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
                                     className="orders-number-input"
                                     step="1"
                                     value={orderQty}
@@ -2001,9 +2032,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                                   <td style={{ padding: "16px 20px", textAlign: "right" }}>
                                     <input
                                       type="number"
-                                      inputMode="numeric"
-                                      pattern="[0-9]*"
-                                      className="orders-number-input"
+                                        className="orders-number-input"
                                       step="1"
                                       value={orderQty}
                                       onChange={(e) => {
@@ -2226,7 +2255,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                           borderLeft: `4px solid ${isEditedCompleted ? "#facc15" : "#10b981"}`
                         }}>
                           <div style={{ fontSize: "14px", fontWeight: 700, color: "#1f2937", marginBottom: "4px" }}>
-                            {supplier?.name || "Nepoznat dobavljač"}
+                            {supplier?.name || order.supplierName || order.supplierId || "Nepoznat dobavljač"}
                           </div>
                           <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
                             Dokaz: {getInvoiceProofFiles(order).length} slika
@@ -2278,7 +2307,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                         return (
                           <tr key={order.id} style={{ borderBottom: "1px solid #f3f4f6", background: isEditedCompleted ? "#fefce8" : "transparent" }}>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#111827", fontWeight: 700 }}>#{order.id.split("-")[1]}</td>
-                            <td style={{ padding: "10px", fontSize: "13px", color: "#374151" }}>{supplier?.name || "Nepoznat"}</td>
+                            <td style={{ padding: "10px", fontSize: "13px", color: "#374151" }}>{supplier?.name || order.supplierName || order.supplierId || "Nepoznat"}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{formatOrderLabel(order.date, order.orderedAt)}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#059669", fontWeight: 600 }}>{formatReceivedLabel(order.receivedAt, order.date, order.editedAt)}</td>
                             <td style={{ padding: "10px", fontSize: "13px", color: "#6b7280" }}>{getInvoiceProofFiles(order).length}</td>
@@ -2366,7 +2395,7 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                   <div>
                     <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: 600, color: "rgba(255,255,255,0.8)", letterSpacing: "0.5px", marginBottom: "4px" }}>Detalji narudžbe</div>
                     <h3 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "#ffffff" }}>#{order.id.split("-")[1]}</h3>
-                    <p style={{ margin: "4px 0 0", fontSize: "13px", color: "rgba(255,255,255,0.9)" }}>{supplier?.name || "Nepoznat dobavljač"}</p>
+                    <p style={{ margin: "4px 0 0", fontSize: "13px", color: "rgba(255,255,255,0.9)" }}>{supplier?.name || order.supplierName || order.supplierId || "Nepoznat dobavljač"}</p>
                   </div>
                   <button
                     onClick={() => setViewOrderId(null)}
@@ -2545,8 +2574,6 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <input
                                 type="number"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
                                 className="orders-number-input"
                                 step="1"
                                 min="0"
@@ -2611,8 +2638,6 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
                                 {isEditingOrderDetails ? (
                                   <input
                                     type="number"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
                                     className="orders-number-input"
                                     step="1"
                                     min="0"

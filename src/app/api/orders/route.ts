@@ -25,6 +25,11 @@ async function ensureOrdersTable() {
         updated_at TIMESTAMPTZ DEFAULT now()
       );
     `);
+
+    await pool.query(`
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS supplier_name TEXT;
+    `);
   } catch (err: any) {
     console.warn("⚠️ ensureOrdersTable: nije moguće kreirati/alter tabelu (nastavljam)", err?.message || err);
   }
@@ -52,13 +57,34 @@ export const GET = withAuth(async (req: AuthRequest) => {
 
   try {
     const result = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT o.*, COALESCE(o.supplier_name, s.name) AS supplier_name_resolved
+       FROM orders o
+       LEFT JOIN suppliers s ON s.id::text = o.supplier_id::text AND s.user_id::text = o.user_id::text AND (s.deleted_at IS NULL)
+       WHERE o.user_id = $1
+       ORDER BY o.created_at DESC`,
       [userId]
     );
-    return NextResponse.json({ orders: result.rows });
+
+    const rows = Array.isArray(result.rows)
+      ? result.rows.map((row: any) => ({
+          ...row,
+          supplier_name: row?.supplier_name_resolved ?? row?.supplier_name ?? null,
+        }))
+      : [];
+
+    return NextResponse.json({ orders: rows });
   } catch (err: any) {
-    console.error("❌ Greška pri čitanju narudžbi:", err);
-    return NextResponse.json({ error: err.message || "DB error" }, { status: 500 });
+    console.warn("⚠️ Greška pri čitanju narudžbi (fallback bez join-a):", err?.message || err);
+    try {
+      const fallback = await pool.query(
+        `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
+        [userId]
+      );
+      return NextResponse.json({ orders: fallback.rows });
+    } catch (inner: any) {
+      console.error("❌ Greška pri čitanju narudžbi:", inner);
+      return NextResponse.json({ error: inner.message || "DB error" }, { status: 500 });
+    }
   }
 });
 
@@ -82,6 +108,8 @@ export const POST = withAuth(async (req: AuthRequest) => {
     return NextResponse.json({ error: "Neispravan JSON payload" }, { status: 400 });
   }
 
+  const pool = getPool();
+
   const items = Array.isArray(body?.items) ? body.items : [];
   const invoiceProofImages = Array.isArray(body?.invoiceProofImages) ? body.invoiceProofImages : [];
   const totalItems = typeof body?.totalItems === "number" ? body.totalItems : items.length;
@@ -89,9 +117,25 @@ export const POST = withAuth(async (req: AuthRequest) => {
   const serverNowIso = new Date().toISOString();
   const orderedAtValue = body?.orderedAt || body?.ordered_at || body?.createdAt || body?.created_at || null;
 
+  const supplierIdValue = body?.supplierId || body?.supplier_id || null;
+  let supplierNameValue = body?.supplierName || body?.supplier_name || null;
+
+  if (!supplierNameValue && supplierIdValue) {
+    try {
+      const lookup = await pool.query(
+        `SELECT name FROM suppliers WHERE id::text = $1 AND user_id::text = $2 LIMIT 1`,
+        [supplierIdValue, userId]
+      );
+      supplierNameValue = lookup.rows?.[0]?.name || null;
+    } catch (err: any) {
+      console.warn("⚠️ /api/orders POST: lookup supplier name nije uspio:", err?.message || err);
+    }
+  }
+
   const payload = {
     id: body?.id || randomUUID(),
-    supplierId: body?.supplierId || body?.supplier_id || null,
+    supplierId: supplierIdValue,
+    supplierName: supplierNameValue,
     date: dateValue,
     orderedAt: orderedAtValue || serverNowIso,
     receivedAt: body?.receivedAt || body?.received_at || null,
@@ -103,9 +147,13 @@ export const POST = withAuth(async (req: AuthRequest) => {
     editedAt: body?.editedAt || body?.edited_at || null,
   };
 
-  const pool = getPool();
-
   let columnNames: string[] = [];
+  try {
+    await ensureOrdersTable();
+  } catch (err) {
+    // already logged; continue
+  }
+
   try {
     const cols = await pool.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name = 'orders'`
@@ -113,12 +161,6 @@ export const POST = withAuth(async (req: AuthRequest) => {
     columnNames = cols.rows.map((r: any) => String(r.column_name).toLowerCase());
   } catch (err: any) {
     console.warn("⚠️ orders column introspection nije uspio:", err?.message || err);
-  }
-
-  try {
-    await ensureOrdersTable();
-  } catch (err) {
-    // already logged; continue
   }
 
   try {
@@ -139,6 +181,7 @@ export const POST = withAuth(async (req: AuthRequest) => {
     };
 
     if (has("supplier_id")) addField("supplier_id", payload.supplierId);
+  if (has("supplier_name")) addField("supplier_name", payload.supplierName);
     if (has("date_text")) addField("date_text", payload.date);
     else if (has("date")) addField("date", payload.date);
     if (has("ordered_at")) addField("ordered_at", payload.orderedAt);
