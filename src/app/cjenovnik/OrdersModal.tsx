@@ -706,7 +706,8 @@ export default function OrdersModal({ open, onClose, userId, items, onRefreshIte
         });
 
         setSupplierItems((prev) => {
-          const next = { ...prev, [supplierId]: saved.items || nextItems };
+          const savedItems = Array.isArray(saved?.items) && saved.items.length > 0 ? saved.items : nextItems;
+          const next = { ...prev, [supplierId]: savedItems };
           supplierItemsRef.current = next;
           if (typeof window !== 'undefined') {
             localStorage.setItem('supplierItems', JSON.stringify(next));
