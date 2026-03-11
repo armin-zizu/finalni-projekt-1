@@ -294,9 +294,13 @@ export default function Profile() {
       return;
     }
 
+    const token = getAuthToken();
     fetch('/api/users/me/pin', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({ newPin }),
     })
       .then(async (res) => {
@@ -347,9 +351,13 @@ export default function Profile() {
           showUlazPinFeedback("Nova šifra mora biti drugačija od trenutne.");
           return;
         }
+        const token = getAuthToken();
         fetch('/api/users/me/pin', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ newPin }),
         })
           .then(async (res2) => {
