@@ -294,51 +294,79 @@ export default function Profile() {
       return;
     }
 
-    localStorage.setItem(ULAZ_UNLOCK_PIN_STORAGE_KEY, newPin);
-    setHasCustomUlazPin(true);
-    setUlazPinCurrent("");
-    setUlazPinNew("");
-    setUlazPinConfirm("");
-    showUlazPinFeedback("Šifra za Uredi ulaz je uspješno postavljena.");
+    fetch('/api/users/me/pin', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPin }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json();
+          showUlazPinFeedback(data.error || 'Greška pri postavljanju šifre.');
+          return;
+        }
+        setHasCustomUlazPin(true);
+        setUlazPinCurrent("");
+        setUlazPinNew("");
+        setUlazPinConfirm("");
+        showUlazPinFeedback("Šifra za Uredi ulaz je uspješno postavljena.");
+      })
+      .catch(() => showUlazPinFeedback('Greška pri komunikaciji sa serverom.'));
   };
 
   const handleChangeUlazPin = () => {
     const currentPin = ulazPinCurrent.trim();
     const newPin = ulazPinNew.trim();
     const confirmPin = ulazPinConfirm.trim();
-    const savedPin = localStorage.getItem(ULAZ_UNLOCK_PIN_STORAGE_KEY) || DEFAULT_ULAZ_UNLOCK_PIN;
 
     if (currentPin.length !== 4) {
       showUlazPinFeedback("Trenutna šifra mora imati tačno 4 znaka.");
       return;
     }
 
-    if (currentPin !== savedPin) {
-      showUlazPinFeedback("Trenutna šifra nije tačna.");
-      return;
-    }
-
-    if (newPin.length !== 4) {
-      showUlazPinFeedback("Nova šifra mora imati tačno 4 znaka.");
-      return;
-    }
-
-    if (newPin !== confirmPin) {
-      showUlazPinFeedback("Potvrda šifre se ne poklapa.");
-      return;
-    }
-
-    if (newPin === currentPin) {
-      showUlazPinFeedback("Nova šifra mora biti drugačija od trenutne.");
-      return;
-    }
-
-    localStorage.setItem(ULAZ_UNLOCK_PIN_STORAGE_KEY, newPin);
-    setHasCustomUlazPin(true);
-    setUlazPinCurrent("");
-    setUlazPinNew("");
-    setUlazPinConfirm("");
-    showUlazPinFeedback("Šifra za Uredi ulaz je uspješno promijenjena.");
+    fetch('/api/users/me/pin', { method: 'GET' })
+      .then(async (res) => {
+        if (!res.ok) {
+          showUlazPinFeedback('Greška pri provjeri trenutne šifre.');
+          return;
+        }
+        const data = await res.json();
+        if (!data.pin || currentPin !== data.pin) {
+          showUlazPinFeedback("Trenutna šifra nije tačna.");
+          return;
+        }
+        if (newPin.length !== 4) {
+          showUlazPinFeedback("Nova šifra mora imati tačno 4 znaka.");
+          return;
+        }
+        if (newPin !== confirmPin) {
+          showUlazPinFeedback("Potvrda šifre se ne poklapa.");
+          return;
+        }
+        if (newPin === currentPin) {
+          showUlazPinFeedback("Nova šifra mora biti drugačija od trenutne.");
+          return;
+        }
+        fetch('/api/users/me/pin', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newPin }),
+        })
+          .then(async (res2) => {
+            if (!res2.ok) {
+              const data2 = await res2.json();
+              showUlazPinFeedback(data2.error || 'Greška pri promjeni šifre.');
+              return;
+            }
+            setHasCustomUlazPin(true);
+            setUlazPinCurrent("");
+            setUlazPinNew("");
+            setUlazPinConfirm("");
+            showUlazPinFeedback("Šifra za Uredi ulaz je uspješno promijenjena.");
+          })
+          .catch(() => showUlazPinFeedback('Greška pri komunikaciji sa serverom.'));
+      })
+      .catch(() => showUlazPinFeedback('Greška pri komunikaciji sa serverom.'));
   };
 
   const handleSaveAppName = async () => {
@@ -2894,9 +2922,15 @@ export default function Profile() {
                 <input
                   type="password"
                   value={ulazPinConfirm}
-                  onChange={(e) => setUlazPinConfirm(e.target.value)}
+                  onChange={(e) => {
+                    // Only allow numbers
+                    const sanitized = e.target.value.replace(/[^0-9]/g, "");
+                    setUlazPinConfirm(sanitized);
+                  }}
                   placeholder="Potvrdi novu šifru"
                   maxLength={4}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   style={{ ...inputStyle, marginRight: 0, width: "180px" }}
                 />
               </div>
