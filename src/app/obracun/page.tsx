@@ -1412,8 +1412,7 @@ export default function ObracunPage() {
         try {
           invoiceImageUrls = await uploadInvoiceImages(datumString);
           console.log(`📸 Upload-ovano ${invoiceImageUrls.length} slika faktura za draft obračun`);
-          // Resetuj lokalne slike nakon upload-a
-          setInvoiceImages([]);
+          // NE resetuj invoiceImages ovdje! Slike ostaju u state-u do završetka obračuna
           setSavedInvoiceImagesCount((prev) => prev + invoiceImageUrls.length);
         } catch (error: any) {
           console.warn("Upozorenje: Slike faktura nisu upload-ovane:", error);
