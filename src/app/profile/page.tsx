@@ -2877,6 +2877,8 @@ export default function Profile() {
                   onChange={(e) => setUlazPinCurrent(e.target.value)}
                   placeholder="Trenutna šifra (4 znaka)"
                   maxLength={4}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   style={{ ...inputStyle, marginRight: 0, width: "180px" }}
                 />
                 <input
@@ -2885,6 +2887,8 @@ export default function Profile() {
                   onChange={(e) => setUlazPinNew(e.target.value)}
                   placeholder="Nova šifra (4 znaka)"
                   maxLength={4}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   style={{ ...inputStyle, marginRight: 0, width: "180px" }}
                 />
                 <input

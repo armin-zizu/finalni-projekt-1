@@ -2776,7 +2776,8 @@ export default function ObracunPage() {
                     key={`ulaz-${index}-${resetKey}`}
                     type="number"
                     step="any"
-                    inputMode="decimal"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={a.ulaz === 0 ? "" : a.ulaz}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => handleUlazChange(index, Number(e.target.value) || 0)}
