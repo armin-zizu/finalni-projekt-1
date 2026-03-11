@@ -2213,56 +2213,26 @@ export default function DashboardPage() {
   const growth = (current: number, previous: number) =>
     previous === 0 ? "0" : (((current - previous) / previous) * 100).toFixed(1);
 
-  const mainTooltipKeys = [
-    { key: "artikli", label: "Bruto", color: "#16a34a" },
-    { key: "prihod", label: "Prihod", color: "#9333ea" },
-    { key: "rashod", label: "Rashod", color: "#dc2626" },
-    { key: "neto", label: "Neto", color: "#3b82f6" },
-  ];
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any; label?: string }) => {
+    if (active && payload && payload.length) {
+      const dataSource = payload[0].dataKey === "utroseno" ? selectedData : chartData;
+      const unit = dataSource === chartData ? " KM" : "";
 
-  const MainChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
-    if (!active || !payload || !payload.length) return null;
-
-    const items = mainTooltipKeys
-      .map((cfg) => {
-        const found = payload.find((p) => p.dataKey === cfg.key);
-        if (!found) return null;
-        return { ...cfg, value: Number(found.value ?? 0) };
-      })
-      .filter(Boolean) as { key: string; label: string; color: string; value: number }[];
-
-    if (!items.length) return null;
-
-    return (
-      <div style={{ backgroundColor: "#0f172a", color: "#fff", padding: 12, borderRadius: 10, boxShadow: "0 12px 30px rgba(0,0,0,0.28)" }}>
-        <div style={{ fontWeight: 700, marginBottom: 6, letterSpacing: 0.2 }}>{label}</div>
-        {items.map((item) => (
-          <div key={item.key} style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", backgroundColor: item.color, marginRight: 8 }} />
-            <span style={{ color: item.color, fontWeight: 600, marginRight: 6 }}>{item.label}:</span>
-            <span style={{ fontVariantNumeric: "tabular-nums" }}>{item.value.toFixed(2)} KM</span>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const ArtiklChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) => {
-    if (!active || !payload || !payload.length) return null;
-
-    const utroseno = payload.find((p) => p.dataKey === "utroseno");
-    if (!utroseno) return null;
-
-    return (
-      <div style={{ backgroundColor: "#0f172a", color: "#fff", padding: 12, borderRadius: 10, boxShadow: "0 12px 30px rgba(0,0,0,0.28)" }}>
-        <div style={{ fontWeight: 700, marginBottom: 6, letterSpacing: 0.2 }}>{label}</div>
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <span style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", backgroundColor: utroseno.color, marginRight: 8 }} />
-          <span style={{ color: utroseno.color, fontWeight: 600, marginRight: 6 }}>{utroseno.name ?? "Utrošeno"}:</span>
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>{Number(utroseno.value ?? 0).toFixed(2)}</span>
+      return (
+        <div style={{ backgroundColor: "#1f2937", color: "#fff", padding: 12, borderRadius: 8 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
+          {payload.map((p: any) => {
+            return (
+              <div key={p.dataKey} style={{ marginBottom: 4 }}>
+                <span style={{ color: p.color, fontWeight: 500 }}>{p.name}: </span>
+                {p.value.toFixed(2)}{unit}
+              </div>
+            );
+          })}
         </div>
-      </div>
-    );
+      );
+    }
+    return null;
   };
 
   // Ne blokiraj renderovanje - dashboard se uvek prikazuje
@@ -2417,22 +2387,6 @@ export default function DashboardPage() {
             <div style={{ marginTop: 6, fontSize: isMobile ? 12 : 13, color: "#e2e8f0", display: "flex", alignItems: "center", gap: 6 }}>
               <FaClock size={12} /> {todayLabel}
             </div>
-          </div>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "7px 12px",
-              borderRadius: 999,
-              background: "rgba(59, 130, 246, 0.22)",
-              border: "1px solid rgba(147, 197, 253, 0.45)",
-              color: "#dbeafe",
-              fontWeight: 700,
-              fontSize: 12,
-            }}
-          >
-            <FaCrown size={12} /> PRO
           </div>
         </div>
       </div>
@@ -2822,7 +2776,7 @@ export default function DashboardPage() {
           maxWidth: "100%",
           height: isMobile ? 310 : 400,
           minHeight: isMobile ? 310 : 400,
-          background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 55%)",
+          backgroundColor: "#fff",
           borderRadius: 12,
           padding: isMobile ? 0 : 20,
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
@@ -2857,29 +2811,26 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <ComposedChart
-                  data={chartData || []}
-                  margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}
-                >
+                <ComposedChart data={chartData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 30 : 10, bottom: isMobile ? 30 : 40 }}>
                   <defs>
                     <linearGradient id="fillBruto" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.24} />
-                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0.08} />
+                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.38} />
+                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0.12} />
                     </linearGradient>
                     <linearGradient id="fillPrihod" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#9333ea" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="#9333ea" stopOpacity={0.07} />
+                      <stop offset="0%" stopColor="#9333ea" stopOpacity={0.34} />
+                      <stop offset="100%" stopColor="#9333ea" stopOpacity={0.1} />
                     </linearGradient>
                     <linearGradient id="fillRashod" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.18} />
-                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.06} />
+                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.1} />
                     </linearGradient>
                     <linearGradient id="fillNeto" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.08} />
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.36} />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.12} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="2 4" stroke="rgba(148, 163, 184, 0.26)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
                     tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
@@ -2889,74 +2840,34 @@ export default function DashboardPage() {
                     tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                  <Tooltip content={<MainChartTooltip />} trigger="click" />
+                  <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
 
                   {(chartSeriesView === "all" || chartSeriesView === "artikli") && (
                     <>
                       <Area type="monotone" dataKey="artikli" stroke="none" fill="url(#fillBruto)" fillOpacity={1} isAnimationActive={false} legendType="none" />
-                      <Line
-                        type="monotone"
-                        dataKey="artikli"
-                        name="Bruto"
-                        stroke="#16a34a"
-                        strokeWidth={isMobile ? 2 : 2.6}
-                        strokeLinecap="round"
-                        dot={{ r: isMobile ? 2 : 3 }}
-                        activeDot={{ r: isMobile ? 4 : 5, stroke: "#fff", strokeWidth: 2 }}
-                        connectNulls={true}
-                      />
+                      <Line type="monotone" dataKey="artikli" name="Bruto" stroke="#16a34a" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                     </>
                   )}
 
                   {(chartSeriesView === "all" || chartSeriesView === "prihod") && (
                     <>
                       <Area type="monotone" dataKey="prihod" stroke="none" fill="url(#fillPrihod)" fillOpacity={1} isAnimationActive={false} legendType="none" />
-                      <Line
-                        type="monotone"
-                        dataKey="prihod"
-                        name="Prihod"
-                        stroke="#9333ea"
-                        strokeWidth={isMobile ? 2 : 2.6}
-                        strokeLinecap="round"
-                        dot={{ r: isMobile ? 2 : 3 }}
-                        activeDot={{ r: isMobile ? 4 : 5, stroke: "#fff", strokeWidth: 2 }}
-                        connectNulls={true}
-                      />
+                      <Line type="monotone" dataKey="prihod" name="Prihod" stroke="#9333ea" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                     </>
                   )}
 
                   {(chartSeriesView === "all" || chartSeriesView === "rashod") && (
                     <>
                       <Area type="monotone" dataKey="rashod" stroke="none" fill="url(#fillRashod)" fillOpacity={1} isAnimationActive={false} legendType="none" />
-                      <Line
-                        type="monotone"
-                        dataKey="rashod"
-                        name="Rashod"
-                        stroke="#dc2626"
-                        strokeWidth={isMobile ? 2 : 2.6}
-                        strokeLinecap="round"
-                        dot={{ r: isMobile ? 2 : 3 }}
-                        activeDot={{ r: isMobile ? 4 : 5, stroke: "#fff", strokeWidth: 2 }}
-                        connectNulls={true}
-                      />
+                      <Line type="monotone" dataKey="rashod" name="Rashod" stroke="#dc2626" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                     </>
                   )}
 
                   {(chartSeriesView === "all" || chartSeriesView === "neto") && (
                     <>
                       <Area type="monotone" dataKey="neto" stroke="none" fill="url(#fillNeto)" fillOpacity={1} isAnimationActive={false} legendType="none" />
-                      <Line
-                        type="monotone"
-                        dataKey="neto"
-                        name="Neto"
-                        stroke="#3b82f6"
-                        strokeWidth={isMobile ? 2 : 2.6}
-                        strokeLinecap="round"
-                        dot={{ r: isMobile ? 2 : 3 }}
-                        activeDot={{ r: isMobile ? 4 : 5, stroke: "#fff", strokeWidth: 2 }}
-                        connectNulls={true}
-                      />
+                      <Line type="monotone" dataKey="neto" name="Neto" stroke="#3b82f6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                     </>
                   )}
                 </ComposedChart>
@@ -3776,7 +3687,7 @@ export default function DashboardPage() {
           maxWidth: "100%",
           height: isMobile ? 310 : 400,
           minHeight: isMobile ? 310 : 400,
-          background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 55%)",
+          backgroundColor: "#fff",
           borderRadius: 12,
           padding: isMobile ? 0 : 20,
           boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
@@ -3808,17 +3719,14 @@ export default function DashboardPage() {
                 width="100%"
                 height={isMobile ? 300 : 400}
               >
-                <ComposedChart
-                  data={selectedData || []}
-                  margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}
-                >
+                <ComposedChart data={selectedData || []} margin={{ top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 0 : 10, bottom: isMobile ? 30 : 40 }}>
                   <defs>
                     <linearGradient id="fillUtroseno" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.24} />
-                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.08} />
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.38} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.1} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="2 4" stroke="rgba(148, 163, 184, 0.26)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="datum" 
                     tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} 
@@ -3828,20 +3736,10 @@ export default function DashboardPage() {
                     tickMargin={isMobile ? 6 : 8}
                   />
                   <YAxis tick={{ fill: "#6b7280", fontSize: isMobile ? 10 : 11 }} width={isMobile ? 35 : 50} />
-                  <Tooltip content={<ArtiklChartTooltip />} trigger="click" />
+                  <Tooltip content={<CustomTooltip />} />
                   <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: isMobile ? "11px" : "12px" }} />
                   <Area type="monotone" dataKey="utroseno" stroke="none" fill="url(#fillUtroseno)" fillOpacity={1} isAnimationActive={false} legendType="none" />
-                  <Line
-                    type="monotone"
-                    dataKey="utroseno"
-                    name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"}
-                    stroke="#8b5cf6"
-                    strokeWidth={isMobile ? 2 : 2.6}
-                    strokeLinecap="round"
-                    dot={{ r: isMobile ? 2 : 3 }}
-                    activeDot={{ r: isMobile ? 4 : 5, stroke: "#fff", strokeWidth: 2 }}
-                    connectNulls={true}
-                  />
+                  <Line type="monotone" dataKey="utroseno" name={artiklToDisplay ? `Utrošeno (${artiklToDisplay})` : "Utrošeno"} stroke="#8b5cf6" strokeWidth={isMobile ? 1.5 : 2} dot={{ r: isMobile ? 2 : 3 }} connectNulls={true} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
