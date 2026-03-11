@@ -1438,7 +1438,7 @@ export default function ObracunPage() {
       const allInvoiceImageUrls = Array.from(new Set([
         ...draftInvoiceImages,
         ...uploadedInvoiceImages,
-        ...invoiceImages.map((file) => typeof file === 'string' ? file : undefined).filter(Boolean)
+        ...invoiceImages.filter((file) => typeof file === 'string') as string[]
       ]));
 
       // 4. Sačuvaj ažurirani obračun u bazu kao privremeni (sa isAzuriran: true i isDraft: true)
