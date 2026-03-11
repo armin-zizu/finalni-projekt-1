@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useCjenovnik } from "../context/CjenovnikContext";
 import { useSubscription } from "../context/SubscriptionContext";
 import { useRole } from "../context/RoleContext";
-import { getUserId, uploadFile, saveObracun, getObracuni /* , getDraftObracun */ } from "../../lib/api";
+import { getUserId, uploadFile, saveObracun, getObracuni, getAuthToken } from "../../lib/api";
 // TEMPORARY: Disabled Firebase imports for development - using mocks
 // import { auth } from "../../lib/firebase";
 // import { db, storage } from "../../lib/firebase";
@@ -748,89 +748,13 @@ export default function ObracunPage() {
           
           console.log("🟢 Ažurirani obračun učitano:", azuriraniObracun.artikli?.length || 0, "artikala");
         } else {
-          // Nema ažuriranog obračuna - pokušaj fallback iz narudžbi/faktura localStorage
+          // Nema ažuriranog obračuna za datum: inicijalizuj prazan cache, nema fallback-a
           console.log("🟡 Nema ažuriranog obračuna za datum:", datumString);
-
-          const cacheKeys = [`ulazCache_${datumString}`, `ulazCache_${normalizedDatum}`];
-          let fallbackUlazCache: { [naziv: string]: { ulaz: number; staroPocetnoStanje: number; sačuvanUlaz?: number } } = {};
-
-          if (typeof window !== 'undefined') {
-            for (const key of cacheKeys) {
-              const raw = localStorage.getItem(key);
-              if (!raw) continue;
-              try {
-                const parsed = JSON.parse(raw);
-                if (parsed && typeof parsed === 'object') {
-                  Object.keys(parsed).forEach((naziv) => {
-                    const entry = parsed[naziv];
-                    const ulaz = Number(entry?.ulaz) || 0;
-                    if (ulaz === 0) return;
-                    fallbackUlazCache[naziv] = {
-                      ulaz,
-                      staroPocetnoStanje: Number(entry?.staroPocetnoStanje) || 0,
-                      sačuvanUlaz: Number(entry?.sačuvanUlaz) || ulaz,
-                    };
-                  });
-                }
-              } catch (e) {
-                console.warn(`⚠️ Ne mogu parsirati ${key}:`, e);
-              }
-            }
-
-            if (Object.keys(fallbackUlazCache).length === 0) {
-              try {
-                const acceptedInvoicesRaw = localStorage.getItem('acceptedInvoices');
-                const acceptedInvoices = acceptedInvoicesRaw ? JSON.parse(acceptedInvoicesRaw) : {};
-
-                const toInvoiceList = (value: any): Array<{ invoiceId?: string; items?: Array<{ name?: string; quantity?: number }> }> => {
-                  if (Array.isArray(value)) return value;
-                  if (value && typeof value === 'object' && Array.isArray(value.items)) return [value];
-                  return [];
-                };
-
-                const invoiceMap = new Map<string, { invoiceId?: string; items?: Array<{ name?: string; quantity?: number }> }>();
-                [datumString, normalizedDatum].forEach((key) => {
-                  const list = toInvoiceList(acceptedInvoices?.[key]);
-                  list.forEach((invoice, index) => {
-                    const invoiceId = invoice?.invoiceId || `legacy-${key}-${index}`;
-                    if (!invoiceMap.has(invoiceId)) {
-                      invoiceMap.set(invoiceId, invoice);
-                    }
-                  });
-                });
-
-                Array.from(invoiceMap.values()).forEach((invoice) => {
-                  const invoiceItems = Array.isArray(invoice?.items) ? invoice.items : [];
-                  invoiceItems.forEach((item: any) => {
-                    const naziv = item?.name;
-                    const ulaz = Number(item?.quantity) || 0;
-                    if (!naziv || ulaz === 0) return;
-
-                    const existingUlaz = Number(fallbackUlazCache[naziv]?.ulaz) || 0;
-                    const nextUlaz = existingUlaz + ulaz;
-                    fallbackUlazCache[naziv] = {
-                      ulaz: nextUlaz,
-                      staroPocetnoStanje: Number(fallbackUlazCache[naziv]?.staroPocetnoStanje) || 0,
-                      sačuvanUlaz: nextUlaz,
-                    };
-                  });
-                });
-              } catch (e) {
-                console.warn('⚠️ Ne mogu parsirati acceptedInvoices fallback:', e);
-              }
-            }
-          }
-
-          const hasFallbackUlaz = Object.keys(fallbackUlazCache).length > 0;
-          setUlazCacheForDatum(fallbackUlazCache);
+          setUlazCacheForDatum({});
           setSavedInvoiceImagesCount(0);
-          setHasUlazInCache(hasFallbackUlaz);
-          setIsUlazLocked(hasFallbackUlaz);
-          setIsAzuriran(hasFallbackUlaz);
-
-          if (hasFallbackUlaz) {
-            console.log('🟢 Učitane narudžbe/fakture iz localStorage fallback-a za obračun:', fallbackUlazCache);
-          }
+          setHasUlazInCache(false);
+          setIsUlazLocked(false);
+          setIsAzuriran(false);
         }
       } catch (error: any) {
         console.warn("Greška pri učitavanju ažuriranog obračuna:", error);

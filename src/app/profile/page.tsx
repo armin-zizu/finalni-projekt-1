@@ -2847,7 +2847,7 @@ export default function Profile() {
               </h3>
 
               <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "12px", textAlign: "center" }}>
-                Status: {hasCustomUlazPin ? "Postavljena prilagođena šifra" : `Koristi se zadana šifra (${DEFAULT_ULAZ_UNLOCK_PIN})`}
+                Status: Promjena šifre omogućena
               </p>
 
               <div className="ulaz-pin-fields" style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", marginBottom: "10px" }}>
