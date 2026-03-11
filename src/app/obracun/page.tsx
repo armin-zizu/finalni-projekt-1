@@ -2828,47 +2828,170 @@ export default function ObracunPage() {
       <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px", textAlign: isMobile ? "center" : "left" }}>
         Rashodi
       </h2>
-      <div style={tableWrapperStyle}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Naziv</th>
-              <th style={{
-                ...thStyle,
-                paddingLeft: isMobile ? undefined : "25px"
-              }}>Cijena</th>
-              <th style={thStyle}>Akcija</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rashodi.map((r, index) => (
-              {isMobile ? (
-                <div key={index} style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  borderBottom: "1px solid #e5e7eb",
-                  fontSize: "15px",
-                  fontWeight: 500,
-                  background: index % 2 === 0 ? "#f9fafb" : "#fff",
-                }}>
-                  <span style={{ color: "#1f2937", fontWeight: 600 }}>{r.naziv}</span>
-                  <span style={{ color: "#dc2626", fontWeight: 700 }}>{r.cijena.toFixed(2)} KM</span>
-                </div>
-              ) : (
+      {isMobile ? (
+        <div style={{ marginTop: "8px" }}>
+          {rashodi.map((r, index) => (
+            <div key={index} style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "10px 12px",
+              borderBottom: "1px solid #e5e7eb",
+              fontSize: "15px",
+              fontWeight: 500,
+              background: index % 2 === 0 ? "#f9fafb" : "#fff",
+            }}>
+              <span style={{ color: "#1f2937", fontWeight: 600 }}>{r.naziv}</span>
+              <span style={{ color: "#dc2626", fontWeight: 700 }}>{r.cijena.toFixed(2)} KM</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={tableWrapperStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Naziv</th>
+                <th style={{
+                  ...thStyle,
+                  paddingLeft: "25px"
+                }}>Cijena</th>
+                <th style={thStyle}>Akcija</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rashodi.map((r, index) => (
                 <tr key={index}>
                   {editRashodIndex === index ? (
-                    // ...existing code...
+                    <>
+                      <td style={tdStyle}>
+                        <input
+                          type="text"
+                          value={editRashod.naziv}
+                          onChange={(e) => setEditRashod({ ...editRashod, naziv: e.target.value })}
+                          style={{...rashodInputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+                          disabled={!canEdit}
+                          readOnly={!canEdit}
+                        />
+                      </td>
+                      <td style={{
+                        ...tdStyle,
+                        paddingLeft: "25px"
+                      }}>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={editRashod.cijena === 0 ? "" : editRashod.cijena}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => setEditRashod({ ...editRashod, cijena: Number(e.target.value) || 0 })}
+                          style={{
+                            ...rashodInputStyle,
+                            width: "100%",
+                            maxWidth: "160px",
+                            opacity: canEdit ? 1 : 0.5,
+                            cursor: canEdit ? "text" : "not-allowed"
+                          }}
+                          className="no-spin"
+                          disabled={!canEdit}
+                          readOnly={!canEdit}
+                        />
+                      </td>
+                      <td style={tdStyle}>
+                        <label
+                          style={{
+                            ...buttonStyle,
+                            opacity: canEdit ? 1 : 0.5,
+                            cursor: canEdit ? "pointer" : "not-allowed",
+                            margin: "0 4px 4px 0",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "4px",
+                            fontSize: "12px",
+                            padding: "6px 10px"
+                          }}
+                        >
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              setEditRashodImage(file);
+                              e.target.value = "";
+                            }}
+                            style={{ display: "none" }}
+                            disabled={!canEdit}
+                          />
+                          📸 {editRashodImage ? editRashodImage.name.substring(0, 10) + "..." : editRashod.imageUrl ? "Promijeni" : "Dodaj"}
+                        </label>
+                        {editRashodImage && (
+                          <button
+                            style={{
+                              padding: "4px 8px",
+                              background: "#dc2626",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px",
+                              marginLeft: "4px"
+                            }}
+                            onClick={() => setEditRashodImage(null)}
+                            disabled={!canEdit}
+                          >
+                            ✕
+                          </button>
+                        )}
+                        <button 
+                          style={{...buttonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+                          onClick={handleSaveEditRashod}
+                          disabled={!canEdit}
+                        >
+                          Spremi
+                        </button>
+                        <button 
+                          style={{...cancelButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+                          onClick={handleCancelEditRashod} 
+                          className="cancel-button"
+                          disabled={!canEdit}
+                        >
+                          Otkaži
+                        </button>
+                      </td>
+                    </>
                   ) : (
-                    // ...existing code...
+                    <>
+                      <td style={tdStyle}>{r.naziv}</td>
+                      <td style={{
+                        ...tdStyle,
+                        paddingLeft: "25px"
+                      }}>{r.cijena.toFixed(2)}</td>
+                      <td style={tdStyle}>
+                        <button
+                          style={{...editButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
+                          onClick={() => handleEditRashod(index)}
+                          className="edit-button"
+                          disabled={!canEdit}
+                        >
+                          Uredi
+                        </button>
+                        <button
+                          style={{...deleteButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
+                          onClick={() => handleDeleteRashod(index)}
+                          className="delete-button"
+                          disabled={!canEdit}
+                        >
+                          Obriši
+                        </button>
+                      </td>
+                    </>
                   )}
                 </tr>
-              )}
-            ))}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {isMobile ? (
         // Mobilna verzija - Card layout
@@ -3140,47 +3263,170 @@ export default function ObracunPage() {
       <h2 style={{ fontSize: "18px", fontWeight: 500, color: "#1f2937", marginBottom: "16px", textAlign: isMobile ? "center" : "left" }}>
         Prihodi
       </h2>
-      <div style={tableWrapperStyle}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Naziv</th>
-              <th style={{
-                ...thStyle,
-                paddingLeft: isMobile ? undefined : "25px"
-              }}>Cijena</th>
-              <th style={thStyle}>Akcija</th>
-            </tr>
-          </thead>
-          <tbody>
-            {prihodi.map((p, index) => (
-              {isMobile ? (
-                <div key={index} style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  borderBottom: "1px solid #e5e7eb",
-                  fontSize: "15px",
-                  fontWeight: 500,
-                  background: index % 2 === 0 ? "#f9fafb" : "#fff",
-                }}>
-                  <span style={{ color: "#1f2937", fontWeight: 600 }}>{p.naziv}</span>
-                  <span style={{ color: "#9333ea", fontWeight: 700 }}>{p.cijena.toFixed(2)} KM</span>
-                </div>
-              ) : (
+      {isMobile ? (
+        <div style={{ marginTop: "8px" }}>
+          {prihodi.map((p, index) => (
+            <div key={index} style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "10px 12px",
+              borderBottom: "1px solid #e5e7eb",
+              fontSize: "15px",
+              fontWeight: 500,
+              background: index % 2 === 0 ? "#f9fafb" : "#fff",
+            }}>
+              <span style={{ color: "#1f2937", fontWeight: 600 }}>{p.naziv}</span>
+              <span style={{ color: "#9333ea", fontWeight: 700 }}>{p.cijena.toFixed(2)} KM</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={tableWrapperStyle}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Naziv</th>
+                <th style={{
+                  ...thStyle,
+                  paddingLeft: "25px"
+                }}>Cijena</th>
+                <th style={thStyle}>Akcija</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prihodi.map((p, index) => (
                 <tr key={index}>
                   {editPrihodIndex === index ? (
-                    // ...existing code...
+                    <>
+                      <td style={tdStyle}>
+                        <input
+                          type="text"
+                          value={editPrihod.naziv}
+                          onChange={(e) => setEditPrihod({ ...editPrihod, naziv: e.target.value })}
+                          style={{...rashodInputStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "text" : "not-allowed"}}
+                          disabled={!canEdit}
+                          readOnly={!canEdit}
+                        />
+                      </td>
+                      <td style={{
+                        ...tdStyle,
+                        paddingLeft: "25px"
+                      }}>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={editPrihod.cijena === 0 ? "" : editPrihod.cijena}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => setEditPrihod({ ...editPrihod, cijena: Number(e.target.value) || 0 })}
+                          style={{
+                            ...rashodInputStyle,
+                            width: "100%",
+                            maxWidth: "160px",
+                            opacity: canEdit ? 1 : 0.5,
+                            cursor: canEdit ? "text" : "not-allowed"
+                          }}
+                          className="no-spin"
+                          disabled={!canEdit}
+                          readOnly={!canEdit}
+                        />
+                      </td>
+                      <td style={tdStyle}>
+                        <label
+                          style={{
+                            ...buttonStyle,
+                            opacity: canEdit ? 1 : 0.5,
+                            cursor: canEdit ? "pointer" : "not-allowed",
+                            margin: "0 4px 4px 0",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "4px",
+                            fontSize: "12px",
+                            padding: "6px 10px"
+                          }}
+                        >
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              setEditPrihodImage(file);
+                              e.target.value = "";
+                            }}
+                            style={{ display: "none" }}
+                            disabled={!canEdit}
+                          />
+                          📸 {editPrihodImage ? editPrihodImage.name.substring(0, 10) + "..." : editPrihod.imageUrl ? "Promijeni" : "Dodaj"}
+                        </label>
+                        {editPrihodImage && (
+                          <button
+                            style={{
+                              padding: "4px 8px",
+                              background: "#dc2626",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px",
+                              marginLeft: "4px"
+                            }}
+                            onClick={() => setEditPrihodImage(null)}
+                            disabled={!canEdit}
+                          >
+                            ✕
+                          </button>
+                        )}
+                        <button 
+                          style={{...buttonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+                          onClick={handleSaveEditPrihod}
+                          disabled={!canEdit}
+                        >
+                          Spremi
+                        </button>
+                        <button 
+                          style={{...cancelButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
+                          onClick={handleCancelEditPrihod} 
+                          className="cancel-button"
+                          disabled={!canEdit}
+                        >
+                          Otkaži
+                        </button>
+                      </td>
+                    </>
                   ) : (
-                    // ...existing code...
+                    <>
+                      <td style={tdStyle}>{p.naziv}</td>
+                      <td style={{
+                        ...tdStyle,
+                        paddingLeft: "25px"
+                      }}>{p.cijena.toFixed(2)}</td>
+                      <td style={tdStyle}>
+                        <button
+                          style={{...editButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
+                          onClick={() => handleEditPrihod(index)}
+                          className="edit-button"
+                          disabled={!canEdit}
+                        >
+                          Uredi
+                        </button>
+                        <button
+                          style={{...deleteButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
+                          onClick={() => handleDeletePrihod(index)}
+                          className="delete-button"
+                          disabled={!canEdit}
+                        >
+                          Obriši
+                        </button>
+                      </td>
+                    </>
                   )}
                 </tr>
-              )}
-            ))}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {isMobile ? (
         // Mobilna verzija - Card layout
