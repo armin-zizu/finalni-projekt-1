@@ -323,7 +323,13 @@ export default function ObracunPage() {
       return;
     }
     try {
-      const res = await fetch('/api/users/me/pin', { method: 'GET' });
+      const token = getAuthToken && getAuthToken();
+      const res = await fetch('/api/users/me/pin', {
+        method: 'GET',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
       if (!res.ok) {
         setPinError("Greška pri provjeri šifre.");
         return;

@@ -178,7 +178,6 @@ export default function Profile() {
   const [ulazPinNew, setUlazPinNew] = useState("");
   const [ulazPinConfirm, setUlazPinConfirm] = useState("");
   const [ulazPinMessage, setUlazPinMessage] = useState("");
-  const [hasCustomUlazPin, setHasCustomUlazPin] = useState(false);
   
   // Detektuj mobilnu verziju
   useEffect(() => {
@@ -190,11 +189,7 @@ export default function Profile() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedPin = localStorage.getItem(ULAZ_UNLOCK_PIN_STORAGE_KEY);
-    setHasCustomUlazPin(!!storedPin && storedPin.length === 4);
-  }, []);
+  // Uklonjeno lokalno keširanje PIN-a
 
   const editingBoxRef = useRef<HTMLTableCellElement | null>(null);
   const [arhivaCount, setArhivaCount] = useState<number>(0);
@@ -280,20 +275,29 @@ export default function Profile() {
     setTimeout(() => setUlazPinMessage(""), 5000);
   };
 
-  const handleSetUlazPin = () => {
+  // Uklonjeno postavljanje PIN-a, ostaje samo promjena
+
+  const handleChangeUlazPin = () => {
+    const currentPin = ulazPinCurrent.trim();
     const newPin = ulazPinNew.trim();
     const confirmPin = ulazPinConfirm.trim();
 
+    if (currentPin.length !== 4) {
+      showUlazPinFeedback("Trenutna šifra mora imati tačno 4 znaka.");
+      return;
+    }
     if (newPin.length !== 4) {
       showUlazPinFeedback("Nova šifra mora imati tačno 4 znaka.");
       return;
     }
-
     if (newPin !== confirmPin) {
       showUlazPinFeedback("Potvrda šifre se ne poklapa.");
       return;
     }
-
+    if (newPin === currentPin) {
+      showUlazPinFeedback("Nova šifra mora biti drugačija od trenutne.");
+      return;
+    }
     const token = getAuthToken();
     fetch('/api/users/me/pin', {
       method: 'PUT',
@@ -306,73 +310,13 @@ export default function Profile() {
       .then(async (res) => {
         if (!res.ok) {
           const data = await res.json();
-          showUlazPinFeedback(data.error || 'Greška pri postavljanju šifre.');
+          showUlazPinFeedback(data.error || 'Greška pri promjeni šifre.');
           return;
         }
-        setHasCustomUlazPin(true);
         setUlazPinCurrent("");
         setUlazPinNew("");
         setUlazPinConfirm("");
-        showUlazPinFeedback("Šifra za Uredi ulaz je uspješno postavljena.");
-      })
-      .catch(() => showUlazPinFeedback('Greška pri komunikaciji sa serverom.'));
-  };
-
-  const handleChangeUlazPin = () => {
-    const currentPin = ulazPinCurrent.trim();
-    const newPin = ulazPinNew.trim();
-    const confirmPin = ulazPinConfirm.trim();
-
-    if (currentPin.length !== 4) {
-      showUlazPinFeedback("Trenutna šifra mora imati tačno 4 znaka.");
-      return;
-    }
-
-    fetch('/api/users/me/pin', { method: 'GET' })
-      .then(async (res) => {
-        if (!res.ok) {
-          showUlazPinFeedback('Greška pri provjeri trenutne šifre.');
-          return;
-        }
-        const data = await res.json();
-        if (!data.pin || currentPin !== data.pin) {
-          showUlazPinFeedback("Trenutna šifra nije tačna.");
-          return;
-        }
-        if (newPin.length !== 4) {
-          showUlazPinFeedback("Nova šifra mora imati tačno 4 znaka.");
-          return;
-        }
-        if (newPin !== confirmPin) {
-          showUlazPinFeedback("Potvrda šifre se ne poklapa.");
-          return;
-        }
-        if (newPin === currentPin) {
-          showUlazPinFeedback("Nova šifra mora biti drugačija od trenutne.");
-          return;
-        }
-        const token = getAuthToken();
-        fetch('/api/users/me/pin', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ newPin }),
-        })
-          .then(async (res2) => {
-            if (!res2.ok) {
-              const data2 = await res2.json();
-              showUlazPinFeedback(data2.error || 'Greška pri promjeni šifre.');
-              return;
-            }
-            setHasCustomUlazPin(true);
-            setUlazPinCurrent("");
-            setUlazPinNew("");
-            setUlazPinConfirm("");
-            showUlazPinFeedback("Šifra za Uredi ulaz je uspješno promijenjena.");
-          })
-          .catch(() => showUlazPinFeedback('Greška pri komunikaciji sa serverom.'));
+        showUlazPinFeedback("Šifra za Uredi ulaz je uspješno promijenjena.");
       })
       .catch(() => showUlazPinFeedback('Greška pri komunikaciji sa serverom.'));
   };
