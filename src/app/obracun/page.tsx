@@ -1612,8 +1612,10 @@ export default function ObracunPage() {
 
 
 
-    // Prikupi slike iz drafta i lokalnog state-a, pa ih spoji
+
+    // Automatski spoji slike iz drafta i lokalnog state-a
     let draftInvoiceImages: string[] = [];
+    let uploadedInvoiceImages: string[] = [];
     try {
       const obracuni = await getObracuni(userId, datumString);
       const draftObracun = obracuni.find((ob: any) => {
@@ -1629,7 +1631,6 @@ export default function ObracunPage() {
     }
 
     // Uvijek uploaduj slike iz lokalnog state-a (invoiceImages)
-    let uploadedInvoiceImages: string[] = [];
     if (invoiceImages.length > 0) {
       try {
         uploadedInvoiceImages = await uploadInvoiceImages(datumString);
@@ -1638,8 +1639,8 @@ export default function ObracunPage() {
       }
     }
 
-    // Kombinuj slike iz drafta i uploadovane slike
-    const allInvoiceImageUrls = [...draftInvoiceImages, ...uploadedInvoiceImages];
+    // Spoji slike i ukloni duplikate (ako postoji isti URL)
+    const allInvoiceImageUrls = Array.from(new Set([...draftInvoiceImages, ...uploadedInvoiceImages]));
     if (allInvoiceImageUrls.length > 0) {
       (arhiviraniObracun as any).invoiceImages = allInvoiceImageUrls;
     }
