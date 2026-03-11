@@ -1,6 +1,4 @@
-          if (obracun.invoiceImages) {
-            console.log('[ARHIVA] Obračun', obracun.datum, 'ima slike:', obracun.invoiceImages);
-          }
+
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
