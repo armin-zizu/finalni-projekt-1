@@ -2215,20 +2215,20 @@ export default function DashboardPage() {
 
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any; label?: string }) => {
     if (active && payload && payload.length) {
-      const dataSource = payload[0].dataKey === "utroseno" ? selectedData : chartData;
-      const unit = dataSource === chartData ? " KM" : "";
-
+      // Prikaži samo Bruto, Neto, Prihod, Rashod
+      const allowedKeys = ["bruto", "neto", "prihod", "rashod"];
+      const allowedNames = ["Bruto", "Neto", "Prihod", "Rashod"];
       return (
         <div style={{ backgroundColor: "#1f2937", color: "#fff", padding: 12, borderRadius: 8 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>
-          {payload.map((p: any) => {
-            return (
+          {payload
+            .filter((p: any) => allowedKeys.includes(p.dataKey) || allowedNames.includes(p.name))
+            .map((p: any) => (
               <div key={p.dataKey} style={{ marginBottom: 4 }}>
                 <span style={{ color: p.color, fontWeight: 500 }}>{p.name}: </span>
-                {p.value.toFixed(2)}{unit}
+                {p.value.toFixed(2)} KM
               </div>
-            );
-          })}
+            ))}
         </div>
       );
     }
