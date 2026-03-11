@@ -1611,8 +1611,9 @@ export default function ObracunPage() {
     }
 
 
-    // Automatski prenesi slike faktura iz drafta u finalni obračun
-    let allInvoiceImageUrls: string[] = [];
+
+    // Prikupi slike iz drafta i lokalnog state-a, pa ih spoji
+    let draftInvoiceImages: string[] = [];
     try {
       const obracuni = await getObracuni(userId, datumString);
       const draftObracun = obracuni.find((ob: any) => {
@@ -1621,23 +1622,24 @@ export default function ObracunPage() {
         return obDatum === trazeniDatum && ob.isAzuriran === true;
       });
       if (draftObracun && Array.isArray(draftObracun.invoiceImages)) {
-        allInvoiceImageUrls = [...draftObracun.invoiceImages];
+        draftInvoiceImages = [...draftObracun.invoiceImages];
       }
     } catch (error) {
       console.warn("Greška pri učitavanju drafta za slike faktura:", error);
     }
 
-    // Ako ima novih slika za upload, dodaj ih
+    // Uvijek uploaduj slike iz lokalnog state-a (invoiceImages)
+    let uploadedInvoiceImages: string[] = [];
     if (invoiceImages.length > 0) {
       try {
-        const noveSlike = await uploadInvoiceImages(datumString);
-        allInvoiceImageUrls = [...allInvoiceImageUrls, ...noveSlike];
+        uploadedInvoiceImages = await uploadInvoiceImages(datumString);
       } catch (error) {
         console.warn("Greška pri uploadu novih slika faktura:", error);
       }
     }
 
-    // Dodaj slike u finalni obračun
+    // Kombinuj slike iz drafta i uploadovane slike
+    const allInvoiceImageUrls = [...draftInvoiceImages, ...uploadedInvoiceImages];
     if (allInvoiceImageUrls.length > 0) {
       (arhiviraniObracun as any).invoiceImages = allInvoiceImageUrls;
     }
