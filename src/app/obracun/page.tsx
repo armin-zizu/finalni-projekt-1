@@ -1421,7 +1421,7 @@ export default function ObracunPage() {
         }
       }
 
-      // Sačuvaj ažurirani obračun u bazi kao privremeni (sa isAzuriran: true i isDraft: true)
+      // Sačuvaj ažurirani obračun u bazu kao privremeni (sa isAzuriran: true i isDraft: true)
       const ukupnoArtikli = updated.reduce((sum, a) => sum + a.vrijednostKM, 0);
       const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
       const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
@@ -1622,8 +1622,8 @@ export default function ObracunPage() {
       const obracuni = await getObracuni(userId, datumString);
       // Traži draft obračun (isAzuriran === true)
       const draftObracun = obracuni.find((ob: any) => {
-        const obDatum = ob.datum && ob.datum.replace(/\.$/, '');
-        const trazeniDatum = datumString.replace(/\.$/, '');
+        const obDatum = ob.datum && ob.datum.replace(/\.$/, ''); // Ukloni tačku sa kraja ako postoji
+        const trazeniDatum = datumString.replace(/\.$/, ''); // Ukloni tačku sa kraja ako postoji
         return obDatum === trazeniDatum && ob.isAzuriran === true;
       });
       

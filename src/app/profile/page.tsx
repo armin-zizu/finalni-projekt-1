@@ -2888,7 +2888,12 @@ export default function Profile() {
               </div>
 
               <div className="ulaz-pin-actions" style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
-                {/* Uklonjen nepostojeći handler za postavljanje šifre, ostaje samo promjena šifre */}
+                <button
+                  style={{ ...buttonStyle, marginRight: 0 }}
+                  onClick={handleSetUlazPin}
+                >
+                  Postavi šifru
+                </button>
                 <button
                   style={{ ...buttonStyle, marginRight: 0, background: "#7c3aed" }}
                   onClick={handleChangeUlazPin}
