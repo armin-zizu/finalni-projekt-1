@@ -301,8 +301,45 @@ export default function ObracunPage() {
   }, [user?.isOwner]);
 
   // SVI KORISNICI MOGU KORISTITI OBRACUN - nema ograničenja
+
   // Provjeri samo da li postoji korisnik (user)
   const canEdit = !!user; // Ako postoji korisnik, može da koristi obracun
+
+  // --- PIN modal state and handlers (must be at the top, before return) ---
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [enteredPin, setEnteredPin] = useState("");
+  const [pinError, setPinError] = useState("");
+
+  const handleUnlockUlazEditing = () => {
+    if (!canEdit) return;
+    setEnteredPin("");
+    setPinError("");
+    setShowPinModal(true);
+  };
+
+  const handleConfirmPin = async () => {
+    if (enteredPin.length !== 4) {
+      setPinError("Šifra mora imati tačno 4 znaka.");
+      return;
+    }
+    try {
+      const res = await fetch('/api/users/me/pin', { method: 'GET' });
+      if (!res.ok) {
+        setPinError("Greška pri provjeri šifre.");
+        return;
+      }
+      const data = await res.json();
+      if (!data.pin || enteredPin !== data.pin) {
+        setPinError("Pogrešna šifra.");
+        return;
+      }
+      setIsUlazLocked(false);
+      setResetKey((k) => k + 1);
+      setShowPinModal(false);
+    } catch {
+      setPinError("Greška pri komunikaciji sa serverom.");
+    }
+  };
   
   // Debug logging
   useEffect(() => {
@@ -1298,7 +1335,7 @@ export default function ObracunPage() {
                   prihodi: Array.isArray(obracun.prihodi) ? obracun.prihodi : [],
                   ukupnoArtikli: obracun.ukupnoArtikli || 0,
                   ukupnoRashod: ukupnoRashod,
-                  ukupnoPrihod: obracun.ukupnoPrihod || 0,
+                  ukupnoPrihod: ukupnoPrihod,
                   neto: (obracun.ukupnoArtikli || 0) + (obracun.ukupnoPrihod || 0) - ukupnoRashod,
                   isAzuriran: false, // Finalni obračun
                   imaUlaz: obracun.imaUlaz || false,
@@ -1455,9 +1492,9 @@ export default function ObracunPage() {
       }
 
       // Sačuvaj ažurirani obračun u bazu kao privremeni (sa isAzuriran: true i isDraft: true)
-      const ukupnoArtikli = updated.reduce((sum, a) => sum + (a.vrijednostKM || 0), 0);
-      const ukupnoRashod = rashodi.reduce((sum, r) => sum + (r.cijena || 0), 0);
-      const ukupnoPrihod = prihodi.reduce((sum, p) => sum + (p.cijena || 0), 0);
+      const ukupnoArtikli = updated.reduce((sum, a) => sum + a.vrijednostKM, 0);
+      const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+      const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
       const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
 
       // Sačuvaj kao draft obračun (privremeni, sa isAzuriran: true i isDraft: true)
@@ -1486,31 +1523,7 @@ export default function ObracunPage() {
   // Provjeri da li obračun ima ulaz (trenutni ulaz, sačuvan ulaz, ili u cache-u)
   const hasUlaz = artikli.some((a) => a.ulaz !== 0 || (a.sačuvanUlaz !== undefined && a.sačuvanUlaz !== 0)) || hasUlazInCache;
 
-  const handleUnlockUlazEditing = () => {
-    if (!canEdit) return;
 
-    const configuredPin =
-      typeof window !== "undefined"
-        ? localStorage.getItem(ULAZ_UNLOCK_PIN_STORAGE_KEY) || DEFAULT_ULAZ_UNLOCK_PIN
-        : DEFAULT_ULAZ_UNLOCK_PIN;
-
-    const enteredPin = prompt("Unesite 4-znakovnu šifru za otključavanje ulaza:") || "";
-
-    if (!enteredPin) return;
-
-    if (enteredPin.length !== 4) {
-      alert("Šifra mora imati tačno 4 znaka.");
-      return;
-    }
-
-    if (enteredPin !== configuredPin) {
-      alert("Pogrešna šifra.");
-      return;
-    }
-
-    setIsUlazLocked(false);
-    alert("Ulaz je otključan.");
-  };
 
   // Funkcija za upload slika faktura - MIGRIRANO NA API
   const uploadInvoiceImages = async (datumString: string): Promise<string[]> => {
@@ -1591,7 +1604,7 @@ export default function ObracunPage() {
       ukupnoPrihod,
       neto,
       artikli: artikli.map((a) => {
-        // Prioritet: 1. trenutni ulaz, 2. sačuvani ulaz u state-u, 3. ulaz iz cache-a
+        // Prioritet: 1. trenutni ulaz, 2. sačuvan ulaz u state-u, 3. ulaz iz cache-a
         let ulazZaPrikaz = 0;
         let staroPocetnoStanjeZaPrikaz = a.staroPocetnoStanje;
 
@@ -3109,7 +3122,7 @@ export default function ObracunPage() {
                 opacity: canEdit ? 1 : 0.5,
                 cursor: canEdit ? "pointer" : "not-allowed",
                 marginTop: 0,
-              marginLeft: 0,
+                marginLeft: 0,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -3811,6 +3824,29 @@ export default function ObracunPage() {
           {uploadingImages ? `Upload slika... ${Math.round(uploadProgress)}%` : "Završi obračun"}
         </button>
       </div>
+      {/* PIN Modal for unlocking ulaz */}
+      {showPinModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', borderRadius: 12, padding: 32, minWidth: 320, boxShadow: '0 2px 16px #0002', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Unesite PIN za otključavanje ulaza</h3>
+            <input
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
+              autoFocus
+              value={enteredPin}
+              onChange={e => setEnteredPin(e.target.value.replace(/[^0-9]/g, ""))}
+              style={{ fontSize: 24, letterSpacing: 8, textAlign: 'center', padding: 8, border: '1px solid #ddd', borderRadius: 6, marginBottom: 12, width: 120 }}
+            />
+            {pinError && <div style={{ color: '#dc2626', marginBottom: 8 }}>{pinError}</div>}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button style={{ background: '#3b82f6', color: 'white', padding: '8px 20px', borderRadius: 6, border: 'none', fontWeight: 600 }} onClick={handleConfirmPin}>Potvrdi</button>
+              <button style={{ background: '#6b7280', color: 'white', padding: '8px 20px', borderRadius: 6, border: 'none', fontWeight: 600 }} onClick={() => setShowPinModal(false)}>Otkaži</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
