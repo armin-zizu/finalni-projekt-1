@@ -2215,7 +2215,7 @@ export default function DashboardPage() {
 
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: any; label?: string }) => {
     if (active && payload && payload.length) {
-      // Prikaži samo Bruto, Neto, Prihod, Rashod
+      // Prikaži samo Bruto, Neto, Prihod, Rashod u bojama (bez bijelog teksta)
       const allowedKeys = ["bruto", "neto", "prihod", "rashod"];
       const allowedNames = ["Bruto", "Neto", "Prihod", "Rashod"];
       return (
