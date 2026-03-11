@@ -2774,13 +2774,12 @@ export default function ObracunPage() {
                 <td style={tdStyle} data-label="Ulaz">
                   <input
                     key={`ulaz-${index}-${resetKey}`}
-                    type="number"
-                    step="any"
+                    type="tel"
                     inputMode="numeric"
                     pattern="[0-9]*"
                     value={a.ulaz === 0 ? "" : a.ulaz}
                     onFocus={(e) => e.target.select()}
-                    onChange={(e) => handleUlazChange(index, Number(e.target.value) || 0)}
+                    onChange={(e) => handleUlazChange(index, parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0)}
                     style={{ ...inputStyle, opacity: (canEdit && !isUlazLocked) ? 1 : 0.5, cursor: (canEdit && !isUlazLocked) ? "text" : "not-allowed" }}
                     className="no-spin"
                     disabled={!canEdit || isUlazLocked}
