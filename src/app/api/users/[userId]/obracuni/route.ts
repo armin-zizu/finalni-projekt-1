@@ -337,6 +337,7 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
 
 // POST - Create or update obracun
 async function postHandler(req: AuthRequest, { params }: { params: Promise<{ userId: string }> }): Promise<NextResponse> {
+    console.log('[API/OBRACUNI][POST] Pozvan postHandler za spremanje obračuna');
   try {
     if (!req.user) {
       return NextResponse.json(
@@ -502,6 +503,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
     }
 
     let { datum, artikli, rashodi, prihodi, ukupnoArtikli, ukupnoRashod, ukupnoPrihod, neto, isAzuriran, imaUlaz, invoiceImages, isDraft } = body;
+  console.log('[API/OBRACUNI][POST] Primljen invoiceImages:', invoiceImages);
 
     if (!datum) {
       return NextResponse.json(
@@ -570,6 +572,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
         }
         return url;
       });
+      console.log('[API/OBRACUNI][POST] Normalizovani invoiceImages:', normalizedInvoiceImages);
     }
     
     console.log('Save obracun - Invoice images:', {
@@ -591,6 +594,12 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       imaUlaz: imaUlaz || false,
       invoiceImages: normalizedInvoiceImages || [],
     };
+    console.log('[API/OBRACUNI][POST] obracunData koji se sprema:', obracunData);
+      console.log('[API/OBRACUNI][GET] Pozvan getHandler za dohvatanje arhive');
+          // LOG: Ispiši invoiceImages za svaki obračun
+          if (artikliData.invoiceImages) {
+            console.log(`[API/OBRACUNI][GET] Obračun ${row.user_id} datum ${row.datum} ima slike:`, artikliData.invoiceImages);
+          }
     
     const obracunDataJson = JSON.stringify(obracunData);
 

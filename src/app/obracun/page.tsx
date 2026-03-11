@@ -1508,6 +1508,8 @@ export default function ObracunPage() {
 
   // Čuvanje obračuna (localStorage + opcionalno Firestore)
   const handleSaveObracun = async () => {
+      // LOG: Prije bilo kakve obrade, ispiši trenutno stanje invoiceImages
+      console.log('[OBRACUN] invoiceImages state prije spremanja:', invoiceImages);
     const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
     const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
     const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
@@ -1634,6 +1636,7 @@ export default function ObracunPage() {
     if (invoiceImages.length > 0) {
       try {
         uploadedInvoiceImages = await uploadInvoiceImages(datumString);
+        console.log('[OBRACUN] uploadInvoiceImages rezultat:', uploadedInvoiceImages);
       } catch (error) {
         console.warn("Greška pri uploadu novih slika faktura:", error);
       }
@@ -1643,6 +1646,7 @@ export default function ObracunPage() {
     const allInvoiceImageUrls = Array.from(new Set([...draftInvoiceImages, ...uploadedInvoiceImages]));
     if (allInvoiceImageUrls.length > 0) {
       (arhiviraniObracun as any).invoiceImages = allInvoiceImageUrls;
+      console.log('[OBRACUN] Sve slike koje šaljemo u arhiviraniObracun:', allInvoiceImageUrls);
     }
 
     // SPREMI PREKO API-JA kao finalni obračun (isDraft: false ili undefined)
@@ -1671,6 +1675,7 @@ export default function ObracunPage() {
         invoiceImages: allInvoiceImageUrls.length > 0 ? allInvoiceImageUrls : undefined,
         isDraft: false, // Finalni obračun - API će obrisati draft prije spremanja
       };
+      console.log('[OBRACUN] saveData koji se šalje u saveObracun:', saveData);
       
       console.log("📤 Pozivanje saveObracun API sa podacima:", {
         ...saveData,
