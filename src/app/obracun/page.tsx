@@ -1610,55 +1610,34 @@ export default function ObracunPage() {
       return;
     }
 
-    // Uzmi slike iz draft-a (ako postoje)
-    // VAŽNO: Prvo proveri da li postoje ne-uploadovane slike u state-u koje treba upload-ovati
-    // Ako postoje slike koje nisu upload-ovane, upload-uj ih PRVO pa onda uzmi iz draft-a
-    let draftInvoiceImageUrls: string[] = [];
+
+    // Automatski prenesi slike faktura iz drafta u finalni obračun
+    let allInvoiceImageUrls: string[] = [];
     try {
-      // Prvo proveri da li postoje slike koje treba upload-ovati (ako je korisnik kliknuo "Sačuvaj slike fakture")
-      // Ako je `savedInvoiceImagesCount > 0`, znači da su već upload-ovane u draft
-      // Ali ako ima `invoiceImages.length > 0`, treba ih upload-ovati PRVO
-      
       const obracuni = await getObracuni(userId, datumString);
-      // Traži draft obračun (isAzuriran === true)
       const draftObracun = obracuni.find((ob: any) => {
-        const obDatum = ob.datum && ob.datum.replace(/\.$/, ''); // Ukloni tačku sa kraja ako postoji
-        const trazeniDatum = datumString.replace(/\.$/, ''); // Ukloni tačku sa kraja ako postoji
+        const obDatum = ob.datum && ob.datum.replace(/\.$/, '');
+        const trazeniDatum = datumString.replace(/\.$/, '');
         return obDatum === trazeniDatum && ob.isAzuriran === true;
       });
-      
-      console.log('🔍 Traženje draft obračuna:', {
-        trazeniDatum: datumString,
-        obracuniCount: obracuni.length,
-        draftObracun: draftObracun ? 'pronađen' : 'nije pronađen',
-        draftInvoiceImages: draftObracun?.invoiceImages?.length || 0
-      });
-      if (draftObracun && draftObracun.invoiceImages && Array.isArray(draftObracun.invoiceImages)) {
-        draftInvoiceImageUrls = draftObracun.invoiceImages;
-        console.log(`📸 Pronađeno ${draftInvoiceImageUrls.length} slika faktura u draft-u:`, draftInvoiceImageUrls);
-      } else {
-        console.log(`📸 Nema draft obračuna sa slikama za datum ${datumString}`);
+      if (draftObracun && Array.isArray(draftObracun.invoiceImages)) {
+        allInvoiceImageUrls = [...draftObracun.invoiceImages];
       }
-    } catch (error: any) {
-      console.warn("Greška pri učitavanju draft-a za slike:", error);
+    } catch (error) {
+      console.warn("Greška pri učitavanju drafta za slike faktura:", error);
     }
 
-    // Upload novih slika faktura (ako postoje)
-    let newInvoiceImageUrls: string[] = [];
+    // Ako ima novih slika za upload, dodaj ih
     if (invoiceImages.length > 0) {
       try {
-        newInvoiceImageUrls = await uploadInvoiceImages(datumString);
-        console.log(`📸 Upload-ovano ${newInvoiceImageUrls.length} novih slika faktura:`, newInvoiceImageUrls);
-      } catch (error: any) {
-        console.warn("Upozorenje: Slike faktura nisu upload-ovane:", error);
+        const noveSlike = await uploadInvoiceImages(datumString);
+        allInvoiceImageUrls = [...allInvoiceImageUrls, ...noveSlike];
+      } catch (error) {
+        console.warn("Greška pri uploadu novih slika faktura:", error);
       }
     }
-    
-    // Kombinuj slike iz draft-a i nove slike
-    const allInvoiceImageUrls = [...draftInvoiceImageUrls, ...newInvoiceImageUrls];
-    console.log(`📸 Ukupno slika za finalni obračun: ${allInvoiceImageUrls.length}`, allInvoiceImageUrls);
-    
-    // Dodaj slike u obračun - kao što je Firebase radio
+
+    // Dodaj slike u finalni obračun
     if (allInvoiceImageUrls.length > 0) {
       (arhiviraniObracun as any).invoiceImages = allInvoiceImageUrls;
     }
