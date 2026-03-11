@@ -260,10 +260,9 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
           artikliData = {};
         }
       } else if (!artikliData || typeof artikliData !== 'object') {
-        // If artikliData is null, undefined, or not an object, initialize as empty object
         artikliData = {};
       }
-      
+
       // Ensure artikliData has required structure
       if (!artikliData.artikli || !Array.isArray(artikliData.artikli)) {
         artikliData.artikli = [];
@@ -274,25 +273,13 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       if (!artikliData.prihodi || !Array.isArray(artikliData.prihodi)) {
         artikliData.prihodi = [];
       }
-      
-      // VAŽNO: Draft obračuni (isAzuriran: true) se NE konvertuju automatski u finalni
-      // Draft obračuni treba da ostanu draft sve dok korisnik ne klikne "Sačuvaj obračun"
-      // Draft obračuni su namijenjeni za privremeno čuvanje dok korisnik radi na obračunu
-      // Finalni obračun (isAzuriran: false) je onaj koji se prikazuje u arhivi
-      // Draft obračun traje 12 sati nakon završetka datuma - automatski se briše
-      
-      // Ne menjamo isAzuriran status - ostaje kako je sačuvan
-      
+
       // Formatiraj datum u DD.MM.YYYY format za frontend
-      // VAŽNO: Koristimo string manipulaciju umjesto Date objekta da se izbjegne timezone pomak
       let formattedDatum: string;
       if (row.datum) {
-        // Ako postoji datum_raw, koristi ga direktno (već je u DD.MM.YYYY formatu)
         if (row.datum_raw) {
           formattedDatum = row.datum_raw.endsWith('.') ? row.datum_raw : row.datum_raw + '.';
         } else if (typeof row.datum === 'string') {
-          // Ako je string u YYYY-MM-DD formatu (PostgreSQL DATE tip vraća ovako), konvertuj u DD.MM.YYYY. bez Date objekta
-          // Ovo izbjegava timezone konverziju koja može uzrokovati pomak od jednog dana
           if (row.datum.match(/^\d{4}-\d{2}-\d{2}/)) {
             const parts = row.datum.split('-');
             if (parts.length >= 3) {
@@ -302,11 +289,9 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
               formattedDatum = row.datum;
             }
           } else {
-            // Ako već ima DD.MM.YYYY format, dodaj tačku na kraju ako nema
             formattedDatum = row.datum.endsWith('.') ? row.datum : row.datum + '.';
           }
         } else if (row.datum instanceof Date) {
-          // Ako je Date objekat, koristi lokalne metode (ne UTC) - ali ovo bi trebalo biti rijetko
           const dan = String(row.datum.getDate()).padStart(2, '0');
           const mjesec = String(row.datum.getMonth() + 1).padStart(2, '0');
           const godina = row.datum.getFullYear();
@@ -317,13 +302,13 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
       } else {
         formattedDatum = row.datum_raw || '';
       }
-      
-      console.log('Get obracuni - Parsed artikliData for row:', row.user_id, 'has artikli:', Array.isArray(artikliData.artikli), 'artikli count:', artikliData.artikli?.length || 0, 'isAzuriran:', artikliData.isAzuriran, 'datum:', formattedDatum);
-      
-      // Flatten strukturu - vraćamo artikli, rashodi, prihodi direktno na root level
+
+      // Eksplicitno izvuci invoiceImages na root nivo
+      const invoiceImages = Array.isArray(artikliData.invoiceImages) ? artikliData.invoiceImages : [];
+
       return {
-        id: `${row.user_id}_${formattedDatum}`, // Use composite key as id
-        datum: formattedDatum, // Formatiran datum u DD.MM.YYYY. formatu
+        id: `${row.user_id}_${formattedDatum}`,
+        datum: formattedDatum,
         isAzuriran: artikliData.isAzuriran || false,
         artikli: artikliData.artikli || [],
         rashodi: artikliData.rashodi || [],
@@ -333,8 +318,8 @@ async function getHandler(req: AuthRequest, { params }: { params: Promise<{ user
         ukupnoPrihod: artikliData.ukupnoPrihod || 0,
         neto: artikliData.neto || 0,
         imaUlaz: artikliData.imaUlaz || false,
-        invoiceImages: artikliData.invoiceImages || [],
-        isDraft: false, // All obracuni in database are final (no is_draft column)
+        invoiceImages,
+        isDraft: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
