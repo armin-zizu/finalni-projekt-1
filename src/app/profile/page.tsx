@@ -276,7 +276,41 @@ export default function Profile() {
   };
 
   // Uklonjeno postavljanje PIN-a, ostaje samo promjena
-
+  // Funkcija za postavljanje nove šifre za ulaz (samo ako nema postojeće)
+  const handleSetUlazPin = () => {
+    const newPin = ulazPinNew.trim();
+    const confirmPin = ulazPinConfirm.trim();
+    if (newPin.length !== 4) {
+      showUlazPinFeedback("Nova šifra mora imati tačno 4 znaka.");
+      return;
+    }
+    if (newPin !== confirmPin) {
+      showUlazPinFeedback("Potvrda šifre se ne poklapa.");
+      return;
+    }
+    const token = getAuthToken();
+    fetch('/api/users/me/pin', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ newPin }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json();
+          showUlazPinFeedback(data.error || 'Greška pri postavljanju šifre.');
+          return;
+        }
+        setUlazPinNew("");
+        setUlazPinConfirm("");
+        showUlazPinFeedback("Šifra za ulaz je uspješno postavljena.");
+      })
+      .catch(() => {
+        showUlazPinFeedback("Greška pri postavljanju šifre.");
+      });
+  };
   const handleChangeUlazPin = () => {
     const currentPin = ulazPinCurrent.trim();
     const newPin = ulazPinNew.trim();
