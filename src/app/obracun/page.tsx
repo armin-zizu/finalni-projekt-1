@@ -1406,27 +1406,47 @@ export default function ObracunPage() {
     setIsUlazLocked(true); // Zaključaj ulaze nakon ažuriranja
 
     try {
-      // Upload slika faktura prije čuvanja draft-a
-      let invoiceImageUrls: string[] = [];
+      // 1. Učitaj prethodni draft (ako postoji) da pokupimo stare slike
+      let draftInvoiceImages: string[] = [];
+      try {
+        const obracuni = await getObracuni(userId, datumString);
+        const draftObracun = obracuni.find((ob: any) => {
+          const obDatum = ob.datum && ob.datum.replace(/\.$/, '');
+          const trazeniDatum = datumString.replace(/\.$/, '');
+          return obDatum === trazeniDatum && ob.isAzuriran === true;
+        });
+        if (draftObracun && Array.isArray(draftObracun.invoiceImages)) {
+          draftInvoiceImages = [...draftObracun.invoiceImages];
+        }
+      } catch (e) {
+        console.warn("Greška pri učitavanju drafta za slike faktura (azuriranje):", e);
+      }
+
+      // 2. Upload nove slike iz state-a
+      let uploadedInvoiceImages: string[] = [];
       if (invoiceImages.length > 0) {
         try {
-          invoiceImageUrls = await uploadInvoiceImages(datumString);
-          console.log(`📸 Upload-ovano ${invoiceImageUrls.length} slika faktura za draft obračun`);
-          // NE resetuj invoiceImages ovdje! Slike ostaju u state-u do završetka obračuna
-          setSavedInvoiceImagesCount((prev) => prev + invoiceImageUrls.length);
+          uploadedInvoiceImages = await uploadInvoiceImages(datumString);
+          console.log(`📸 Upload-ovano ${uploadedInvoiceImages.length} slika faktura za draft obračun`);
+          setSavedInvoiceImagesCount((prev) => prev + uploadedInvoiceImages.length);
         } catch (error: any) {
           console.warn("Upozorenje: Slike faktura nisu upload-ovane:", error);
-          // Nastavi sa čuvanjem obračuna čak i ako upload slika ne uspije
         }
       }
 
-      // Sačuvaj ažurirani obračun u bazu kao privremeni (sa isAzuriran: true i isDraft: true)
+      // 3. Spoji sve slike (stare iz drafta, nove uploadovane, i još uvijek prisutne u state-u)
+      const allInvoiceImageUrls = Array.from(new Set([
+        ...draftInvoiceImages,
+        ...uploadedInvoiceImages,
+        ...invoiceImages.map((file) => typeof file === 'string' ? file : undefined).filter(Boolean)
+      ]));
+
+      // 4. Sačuvaj ažurirani obračun u bazu kao privremeni (sa isAzuriran: true i isDraft: true)
       const ukupnoArtikli = updated.reduce((sum, a) => sum + a.vrijednostKM, 0);
       const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
       const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
       const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
 
-      // Sačuvaj kao draft obračun (privremeni, sa isAzuriran: true i isDraft: true)
       await saveObracun(userId, {
         datum: datumString,
         artikli: updated,
@@ -1436,10 +1456,10 @@ export default function ObracunPage() {
         ukupnoRashod: ukupnoRashod,
         ukupnoPrihod: ukupnoPrihod,
         neto: neto,
-        isAzuriran: true, // Označi kao ažurirani obračun
+        isAzuriran: true,
         imaUlaz: imaUlaz,
-        invoiceImages: invoiceImageUrls.length > 0 ? invoiceImageUrls : undefined, // Sačuvaj URL-ove slika
-        isDraft: true, // Označi kao draft - biće obrisan kada se sačuva finalni obračun
+        invoiceImages: allInvoiceImageUrls.length > 0 ? allInvoiceImageUrls : undefined,
+        isDraft: true,
       });
 
       alert("Ulaz je sačuvan i zaključan! Kliknite 'Uredi' ako želite promijeniti vrijednosti.");
