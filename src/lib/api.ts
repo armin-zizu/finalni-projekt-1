@@ -518,6 +518,7 @@ export async function saveObracun(
     isDraft?: boolean; // Optional: true za draft, false ili undefined za finalni obračun
   }
 ) {
+  console.log("🔄 saveObracun called with:", { userId, datum: obracunData.datum, isDraft: obracunData.isDraft, rashodiCount: obracunData.rashodi.length });
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
@@ -541,6 +542,7 @@ export async function saveObracun(
     }
 
     const data = await response.json();
+    console.log("✅ saveObracun successful, returning obracun:", data.obracun);
     return data.obracun;
   };
 

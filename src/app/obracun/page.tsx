@@ -802,6 +802,7 @@ export default function ObracunPage() {
         const azuriraniObracun = obracuni.find((ob: any) => {
           if (!ob.isAzuriran) return false;
           const obDatum = ob.datum ? ob.datum.replace(/\.$/, '').trim() : '';
+          console.log("🔍 Checking obracun datum:", obDatum, "vs normalized:", normalizedDatum, "isAzuriran:", ob.isAzuriran);
           return obDatum === normalizedDatum;
         });
         
@@ -835,7 +836,8 @@ export default function ObracunPage() {
             console.log("🟢 Učitano", azuriraniObracun.invoiceImages.length, "slika faktura iz draft obračuna");
           }
         } else {
-          console.log("🟡 Refresh - nema draft obračuna za datum:", datumString);
+          console.log("🟡 Refresh - nema draft obračuna za datum:", datumString, "normalized:", normalizedDatum);
+          console.log("🟡 Svi obračuni:", obracuni.map(ob => ({ datum: ob.datum, isAzuriran: ob.isAzuriran })));
         }
         
         // Učitaj cache za ulaz
@@ -1696,7 +1698,8 @@ export default function ObracunPage() {
       try {
         const userId = user?.id || user?.email || (await getUserId());
         if (userId) {
-          console.log("💾 Saving draft with updated rashodi");
+          console.log("💾 Saving draft with updated rashodi - userId:", userId, "datum:", formatirajDatum(trenutniDatum));
+          console.log("💾 Rashodi to save:", updatedRashodi);
           const datumString = formatirajDatum(trenutniDatum);
           const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
           const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
@@ -1718,7 +1721,14 @@ export default function ObracunPage() {
             invoiceImages: undefined,
             isDraft: true,
           });
-          console.log("✅ Draft saved successfully");
+          console.log("✅ Draft saved successfully with data:", {
+            userId,
+            datum: datumString,
+            rashodiCount: updatedRashodi.length,
+            prihodiCount: prihodi.length,
+            artikliCount: artikli.length,
+            isDraft: true
+          });
           
           // Zatvori modal tek nakon što se draft sačuva
           setEditRashodIndex(null);
