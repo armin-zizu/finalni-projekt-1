@@ -1273,38 +1273,39 @@ export default function Profile() {
                         style={{
                           background: "#fff",
                           borderRadius: "8px",
-                          padding: "12px",
+                          padding: "8px", // Smanjeno sa 12px
                           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
                           position: "relative",
+                          marginBottom: "8px", // Dodano za razmak između kartica
                         }}
                       >
-                        {/* Ime uređaja - puna širina */}
+                        {/* Ime uređaja - kompaktno */}
                         <div style={{ 
-                          marginBottom: "12px",
-                          fontSize: "16px",
+                          marginBottom: "8px", // Smanjeno sa 12px
+                          fontSize: "14px", // Smanjeno sa 16px
                           fontWeight: 600,
                           color: device.deviceName ? "#1f2937" : "#9ca3af"
                         }}>
                           {device.deviceName || "Nema imena"}
                         </div>
 
-                        {/* Grid sa po 2 polja u redu */}
+                        {/* Kompaktni grid sa informacijama */}
                         <div style={{ 
                           display: "grid", 
                           gridTemplateColumns: "1fr 1fr", 
-                          gap: "12px",
-                          marginBottom: "8px"
+                          gap: "6px", // Smanjeno sa 12px
+                          marginBottom: "8px" // Smanjeno sa 12px
                         }}>
                           {/* Uređaj tip */}
                           <div>
-                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", marginBottom: "2px" }}> {/* Smanjeno */}
                               Uređaj
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", fontWeight: 500, color: "#1f2937" }}> {/* Smanjeno */}
                               {device.deviceInfo?.os === "Android" || device.deviceInfo?.os === "iOS" ? (
-                                <FaMobile style={{ fontSize: "14px", color: "#6b7280" }} />
+                                <FaMobile style={{ fontSize: "12px", color: "#6b7280" }} />
                               ) : (
-                                <FaDesktop style={{ fontSize: "14px", color: "#6b7280" }} />
+                                <FaDesktop style={{ fontSize: "12px", color: "#6b7280" }} />
                               )}
                               <span>{device.deviceInfo?.screenSize || "N/A"}</span>
                             </div>
@@ -1312,26 +1313,26 @@ export default function Profile() {
 
                           {/* Browser / OS */}
                           <div>
-                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", marginBottom: "2px" }}>
                               Browser / OS
                             </div>
-                            <div style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                            <div style={{ fontSize: "12px", fontWeight: 500, color: "#1f2937" }}>
                               {device.deviceInfo?.browser || "N/A"} / {device.deviceInfo?.os || "N/A"}
                             </div>
                           </div>
 
                           {/* Status */}
                           <div>
-                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", marginBottom: "2px" }}>
                               Status
                             </div>
                             <div>
                               {needsVerification ? (
                                 <span
                                   style={{
-                                    padding: "4px 12px",
-                                    borderRadius: "12px",
-                                    fontSize: "12px",
+                                    padding: "2px 8px", // Smanjeno
+                                    borderRadius: "8px", // Smanjeno
+                                    fontSize: "11px", // Smanjeno
                                     fontWeight: 600,
                                     backgroundColor: "#fef3c7",
                                     color: "#f59e0b",
@@ -1343,9 +1344,9 @@ export default function Profile() {
                               ) : isBlocked ? (
                                 <span
                                   style={{
-                                    padding: "4px 12px",
-                                    borderRadius: "12px",
-                                    fontSize: "12px",
+                                    padding: "2px 8px",
+                                    borderRadius: "8px",
+                                    fontSize: "11px",
                                     fontWeight: 600,
                                     backgroundColor: "#fee2e2",
                                     color: "#dc2626",
@@ -1357,9 +1358,9 @@ export default function Profile() {
                               ) : (
                                 <span
                                   style={{
-                                    padding: "4px 12px",
-                                    borderRadius: "12px",
-                                    fontSize: "12px",
+                                    padding: "2px 8px",
+                                    borderRadius: "8px",
+                                    fontSize: "11px",
                                     fontWeight: 600,
                                     backgroundColor: "#dcfce7",
                                     color: "#16a34a",
@@ -1374,15 +1375,15 @@ export default function Profile() {
 
                           {/* Uloga */}
                           <div>
-                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", marginBottom: "2px" }}>
                               Uloga
                             </div>
                             <div>
                               <span
                                 style={{
-                                  padding: "4px 12px",
-                                  borderRadius: "12px",
-                                  fontSize: "12px",
+                                  padding: "2px 8px",
+                                  borderRadius: "8px",
+                                  fontSize: "11px",
                                   fontWeight: 600,
                                   backgroundColor: roleColor.bg,
                                   color: roleColor.color,
@@ -1394,12 +1395,12 @@ export default function Profile() {
                             </div>
                           </div>
 
-                          {/* Posljednja prijava */}
+                          {/* Posljednja prijava - sada u jednu kolonu */}
                           <div style={{ gridColumn: "1 / -1" }}>
-                            <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "4px" }}>
+                            <div style={{ fontSize: "10px", color: "#6b7280", marginBottom: "2px" }}>
                               Posljednja prijava
                             </div>
-                            <div style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>
+                            <div style={{ fontSize: "12px", fontWeight: 500, color: "#1f2937" }}>
                               {device.lastLogin
                                 ? device.lastLogin.toLocaleDateString("bs-BA") + " " + device.lastLogin.toLocaleTimeString("bs-BA", { hour: "2-digit", minute: "2-digit" })
                                 : "N/A"}
@@ -1407,23 +1408,32 @@ export default function Profile() {
                           </div>
                         </div>
 
-                        {/* Akcije - donji dio */}
+                        {/* Akcije - kompaktne i u jednom redu gdje je moguće */}
                         <div style={{ 
                           display: "flex", 
                           flexDirection: "column",
-                          gap: "8px",
-                          marginTop: "12px",
-                          paddingTop: "12px",
+                          gap: "6px", // Smanjeno
+                          marginTop: "8px", // Smanjeno
+                          paddingTop: "8px", // Smanjeno
                           borderTop: "1px solid #f3f4f6"
                         }}>
                           {needsVerification ? (
-                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}> {/* Smanjen gap */}
                               <button
                                 onClick={() => handleApproveDevice(device, "konobar")}
                                 disabled={deviceBusy}
-                                style={{ ...buttonStyle, background: deviceBusy ? "#9ca3af" : "#16a34a", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px", cursor: deviceBusy ? "not-allowed" : "pointer" }}
+                                style={{ 
+                                  ...buttonStyle, 
+                                  background: deviceBusy ? "#9ca3af" : "#16a34a", 
+                                  fontSize: "11px", // Smanjeno
+                                  padding: "6px 8px", // Smanjeno
+                                  flex: "1", 
+                                  minWidth: "80px", // Smanjeno
+                                  cursor: deviceBusy ? "not-allowed" : "pointer",
+                                  minHeight: "32px" // Smanjeno
+                                }}
                               >
-                                {deviceBusy ? "Obrada..." : "✓ Odobri (Konobar)"}
+                                {deviceBusy ? "..." : "✓ Konobar"}
                               </button>
                               {isOwner && (
                                 <button
@@ -1433,55 +1443,66 @@ export default function Profile() {
                                     }
                                   }}
                                   disabled={deviceBusy}
-                                  style={{ ...buttonStyle, background: deviceBusy ? "#9ca3af" : "#2563eb", fontSize: "12px", padding: "8px 12px", flex: "1", minWidth: "120px", cursor: deviceBusy ? "not-allowed" : "pointer" }}
+                                  style={{ 
+                                    ...buttonStyle, 
+                                    background: deviceBusy ? "#9ca3af" : "#2563eb", 
+                                    fontSize: "11px", 
+                                    padding: "6px 8px", 
+                                    flex: "1", 
+                                    minWidth: "80px", 
+                                    cursor: deviceBusy ? "not-allowed" : "pointer",
+                                    minHeight: "32px"
+                                  }}
                                 >
-                                  {deviceBusy ? "Obrada..." : "✓ Odobri (Vlasnik)"}
+                                  {deviceBusy ? "..." : "✓ Vlasnik"}
                                 </button>
                               )}
                             </div>
                           ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!canManageDeviceRoles) return;
-                                setSelectedDevice(device);
-                                setShowDeviceModal(true);
-                                if (device.deviceName) {
-                                  setDeviceNames({ ...deviceNames, [device.id]: device.deviceName });
-                                }
-                                setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
-                                setEditingPermissions(device.permissions || {});
-                              }}
-                              style={{ 
-                                ...buttonStyle, 
-                                fontSize: "13px", 
-                                padding: "8px 16px",
-                                width: "100%",
-                                justifyContent: "center"
-                              }}
-                            >
-                              Uredi
-                            </button>
+                            <div style={{ display: "flex", gap: "4px" }}> {/* Flex za dva gumba u redu */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!canManageDeviceRoles) return;
+                                  setSelectedDevice(device);
+                                  setShowDeviceModal(true);
+                                  if (device.deviceName) {
+                                    setDeviceNames({ ...deviceNames, [device.id]: device.deviceName });
+                                  }
+                                  setSelectedRole({ ...selectedRole, [device.id]: device.role || null });
+                                  setEditingPermissions(device.permissions || {});
+                                }}
+                                style={{ 
+                                  ...buttonStyle, 
+                                  fontSize: "12px", 
+                                  padding: "6px 12px", // Smanjeno
+                                  flex: "1", // Umjesto width: 100%
+                                  minHeight: "32px"
+                                }}
+                              >
+                                Uredi
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleBlockDevice(device, isBlocked);
+                                }}
+                                disabled={deviceBusy || needsVerification}
+                                style={{
+                                  ...buttonStyle,
+                                  background: isBlocked ? "#16a34a" : "#dc2626",
+                                  fontSize: "12px",
+                                  padding: "6px 12px",
+                                  flex: "1", // Umjesto width: 100%
+                                  minHeight: "32px",
+                                  opacity: (deviceBusy || needsVerification) ? 0.5 : 1,
+                                  cursor: (deviceBusy || needsVerification) ? "not-allowed" : "pointer",
+                                }}
+                              >
+                                {isBlocked ? "Odblok" : "Blok"}
+                              </button>
+                            </div>
                           )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleBlockDevice(device, isBlocked);
-                            }}
-                            disabled={deviceBusy || needsVerification}
-                            style={{
-                              ...buttonStyle,
-                              background: isBlocked ? "#16a34a" : "#dc2626",
-                              fontSize: "13px",
-                              padding: "8px 16px",
-                              width: "100%",
-                              justifyContent: "center",
-                              opacity: (deviceBusy || needsVerification) ? 0.5 : 1,
-                              cursor: (deviceBusy || needsVerification) ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            {isBlocked ? "Odblokiraj" : "Blokiraj"}
-                          </button>
                         </div>
                       </div>
                     );
