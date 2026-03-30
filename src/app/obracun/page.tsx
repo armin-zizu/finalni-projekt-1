@@ -774,6 +774,92 @@ export default function ObracunPage() {
     loadCacheFirst();
   }, [trenutniDatum, user?.email, user?.id]);
 
+  // DODATNO: Osiguraj da se cache učita kada se user i cjenovnik učitaju (za refresh stranice)
+  useEffect(() => {
+    if (!user?.email || !user?.id || cjenovnik.length === 0) {
+      return; // Čekaj da se user i cjenovnik učitaju
+    }
+
+    const datumString = formatirajDatum(trenutniDatum);
+    const datumAktivan = isDatumAktivan(trenutniDatum);
+    
+    // Učitaj cache za trenutni datum
+    const loadCacheForCurrentDate = async () => {
+      setIsCacheLoaded(false);
+
+      try {
+        // Učitaj sve obračune da bi našao draft
+        const obracuni = await getObracuni(user.id || user.email);
+        console.log("🔄 Refresh stranice - učitavanje cache-a za datum:", datumString, "obračuna:", obracuni.length);
+        
+        // Normalizuj datum
+        const normalizedDatum = normalizeDatumString(datumString);
+        
+        // Filtriraj draft obračune
+        const draftObracuni = obracuni.filter((ob: any) => ob.isAzuriran === true);
+        console.log("🔄 Pronađeno draft obračuna na refresh-u:", draftObracuni.length);
+        
+        const azuriraniObracun = obracuni.find((ob: any) => {
+          if (!ob.isAzuriran) return false;
+          const obDatum = ob.datum ? ob.datum.replace(/\.$/, '').trim() : '';
+          return obDatum === normalizedDatum;
+        });
+        
+        if (azuriraniObracun) {
+          console.log("🟢 Refresh - pronađen draft obračun:", azuriraniObracun);
+          
+          // Učitaj draft obračun
+          setIsAzuriran(true);
+          
+          // Učitaj artikle iz draft-a
+          if (Array.isArray(azuriraniObracun.artikli)) {
+            setArtikli(azuriraniObracun.artikli);
+            console.log("🟢 Učitano", azuriraniObracun.artikli.length, "artikala iz draft obračuna");
+          }
+          
+          // Učitaj rashode iz draft-a
+          if (Array.isArray(azuriraniObracun.rashodi)) {
+            setRashodi(azuriraniObracun.rashodi);
+            console.log("🟢 Učitano", azuriraniObracun.rashodi.length, "rashoda iz draft obračuna");
+          }
+          
+          // Učitaj prihode iz draft-a
+          if (Array.isArray(azuriraniObracun.prihodi)) {
+            setPrihodi(azuriraniObracun.prihodi);
+            console.log("🟢 Učitano", azuriraniObracun.prihodi.length, "prihoda iz draft obračuna");
+          }
+          
+          // Učitaj slike faktura iz draft-a
+          if (Array.isArray(azuriraniObracun.invoiceImages)) {
+            setSavedInvoiceImagesCount(azuriraniObracun.invoiceImages.length);
+            console.log("🟢 Učitano", azuriraniObracun.invoiceImages.length, "slika faktura iz draft obračuna");
+          }
+        } else {
+          console.log("🟡 Refresh - nema draft obračuna za datum:", datumString);
+        }
+        
+        // Učitaj cache za ulaz
+        const ulazCache = ulazCacheForDatum; // Koristi postojeći cache
+        const novoPrethodnoStanjePoNazivu: { [naziv: string]: number } = {};
+        
+        // ... ostatak logike za cache
+        
+        setUlazCacheForDatum(ulazCache);
+        setPrethodnoStanjePoNazivu(novoPrethodnoStanjePoNazivu);
+        setSavedInvoiceImagesCount(azuriraniObracun?.invoiceImages?.length || 0);
+        setHasUlazInCache(Object.keys(ulazCache).length > 0);
+        setIsUlazLocked(false);
+        
+      } catch (error) {
+        console.error("Greška pri učitavanju cache-a na refresh-u:", error);
+      } finally {
+        setIsCacheLoaded(true);
+      }
+    };
+    
+    loadCacheForCurrentDate();
+  }, [user?.email, user?.id, cjenovnik.length]);
+
   // DRUGO: Inicijalizacija artikala na osnovu cjenovnika I cache-a
   useEffect(() => {
     if (cjenovnik.length === 0 || !isCacheLoaded) {
