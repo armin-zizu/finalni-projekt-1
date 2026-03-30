@@ -1443,19 +1443,18 @@ export default function ArhivaPage() {
           }
           @media (max-width: 768px) {
             .archive-buttons {
-              flex-wrap: nowrap !important;
-              overflow-x: auto !important;
-              -webkit-overflow-scrolling: touch !important;
+              flex-wrap: wrap !important;
+              overflow-x: visible !important;
             }
             .archive-buttons button {
-              flex-shrink: 0 !important;
+              flex-shrink: 1 !important;
               white-space: nowrap !important;
             }
           }
           @media (max-width: 480px) {
             .archive-buttons button {
-              padding: 8px 12px !important;
-              font-size: 12px !important;
+              padding: 6px 10px !important;
+              font-size: 11px !important;
             }
           }
         }
