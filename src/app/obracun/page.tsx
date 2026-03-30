@@ -2996,28 +2996,65 @@ export default function ObracunPage() {
           {rashodi.map((r, index) => (
             <div key={index} style={{
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              padding: "8px 12px",
+              padding: "6px 8px",
               borderBottom: "1px solid #e5e7eb",
-              fontSize: "14px",
+              fontSize: "13px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
               flexWrap: "nowrap",
               overflow: "hidden",
+              minHeight: "32px",
             }}>
-              <span style={{ color: "#dc2626", fontWeight: 700, fontSize: "13px", marginRight: "6px", flexShrink: 0 }}>{r.cijena.toFixed(2)} KM</span>
-              <span style={{ color: "#1f2937", fontWeight: 600, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{r.naziv}</span>
-              <div style={{ display: "flex", gap: "2px", marginLeft: "6px", flexShrink: 0 }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                flex: 1,
+                minWidth: 0,
+                overflow: "hidden",
+                marginRight: "8px"
+              }}>
+                <span style={{
+                  color: "#dc2626",
+                  fontWeight: 700,
+                  fontSize: "12px",
+                  marginRight: "4px",
+                  flexShrink: 0,
+                  whiteSpace: "nowrap"
+                }}>
+                  {r.cijena.toFixed(2)} KM
+                </span>
+                <span style={{
+                  color: "#1f2937",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  flex: 1,
+                  minWidth: 0
+                }}>
+                  {r.naziv}
+                </span>
+              </div>
+              <div style={{
+                display: "flex",
+                gap: "1px",
+                flexShrink: 0,
+                alignItems: "center"
+              }}>
                 <button
                   style={{
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "11px",
+                    fontSize: "10px",
                     fontWeight: 600,
-                    padding: "1px 3px",
+                    padding: "1px 2px",
                     cursor: "pointer",
                     textDecoration: "underline",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0
                   }}
                   onClick={() => handleEditRashod(index)}
                   disabled={!canEdit}
@@ -3029,11 +3066,13 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "11px",
+                    fontSize: "10px",
                     fontWeight: 600,
-                    padding: "1px 3px",
+                    padding: "1px 2px",
                     cursor: "pointer",
                     textDecoration: "underline",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0
                   }}
                   onClick={() => handleDeleteRashod(index)}
                   disabled={!canEdit}
@@ -3466,28 +3505,65 @@ export default function ObracunPage() {
           {prihodi.map((p, index) => (
             <div key={index} style={{
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              padding: "8px 12px",
+              padding: "6px 8px",
               borderBottom: "1px solid #e5e7eb",
-              fontSize: "14px",
+              fontSize: "13px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
               flexWrap: "nowrap",
               overflow: "hidden",
+              minHeight: "32px",
             }}>
-              <span style={{ color: "#9333ea", fontWeight: 700, fontSize: "13px", marginRight: "6px", flexShrink: 0 }}>{p.cijena.toFixed(2)} KM</span>
-              <span style={{ color: "#1f2937", fontWeight: 600, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{p.naziv}</span>
-              <div style={{ display: "flex", gap: "2px", marginLeft: "6px", flexShrink: 0 }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                flex: 1,
+                minWidth: 0,
+                overflow: "hidden",
+                marginRight: "8px"
+              }}>
+                <span style={{
+                  color: "#9333ea",
+                  fontWeight: 700,
+                  fontSize: "12px",
+                  marginRight: "4px",
+                  flexShrink: 0,
+                  whiteSpace: "nowrap"
+                }}>
+                  {p.cijena.toFixed(2)} KM
+                </span>
+                <span style={{
+                  color: "#1f2937",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  flex: 1,
+                  minWidth: 0
+                }}>
+                  {p.naziv}
+                </span>
+              </div>
+              <div style={{
+                display: "flex",
+                gap: "1px",
+                flexShrink: 0,
+                alignItems: "center"
+              }}>
                 <button
                   style={{
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "11px",
+                    fontSize: "10px",
                     fontWeight: 600,
-                    padding: "1px 3px",
+                    padding: "1px 2px",
                     cursor: "pointer",
                     textDecoration: "underline",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0
                   }}
                   onClick={() => handleEditPrihod(index)}
                   disabled={!canEdit}
@@ -3499,11 +3575,13 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "11px",
+                    fontSize: "10px",
                     fontWeight: 600,
-                    padding: "1px 3px",
+                    padding: "1px 2px",
                     cursor: "pointer",
                     textDecoration: "underline",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0
                   }}
                   onClick={() => handleDeletePrihod(index)}
                   disabled={!canEdit}
