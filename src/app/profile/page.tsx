@@ -1152,6 +1152,15 @@ export default function Profile() {
             margin: 0 auto !important;
             box-sizing: border-box !important;
           }
+
+          /* CSS klasa za horizontalne gumbe u karticama uređaja */
+          .device-card-buttons {
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 4px !important;
+            align-items: center !important;
+            width: 100% !important;
+          }
         }
       `}</style>
 
@@ -1459,12 +1468,7 @@ export default function Profile() {
                               )}
                             </div>
                           ) : (
-                            <div style={{ 
-                              display: "flex", 
-                              gap: "4px", 
-                              flexDirection: "row !important" as any, 
-                              alignItems: "center"
-                            }}> {/* Osiguraj horizontalni layout sa !important */}
+                            <div className="device-card-buttons"> {/* Koristi CSS klasu za horizontalni layout */}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
