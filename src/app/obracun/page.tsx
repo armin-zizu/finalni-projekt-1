@@ -2996,25 +2996,16 @@ export default function ObracunPage() {
           {rashodi.map((r, index) => (
             <div key={index} style={{
               display: "grid",
-              gridTemplateColumns: "auto 1fr auto",
+              gridTemplateColumns: "1fr auto auto",
               alignItems: "center",
               padding: "4px 6px",
               borderBottom: "1px solid #e5e7eb",
               fontSize: "12px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
-              gap: "4px",
+              gap: "6px",
               minHeight: "28px",
             }}>
-              <span style={{
-                color: "#dc2626",
-                fontWeight: 700,
-                fontSize: "11px",
-                whiteSpace: "nowrap",
-                justifySelf: "start"
-              }}>
-                {r.cijena.toFixed(2)} KM
-              </span>
               <span style={{
                 color: "#1f2937",
                 fontWeight: 600,
@@ -3026,9 +3017,18 @@ export default function ObracunPage() {
               }}>
                 {r.naziv}
               </span>
+              <span style={{
+                color: "#dc2626",
+                fontWeight: 700,
+                fontSize: "11px",
+                whiteSpace: "nowrap",
+                justifySelf: "end"
+              }}>
+                {r.cijena.toFixed(2)} KM
+              </span>
               <div style={{
                 display: "flex",
-                gap: "1px",
+                gap: "0",
                 justifySelf: "end",
                 alignItems: "center"
               }}>
@@ -3037,9 +3037,9 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "9px",
+                    fontSize: "10px",
                     fontWeight: 600,
-                    padding: "0 1px",
+                    padding: "1px 3px",
                     cursor: "pointer",
                     textDecoration: "underline",
                     whiteSpace: "nowrap",
@@ -3055,9 +3055,9 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "9px",
+                    fontSize: "10px",
                     fontWeight: 600,
-                    padding: "0 1px",
+                    padding: "1px 3px",
                     cursor: "pointer",
                     textDecoration: "underline",
                     whiteSpace: "nowrap",
@@ -3494,25 +3494,16 @@ export default function ObracunPage() {
           {prihodi.map((p, index) => (
             <div key={index} style={{
               display: "grid",
-              gridTemplateColumns: "auto 1fr auto",
+              gridTemplateColumns: "1fr auto auto",
               alignItems: "center",
               padding: "4px 6px",
               borderBottom: "1px solid #e5e7eb",
               fontSize: "12px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
-              gap: "4px",
+              gap: "6px",
               minHeight: "28px",
             }}>
-              <span style={{
-                color: "#9333ea",
-                fontWeight: 700,
-                fontSize: "11px",
-                whiteSpace: "nowrap",
-                justifySelf: "start"
-              }}>
-                {p.cijena.toFixed(2)} KM
-              </span>
               <span style={{
                 color: "#1f2937",
                 fontWeight: 600,
@@ -3524,9 +3515,18 @@ export default function ObracunPage() {
               }}>
                 {p.naziv}
               </span>
+              <span style={{
+                color: "#9333ea",
+                fontWeight: 700,
+                fontSize: "11px",
+                whiteSpace: "nowrap",
+                justifySelf: "end"
+              }}>
+                {p.cijena.toFixed(2)} KM
+              </span>
               <div style={{
                 display: "flex",
-                gap: "1px",
+                gap: "0",
                 justifySelf: "end",
                 alignItems: "center"
               }}>
@@ -3535,9 +3535,9 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "9px",
+                    fontSize: "10px",
                     fontWeight: 600,
-                    padding: "0 1px",
+                    padding: "1px 3px",
                     cursor: "pointer",
                     textDecoration: "underline",
                     whiteSpace: "nowrap",
@@ -3553,9 +3553,9 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "9px",
+                    fontSize: "10px",
                     fontWeight: 600,
-                    padding: "0 1px",
+                    padding: "1px 3px",
                     cursor: "pointer",
                     textDecoration: "underline",
                     whiteSpace: "nowrap",
