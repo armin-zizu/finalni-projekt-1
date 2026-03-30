@@ -2995,52 +2995,41 @@ export default function ObracunPage() {
         <div style={{ marginTop: "8px" }}>
           {rashodi.map((r, index) => (
             <div key={index} style={{
-              display: "flex",
-              justifyContent: "space-between",
+              display: "grid",
+              gridTemplateColumns: "auto 1fr auto",
               alignItems: "center",
-              padding: "6px 8px",
+              padding: "4px 6px",
               borderBottom: "1px solid #e5e7eb",
-              fontSize: "13px",
+              fontSize: "12px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
-              flexWrap: "nowrap",
-              overflow: "hidden",
-              minHeight: "32px",
+              gap: "4px",
+              minHeight: "28px",
             }}>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                flex: 1,
-                minWidth: 0,
-                overflow: "hidden",
-                marginRight: "8px"
+              <span style={{
+                color: "#dc2626",
+                fontWeight: 700,
+                fontSize: "11px",
+                whiteSpace: "nowrap",
+                justifySelf: "start"
               }}>
-                <span style={{
-                  color: "#dc2626",
-                  fontWeight: 700,
-                  fontSize: "12px",
-                  marginRight: "4px",
-                  flexShrink: 0,
-                  whiteSpace: "nowrap"
-                }}>
-                  {r.cijena.toFixed(2)} KM
-                </span>
-                <span style={{
-                  color: "#1f2937",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  flex: 1,
-                  minWidth: 0
-                }}>
-                  {r.naziv}
-                </span>
-              </div>
+                {r.cijena.toFixed(2)} KM
+              </span>
+              <span style={{
+                color: "#1f2937",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                justifySelf: "start",
+                minWidth: 0
+              }}>
+                {r.naziv}
+              </span>
               <div style={{
                 display: "flex",
                 gap: "1px",
-                flexShrink: 0,
+                justifySelf: "end",
                 alignItems: "center"
               }}>
                 <button
@@ -3048,13 +3037,13 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "10px",
+                    fontSize: "9px",
                     fontWeight: 600,
-                    padding: "1px 2px",
+                    padding: "0 1px",
                     cursor: "pointer",
                     textDecoration: "underline",
                     whiteSpace: "nowrap",
-                    flexShrink: 0
+                    lineHeight: 1
                   }}
                   onClick={() => handleEditRashod(index)}
                   disabled={!canEdit}
@@ -3066,13 +3055,13 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "10px",
+                    fontSize: "9px",
                     fontWeight: 600,
-                    padding: "1px 2px",
+                    padding: "0 1px",
                     cursor: "pointer",
                     textDecoration: "underline",
                     whiteSpace: "nowrap",
-                    flexShrink: 0
+                    lineHeight: 1
                   }}
                   onClick={() => handleDeleteRashod(index)}
                   disabled={!canEdit}
@@ -3504,52 +3493,41 @@ export default function ObracunPage() {
         <div style={{ marginTop: "8px" }}>
           {prihodi.map((p, index) => (
             <div key={index} style={{
-              display: "flex",
-              justifyContent: "space-between",
+              display: "grid",
+              gridTemplateColumns: "auto 1fr auto",
               alignItems: "center",
-              padding: "6px 8px",
+              padding: "4px 6px",
               borderBottom: "1px solid #e5e7eb",
-              fontSize: "13px",
+              fontSize: "12px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
-              flexWrap: "nowrap",
-              overflow: "hidden",
-              minHeight: "32px",
+              gap: "4px",
+              minHeight: "28px",
             }}>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                flex: 1,
-                minWidth: 0,
-                overflow: "hidden",
-                marginRight: "8px"
+              <span style={{
+                color: "#9333ea",
+                fontWeight: 700,
+                fontSize: "11px",
+                whiteSpace: "nowrap",
+                justifySelf: "start"
               }}>
-                <span style={{
-                  color: "#9333ea",
-                  fontWeight: 700,
-                  fontSize: "12px",
-                  marginRight: "4px",
-                  flexShrink: 0,
-                  whiteSpace: "nowrap"
-                }}>
-                  {p.cijena.toFixed(2)} KM
-                </span>
-                <span style={{
-                  color: "#1f2937",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  flex: 1,
-                  minWidth: 0
-                }}>
-                  {p.naziv}
-                </span>
-              </div>
+                {p.cijena.toFixed(2)} KM
+              </span>
+              <span style={{
+                color: "#1f2937",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                justifySelf: "start",
+                minWidth: 0
+              }}>
+                {p.naziv}
+              </span>
               <div style={{
                 display: "flex",
                 gap: "1px",
-                flexShrink: 0,
+                justifySelf: "end",
                 alignItems: "center"
               }}>
                 <button
@@ -3557,13 +3535,13 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "10px",
+                    fontSize: "9px",
                     fontWeight: 600,
-                    padding: "1px 2px",
+                    padding: "0 1px",
                     cursor: "pointer",
                     textDecoration: "underline",
                     whiteSpace: "nowrap",
-                    flexShrink: 0
+                    lineHeight: 1
                   }}
                   onClick={() => handleEditPrihod(index)}
                   disabled={!canEdit}
@@ -3575,13 +3553,13 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "10px",
+                    fontSize: "9px",
                     fontWeight: 600,
-                    padding: "1px 2px",
+                    padding: "0 1px",
                     cursor: "pointer",
                     textDecoration: "underline",
                     whiteSpace: "nowrap",
-                    flexShrink: 0
+                    lineHeight: 1
                   }}
                   onClick={() => handleDeletePrihod(index)}
                   disabled={!canEdit}
