@@ -2998,13 +2998,16 @@ export default function ObracunPage() {
               display: "grid",
               gridTemplateColumns: "1fr auto auto",
               alignItems: "center",
-              padding: "4px 6px",
+              padding: "8px 12px",
               borderBottom: "1px solid #e5e7eb",
-              fontSize: "12px",
+              fontSize: "14px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
-              gap: "6px",
-              minHeight: "28px",
+              gap: "8px",
+              minHeight: "36px",
+              borderRadius: "4px",
+              marginBottom: "2px",
+              transition: "background-color 0.15s ease",
             }}>
               <span style={{
                 color: "#1f2937",
@@ -3013,22 +3016,27 @@ export default function ObracunPage() {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 justifySelf: "start",
-                minWidth: 0
+                minWidth: 0,
+                fontSize: "13px"
               }}>
                 {r.naziv}
               </span>
               <span style={{
                 color: "#dc2626",
                 fontWeight: 700,
-                fontSize: "11px",
+                fontSize: "13px",
                 whiteSpace: "nowrap",
-                justifySelf: "end"
+                justifySelf: "end",
+                background: "#fef2f2",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                border: "1px solid #fecaca"
               }}>
                 {r.cijena.toFixed(2)} KM
               </span>
               <div style={{
                 display: "flex",
-                gap: "0",
+                gap: "2px",
                 justifySelf: "end",
                 alignItems: "center"
               }}>
@@ -3037,36 +3045,62 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "10px",
+                    fontSize: "12px",
                     fontWeight: 600,
-                    padding: "1px 3px",
+                    padding: "4px 6px",
                     cursor: "pointer",
-                    textDecoration: "underline",
+                    textDecoration: "none",
                     whiteSpace: "nowrap",
-                    lineHeight: 1
+                    lineHeight: 1,
+                    borderRadius: "4px",
+                    transition: "all 0.15s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "2px"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#fef3c7";
+                    e.currentTarget.style.color = "#d97706";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = "#f59e0b";
                   }}
                   onClick={() => handleEditRashod(index)}
                   disabled={!canEdit}
                 >
-                  Uredi
+                  ✏️ Uredi
                 </button>
                 <button
                   style={{
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "10px",
+                    fontSize: "12px",
                     fontWeight: 600,
-                    padding: "1px 3px",
+                    padding: "4px 6px",
                     cursor: "pointer",
-                    textDecoration: "underline",
+                    textDecoration: "none",
                     whiteSpace: "nowrap",
-                    lineHeight: 1
+                    lineHeight: 1,
+                    borderRadius: "4px",
+                    transition: "all 0.15s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "2px"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#fef2f2";
+                    e.currentTarget.style.color = "#b91c1c";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = "#dc2626";
                   }}
                   onClick={() => handleDeleteRashod(index)}
                   disabled={!canEdit}
                 >
-                  Izbriši
+                  🗑️ Izbriši
                 </button>
               </div>
             </div>
@@ -3496,13 +3530,16 @@ export default function ObracunPage() {
               display: "grid",
               gridTemplateColumns: "1fr auto auto",
               alignItems: "center",
-              padding: "4px 6px",
+              padding: "8px 12px",
               borderBottom: "1px solid #e5e7eb",
-              fontSize: "12px",
+              fontSize: "14px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
-              gap: "6px",
-              minHeight: "28px",
+              gap: "8px",
+              minHeight: "36px",
+              borderRadius: "4px",
+              marginBottom: "2px",
+              transition: "background-color 0.15s ease",
             }}>
               <span style={{
                 color: "#1f2937",
@@ -3511,22 +3548,27 @@ export default function ObracunPage() {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 justifySelf: "start",
-                minWidth: 0
+                minWidth: 0,
+                fontSize: "13px"
               }}>
                 {p.naziv}
               </span>
               <span style={{
                 color: "#9333ea",
                 fontWeight: 700,
-                fontSize: "11px",
+                fontSize: "13px",
                 whiteSpace: "nowrap",
-                justifySelf: "end"
+                justifySelf: "end",
+                background: "#faf5ff",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                border: "1px solid #e9d5ff"
               }}>
                 {p.cijena.toFixed(2)} KM
               </span>
               <div style={{
                 display: "flex",
-                gap: "0",
+                gap: "2px",
                 justifySelf: "end",
                 alignItems: "center"
               }}>
@@ -3535,36 +3577,62 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "10px",
+                    fontSize: "12px",
                     fontWeight: 600,
-                    padding: "1px 3px",
+                    padding: "4px 6px",
                     cursor: "pointer",
-                    textDecoration: "underline",
+                    textDecoration: "none",
                     whiteSpace: "nowrap",
-                    lineHeight: 1
+                    lineHeight: 1,
+                    borderRadius: "4px",
+                    transition: "all 0.15s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "2px"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#fef3c7";
+                    e.currentTarget.style.color = "#d97706";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = "#f59e0b";
                   }}
                   onClick={() => handleEditPrihod(index)}
                   disabled={!canEdit}
                 >
-                  Uredi
+                  ✏️ Uredi
                 </button>
                 <button
                   style={{
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "10px",
+                    fontSize: "12px",
                     fontWeight: 600,
-                    padding: "1px 3px",
+                    padding: "4px 6px",
                     cursor: "pointer",
-                    textDecoration: "underline",
+                    textDecoration: "none",
                     whiteSpace: "nowrap",
-                    lineHeight: 1
+                    lineHeight: 1,
+                    borderRadius: "4px",
+                    transition: "all 0.15s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "2px"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#fef2f2";
+                    e.currentTarget.style.color = "#b91c1c";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = "#dc2626";
                   }}
                   onClick={() => handleDeletePrihod(index)}
                   disabled={!canEdit}
                 >
-                  Izbriši
+                  🗑️ Izbriši
                 </button>
               </div>
             </div>
