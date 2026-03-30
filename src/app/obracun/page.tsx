@@ -1665,6 +1665,7 @@ export default function ObracunPage() {
   };
 
   const handleSaveEditRashod = async () => {
+    console.log("� handleSaveEditRashod STARTED - editRashodIndex:", editRashodIndex, "editRashod:", editRashod);
     console.log("🔍 handleSaveEditRashod called with:", { editRashodIndex, editRashod });
     if (editRashodIndex !== null && editRashod.naziv && editRashod.cijena >= 0) {
       console.log("✅ Conditions met, proceeding with save");
@@ -1688,12 +1689,10 @@ export default function ObracunPage() {
       }
       
       const updatedRashodi = rashodi.map((r, i) => (i === editRashodIndex ? { ...editRashod, imageUrl } : r));
+      console.log("📝 Updated rashodi array:", updatedRashodi);
       setRashodi(updatedRashodi);
-      setEditRashodIndex(null);
-      setEditRashod({ naziv: "", cijena: 0 });
-      setEditRashodImage(null);
-
-      // Sačuvaj draft obračun sa editiranim rashodom
+      
+      // Sačuvaj draft obračun sa editiranim rashodom PRIJE nego što zatvorimo modal
       try {
         const userId = user?.id || user?.email || (await getUserId());
         if (userId) {
@@ -1720,9 +1719,23 @@ export default function ObracunPage() {
             isDraft: true,
           });
           console.log("✅ Draft saved successfully");
+          
+          // Zatvori modal tek nakon što se draft sačuva
+          setEditRashodIndex(null);
+          setEditRashod({ naziv: "", cijena: 0 });
+          setEditRashodImage(null);
+        } else {
+          // Ako nema userId, ipak zatvori modal
+          setEditRashodIndex(null);
+          setEditRashod({ naziv: "", cijena: 0 });
+          setEditRashodImage(null);
         }
       } catch (error) {
         console.error("❌ Greška pri spremanju draft obračuna nakon editiranja rashoda:", error);
+        // Čak i ako dođe do greške, zatvori modal jer je rashod već ažuriran u state-u
+        setEditRashodIndex(null);
+        setEditRashod({ naziv: "", cijena: 0 });
+        setEditRashodImage(null);
       }
     } else {
       console.log("❌ Conditions not met:", { editRashodIndex, naziv: editRashod.naziv, cijena: editRashod.cijena });
@@ -3531,7 +3544,10 @@ export default function ObracunPage() {
                         )}
                         <button 
                           style={{...buttonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}} 
-                          onClick={handleSaveEditRashod}
+                          onClick={() => {
+                            console.log("🖱️ Spremi button clicked for rashod edit");
+                            handleSaveEditRashod();
+                          }}
                           disabled={!canEdit}
                         >
                           Spremi
