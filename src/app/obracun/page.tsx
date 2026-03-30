@@ -2423,20 +2423,27 @@ export default function ObracunPage() {
               overflow: hidden !important;
             }
             div[style*="justifyContent: space-between"][style*="alignItems: center"] > div:first-child span:first-child {
+              flex-shrink: 0 !important;
+            }
+            div[style*="justifyContent: space-between"][style*="alignItems: center"] > div:first-child span:last-child {
               white-space: nowrap !important;
               overflow: hidden !important;
               text-overflow: ellipsis !important;
-              max-width: 120px !important;
+              flex: 1 !important;
+              min-width: 0 !important;
             }
             div[style*="justifyContent: space-between"][style*="alignItems: center"] > div:last-child {
               flex-shrink: 0 !important;
               margin-left: 4px !important;
             }
             div[style*="justifyContent: space-between"][style*="alignItems: center"] > div:last-child button {
-              padding: 4px 6px !important;
-              font-size: 11px !important;
-              min-width: auto !important;
-              white-space: nowrap !important;
+              padding: 2px 4px !important;
+              font-size: 12px !important;
+              background: transparent !important;
+              border: none !important;
+              color: inherit !important;
+              text-decoration: underline !important;
+              cursor: pointer !important;
             }
           }
         }
@@ -2997,18 +3004,21 @@ export default function ObracunPage() {
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
             }}>
-              <div style={{ display: "flex", alignItems: "center", flex: 1, gap: "8px" }}>
-                <span style={{ color: "#1f2937", fontWeight: 600 }}>{r.naziv}</span>
-                <span style={{ color: "#dc2626", fontWeight: 700 }}>{r.cijena.toFixed(2)} KM</span>
+              <div style={{ display: "flex", alignItems: "center", flex: 1, gap: "4px", minWidth: 0 }}>
+                <span style={{ color: "#dc2626", fontWeight: 700, fontSize: "14px", flexShrink: 0 }}>{r.cijena.toFixed(2)} KM</span>
+                <span style={{ color: "#1f2937", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{r.naziv}</span>
               </div>
-              <div style={{ display: "flex", gap: "4px", marginLeft: "8px" }}>
+              <div style={{ display: "flex", gap: "2px", marginLeft: "4px", flexShrink: 0 }}>
                 <button
                   style={{
-                    ...buttonStyle,
-                    padding: "6px 8px",
+                    background: "transparent",
+                    border: "none",
+                    color: "#f59e0b",
                     fontSize: "12px",
-                    minWidth: "auto",
-                    background: "#f59e0b",
+                    fontWeight: 600,
+                    padding: "2px 4px",
+                    cursor: "pointer",
+                    textDecoration: "underline",
                   }}
                   onClick={() => handleEditRashod(index)}
                   disabled={!canEdit}
@@ -3017,11 +3027,14 @@ export default function ObracunPage() {
                 </button>
                 <button
                   style={{
-                    ...buttonStyle,
-                    padding: "6px 8px",
+                    background: "transparent",
+                    border: "none",
+                    color: "#dc2626",
                     fontSize: "12px",
-                    minWidth: "auto",
-                    background: "#dc2626",
+                    fontWeight: 600,
+                    padding: "2px 4px",
+                    cursor: "pointer",
+                    textDecoration: "underline",
                   }}
                   onClick={() => handleDeleteRashod(index)}
                   disabled={!canEdit}
@@ -3462,18 +3475,21 @@ export default function ObracunPage() {
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
             }}>
-              <div style={{ display: "flex", alignItems: "center", flex: 1, gap: "8px" }}>
-                <span style={{ color: "#1f2937", fontWeight: 600 }}>{p.naziv}</span>
-                <span style={{ color: "#9333ea", fontWeight: 700 }}>{p.cijena.toFixed(2)} KM</span>
+              <div style={{ display: "flex", alignItems: "center", flex: 1, gap: "4px", minWidth: 0 }}>
+                <span style={{ color: "#9333ea", fontWeight: 700, fontSize: "14px", flexShrink: 0 }}>{p.cijena.toFixed(2)} KM</span>
+                <span style={{ color: "#1f2937", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{p.naziv}</span>
               </div>
-              <div style={{ display: "flex", gap: "4px", marginLeft: "8px" }}>
+              <div style={{ display: "flex", gap: "2px", marginLeft: "4px", flexShrink: 0 }}>
                 <button
                   style={{
-                    ...buttonStyle,
-                    padding: "6px 8px",
+                    background: "transparent",
+                    border: "none",
+                    color: "#f59e0b",
                     fontSize: "12px",
-                    minWidth: "auto",
-                    background: "#f59e0b",
+                    fontWeight: 600,
+                    padding: "2px 4px",
+                    cursor: "pointer",
+                    textDecoration: "underline",
                   }}
                   onClick={() => handleEditPrihod(index)}
                   disabled={!canEdit}
@@ -3482,11 +3498,14 @@ export default function ObracunPage() {
                 </button>
                 <button
                   style={{
-                    ...buttonStyle,
-                    padding: "6px 8px",
+                    background: "transparent",
+                    border: "none",
+                    color: "#dc2626",
                     fontSize: "12px",
-                    minWidth: "auto",
-                    background: "#dc2626",
+                    fontWeight: 600,
+                    padding: "2px 4px",
+                    cursor: "pointer",
+                    textDecoration: "underline",
                   }}
                   onClick={() => handleDeletePrihod(index)}
                   disabled={!canEdit}
