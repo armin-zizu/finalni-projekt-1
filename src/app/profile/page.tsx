@@ -1459,7 +1459,12 @@ export default function Profile() {
                               )}
                             </div>
                           ) : (
-                            <div style={{ display: "flex", gap: "4px" }}> {/* Flex za dva gumba u redu */}
+                            <div style={{ 
+                              display: "flex", 
+                              gap: "4px", 
+                              flexDirection: "row !important" as any, 
+                              alignItems: "center"
+                            }}> {/* Osiguraj horizontalni layout sa !important */}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1475,9 +1480,10 @@ export default function Profile() {
                                 style={{ 
                                   ...buttonStyle, 
                                   fontSize: "12px", 
-                                  padding: "6px 12px", // Smanjeno
-                                  flex: "1", // Umjesto width: 100%
-                                  minHeight: "32px"
+                                  padding: "6px 8px", // Još manje padding
+                                  flex: "1", 
+                                  minHeight: "32px",
+                                  maxWidth: "50%" // Ograniči maksimalnu širinu
                                 }}
                               >
                                 Uredi
@@ -1492,9 +1498,10 @@ export default function Profile() {
                                   ...buttonStyle,
                                   background: isBlocked ? "#16a34a" : "#dc2626",
                                   fontSize: "12px",
-                                  padding: "6px 12px",
-                                  flex: "1", // Umjesto width: 100%
+                                  padding: "6px 8px", // Još manje padding
+                                  flex: "1", 
                                   minHeight: "32px",
+                                  maxWidth: "50%", // Ograniči maksimalnu širinu
                                   opacity: (deviceBusy || needsVerification) ? 0.5 : 1,
                                   cursor: (deviceBusy || needsVerification) ? "not-allowed" : "pointer",
                                 }}
