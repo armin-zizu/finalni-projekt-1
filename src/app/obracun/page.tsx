@@ -2996,27 +2996,26 @@ export default function ObracunPage() {
           {rashodi.map((r, index) => (
             <div key={index} style={{
               display: "flex",
-              justifyContent: "space-between",
               alignItems: "center",
-              padding: "10px 12px",
+              padding: "8px 12px",
               borderBottom: "1px solid #e5e7eb",
-              fontSize: "15px",
+              fontSize: "14px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
+              flexWrap: "nowrap",
+              overflow: "hidden",
             }}>
-              <div style={{ display: "flex", alignItems: "center", flex: 1, gap: "4px", minWidth: 0 }}>
-                <span style={{ color: "#dc2626", fontWeight: 700, fontSize: "14px", flexShrink: 0 }}>{r.cijena.toFixed(2)} KM</span>
-                <span style={{ color: "#1f2937", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{r.naziv}</span>
-              </div>
-              <div style={{ display: "flex", gap: "2px", marginLeft: "4px", flexShrink: 0 }}>
+              <span style={{ color: "#dc2626", fontWeight: 700, fontSize: "13px", marginRight: "6px", flexShrink: 0 }}>{r.cijena.toFixed(2)} KM</span>
+              <span style={{ color: "#1f2937", fontWeight: 600, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{r.naziv}</span>
+              <div style={{ display: "flex", gap: "2px", marginLeft: "6px", flexShrink: 0 }}>
                 <button
                   style={{
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     fontWeight: 600,
-                    padding: "2px 4px",
+                    padding: "1px 3px",
                     cursor: "pointer",
                     textDecoration: "underline",
                   }}
@@ -3030,9 +3029,9 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     fontWeight: 600,
-                    padding: "2px 4px",
+                    padding: "1px 3px",
                     cursor: "pointer",
                     textDecoration: "underline",
                   }}
@@ -3467,27 +3466,26 @@ export default function ObracunPage() {
           {prihodi.map((p, index) => (
             <div key={index} style={{
               display: "flex",
-              justifyContent: "space-between",
               alignItems: "center",
-              padding: "10px 12px",
+              padding: "8px 12px",
               borderBottom: "1px solid #e5e7eb",
-              fontSize: "15px",
+              fontSize: "14px",
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
+              flexWrap: "nowrap",
+              overflow: "hidden",
             }}>
-              <div style={{ display: "flex", alignItems: "center", flex: 1, gap: "4px", minWidth: 0 }}>
-                <span style={{ color: "#9333ea", fontWeight: 700, fontSize: "14px", flexShrink: 0 }}>{p.cijena.toFixed(2)} KM</span>
-                <span style={{ color: "#1f2937", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{p.naziv}</span>
-              </div>
-              <div style={{ display: "flex", gap: "2px", marginLeft: "4px", flexShrink: 0 }}>
+              <span style={{ color: "#9333ea", fontWeight: 700, fontSize: "13px", marginRight: "6px", flexShrink: 0 }}>{p.cijena.toFixed(2)} KM</span>
+              <span style={{ color: "#1f2937", fontWeight: 600, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{p.naziv}</span>
+              <div style={{ display: "flex", gap: "2px", marginLeft: "6px", flexShrink: 0 }}>
                 <button
                   style={{
                     background: "transparent",
                     border: "none",
                     color: "#f59e0b",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     fontWeight: 600,
-                    padding: "2px 4px",
+                    padding: "1px 3px",
                     cursor: "pointer",
                     textDecoration: "underline",
                   }}
@@ -3501,9 +3499,9 @@ export default function ObracunPage() {
                     background: "transparent",
                     border: "none",
                     color: "#dc2626",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     fontWeight: 600,
-                    padding: "2px 4px",
+                    padding: "1px 3px",
                     cursor: "pointer",
                     textDecoration: "underline",
                   }}
