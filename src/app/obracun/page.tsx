@@ -1304,7 +1304,9 @@ export default function ObracunPage() {
   };
 
   const handleAddRashod = async () => {
+    console.log("🔍 handleAddRashod called with:", { newRashod, newRashodImage });
     if (newRashod.naziv && newRashod.cijena >= 0) {
+      console.log("✅ Conditions met, adding rashod");
       let imageUrl: string | undefined = undefined;
       
       // Upload slike ako postoji
@@ -1333,6 +1335,7 @@ export default function ObracunPage() {
       try {
         const userId = user?.id || user?.email || (await getUserId());
         if (userId) {
+          console.log("💾 Saving draft with new rashod");
           const datumString = formatirajDatum(trenutniDatum);
           const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
           const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
@@ -1354,16 +1357,21 @@ export default function ObracunPage() {
             invoiceImages: undefined, // Slike faktura se ne čuvaju u draft-u sa rashodima
             isDraft: true,
           });
+          console.log("✅ Draft saved successfully with new rashod");
         }
       } catch (error) {
-        console.error("Greška pri spremanju draft obračuna sa rashodom:", error);
+        console.error("❌ Greška pri spremanju draft obračuna sa rashodom:", error);
         // Ne prikazuj alert korisniku jer je rashod već dodat u state
       }
+    } else {
+      console.log("❌ Conditions not met for adding rashod:", { naziv: newRashod.naziv, cijena: newRashod.cijena });
     }
   };
 
   const handleAddPrihod = async () => {
+    console.log("🔍 handleAddPrihod called with:", { newPrihod, newPrihodImage });
     if (newPrihod.naziv && newPrihod.cijena >= 0) {
+      console.log("✅ Conditions met, adding prihod");
       let imageUrl: string | undefined = undefined;
       
       // Upload slike ako postoji
@@ -1392,6 +1400,7 @@ export default function ObracunPage() {
       try {
         const userId = user?.id || user?.email || (await getUserId());
         if (userId) {
+          console.log("💾 Saving draft with new prihod");
           const datumString = formatirajDatum(trenutniDatum);
           const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
           const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
@@ -1413,11 +1422,14 @@ export default function ObracunPage() {
             invoiceImages: undefined, // Slike faktura se ne čuvaju u draft-u sa prihodima
             isDraft: true,
           });
+          console.log("✅ Draft saved successfully with new prihod");
         }
       } catch (error) {
-        console.error("Greška pri spremanju draft obračuna sa prihodom:", error);
+        console.error("❌ Greška pri spremanju draft obračuna sa prihodom:", error);
         // Ne prikazuj alert korisniku jer je prihod već dodat u state
       }
+    } else {
+      console.log("❌ Conditions not met for adding prihod:", { naziv: newPrihod.naziv, cijena: newPrihod.cijena });
     }
   };
 
@@ -1475,6 +1487,7 @@ export default function ObracunPage() {
   };
 
   const handleDeleteRashod = async (index: number) => {
+    console.log("🔍 handleDeleteRashod called for index:", index);
     const updatedRashodi = rashodi.filter((_, i) => i !== index);
     setRashodi(updatedRashodi);
     if (editRashodIndex === index) {
@@ -1486,6 +1499,7 @@ export default function ObracunPage() {
     try {
       const userId = user?.id || user?.email || (await getUserId());
       if (userId) {
+        console.log("💾 Saving draft after deleting rashod");
         const datumString = formatirajDatum(trenutniDatum);
         const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
         const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
@@ -1507,13 +1521,15 @@ export default function ObracunPage() {
           invoiceImages: undefined,
           isDraft: true,
         });
+        console.log("✅ Draft saved successfully after deleting rashod");
       }
     } catch (error) {
-      console.error("Greška pri spremanju draft obračuna nakon brisanja rashoda:", error);
+      console.error("❌ Greška pri spremanju draft obračuna nakon brisanja rashoda:", error);
     }
   };
 
   const handleDeletePrihod = async (index: number) => {
+    console.log("🔍 handleDeletePrihod called for index:", index);
     // Sačuvaj prihod koji se briše prije nego što ga izbrišemo iz state-a
     const prihodToDelete = prihodi[index];
     
@@ -1529,6 +1545,7 @@ export default function ObracunPage() {
     try {
       const userId = user?.id || user?.email || (await getUserId());
       if (userId) {
+        console.log("💾 Saving draft after deleting prihod");
         const datumString = formatirajDatum(trenutniDatum);
         const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
         const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
@@ -1550,9 +1567,10 @@ export default function ObracunPage() {
           invoiceImages: undefined,
           isDraft: true,
         });
+        console.log("✅ Draft saved successfully after deleting prihod");
       }
     } catch (error) {
-      console.error("Greška pri spremanju draft obračuna nakon brisanja prihoda:", error);
+      console.error("❌ Greška pri spremanju draft obračuna nakon brisanja prihoda:", error);
     }
     
     // Ako je prihod obrisan, provjeri da li postoji dug u arhivi sa tim imenom (ime dužnika)
@@ -1647,7 +1665,9 @@ export default function ObracunPage() {
   };
 
   const handleSaveEditRashod = async () => {
+    console.log("🔍 handleSaveEditRashod called with:", { editRashodIndex, editRashod });
     if (editRashodIndex !== null && editRashod.naziv && editRashod.cijena >= 0) {
+      console.log("✅ Conditions met, proceeding with save");
       let imageUrl = editRashod.imageUrl; // Zadrži postojeću sliku
       
       // Upload nove slike ako je dodana
@@ -1677,6 +1697,7 @@ export default function ObracunPage() {
       try {
         const userId = user?.id || user?.email || (await getUserId());
         if (userId) {
+          console.log("💾 Saving draft with updated rashodi");
           const datumString = formatirajDatum(trenutniDatum);
           const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
           const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
@@ -1698,10 +1719,13 @@ export default function ObracunPage() {
             invoiceImages: undefined,
             isDraft: true,
           });
+          console.log("✅ Draft saved successfully");
         }
       } catch (error) {
-        console.error("Greška pri spremanju draft obračuna nakon editiranja rashoda:", error);
+        console.error("❌ Greška pri spremanju draft obračuna nakon editiranja rashoda:", error);
       }
+    } else {
+      console.log("❌ Conditions not met:", { editRashodIndex, naziv: editRashod.naziv, cijena: editRashod.cijena });
     }
   };
 
