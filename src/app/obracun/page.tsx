@@ -1270,8 +1270,6 @@ export default function ObracunPage() {
         const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
         const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
         const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
-        const hasUlaz = artikli.some(a => a.ulaz !== 0);
-
         await saveObracun(userId, {
           datum: datumString,
           artikli: artikli,
@@ -1281,7 +1279,7 @@ export default function ObracunPage() {
           ukupnoRashod: ukupnoRashod,
           ukupnoPrihod: ukupnoPrihod,
           neto: neto,
-          hasUlaz: hasUlaz,
+          imaUlaz: artikli.some(a => a.ulaz !== 0),
           isDraft: true
         });
       }
@@ -1313,8 +1311,6 @@ export default function ObracunPage() {
         const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
         const ukupnoPrihod = updatedPrihodi.reduce((sum, p) => sum + p.cijena, 0);
         const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
-        const hasUlaz = artikli.some(a => a.ulaz !== 0);
-
         await saveObracun(userId, {
           datum: datumString,
           artikli: artikli,
@@ -1324,7 +1320,7 @@ export default function ObracunPage() {
           ukupnoRashod: ukupnoRashod,
           ukupnoPrihod: ukupnoPrihod,
           neto: neto,
-          hasUlaz: hasUlaz,
+          imaUlaz: artikli.some(a => a.ulaz !== 0),
           isDraft: true
         });
       }
