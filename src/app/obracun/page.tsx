@@ -2411,6 +2411,34 @@ export default function ObracunPage() {
           h1 { font-size: 20px; margin-bottom: 16px; }
           h2 { font-size: 16px; margin-bottom: 12px; }
           h3 { font-size: 14px; margin: 6px 0; }
+          /* Osiguraj da rashodi i prihodi budu u jednoj liniji na mobilnom */
+          @media (max-width: 768px) {
+            div[style*="justifyContent: space-between"][style*="alignItems: center"] {
+              flex-wrap: nowrap !important;
+              overflow: hidden !important;
+            }
+            div[style*="justifyContent: space-between"][style*="alignItems: center"] > div:first-child {
+              flex: 1 !important;
+              min-width: 0 !important;
+              overflow: hidden !important;
+            }
+            div[style*="justifyContent: space-between"][style*="alignItems: center"] > div:first-child span:first-child {
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              max-width: 120px !important;
+            }
+            div[style*="justifyContent: space-between"][style*="alignItems: center"] > div:last-child {
+              flex-shrink: 0 !important;
+              margin-left: 4px !important;
+            }
+            div[style*="justifyContent: space-between"][style*="alignItems: center"] > div:last-child button {
+              padding: 4px 6px !important;
+              font-size: 11px !important;
+              min-width: auto !important;
+              white-space: nowrap !important;
+            }
+          }
         }
         @media (min-width: 769px) {
           .date-controls-container {
