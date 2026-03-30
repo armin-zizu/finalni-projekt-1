@@ -1435,6 +1435,23 @@ export default function ArhivaPage() {
           .edit-form {
             padding: 10px; /* Smanjen padding za edit formu */
           }
+          .archive-buttons {
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 8px !important;
+            flex-wrap: wrap !important;
+          }
+          @media (max-width: 768px) {
+            .archive-buttons {
+              flex-wrap: nowrap !important;
+              overflow-x: auto !important;
+              -webkit-overflow-scrolling: touch !important;
+            }
+            .archive-buttons button {
+              flex-shrink: 0 !important;
+              white-space: nowrap !important;
+            }
+          }
         }
       `}</style>
 
@@ -1442,7 +1459,7 @@ export default function ArhivaPage() {
         <h1 style={{ fontSize: "24px", fontWeight: 600, color: "#1f2937", margin: 0 }}>
           Arhiva
         </h1>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <div className="archive-buttons" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           {getAllDugovi().length > 0 && (
             <button
               style={{
