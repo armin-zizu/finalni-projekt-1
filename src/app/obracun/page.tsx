@@ -2969,8 +2969,38 @@ export default function ObracunPage() {
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
             }}>
-              <span style={{ color: "#1f2937", fontWeight: 600 }}>{r.naziv}</span>
-              <span style={{ color: "#dc2626", fontWeight: 700 }}>{r.cijena.toFixed(2)} KM</span>
+              <div style={{ display: "flex", alignItems: "center", flex: 1, gap: "8px" }}>
+                <span style={{ color: "#1f2937", fontWeight: 600 }}>{r.naziv}</span>
+                <span style={{ color: "#dc2626", fontWeight: 700 }}>{r.cijena.toFixed(2)} KM</span>
+              </div>
+              <div style={{ display: "flex", gap: "4px", marginLeft: "8px" }}>
+                <button
+                  style={{
+                    ...buttonStyle,
+                    padding: "6px 8px",
+                    fontSize: "12px",
+                    minWidth: "auto",
+                    background: "#f59e0b",
+                  }}
+                  onClick={() => handleEditRashod(index)}
+                  disabled={!canEdit}
+                >
+                  Uredi
+                </button>
+                <button
+                  style={{
+                    ...buttonStyle,
+                    padding: "6px 8px",
+                    fontSize: "12px",
+                    minWidth: "auto",
+                    background: "#dc2626",
+                  }}
+                  onClick={() => handleDeleteRashod(index)}
+                  disabled={!canEdit}
+                >
+                  Izbriši
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -3404,8 +3434,38 @@ export default function ObracunPage() {
               fontWeight: 500,
               background: index % 2 === 0 ? "#f9fafb" : "#fff",
             }}>
-              <span style={{ color: "#1f2937", fontWeight: 600 }}>{p.naziv}</span>
-              <span style={{ color: "#9333ea", fontWeight: 700 }}>{p.cijena.toFixed(2)} KM</span>
+              <div style={{ display: "flex", alignItems: "center", flex: 1, gap: "8px" }}>
+                <span style={{ color: "#1f2937", fontWeight: 600 }}>{p.naziv}</span>
+                <span style={{ color: "#9333ea", fontWeight: 700 }}>{p.cijena.toFixed(2)} KM</span>
+              </div>
+              <div style={{ display: "flex", gap: "4px", marginLeft: "8px" }}>
+                <button
+                  style={{
+                    ...buttonStyle,
+                    padding: "6px 8px",
+                    fontSize: "12px",
+                    minWidth: "auto",
+                    background: "#f59e0b",
+                  }}
+                  onClick={() => handleEditPrihod(index)}
+                  disabled={!canEdit}
+                >
+                  Uredi
+                </button>
+                <button
+                  style={{
+                    ...buttonStyle,
+                    padding: "6px 8px",
+                    fontSize: "12px",
+                    minWidth: "auto",
+                    background: "#dc2626",
+                  }}
+                  onClick={() => handleDeletePrihod(index)}
+                  disabled={!canEdit}
+                >
+                  Izbriši
+                </button>
+              </div>
             </div>
           ))}
         </div>
