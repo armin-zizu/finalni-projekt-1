@@ -1452,6 +1452,12 @@ export default function ArhivaPage() {
               white-space: nowrap !important;
             }
           }
+          @media (max-width: 480px) {
+            .archive-buttons button {
+              padding: 8px 12px !important;
+              font-size: 12px !important;
+            }
+          }
         }
       `}</style>
 
