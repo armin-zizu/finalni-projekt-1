@@ -1136,9 +1136,41 @@ export default function ObracunPage() {
         }
       }
       
-      setRashodi([...rashodi, { ...newRashod, imageUrl }]);
+      const updatedRashodi = [...rashodi, { ...newRashod, imageUrl }];
+      setRashodi(updatedRashodi);
       setNewRashod({ naziv: "", cijena: 0 });
       setNewRashodImage(null);
+
+      // Sačuvaj draft obračun sa novim rashodom
+      try {
+        const userId = user?.id || user?.email || (await getUserId());
+        if (userId) {
+          const datumString = formatirajDatum(trenutniDatum);
+          const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+          const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
+          const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+          const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+          const hasUlaz = artikli.some(a => a.ulaz !== 0);
+
+          await saveObracun(userId, {
+            datum: datumString,
+            artikli: artikli,
+            rashodi: updatedRashodi,
+            prihodi: prihodi,
+            ukupnoArtikli: ukupnoArtikli,
+            ukupnoRashod: ukupnoRashod,
+            ukupnoPrihod: ukupnoPrihod,
+            neto: neto,
+            isAzuriran: true,
+            imaUlaz: hasUlaz,
+            invoiceImages: undefined, // Slike faktura se ne čuvaju u draft-u sa rashodima
+            isDraft: true,
+          });
+        }
+      } catch (error) {
+        console.error("Greška pri spremanju draft obračuna sa rashodom:", error);
+        // Ne prikazuj alert korisniku jer je rashod već dodat u state
+      }
     }
   };
 
@@ -1163,9 +1195,41 @@ export default function ObracunPage() {
         }
       }
       
-      setPrihodi([...prihodi, { ...newPrihod, imageUrl }]);
+      const updatedPrihodi = [...prihodi, { ...newPrihod, imageUrl }];
+      setPrihodi(updatedPrihodi);
       setNewPrihod({ naziv: "", cijena: 0 });
       setNewPrihodImage(null);
+
+      // Sačuvaj draft obračun sa novim prihodom
+      try {
+        const userId = user?.id || user?.email || (await getUserId());
+        if (userId) {
+          const datumString = formatirajDatum(trenutniDatum);
+          const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+          const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+          const ukupnoPrihod = updatedPrihodi.reduce((sum, p) => sum + p.cijena, 0);
+          const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+          const hasUlaz = artikli.some(a => a.ulaz !== 0);
+
+          await saveObracun(userId, {
+            datum: datumString,
+            artikli: artikli,
+            rashodi: rashodi,
+            prihodi: updatedPrihodi,
+            ukupnoArtikli: ukupnoArtikli,
+            ukupnoRashod: ukupnoRashod,
+            ukupnoPrihod: ukupnoPrihod,
+            neto: neto,
+            isAzuriran: true,
+            imaUlaz: hasUlaz,
+            invoiceImages: undefined, // Slike faktura se ne čuvaju u draft-u sa prihodima
+            isDraft: true,
+          });
+        }
+      } catch (error) {
+        console.error("Greška pri spremanju draft obračuna sa prihodom:", error);
+        // Ne prikazuj alert korisniku jer je prihod već dodat u state
+      }
     }
   };
 
@@ -1181,11 +1245,42 @@ export default function ObracunPage() {
     setEditPrihodImage(null); // Resetuj sliku pri edit-u
   };
 
-  const handleDeleteRashod = (index: number) => {
-    setRashodi((prev) => prev.filter((_, i) => i !== index));
+  const handleDeleteRashod = async (index: number) => {
+    const updatedRashodi = rashodi.filter((_, i) => i !== index);
+    setRashodi(updatedRashodi);
     if (editRashodIndex === index) {
       setEditRashodIndex(null);
       setEditRashod({ naziv: "", cijena: 0 });
+    }
+
+    // Sačuvaj draft obračun sa obrisanim rashodom
+    try {
+      const userId = user?.id || user?.email || (await getUserId());
+      if (userId) {
+        const datumString = formatirajDatum(trenutniDatum);
+        const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+        const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
+        const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+        const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+        const hasUlaz = artikli.some(a => a.ulaz !== 0);
+
+        await saveObracun(userId, {
+          datum: datumString,
+          artikli: artikli,
+          rashodi: updatedRashodi,
+          prihodi: prihodi,
+          ukupnoArtikli: ukupnoArtikli,
+          ukupnoRashod: ukupnoRashod,
+          ukupnoPrihod: ukupnoPrihod,
+          neto: neto,
+          isAzuriran: true,
+          imaUlaz: hasUlaz,
+          invoiceImages: undefined,
+          isDraft: true,
+        });
+      }
+    } catch (error) {
+      console.error("Greška pri spremanju draft obračuna nakon brisanja rashoda:", error);
     }
   };
 
@@ -1194,10 +1289,41 @@ export default function ObracunPage() {
     const prihodToDelete = prihodi[index];
     
     // Ukloni prihod iz state-a
-    setPrihodi((prev) => prev.filter((_, i) => i !== index));
+    const updatedPrihodi = prihodi.filter((_, i) => i !== index);
+    setPrihodi(updatedPrihodi);
     if (editPrihodIndex === index) {
       setEditPrihodIndex(null);
       setEditPrihod({ naziv: "", cijena: 0 });
+    }
+
+    // Sačuvaj draft obračun sa obrisanim prihodom
+    try {
+      const userId = user?.id || user?.email || (await getUserId());
+      if (userId) {
+        const datumString = formatirajDatum(trenutniDatum);
+        const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+        const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+        const ukupnoPrihod = updatedPrihodi.reduce((sum, p) => sum + p.cijena, 0);
+        const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+        const hasUlaz = artikli.some(a => a.ulaz !== 0);
+
+        await saveObracun(userId, {
+          datum: datumString,
+          artikli: artikli,
+          rashodi: rashodi,
+          prihodi: updatedPrihodi,
+          ukupnoArtikli: ukupnoArtikli,
+          ukupnoRashod: ukupnoRashod,
+          ukupnoPrihod: ukupnoPrihod,
+          neto: neto,
+          isAzuriran: true,
+          imaUlaz: hasUlaz,
+          invoiceImages: undefined,
+          isDraft: true,
+        });
+      }
+    } catch (error) {
+      console.error("Greška pri spremanju draft obračuna nakon brisanja prihoda:", error);
     }
     
     // Ako je prihod obrisan, provjeri da li postoji dug u arhivi sa tim imenom (ime dužnika)
@@ -1312,12 +1438,41 @@ export default function ObracunPage() {
         }
       }
       
-      setRashodi((prev) =>
-        prev.map((r, i) => (i === editRashodIndex ? { ...editRashod, imageUrl } : r))
-      );
+      const updatedRashodi = rashodi.map((r, i) => (i === editRashodIndex ? { ...editRashod, imageUrl } : r));
+      setRashodi(updatedRashodi);
       setEditRashodIndex(null);
       setEditRashod({ naziv: "", cijena: 0 });
       setEditRashodImage(null);
+
+      // Sačuvaj draft obračun sa editiranim rashodom
+      try {
+        const userId = user?.id || user?.email || (await getUserId());
+        if (userId) {
+          const datumString = formatirajDatum(trenutniDatum);
+          const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+          const ukupnoRashod = updatedRashodi.reduce((sum, r) => sum + r.cijena, 0);
+          const ukupnoPrihod = prihodi.reduce((sum, p) => sum + p.cijena, 0);
+          const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+          const hasUlaz = artikli.some(a => a.ulaz !== 0);
+
+          await saveObracun(userId, {
+            datum: datumString,
+            artikli: artikli,
+            rashodi: updatedRashodi,
+            prihodi: prihodi,
+            ukupnoArtikli: ukupnoArtikli,
+            ukupnoRashod: ukupnoRashod,
+            ukupnoPrihod: ukupnoPrihod,
+            neto: neto,
+            isAzuriran: true,
+            imaUlaz: hasUlaz,
+            invoiceImages: undefined,
+            isDraft: true,
+          });
+        }
+      } catch (error) {
+        console.error("Greška pri spremanju draft obračuna nakon editiranja rashoda:", error);
+      }
     }
   };
 
@@ -1342,12 +1497,41 @@ export default function ObracunPage() {
         }
       }
       
-      setPrihodi((prev) =>
-        prev.map((p, i) => (i === editPrihodIndex ? { ...editPrihod, imageUrl } : p))
-      );
+      const updatedPrihodi = prihodi.map((p, i) => (i === editPrihodIndex ? { ...editPrihod, imageUrl } : p));
+      setPrihodi(updatedPrihodi);
       setEditPrihodIndex(null);
       setEditPrihod({ naziv: "", cijena: 0 });
       setEditPrihodImage(null);
+
+      // Sačuvaj draft obračun sa editiranim prihodom
+      try {
+        const userId = user?.id || user?.email || (await getUserId());
+        if (userId) {
+          const datumString = formatirajDatum(trenutniDatum);
+          const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
+          const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
+          const ukupnoPrihod = updatedPrihodi.reduce((sum, p) => sum + p.cijena, 0);
+          const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
+          const hasUlaz = artikli.some(a => a.ulaz !== 0);
+
+          await saveObracun(userId, {
+            datum: datumString,
+            artikli: artikli,
+            rashodi: rashodi,
+            prihodi: updatedPrihodi,
+            ukupnoArtikli: ukupnoArtikli,
+            ukupnoRashod: ukupnoRashod,
+            ukupnoPrihod: ukupnoPrihod,
+            neto: neto,
+            isAzuriran: true,
+            imaUlaz: hasUlaz,
+            invoiceImages: undefined,
+            isDraft: true,
+          });
+        }
+      } catch (error) {
+        console.error("Greška pri spremanju draft obračuna nakon editiranja prihoda:", error);
+      }
     }
   };
 
