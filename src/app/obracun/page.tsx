@@ -253,7 +253,6 @@ export default function ObracunPage() {
   const [editRashodIndex, setEditRashodIndex] = useState<number | null>(null);
   const [editPrihodIndex, setEditPrihodIndex] = useState<number | null>(null);
   const [inlineEditingRashodIndex, setInlineEditingRashodIndex] = useState<number | null>(null);
-  const [inlineEditingPrihodIndex, setInlineEditingPrihodIndex] = useState<number | null>(null);
   const [editRashod, setEditRashod] = useState<Rashod>({ naziv: "", cijena: 0 });
   const [editPrihod, setEditPrihod] = useState<Prihod>({ naziv: "", cijena: 0 });
   const [trenutniDatum, setTrenutniDatum] = useState<Date>(new Date());
@@ -1285,47 +1284,6 @@ export default function ObracunPage() {
       }
     } catch (error) {
       console.error("Greška pri spremanju draft obračuna sa inline edit rashodom:", error);
-    }
-  };
-
-  const startInlineEditPrihod = (index: number) => {
-    setInlineEditingPrihodIndex(index);
-  };
-
-  const cancelInlineEditPrihod = () => {
-    setInlineEditingPrihodIndex(null);
-  };
-
-  const saveInlineEditPrihod = async (index: number, newCijena: number) => {
-    const updatedPrihodi = [...prihodi];
-    updatedPrihodi[index].cijena = newCijena;
-    setPrihodi(updatedPrihodi);
-    setInlineEditingPrihodIndex(null);
-
-    // Sačuvaj draft obračun sa ažuriranim prihodom
-    try {
-      const userId = user?.id || user?.email || (await getUserId());
-      if (userId) {
-        const datumString = formatirajDatum(trenutniDatum);
-        const ukupnoArtikli = artikli.reduce((sum, a) => sum + a.vrijednostKM, 0);
-        const ukupnoRashod = rashodi.reduce((sum, r) => sum + r.cijena, 0);
-        const ukupnoPrihod = updatedPrihodi.reduce((sum, p) => sum + p.cijena, 0);
-        const neto = ukupnoArtikli + ukupnoPrihod - ukupnoRashod;
-        await saveObracun(userId, {
-          datum: datumString,
-          artikli: artikli,
-          rashodi: rashodi,
-          prihodi: updatedPrihodi,
-          ukupnoArtikli: ukupnoArtikli,
-          ukupnoRashod: ukupnoRashod,
-          ukupnoPrihod: ukupnoPrihod,
-          neto: neto,
-          imaUlaz: artikli.some(a => a.ulaz !== 0),
-          isDraft: true
-        });
-      }
-    } catch (error) {
-      console.error("Greška pri spremanju draft obračuna sa inline edit prihodom:", error);
     }
   };
 
@@ -3711,161 +3669,56 @@ export default function ObracunPage() {
               }}>
                 {p.naziv}
               </span>
-              {inlineEditingPrihodIndex === index ? (
-                <input
-                  type="number"
-                  step="0.01"
-                  value={prihodi[index].cijena}
-                  onChange={(e) => {
-                    const updatedPrihodi = [...prihodi];
-                    updatedPrihodi[index].cijena = parseFloat(e.target.value) || 0;
-                    setPrihodi(updatedPrihodi);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      saveInlineEditPrihod(index, prihodi[index].cijena);
-                    } else if (e.key === 'Escape') {
-                      cancelInlineEditPrihod();
-                    }
-                  }}
-                  style={{
-                    color: "#9333ea",
-                    fontWeight: 700,
-                    fontSize: "11px",
-                    whiteSpace: "nowrap",
-                    justifySelf: "end",
-                    background: "#faf5ff",
-                    padding: "1px 3px",
-                    borderRadius: "3px",
-                    border: "1px solid #e9d5ff",
-                    width: "60px",
-                    textAlign: "center"
-                  }}
-                  autoFocus
-                />
-              ) : (
-                <span style={{
-                  color: "#9333ea",
-                  fontWeight: 700,
-                  fontSize: "11px",
-                  whiteSpace: "nowrap",
-                  justifySelf: "end",
-                  background: "#faf5ff",
-                  padding: "1px 3px",
-                  borderRadius: "3px",
-                  border: "1px solid #e9d5ff"
-                }}>
-                  {p.cijena.toFixed(2)} KM
-                </span>
-              )}
+              <span style={{
+                color: "#9333ea",
+                fontWeight: 700,
+                fontSize: "11px",
+                whiteSpace: "nowrap",
+                justifySelf: "end",
+                background: "#faf5ff",
+                padding: "1px 3px",
+                borderRadius: "3px",
+                border: "1px solid #e9d5ff"
+              }}>
+                {p.cijena.toFixed(2)} KM
+              </span>
               <div style={{
                 display: "flex",
                 gap: "2px",
                 justifySelf: "end",
                 alignItems: "center"
               }}>
-                {inlineEditingPrihodIndex === index ? (
-                  <>
-                    <button
-                      style={{
-                        background: "#10b981",
-                        border: "none",
-                        color: "white",
-                        fontSize: "10px",
-                        fontWeight: 600,
-                        padding: "2px 4px",
-                        cursor: "pointer",
-                        borderRadius: "3px",
-                        transition: "all 0.15s ease"
-                      }}
-                      onClick={() => saveInlineEditPrihod(index, prihodi[index].cijena)}
-                      disabled={!canEdit}
-                    >
-                      ✓ Sačuvaj
-                    </button>
-                    <button
-                      style={{
-                        background: "#6b7280",
-                        border: "none",
-                        color: "white",
-                        fontSize: "10px",
-                        fontWeight: 600,
-                        padding: "2px 4px",
-                        cursor: "pointer",
-                        borderRadius: "3px",
-                        transition: "all 0.15s ease"
-                      }}
-                      onClick={cancelInlineEditPrihod}
-                    >
-                      ✕ Otkaži
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#f59e0b",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        padding: "4px 6px",
-                        cursor: "pointer",
-                        textDecoration: "none",
-                        whiteSpace: "nowrap",
-                        lineHeight: 1,
-                        borderRadius: "4px",
-                        transition: "all 0.15s ease",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "2px"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#fef3c7";
-                        e.currentTarget.style.color = "#d97706";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.color = "#f59e0b";
-                      }}
-                      onClick={() => startInlineEditPrihod(index)}
-                      disabled={!canEdit}
-                    >
-                      ✏️ Uredi
-                    </button>
-                    <button
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#dc2626",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        padding: "4px 6px",
-                        cursor: "pointer",
-                        textDecoration: "none",
-                        whiteSpace: "nowrap",
-                        lineHeight: 1,
-                        borderRadius: "4px",
-                        transition: "all 0.15s ease",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "2px"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#fef2f2";
-                        e.currentTarget.style.color = "#b91c1c";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.color = "#dc2626";
-                      }}
-                      onClick={() => handleDeletePrihod(index)}
-                      disabled={!canEdit}
-                    >
-                      🗑️ Izbriši
-                    </button>
-                  </>
-                )}
+                <button
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#dc2626",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    padding: "4px 6px",
+                    cursor: "pointer",
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                    lineHeight: 1,
+                    borderRadius: "4px",
+                    transition: "all 0.15s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "2px"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#fef2f2";
+                    e.currentTarget.style.color = "#b91c1c";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = "#dc2626";
+                  }}
+                  onClick={() => handleDeletePrihod(index)}
+                  disabled={!canEdit}
+                >
+                  🗑️ Izbriši
+                </button>
               </div>
             </div>
           ))}
