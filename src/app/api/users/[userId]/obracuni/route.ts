@@ -602,7 +602,7 @@ async function postHandler(req: AuthRequest, { params }: { params: Promise<{ use
       ukupnoRashod: ukupnoRashod || 0,
       ukupnoPrihod: ukupnoPrihod || 0,
       neto: neto || 0,
-      isAzuriran: isAzuriran || false,
+      isAzuriran: isAzuriran || (isDraft === true),
       imaUlaz: imaUlaz || false,
       invoiceImages: normalizedInvoiceImages || [],
     };
