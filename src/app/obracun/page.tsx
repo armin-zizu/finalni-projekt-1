@@ -837,7 +837,7 @@ export default function ObracunPage() {
           }
         } else {
           console.log("🟡 Refresh - nema draft obračuna za datum:", datumString, "normalized:", normalizedDatum);
-          console.log("🟡 Svi obračuni:", obracuni.map(ob => ({ datum: ob.datum, isAzuriran: ob.isAzuriran })));
+          console.log("🟡 Svi obračuni:", obracuni.map((ob: any) => ({ datum: ob.datum, isAzuriran: ob.isAzuriran })));
         }
         
         // Učitaj cache za ulaz
@@ -3392,37 +3392,6 @@ export default function ObracunPage() {
                       style={{
                         background: "transparent",
                         border: "none",
-                        color: "#f59e0b",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        padding: "4px 6px",
-                        cursor: "pointer",
-                        textDecoration: "none",
-                        whiteSpace: "nowrap",
-                        lineHeight: 1,
-                        borderRadius: "4px",
-                        transition: "all 0.15s ease",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "2px"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#fef3c7";
-                        e.currentTarget.style.color = "#d97706";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                        e.currentTarget.style.color = "#f59e0b";
-                      }}
-                      onClick={() => startInlineEditRashod(index)}
-                      disabled={!canEdit}
-                    >
-                      ✏️ Uredi
-                    </button>
-                    <button
-                      style={{
-                        background: "transparent",
-                        border: "none",
                         color: "#dc2626",
                         fontSize: "12px",
                         fontWeight: 600,
@@ -3580,14 +3549,6 @@ export default function ObracunPage() {
                         paddingLeft: "25px"
                       }}>{r.cijena.toFixed(2)}</td>
                       <td style={tdStyle}>
-                        <button
-                          style={{...editButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
-                          onClick={() => handleEditRashod(index)}
-                          className="edit-button"
-                          disabled={!canEdit}
-                        >
-                          Uredi
-                        </button>
                         <button
                           style={{...deleteButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
                           onClick={() => handleDeleteRashod(index)}
@@ -4081,14 +4042,6 @@ export default function ObracunPage() {
                         paddingLeft: "25px"
                       }}>{p.cijena.toFixed(2)}</td>
                       <td style={tdStyle}>
-                        <button
-                          style={{...editButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
-                          onClick={() => handleEditPrihod(index)}
-                          className="edit-button"
-                          disabled={!canEdit}
-                        >
-                          Uredi
-                        </button>
                         <button
                           style={{...deleteButtonStyle, opacity: canEdit ? 1 : 0.5, cursor: canEdit ? "pointer" : "not-allowed"}}
                           onClick={() => handleDeletePrihod(index)}
